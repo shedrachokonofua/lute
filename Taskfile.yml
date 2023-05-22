@@ -20,3 +20,13 @@ tasks:
     dir: web
     cmds:
       - npm start
+  
+  'web:build':
+    dir: web
+    cmds:
+      - npm run build
+  
+  'extension:build':
+    dir: extension
+    cmds:
+      - npm run build

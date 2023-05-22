@@ -5,3 +5,8 @@ core/target
 web/.parcel-cache
 web/dist
 web/node_modules
+
+# Extension
+extension/.parcel-cache
+extension/dist
+extension/node_modules
