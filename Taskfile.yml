@@ -1,6 +1,17 @@
 version: '3'
 
 tasks:
+  
+  'protoc:gen:web':
+    internal: true
+    cmds:
+      - docker run -v ./proto:/proto -v {{.OUTPUT_DIR}}:/out namely/protoc-all -d /proto -o /out -l web
+
+  'core:build':
+    dir: core
+    cmds:
+      - cargo build
+
   'core:run':
     dir: core
     cmds:
@@ -16,17 +27,34 @@ tasks:
     cmds:
       - cargo fmt
   
+  'web:proto':
+    cmds:
+      - task: 'protoc:gen:web'
+        vars:
+          OUTPUT_DIR: ./web/src/proto
+  
   'web:run':
+    deps: ['web:proto']
     dir: web
     cmds:
       - npm start
   
   'web:build':
+    deps: ['web:proto']
     dir: web
     cmds:
+      - rm -rf ./dist
       - npm run build
   
+  'extension:proto':
+    cmds:
+      - task: 'protoc:gen:web'
+        vars:
+          OUTPUT_DIR: ./extension/src/proto
+
   'extension:build':
+    deps: ['extension:proto']
     dir: extension
     cmds:
+      - rm -rf ./dist
       - npm run build

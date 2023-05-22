@@ -3,7 +3,7 @@
   "name": "Lute V4",
   "version": "0.0.1",
   "background": {
-    "service_worker": "background.ts",
+    "service_worker": "src/background.ts",
     "type": "module"
   }
 }

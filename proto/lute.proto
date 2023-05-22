@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package lute;
+
+service Lute {
+  rpc HealthCheck (google.protobuf.Empty) returns (HealthCheckReply) {}
+}
+
+message HealthCheckReply {
+  bool ok = 1;
+}
