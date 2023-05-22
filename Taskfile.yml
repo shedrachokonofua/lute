@@ -1,0 +1,22 @@
+version: '3'
+
+tasks:
+  'core:run':
+    dir: core
+    cmds:
+      - cargo run
+  
+  'core:lint':
+    dir: core
+    cmds:
+      - cargo clippy
+    
+  'core:fmt':
+    dir: core
+    cmds:
+      - cargo fmt
+  
+  'web:run':
+    dir: web
+    cmds:
+      - npm start
