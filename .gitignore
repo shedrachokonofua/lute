@@ -1,0 +1,7 @@
+# Core
+core/target
+
+# Web
+web/.parcel-cache
+web/dist
+web/node_modules
