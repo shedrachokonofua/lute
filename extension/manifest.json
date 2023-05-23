@@ -5,5 +5,7 @@
   "background": {
     "service_worker": "src/background.ts",
     "type": "module"
-  }
+  },
+  "permissions": ["pageCapture", "storage", "tabs", "scripting"],
+  "host_permissions": ["http://*/*", "https://*/*"]
 }

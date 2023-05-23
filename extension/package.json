@@ -9,6 +9,7 @@
   "license": "ISC",
   "devDependencies": {
     "@parcel/config-webextension": "^2.8.3",
+    "@types/chrome": "^0.0.236",
     "parcel": "^2.8.3"
   },
   "dependencies": {

@@ -1,7 +1,6 @@
 version: '3'
 
 tasks:
-  
   'protoc:gen:web':
     internal: true
     cmds:
@@ -58,3 +57,8 @@ tasks:
     cmds:
       - rm -rf ./dist
       - npm run build
+  
+  'proto':
+    cmds:
+     - task: 'web:proto'
+     - task: 'extension:proto' 

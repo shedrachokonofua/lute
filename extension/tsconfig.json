@@ -1,0 +1,6 @@
+{
+  "compilerOptions": {
+    "lib": ["es2020", "WebWorker", "DOM"],
+    "types": ["chrome"]
+  }
+}

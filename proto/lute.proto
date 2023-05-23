@@ -6,8 +6,36 @@ package lute;
 
 service Lute {
   rpc HealthCheck (google.protobuf.Empty) returns (HealthCheckReply) {}
+  rpc PutFile (PutFileRequest) returns (PutFileReply) {}
+  rpc ValidateFileName (ValidateFileNameRequest) returns (ValidateFileNameReply) {}
+  rpc IsFileStale (IsFileStaleRequest) returns (IsFileStaleReply) {}
 }
 
 message HealthCheckReply {
   bool ok = 1;
+}
+
+message PutFileRequest {
+  string name = 1;
+  string content = 2;
+}
+
+message PutFileReply {
+  bool ok = 1;
+}
+
+message ValidateFileNameRequest {
+  string name = 1;
+}
+
+message ValidateFileNameReply {
+  bool valid = 1;
+}
+
+message IsFileStaleRequest {
+  string name = 1;
+}
+
+message IsFileStaleReply {
+  bool stale = 1;
 }
