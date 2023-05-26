@@ -1,9 +1,6 @@
-use crate::rpc::run_server;
-
-mod proto;
-mod rpc;
+use core::rpc::server;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-  run_server().await
+  server::RpcServer::run().await
 }

@@ -1,5 +1,10 @@
-use crate::proto::{HealthCheckReply, Lute, LuteServer, PutFileReply, PutFileRequest, ValidateFileNameRequest, ValidateFileNameReply, IsFileStaleRequest, IsFileStaleReply};
+use crate::proto::{
+  HealthCheckReply, IsFileStaleReply, IsFileStaleRequest, Lute, LuteServer, PutFileReply,
+  PutFileRequest, ValidateFileNameReply, ValidateFileNameRequest,
+};
 use tonic::{transport::Server, Request, Response, Status};
+
+use super::handlers;
 
 #[derive(Default)]
 pub struct RpcServer {}
@@ -18,16 +23,15 @@ impl Lute for RpcServer {
     &self,
     request: Request<ValidateFileNameRequest>,
   ) -> Result<Response<ValidateFileNameReply>, Status> {
-    println!("Got a request: {:?}", request);
-
-    let reply = ValidateFileNameReply { valid: true };
-
-    Ok(Response::new(reply))
+    match handlers::validate_file_name(request.into_inner()) {
+      Ok(reply) => Ok(Response::new(reply)),
+      Err(e) => Err(Status::internal(e.to_string())),
+    }
   }
 
   async fn is_file_stale(
     &self,
-    request: Request<IsFileStaleRequest>
+    request: Request<IsFileStaleRequest>,
   ) -> Result<Response<IsFileStaleReply>, Status> {
     println!("Got a request: {:?}", request);
 
@@ -48,17 +52,20 @@ impl Lute for RpcServer {
   }
 }
 
-pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
-  let addr = "127.0.0.1:22000".parse().unwrap();
-  let server = RpcServer::default();
-
-  println!("Lute listening on {}", addr);
-
-  Server::builder()
-    .accept_http1(true)
-    .add_service(tonic_web::enable(LuteServer::new(server)))
-    .serve(addr)
-    .await?;
-
-  Ok(())
+impl RpcServer {
+  pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let addr = "127.0.0.1:22000".parse().unwrap();
+    let server = RpcServer::default();
+  
+    println!("Lute listening on {}", addr);
+  
+    Server::builder()
+      .accept_http1(true)
+      .add_service(tonic_web::enable(LuteServer::new(server)))
+      .serve(addr)
+      .await?;
+  
+    Ok(())
+  }
 }
+
