@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use super::{
-  file_interactor::FileInteractor, file_metadata::file_metadata_repository::FileMetadataRepository,
-};
+use super::file_interactor::FileInteractor;
 use crate::{
   proto::{self, IsFileStaleReply, IsFileStaleRequest, PutFileReply, PutFileRequest},
   settings::FileSettings,
@@ -38,10 +36,9 @@ impl proto::FileService for FileService {
       self.redis_connection_pool.get().unwrap(),
     );
     let name = request.into_inner().name;
-    let stale = file_interactor.is_file_stale(name).map_err(|e| {
-      println!("Error: {:?}", e);
-      Status::internal("Internal server error")
-    })?;
+    let stale = file_interactor
+      .is_file_stale(name)
+      .map_err(|e| Status::internal("Internal server error"))?;
 
     let reply = IsFileStaleReply { stale };
     Ok(Response::new(reply))
