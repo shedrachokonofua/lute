@@ -1,16 +1,18 @@
-use crate::proto::{
-  HealthCheckReply, IsFileStaleReply, IsFileStaleRequest, Lute, LuteServer, PutFileReply,
-  PutFileRequest, ValidateFileNameReply, ValidateFileNameRequest,
+use std::sync::Arc;
+
+use crate::{
+  files::file_service::FileService,
+  proto::{FileServiceServer, HealthCheckReply, Lute, LuteServer},
+  settings::Settings,
 };
 use tonic::{transport::Server, Request, Response, Status};
 
-use super::handlers;
-
-#[derive(Default)]
-pub struct RpcServer {}
+pub struct LuteService {
+  redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+}
 
 #[tonic::async_trait]
-impl Lute for RpcServer {
+impl Lute for LuteService {
   async fn health_check(&self, request: Request<()>) -> Result<Response<HealthCheckReply>, Status> {
     println!("Got a request: {:?}", request);
 
@@ -18,54 +20,41 @@ impl Lute for RpcServer {
 
     Ok(Response::new(reply))
   }
+}
 
-  async fn validate_file_name(
-    &self,
-    request: Request<ValidateFileNameRequest>,
-  ) -> Result<Response<ValidateFileNameReply>, Status> {
-    match handlers::validate_file_name(request.into_inner()) {
-      Ok(reply) => Ok(Response::new(reply)),
-      Err(e) => Err(Status::internal(e.to_string())),
-    }
-  }
-
-  async fn is_file_stale(
-    &self,
-    request: Request<IsFileStaleRequest>,
-  ) -> Result<Response<IsFileStaleReply>, Status> {
-    println!("Got a request: {:?}", request);
-
-    let reply = IsFileStaleReply { stale: true };
-
-    Ok(Response::new(reply))
-  }
-
-  async fn put_file(
-    &self,
-    request: Request<PutFileRequest>,
-  ) -> Result<Response<PutFileReply>, Status> {
-    println!("Got a request: {:?}", request);
-
-    let reply = PutFileReply { ok: true };
-
-    Ok(Response::new(reply))
-  }
+pub struct RpcServer {
+  settings: Settings,
+  redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
 }
 
 impl RpcServer {
-  pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
+  pub fn new(settings: Settings, redis_connection_pool: Arc<r2d2::Pool<redis::Client>>) -> Self {
+    Self {
+      settings,
+      redis_connection_pool,
+    }
+  }
+
+  pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+    let lute_service = LuteService {
+      redis_connection_pool: self.redis_connection_pool.clone(),
+    };
+    let file_service = FileService::new(
+      self.settings.file.clone(),
+      self.redis_connection_pool.clone(),
+    );
+
     let addr = "127.0.0.1:22000".parse().unwrap();
-    let server = RpcServer::default();
-  
+
     println!("Lute listening on {}", addr);
-  
+
     Server::builder()
       .accept_http1(true)
-      .add_service(tonic_web::enable(LuteServer::new(server)))
+      .add_service(tonic_web::enable(LuteServer::new(lute_service)))
+      .add_service(tonic_web::enable(FileServiceServer::new(file_service)))
       .serve(addr)
       .await?;
-  
+
     Ok(())
   }
 }
-

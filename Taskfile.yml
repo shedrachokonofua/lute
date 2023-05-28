@@ -62,3 +62,7 @@ tasks:
     cmds:
      - task: 'web:proto'
      - task: 'extension:proto' 
+
+  'up':
+    cmds:
+      - docker-compose -f ./infra/dev/docker-compose.yml up -d --build
