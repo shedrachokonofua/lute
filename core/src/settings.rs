@@ -14,8 +14,18 @@ pub struct FileTtlDaysSettings {
 }
 
 #[derive(Debug, Clone, Default, serde_derive::Deserialize, PartialEq, Eq)]
+pub struct ContentStoreSettings {
+  pub region: String,
+  pub endpoint: String,
+  pub key: String,
+  pub secret: String,
+  pub bucket: String,
+}
+
+#[derive(Debug, Clone, Default, serde_derive::Deserialize, PartialEq, Eq)]
 pub struct FileSettings {
   pub ttl_days: FileTtlDaysSettings,
+  pub content_store: ContentStoreSettings,
 }
 
 #[derive(Debug, Clone, Default, serde_derive::Deserialize, PartialEq, Eq)]

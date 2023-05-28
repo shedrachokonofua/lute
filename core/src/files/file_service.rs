@@ -35,7 +35,7 @@ impl proto::FileService for FileService {
   ) -> Result<Response<IsFileStaleReply>, Status> {
     let mut file_interactor = FileInteractor::new(
       self.file_settings.clone(),
-      FileMetadataRepository::new(self.redis_connection_pool.get().unwrap()),
+      self.redis_connection_pool.get().unwrap(),
     );
     let name = request.into_inner().name;
     let stale = file_interactor.is_file_stale(name).map_err(|e| {
@@ -53,11 +53,12 @@ impl proto::FileService for FileService {
   ) -> Result<Response<PutFileReply>, Status> {
     let mut file_interactor = FileInteractor::new(
       self.file_settings.clone(),
-      FileMetadataRepository::new(self.redis_connection_pool.get().unwrap()),
+      self.redis_connection_pool.get().unwrap(),
     );
     let inner = request.into_inner();
     let file_metadata = file_interactor
       .put_file(inner.name.clone(), &inner.content, Some("id".to_string()))
+      .await
       .map_err(|e| {
         println!("Error: {:?}", e);
         Status::internal("Internal server error")

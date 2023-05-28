@@ -1,21 +1,28 @@
-use super::file_metadata::{
-  file_metadata::FileMetadata, file_metadata_repository::FileMetadataRepository,
-  file_name::FileName, file_timestamp::FileTimestamp,
+use super::{
+  file_content_store::FileContentStore,
+  file_metadata::{
+    file_metadata::FileMetadata, file_metadata_repository::FileMetadataRepository,
+    file_name::FileName, file_timestamp::FileTimestamp,
+  },
 };
 use crate::settings::FileSettings;
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
+use r2d2::PooledConnection;
+use redis::Client;
 
 pub struct FileInteractor {
   settings: FileSettings,
+  file_content_store: FileContentStore,
   file_metadata_repository: FileMetadataRepository,
 }
 
 impl FileInteractor {
-  pub fn new(settings: FileSettings, file_metadata_repository: FileMetadataRepository) -> Self {
+  pub fn new(settings: FileSettings, redis_connection: PooledConnection<Client>) -> Self {
     Self {
-      settings,
-      file_metadata_repository,
+      settings: settings.clone(),
+      file_content_store: FileContentStore::new(settings.content_store.clone()).unwrap(),
+      file_metadata_repository: FileMetadataRepository::new(redis_connection),
     }
   }
 
@@ -35,13 +42,14 @@ impl FileInteractor {
     )
   }
 
-  pub fn put_file(
+  pub async fn put_file(
     &mut self,
     name: String,
     content: &str,
     correlation_id: Option<String>,
   ) -> Result<FileMetadata> {
     let file_name = FileName::try_from(name)?;
+    self.file_content_store.put(&file_name, content).await?;
     self.file_metadata_repository.upsert(&file_name)
   }
 }
