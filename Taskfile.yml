@@ -1,68 +1,74 @@
-version: '3'
+version: "3"
 
 tasks:
-  'protoc:gen:web':
+  "protoc:gen:web":
     internal: true
     cmds:
-      - docker run -v ./proto:/proto -v {{.OUTPUT_DIR}}:/out namely/protoc-all -d /proto -o /out -l web
+      - docker run -v {{.TASKFILE_DIR}}/proto:/proto -v {{.OUTPUT_DIR}}:/out namely/protoc-all -d /proto -o /out -l web
 
-  'core:build':
+  "core:build":
     dir: core
     cmds:
       - cargo build
 
-  'core:run':
+  "core:run":
     dir: core
     cmds:
       - cargo run
-  
-  'core:lint':
+
+  "core:lint":
     dir: core
     cmds:
       - cargo clippy
-    
-  'core:fmt':
+
+  "core:fmt":
     dir: core
     cmds:
       - cargo fmt
-  
-  'web:proto':
+
+  "web:proto":
     cmds:
-      - task: 'protoc:gen:web'
+      - task: "protoc:gen:web"
         vars:
-          OUTPUT_DIR: ./web/src/proto
-  
-  'web:run':
-    deps: ['web:proto']
+          OUTPUT_DIR: "{{.TASKFILE_DIR}}/web/src/proto"
+
+  "web:run":
+    deps: ["web:proto"]
     dir: web
     cmds:
       - npm start
-  
-  'web:build':
-    deps: ['web:proto']
+
+  "web:build":
+    deps: ["web:proto"]
     dir: web
     cmds:
       - rm -rf ./dist
       - npm run build
-  
-  'extension:proto':
-    cmds:
-      - task: 'protoc:gen:web'
-        vars:
-          OUTPUT_DIR: ./extension/src/proto
 
-  'extension:build':
-    deps: ['extension:proto']
+  "extension:proto":
+    cmds:
+      - task: "protoc:gen:web"
+        vars:
+          OUTPUT_DIR: "{{.TASKFILE_DIR}}/extension/src/proto"
+
+  "extension:build":
+    deps: ["extension:proto"]
     dir: extension
     cmds:
       - rm -rf ./dist
       - npm run build
-  
-  'proto':
-    cmds:
-     - task: 'web:proto'
-     - task: 'extension:proto' 
 
-  'up':
+  "proto":
+    cmds:
+      - task: "web:proto"
+      - task: "extension:proto"
+
+  "build":
+    cmds:
+      - task: "core:build"
+      - task: "web:build"
+      - task: "extension:build"
+
+  "up":
     cmds:
       - docker-compose -f ./infra/dev/docker-compose.yml up -d --build
