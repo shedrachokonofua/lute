@@ -250,6 +250,7 @@ dependencies = [
  "rust-s3",
  "serde",
  "serde_derive",
+ "serde_json",
  "tokio",
  "tonic",
  "tonic-build",

@@ -29,10 +29,11 @@ impl FileContentStore {
   }
 
   pub async fn put(&self, file_name: &FileName, content: &str) -> Result<()> {
-    self
+    let res = self
       .bucket
       .put_object(file_name.to_string(), content.as_bytes())
       .await?;
+    println!("Put object: {:?}", res);
     Ok(())
   }
 }

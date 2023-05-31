@@ -11,17 +11,6 @@ services:
       - 22001:8001
     volumes:
       - redis_data:/data
-  
-  core:
-    build:
-      context: ../../
-      dockerfile: ./core/Dockerfile
-    environment:
-      - PORT=80
-    ports:
-      - 22000:80
-    restart: always
 
 volumes:
   redis_data:
-  

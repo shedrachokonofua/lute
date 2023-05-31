@@ -25,14 +25,4 @@ impl EventBus {
       subscribers: Arc::new(Mutex::new(HashMap::new())),
     }
   }
-
-  pub fn subscribe(&mut self, event_tag: EventTag, subscriber: Subscriber) {
-    let mut subscribers = self.subscribers.lock().unwrap();
-    let subscribers_for_tag = subscribers.entry(event_tag).or_insert_with(Vec::new);
-    subscribers_for_tag.push(subscriber);
-  }
-
-  pub fn publish(&self, event: &Event) {
-    let mut redis_connection = self.redis_connection_pool.get().unwrap();
-  }
 }

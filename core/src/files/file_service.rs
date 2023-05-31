@@ -33,7 +33,7 @@ impl proto::FileService for FileService {
   ) -> Result<Response<IsFileStaleReply>, Status> {
     let mut file_interactor = FileInteractor::new(
       self.file_settings.clone(),
-      self.redis_connection_pool.get().unwrap(),
+      self.redis_connection_pool.clone()
     );
     let name = request.into_inner().name;
     let stale = file_interactor
@@ -50,7 +50,7 @@ impl proto::FileService for FileService {
   ) -> Result<Response<PutFileReply>, Status> {
     let mut file_interactor = FileInteractor::new(
       self.file_settings.clone(),
-      self.redis_connection_pool.get().unwrap(),
+      self.redis_connection_pool.clone()
     );
     let inner = request.into_inner();
     let file_metadata = file_interactor
