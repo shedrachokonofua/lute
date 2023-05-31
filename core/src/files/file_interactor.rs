@@ -5,7 +5,13 @@ use super::{
     file_name::FileName, file_timestamp::FileTimestamp,
   },
 };
-use crate::settings::FileSettings;
+use crate::{
+  events::{
+    event::{Event, FileSaved},
+    event_bus::EventSubscriber,
+  },
+  settings::FileSettings,
+};
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use r2d2::PooledConnection;
@@ -51,5 +57,16 @@ impl FileInteractor {
     let file_name = FileName::try_from(name)?;
     self.file_content_store.put(&file_name, content).await?;
     self.file_metadata_repository.upsert(&file_name)
+  }
+}
+
+impl EventSubscriber<FileSaved> for FileInteractor {
+  fn get_name(&self) -> String {
+    "FileInteractor".to_string()
+  }
+
+  fn consume_event(&mut self, event: &FileSaved) {
+    let file_name = FileName::try_from(event.name.clone()).unwrap();
+    self.file_metadata_repository.upsert(&file_name).unwrap();
   }
 }
