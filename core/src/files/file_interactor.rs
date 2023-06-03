@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use super::{
   file_content_store::FileContentStore,
   file_metadata::{
@@ -9,29 +7,33 @@ use super::{
 };
 use crate::{
   events::{
-    event::{Event, FileSaved, EventPayload},
-    event_bus::EventSubscriber,
+    event::{Event, EventPayload, Stream},
     event_publisher::EventPublisher,
   },
   settings::FileSettings,
 };
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
+use std::sync::Arc;
 
 pub struct FileInteractor {
   settings: FileSettings,
   file_content_store: FileContentStore,
   file_metadata_repository: FileMetadataRepository,
-  event_publisher: EventPublisher,
+  event_publisher: Arc<EventPublisher>,
 }
 
 impl FileInteractor {
-  pub fn new(settings: FileSettings, redis_connection_pool: Arc<r2d2::Pool<redis::Client>>) -> Self {
+  pub fn new(
+    settings: FileSettings,
+    redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+    event_publisher: Arc<EventPublisher>,
+  ) -> Self {
     Self {
       settings: settings.clone(),
       file_content_store: FileContentStore::new(settings.content_store.clone()).unwrap(),
       file_metadata_repository: FileMetadataRepository::new(redis_connection_pool.get().unwrap()),
-      event_publisher: EventPublisher::new(redis_connection_pool.get().unwrap()),
+      event_publisher,
     }
   }
 
@@ -54,33 +56,23 @@ impl FileInteractor {
   pub async fn put_file(
     &mut self,
     name: String,
-    content: &str,
+    content: String,
     correlation_id: Option<String>,
   ) -> Result<FileMetadata> {
     let file_name = FileName::try_from(name)?;
-    //self.file_content_store.put(&file_name, content).await?;
-    let result = self.file_metadata_repository.upsert(&file_name);
+    self.file_content_store.put(&file_name, content).await?;
+    let file_metadata = self.file_metadata_repository.upsert(&file_name)?;
     self.event_publisher.publish(
+      Stream::File,
       EventPayload {
-        event: Event::FileSaved(FileSaved {
-          id: file_name.to_string(),
-          name: file_name.to_string(),
-        }),
+        event: Event::FileSaved {
+          file_id: file_metadata.id.to_string(),
+          file_name: file_metadata.name.to_string(),
+        },
         correlation_id,
         metadata: None,
-      }
+      },
     )?;
-    result
+    Ok(file_metadata)
   }
 }
-
-// impl EventSubscriber<FileSaved> for FileInteractor {
-//   fn get_name(&self) -> String {
-//     "FileInteractor".to_string()
-//   }
-
-//   fn consume_event(&mut self, event: &FileSaved) {
-//     let file_name = FileName::try_from(event.name.clone()).unwrap();
-//     self.file_metadata_repository.upsert(&file_name).unwrap();
-//   }
-// }

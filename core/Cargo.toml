@@ -13,6 +13,7 @@ dotenv = "0.15.0"
 lazy_static = "1.4.0"
 prost = "0.11.9"
 r2d2 = "0.8.10"
+rayon = "1.7.0"
 redis = { version = "0.23.0", features = ["json", "r2d2", "tls-native-tls"] }
 regex = "1.8.3"
 rust-s3 = "0.33.0"

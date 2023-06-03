@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
+  events::event_publisher::EventPublisher,
   files::file_service::FileService,
   proto::{FileServiceServer, HealthCheckReply, Lute, LuteServer},
   settings::Settings,
@@ -25,13 +26,19 @@ impl Lute for LuteService {
 pub struct RpcServer {
   settings: Settings,
   redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+  event_publisher: Arc<EventPublisher>,
 }
 
 impl RpcServer {
-  pub fn new(settings: Settings, redis_connection_pool: Arc<r2d2::Pool<redis::Client>>) -> Self {
+  pub fn new(
+    settings: Settings,
+    redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+    event_publisher: Arc<EventPublisher>,
+  ) -> Self {
     Self {
       settings,
       redis_connection_pool,
+      event_publisher,
     }
   }
 
@@ -42,6 +49,7 @@ impl RpcServer {
     let file_service = FileService::new(
       self.settings.file.clone(),
       self.redis_connection_pool.clone(),
+      self.event_publisher.clone(),
     );
 
     let addr = "127.0.0.1:22000".parse().unwrap();

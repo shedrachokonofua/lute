@@ -1,26 +1,26 @@
+use super::event::{Event, EventPayload, Stream};
 use anyhow::Result;
-use r2d2::PooledConnection;
+use r2d2::Pool;
 use redis::{Client, Commands};
-
-use super::{
-  event::{EventPayload, EventTag},
-  event_stream::get_stream_key,
-};
+use std::{collections::HashMap, sync::Arc};
 
 pub struct EventPublisher {
-  redis_connection: PooledConnection<Client>,
+  redis_connection_pool: Arc<Pool<Client>>,
 }
 
 impl EventPublisher {
-  pub fn new(redis_connection: PooledConnection<Client>) -> Self {
-    Self { redis_connection }
+  pub fn new(redis_connection_pool: Arc<Pool<Client>>) -> Self {
+    Self {
+      redis_connection_pool,
+    }
   }
 
-  pub fn publish(&mut self, payload: EventPayload) -> Result<()> {
-    let key = get_stream_key(&payload.event);
-    let value: Vec<(String, String)> = payload.into();
-    println!("Publishing to stream: {}", key);
-    self.redis_connection.xadd(key, "*", &value)?;
+  pub fn publish(&self, stream: Stream, payload: EventPayload) -> Result<()> {
+    let value: HashMap<String, String> = payload.into();
+    self
+      .redis_connection_pool
+      .get()?
+      .xadd_map(&stream.redis_key(), "*", value)?;
     Ok(())
   }
 }

@@ -1,71 +1,87 @@
+use anyhow::{anyhow, Result};
+use redis::Value;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(tag = "type", content = "data")]
 pub enum Event {
-  FileSaved(FileSaved),
+  FileSaved { file_id: String, file_name: String },
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct FileSaved {
-  pub id: String,
-  pub name: String,
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct EventPayload {
   pub event: Event,
   pub correlation_id: Option<String>,
   pub metadata: Option<HashMap<String, String>>,
 }
 
-impl Into<EventPayload> for Event {
-  fn into(self) -> EventPayload {
-    EventPayload {
-      event: self,
-      correlation_id: None,
-      metadata: None,
+impl Into<HashMap<String, String>> for EventPayload {
+  fn into(self) -> HashMap<String, String> {
+    let mut result = HashMap::new();
+    result.insert(
+      "event".to_string(),
+      serde_json::to_string(&self.event).unwrap(),
+    );
+    result.insert(
+      "metadata".to_string(),
+      serde_json::to_string(&self.metadata.unwrap_or(HashMap::new())).unwrap(),
+    );
+    if let Some(correlation_id) = self.correlation_id {
+      result.insert("correlation_id".to_string(), correlation_id);
     }
+    result
   }
 }
 
-impl Into<Vec<(String, String)>> for EventPayload {
-  fn into(self) -> Vec<(String, String)> {
-    vec![
-      (
-        "event".to_string(),
-        serde_json::to_string(&self.event).unwrap(),
-      ),
-      (
-        "correlation_id".to_string(),
-        serde_json::to_string(&self.correlation_id).unwrap(),
-      ),
-      (
-        "metadata".to_string(),
-        serde_json::to_string(&self.metadata.unwrap_or(HashMap::new())).unwrap(),
-      ),
-    ]
+fn get_value_as_string(value: &redis::Value) -> Result<String> {
+  match value {
+    redis::Value::Data(raw) => Ok(String::from_utf8(raw.clone())?),
+    _ => Err(anyhow::anyhow!("data was not binary").into()),
   }
 }
 
-#[derive(Debug, Eq, Hash, PartialEq)]
-pub enum EventTag {
-  FileSaved,
-}
+impl TryFrom<HashMap<String, Value>> for EventPayload {
+  type Error = anyhow::Error;
 
-impl From<&Event> for EventTag {
-  fn from(event: &Event) -> Self {
-    match event {
-      Event::FileSaved { .. } => EventTag::FileSaved,
-    }
+  fn try_from(value: HashMap<String, Value>) -> Result<Self> {
+    let event = serde_json::from_str::<Event>(&get_value_as_string(
+      value.get("event").ok_or(anyhow!("event not found"))?,
+    )?)?;
+    let correlation_id = value
+      .get("correlation_id")
+      .map(|value| get_value_as_string(value).unwrap());
+    let metadata = value.get("metadata").map(|value| {
+      serde_json::from_str::<HashMap<String, String>>(&get_value_as_string(value).unwrap()).unwrap()
+    });
+    Ok(EventPayload {
+      event,
+      correlation_id,
+      metadata,
+    })
   }
 }
 
-impl ToString for EventTag {
-  fn to_string(&self) -> String {
-    match self {
-      EventTag::FileSaved => "file.saved".to_string(),
+pub enum Stream {
+  File,
+  Parser,
+  Lookup,
+}
+
+impl Stream {
+  pub fn tag(&self) -> String {
+    match &self {
+      Stream::File => "file".to_string(),
+      Stream::Parser => "parser".to_string(),
+      Stream::Lookup => "lookup".to_string(),
     }
+  }
+
+  pub fn redis_key(&self) -> String {
+    format!("event:stream:{}", &self.tag())
+  }
+
+  pub fn redis_cursor_key(&self, subscriber_id: &str) -> String {
+    format!("event:stream:{}:cursor:{}", &self.tag(), subscriber_id)
   }
 }

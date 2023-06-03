@@ -9,7 +9,7 @@ tasks:
   "core:build":
     dir: core
     cmds:
-      - cargo build
+      - cargo build --release
 
   "core:run":
     dir: core

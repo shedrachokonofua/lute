@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use super::file_interactor::FileInteractor;
 use crate::{
+  events::event_publisher::EventPublisher,
   proto::{self, IsFileStaleReply, IsFileStaleRequest, PutFileReply, PutFileRequest},
   settings::FileSettings,
 };
@@ -11,16 +12,19 @@ use tonic::{Request, Response, Status};
 pub struct FileService {
   file_settings: FileSettings,
   redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+  event_publisher: Arc<EventPublisher>,
 }
 
 impl FileService {
   pub fn new(
     file_settings: FileSettings,
     redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+    event_publisher: Arc<EventPublisher>,
   ) -> Self {
     Self {
       file_settings,
       redis_connection_pool,
+      event_publisher,
     }
   }
 }
@@ -33,7 +37,8 @@ impl proto::FileService for FileService {
   ) -> Result<Response<IsFileStaleReply>, Status> {
     let mut file_interactor = FileInteractor::new(
       self.file_settings.clone(),
-      self.redis_connection_pool.clone()
+      self.redis_connection_pool.clone(),
+      self.event_publisher.clone(),
     );
     let name = request.into_inner().name;
     let stale = file_interactor
@@ -50,11 +55,12 @@ impl proto::FileService for FileService {
   ) -> Result<Response<PutFileReply>, Status> {
     let mut file_interactor = FileInteractor::new(
       self.file_settings.clone(),
-      self.redis_connection_pool.clone()
+      self.redis_connection_pool.clone(),
+      self.event_publisher.clone(),
     );
     let inner = request.into_inner();
     let file_metadata = file_interactor
-      .put_file(inner.name.clone(), &inner.content, Some("id".to_string()))
+      .put_file(inner.name.clone(), inner.content, Some("id".to_string()))
       .await
       .map_err(|e| {
         println!("Error: {:?}", e);
