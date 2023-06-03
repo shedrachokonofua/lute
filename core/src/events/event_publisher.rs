@@ -1,4 +1,4 @@
-use super::event::{Event, EventPayload, Stream};
+use super::event::{EventPayload, Stream};
 use anyhow::Result;
 use r2d2::Pool;
 use redis::{Client, Commands};

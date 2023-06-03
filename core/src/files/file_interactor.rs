@@ -20,20 +20,19 @@ pub struct FileInteractor {
   settings: FileSettings,
   file_content_store: FileContentStore,
   file_metadata_repository: FileMetadataRepository,
-  event_publisher: Arc<EventPublisher>,
+  event_publisher: EventPublisher,
 }
 
 impl FileInteractor {
   pub fn new(
     settings: FileSettings,
     redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
-    event_publisher: Arc<EventPublisher>,
   ) -> Self {
     Self {
       settings: settings.clone(),
       file_content_store: FileContentStore::new(settings.content_store.clone()).unwrap(),
       file_metadata_repository: FileMetadataRepository::new(redis_connection_pool.get().unwrap()),
-      event_publisher,
+      event_publisher: EventPublisher::new(redis_connection_pool.clone()),
     }
   }
 
