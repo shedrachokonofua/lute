@@ -65,8 +65,8 @@ impl FileInteractor {
       Stream::File,
       EventPayload {
         event: Event::FileSaved {
-          file_id: file_metadata.id.to_string(),
-          file_name: file_metadata.name.to_string(),
+          file_id: file_metadata.id.clone(),
+          file_name: file_metadata.name.clone(),
         },
         correlation_id,
         metadata: None,

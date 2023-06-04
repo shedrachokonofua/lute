@@ -200,6 +200,7 @@ dependencies = [
  "js-sys",
  "num-integer",
  "num-traits",
+ "serde",
  "time 0.1.45",
  "wasm-bindgen",
  "winapi",
@@ -242,6 +243,7 @@ dependencies = [
  "chrono",
  "config",
  "dotenv",
+ "futures",
  "lazy_static",
  "prost",
  "r2d2",
@@ -252,6 +254,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "tl",
  "tokio",
  "tonic",
  "tonic-build",
@@ -1823,6 +1826,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
+name = "tl"
+version = "0.7.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5e993a1c7c32fdf90a308cec4d457f507b2573acc909bd6e7a092321664fdb3"
+
+[[package]]
 name = "tokio"
 version = "1.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2072,6 +2081,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13a3aaa69b04e5b66cc27309710a569ea23593612387d67daaf102e73aa974fd"
 dependencies = [
  "rand",
+ "serde",
 ]
 
 [[package]]

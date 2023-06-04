@@ -1,12 +1,31 @@
+use crate::{files::file_metadata::file_name::FileName, parser::parser::ParsedFileData};
 use anyhow::{anyhow, Result};
 use redis::Value;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use ulid::serde::ulid_as_u128;
+use ulid::Ulid;
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 pub enum Event {
-  FileSaved { file_id: String, file_name: String },
+  FileSaved {
+    #[serde(with = "ulid_as_u128")]
+    file_id: Ulid,
+    file_name: FileName,
+  },
+  FileParsed {
+    #[serde(with = "ulid_as_u128")]
+    file_id: Ulid,
+    file_name: FileName,
+    data: ParsedFileData,
+  },
+  FileParseFailed {
+    #[serde(with = "ulid_as_u128")]
+    file_id: Ulid,
+    file_name: FileName,
+    error: String,
+  },
 }
 
 #[derive(Serialize, Deserialize, Clone)]

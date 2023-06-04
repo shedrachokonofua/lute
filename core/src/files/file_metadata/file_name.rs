@@ -1,7 +1,8 @@
 use super::page_type::PageType;
 use anyhow::Result;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct FileName(pub String);
 
 impl TryFrom<String> for FileName {
