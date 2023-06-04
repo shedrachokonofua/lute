@@ -1,4 +1,5 @@
-use crate::{files::file_metadata::file_name::FileName, parser::parser::ParsedFileData};
+use crate::files::file_metadata::file_name::FileName;
+use crate::parser::parsed_file_data::ParsedFileData;
 use anyhow::{anyhow, Result};
 use redis::Value;
 use serde::{Deserialize, Serialize};

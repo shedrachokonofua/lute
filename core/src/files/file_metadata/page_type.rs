@@ -37,3 +37,14 @@ impl TryFrom<&str> for PageType {
     }
   }
 }
+
+impl ToString for PageType {
+  fn to_string(&self) -> String {
+    match self {
+      PageType::Artist => "artist".to_string(),
+      PageType::Album => "album".to_string(),
+      PageType::Chart => "chart".to_string(),
+      PageType::Search => "search".to_string(),
+    }
+  }
+}

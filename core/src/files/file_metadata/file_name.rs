@@ -2,15 +2,19 @@ use super::page_type::PageType;
 use anyhow::Result;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug)]
 pub struct FileName(pub String);
 
 impl TryFrom<String> for FileName {
   type Error = anyhow::Error;
 
   fn try_from(value: String) -> Result<Self> {
-    match PageType::try_from(value.as_str()) {
-      Ok(_) => Ok(Self(value)),
+    let clean_value = value
+      .trim_start_matches('/')
+      .trim_end_matches('/')
+      .to_string();
+    match PageType::try_from(clean_value.as_str()) {
+      Ok(_) => Ok(Self(clean_value)),
       Err(_) => Err(anyhow::Error::msg(format!("Invalid file name: {}", value))),
     }
   }

@@ -1,6 +1,8 @@
+use super::parser::parse_file_on_store;
 use crate::{
   events::{
     event::{Event, Stream},
+    event_publisher::EventPublisher,
     event_subscriber::{EventSubscriber, SubscriberContext},
   },
   files::file_content_store::FileContentStore,
@@ -11,16 +13,12 @@ use r2d2::Pool;
 use redis::Client;
 use std::sync::Arc;
 
-use super::parser::parse_file_on_store;
-
 async fn parse_saved_file(context: SubscriberContext) -> Result<()> {
   match context.payload.event {
-    Event::FileSaved {
-      file_id: _,
-      file_name,
-    } => {
+    Event::FileSaved { file_id, file_name } => {
       let file_content_store = FileContentStore::new(context.settings.file.content_store.clone())?;
-      parse_file_on_store(file_content_store, file_name).await?;
+      let event_publisher = EventPublisher::new(context.redis_connection_pool.clone());
+      parse_file_on_store(file_content_store, event_publisher, file_id, file_name).await?;
     }
     _ => (),
   }
