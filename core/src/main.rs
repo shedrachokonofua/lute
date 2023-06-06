@@ -15,7 +15,7 @@ use settings::Settings;
 use std::sync::Arc;
 use tokio::task;
 
-fn get_rpc_server_task(
+fn run_rpc_server(
   settings: Settings,
   redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
 ) -> task::JoinHandle<()> {
@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()));
 
   start_event_subscribers(settings.clone(), redis_connection_pool.clone());
-  get_rpc_server_task(settings, redis_connection_pool.clone()).await?;
+  run_rpc_server(settings, redis_connection_pool.clone()).await?;
 
   Ok(())
 }

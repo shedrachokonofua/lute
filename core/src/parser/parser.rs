@@ -10,7 +10,7 @@ use crate::{
   },
   parser::chart::parse_chart,
 };
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use ulid::Ulid;
 
 pub async fn parse_file_on_store(
@@ -21,31 +21,38 @@ pub async fn parse_file_on_store(
 ) -> Result<ParsedFileData> {
   let file_content = file_content_store.get(&file_name).await?;
   println!(
-    "Parsing file: {} {}",
+    "Parsing file: {} {} {}",
+    file_id,
     file_name.to_string(),
     file_name.page_type().to_string()
   );
 
-  let file_data = match file_name.page_type() {
-    PageType::Chart => {
-      let albums = parse_chart(&file_content)?;
-      Ok(ParsedFileData::Chart { albums })
-    }
+  let parse_result: Result<ParsedFileData> = match file_name.page_type() {
+    PageType::Chart => parse_chart(&file_content).map(|albums| ParsedFileData::Chart { albums }),
     _ => Err(anyhow::anyhow!("Unsupported page type").into()),
-  }?;
+  };
+
+  let event = match &parse_result {
+    Ok(file_data) => Event::FileParsed {
+      file_id,
+      file_name,
+      data: file_data.clone(),
+    },
+    Err(error) => Event::FileParseFailed {
+      file_id,
+      file_name,
+      error: error.to_string(),
+    },
+  };
 
   event_publisher.publish(
     Stream::Parser,
     EventPayload {
-      event: Event::FileParsed {
-        file_id,
-        file_name,
-        data: file_data.clone(),
-      },
+      event,
       correlation_id: None,
       metadata: None,
     },
   )?;
 
-  Ok(file_data)
+  parse_result
 }

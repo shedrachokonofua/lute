@@ -53,25 +53,30 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
           tag,
           ".page_charts_section_charts_item_genres_secondary",
         )
-        .and_then(|tag| {
-          Ok(tag.query_selector(dom.parser(), "a").map(|genres| {
+        .map(|tag| {
+          tag.query_selector(dom.parser(), "a").map(|genres| {
             genres
               .map(|genre| get_node_inner_text(dom.parser(), &genre).unwrap())
               .collect::<Vec<String>>()
-          }))
+          })
         })
-        .unwrap_or_else(|e| Some(Vec::new()))
-        .unwrap_or_else(|| Vec::new());
+        .unwrap_or(Some(Vec::new()))
+        .unwrap_or(Vec::new());
 
         let descriptors = query_select_first(
           dom.parser(),
           tag,
           ".page_charts_section_charts_item_genre_descriptors",
-        )?
-        .query_selector(dom.parser(), "span")
-        .ok_or(anyhow::anyhow!("No descriptor found"))?
-        .map(|descriptor| get_node_inner_text(dom.parser(), &descriptor).unwrap())
-        .collect::<Vec<String>>();
+        )
+        .map(|tag| {
+          tag.query_selector(dom.parser(), "span").map(|descriptors| {
+            descriptors
+              .map(|descriptor| get_node_inner_text(dom.parser(), &descriptor).unwrap())
+              .collect::<Vec<String>>()
+          })
+        })
+        .unwrap_or(Some(Vec::new()))
+        .unwrap_or(Vec::new());
 
         let file_name = FileName::try_from(
           query_select_first(dom.parser(), tag, ".page_charts_section_charts_item_link")?
