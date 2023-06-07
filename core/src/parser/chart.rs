@@ -1,7 +1,7 @@
 use super::{
   dom::{get_node_inner_text, get_tag_inner_text, query_select_first},
-  parsed_file_data::ParsedChartAlbum,
-  util::parse_release_date,
+  parsed_file_data::{ParsedArtist, ParsedChartAlbum},
+  util::{clean_artist_name, parse_release_date},
 };
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::{Ok, Result};
@@ -37,6 +37,34 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
         )?
         .replace(",", "")
         .parse::<u32>()?;
+
+        let artists = query_select_first(
+          dom.parser(),
+          tag,
+          ".page_charts_section_charts_item_credited_links_primary",
+        )?
+        .query_selector(dom.parser(), "a")
+        .unwrap()
+        .map(|node| ParsedArtist {
+          name: clean_artist_name(get_node_inner_text(dom.parser(), &node).unwrap().as_str())
+            .to_string(),
+          file_name: FileName::try_from(
+            node
+              .get(dom.parser())
+              .unwrap()
+              .as_tag()
+              .unwrap()
+              .attributes()
+              .get("href")
+              .unwrap()
+              .ok_or(anyhow::anyhow!("No file name found"))
+              .unwrap()
+              .as_utf8_str()
+              .to_string(),
+          )
+          .unwrap(),
+        })
+        .collect::<Vec<ParsedArtist>>();
 
         let primary_genres = query_select_first(
           dom.parser(),
@@ -95,15 +123,15 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
         )
         .ok();
 
-        let release_date = release_date_string
-          .map(|date_string| parse_release_date(date_string))
-          .unwrap_or(Ok(None))?;
+        let release_date =
+          release_date_string.and_then(|date_string| parse_release_date(date_string).ok());
 
         let data = ParsedChartAlbum {
           file_name,
           name,
           rating,
           rating_count,
+          artists,
           primary_genres,
           secondary_genres,
           descriptors,
