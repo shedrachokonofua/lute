@@ -1,6 +1,6 @@
 use super::{
   dom::{get_node_inner_text, get_tag_inner_text, query_select_first},
-  parsed_file_data::{ParsedArtist, ParsedChartAlbum},
+  parsed_file_data::{ParsedArtistReference, ParsedChartAlbum},
   util::{clean_artist_name, parse_release_date},
 };
 use crate::files::file_metadata::file_name::FileName;
@@ -45,7 +45,7 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
         )?
         .query_selector(dom.parser(), "a")
         .unwrap()
-        .map(|node| ParsedArtist {
+        .map(|node| ParsedArtistReference {
           name: clean_artist_name(get_node_inner_text(dom.parser(), &node).unwrap().as_str())
             .to_string(),
           file_name: FileName::try_from(
@@ -64,7 +64,7 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
           )
           .unwrap(),
         })
-        .collect::<Vec<ParsedArtist>>();
+        .collect::<Vec<ParsedArtistReference>>();
 
         let primary_genres = query_select_first(
           dom.parser(),

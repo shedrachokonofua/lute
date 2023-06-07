@@ -3,7 +3,7 @@ use chrono::NaiveDate;
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct ParsedArtist {
+pub struct ParsedArtistReference {
   pub name: String,
   pub file_name: FileName,
 }
@@ -14,7 +14,7 @@ pub struct ParsedChartAlbum {
   pub name: String,
   pub rating: f32,
   pub rating_count: u32,
-  pub artists: Vec<ParsedArtist>,
+  pub artists: Vec<ParsedArtistReference>,
   pub primary_genres: Vec<String>,
   pub secondary_genres: Vec<String>,
   pub descriptors: Vec<String>,
@@ -34,7 +34,7 @@ pub struct ParsedAlbum {
   pub name: String,
   pub rating: f32,
   pub rating_count: u32,
-  pub artists: Vec<ParsedArtist>,
+  pub artists: Vec<ParsedArtistReference>,
   pub primary_genres: Vec<String>,
   pub secondary_genres: Vec<String>,
   pub descriptors: Vec<String>,
@@ -43,8 +43,21 @@ pub struct ParsedAlbum {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct ParsedArtistAlbum {
+  pub name: String,
+  pub file_name: FileName,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ParsedArtist {
+  pub name: String,
+  pub albums: Vec<ParsedArtistAlbum>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 pub enum ParsedFileData {
   Chart { albums: Vec<ParsedChartAlbum> },
   Album(ParsedAlbum),
+  Artist(ParsedArtist),
 }

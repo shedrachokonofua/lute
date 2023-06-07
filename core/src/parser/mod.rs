@@ -1,4 +1,5 @@
 mod album;
+mod artist;
 mod chart;
 mod dom;
 pub mod parsed_file_data;

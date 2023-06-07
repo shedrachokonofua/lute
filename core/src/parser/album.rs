@@ -1,12 +1,10 @@
-use anyhow::Result;
-
-use crate::files::file_metadata::file_name::FileName;
-
 use super::{
   dom::{get_meta_value, get_node_inner_text, get_tag_inner_text, query_select_first},
-  parsed_file_data::{ParsedAlbum, ParsedArtist, ParsedTrack},
+  parsed_file_data::{ParsedAlbum, ParsedArtistReference, ParsedTrack},
   util::{clean_artist_name, parse_release_date},
 };
+use crate::files::file_metadata::file_name::FileName;
+use anyhow::Result;
 
 pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
   let dom = tl::parse(file_content, tl::ParserOptions::default())?;
@@ -53,7 +51,7 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
             .and_then(|node| node.as_tag())
             .unwrap();
 
-          ParsedArtist {
+          ParsedArtistReference {
             name: clean_artist_name(get_node_inner_text(dom.parser(), &node).unwrap().as_str())
               .to_string(),
             file_name: FileName::try_from(
@@ -68,7 +66,7 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
             .unwrap(),
           }
         })
-        .collect::<Vec<ParsedArtist>>()
+        .collect::<Vec<ParsedArtistReference>>()
     })
     .ok_or(anyhow::anyhow!("Failed to parse artists"))?;
 
