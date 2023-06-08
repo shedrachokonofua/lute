@@ -55,9 +55,17 @@ pub struct ParsedArtist {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct ParsedAlbumSearchResult {
+  pub name: String,
+  pub file_name: FileName,
+  pub artists: Vec<ParsedArtistReference>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 pub enum ParsedFileData {
-  Chart { albums: Vec<ParsedChartAlbum> },
+  Chart(Vec<ParsedChartAlbum>),
   Album(ParsedAlbum),
   Artist(ParsedArtist),
+  AlbumSearchResult(ParsedAlbumSearchResult),
 }

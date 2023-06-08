@@ -8,7 +8,10 @@ use crate::{
     file_content_store::FileContentStore,
     file_metadata::{file_name::FileName, page_type::PageType},
   },
-  parser::{album::parse_album, artist::parse_artist, chart::parse_chart},
+  parser::{
+    album::parse_album, album_search_result::parse_album_search_result, artist::parse_artist,
+    chart::parse_chart,
+  },
 };
 use anyhow::Result;
 use ulid::Ulid;
@@ -28,10 +31,11 @@ pub async fn parse_file_on_store(
   );
 
   let parse_result: Result<ParsedFileData> = match file_name.page_type() {
-    PageType::Chart => parse_chart(&file_content).map(|albums| ParsedFileData::Chart { albums }),
+    PageType::Chart => parse_chart(&file_content).map(|albums| ParsedFileData::Chart(albums)),
     PageType::Album => parse_album(&file_content).map(|album| ParsedFileData::Album(album)),
     PageType::Artist => parse_artist(&file_content).map(|artist| ParsedFileData::Artist(artist)),
-    _ => Err(anyhow::anyhow!("Unsupported page type").into()),
+    PageType::AlbumSearchResult => parse_album_search_result(&file_content)
+      .map(|result| ParsedFileData::AlbumSearchResult(result)),
   };
 
   let event = match &parse_result {

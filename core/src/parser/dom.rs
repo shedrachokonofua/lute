@@ -51,3 +51,18 @@ pub fn get_meta_value<'a>(dom: &'a VDom, name: &'a str) -> Result<String> {
     .map(|name| name.to_string())
     .ok_or(anyhow::anyhow!("No meta value found for name: {}", name))
 }
+
+pub fn get_link_tag_href(tag: &tl::HTMLTag) -> Result<String> {
+  tag
+    .attributes()
+    .get("href")
+    .flatten()
+    .map(|content| content.as_utf8_str())
+    .map(|name| {
+      name
+        .trim_start_matches('/')
+        .trim_end_matches('/')
+        .to_string()
+    })
+    .ok_or(anyhow::anyhow!("No href found"))
+}

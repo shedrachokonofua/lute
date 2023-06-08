@@ -1,5 +1,7 @@
 use super::{
-  dom::{get_meta_value, get_node_inner_text, get_tag_inner_text, query_select_first},
+  dom::{
+    get_link_tag_href, get_meta_value, get_node_inner_text, get_tag_inner_text, query_select_first,
+  },
   parsed_file_data::{ParsedAlbum, ParsedArtistReference, ParsedTrack},
   util::{clean_artist_name, parse_release_date},
 };
@@ -54,16 +56,7 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
           ParsedArtistReference {
             name: clean_artist_name(get_node_inner_text(dom.parser(), &node).unwrap().as_str())
               .to_string(),
-            file_name: FileName::try_from(
-              tag
-                .attributes()
-                .get("href")
-                .flatten()
-                .map(|content| content.as_utf8_str())
-                .map(|name| name.to_string())
-                .unwrap(),
-            )
-            .unwrap(),
+            file_name: FileName::try_from(get_link_tag_href(&tag).unwrap()).unwrap(),
           }
         })
         .collect::<Vec<ParsedArtistReference>>()

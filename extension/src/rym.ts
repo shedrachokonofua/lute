@@ -15,7 +15,11 @@ export const onRymPageLoaded = (
 ) => {
   onTabLoaded(async (tab) => {
     if (!tab.url || !isRymTab(tab)) return;
-    const fileName = getFileName(tab.url);
+    const baseFileName = getFileName(tab.url);
+    const queryPart = baseFileName.startsWith("search")
+      ? new URL(tab.url).search
+      : "";
+    const fileName = baseFileName + queryPart;
     const content = await getTabContent(tab);
 
     callback(fileName, content);

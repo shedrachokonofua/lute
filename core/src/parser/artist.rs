@@ -1,5 +1,5 @@
 use super::{
-  dom::{self, get_meta_value},
+  dom::{self, get_link_tag_href, get_meta_value},
   parsed_file_data::{ParsedArtist, ParsedArtistAlbum},
 };
 use crate::files::file_metadata::file_name::FileName;
@@ -26,16 +26,7 @@ fn parse_artist_album(dom: &VDom, selector: &str) -> Result<Vec<ParsedArtistAlbu
             name: dom::get_node_inner_text(dom.parser(), &node)
               .unwrap()
               .to_string(),
-            file_name: FileName::try_from(
-              tag
-                .attributes()
-                .get("href")
-                .flatten()
-                .map(|content| content.as_utf8_str())
-                .map(|name| name.to_string())
-                .unwrap(),
-            )
-            .unwrap(),
+            file_name: FileName::try_from(get_link_tag_href(tag).unwrap()).unwrap(),
           }
         })
         .collect()

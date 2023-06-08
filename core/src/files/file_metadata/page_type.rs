@@ -5,12 +5,12 @@ pub enum PageType {
   Artist,
   Album,
   Chart,
-  Search,
+  AlbumSearchResult,
 }
 
 pub const SUPPORTED_RELEASE_TYPES: [&str; 3] = ["album", "mixtape", "ep"];
 
-fn is_album_page(file_name: &str) -> bool {
+pub fn is_album_page(file_name: &str) -> bool {
   SUPPORTED_RELEASE_TYPES
     .iter()
     .any(|&release_type| file_name.starts_with(&format!("release/{}/", release_type)))
@@ -18,10 +18,16 @@ fn is_album_page(file_name: &str) -> bool {
 
 lazy_static! {
   static ref CHART_PAGE_RE: Regex = Regex::new(r"^charts/(\w+)/(album|mixtape|ep)/").unwrap();
+  static ref ALBUM_SEARCH_RESULT_PAGE_RE: Regex =
+    Regex::new(r"^search\?searchterm=[^&]+&searchtype=l$").unwrap();
 }
 
 fn is_chart_page(file_name: &str) -> bool {
   CHART_PAGE_RE.is_match(file_name)
+}
+
+pub fn is_album_search_result_page(file_name: &str) -> bool {
+  ALBUM_SEARCH_RESULT_PAGE_RE.is_match(file_name)
 }
 
 impl TryFrom<&str> for PageType {
@@ -31,7 +37,7 @@ impl TryFrom<&str> for PageType {
     match value {
       file_name if is_album_page(&file_name) => Ok(PageType::Album),
       file_name if is_chart_page(&file_name) => Ok(PageType::Chart),
-      file_name if file_name.starts_with("search") => Ok(PageType::Search),
+      file_name if is_album_search_result_page(&file_name) => Ok(PageType::AlbumSearchResult),
       file_name if file_name.starts_with("artist") => Ok(PageType::Artist),
       _ => Err(()),
     }
@@ -44,7 +50,37 @@ impl ToString for PageType {
       PageType::Artist => "artist".to_string(),
       PageType::Album => "album".to_string(),
       PageType::Chart => "chart".to_string(),
-      PageType::Search => "search".to_string(),
+      PageType::AlbumSearchResult => "album_search_result".to_string(),
+    }
+  }
+}
+
+impl PageType {
+  pub fn is_album(&self) -> bool {
+    match self {
+      PageType::Album => true,
+      _ => false,
+    }
+  }
+
+  pub fn is_chart(&self) -> bool {
+    match self {
+      PageType::Chart => true,
+      _ => false,
+    }
+  }
+
+  pub fn is_search_result(&self) -> bool {
+    match self {
+      PageType::AlbumSearchResult => true,
+      _ => false,
+    }
+  }
+
+  pub fn is_artist(&self) -> bool {
+    match self {
+      PageType::Artist => true,
+      _ => false,
     }
   }
 }

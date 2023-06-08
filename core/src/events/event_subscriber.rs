@@ -59,7 +59,7 @@ impl EventSubscriber {
     let reply: StreamReadReply = self.redis_connection_pool.get()?.xread_options(
       &[&self.stream.redis_key()],
       &[&cursor],
-      &StreamReadOptions::default().count(100).block(1000),
+      &StreamReadOptions::default().count(100).block(500),
     )?;
     match reply.keys.get(0) {
       Some(stream) => {

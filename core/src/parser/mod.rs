@@ -1,4 +1,5 @@
 mod album;
+mod album_search_result;
 mod artist;
 mod chart;
 mod dom;

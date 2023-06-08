@@ -1,5 +1,5 @@
 use super::{
-  dom::{get_node_inner_text, get_tag_inner_text, query_select_first},
+  dom::{get_link_tag_href, get_node_inner_text, get_tag_inner_text, query_select_first},
   parsed_file_data::{ParsedArtistReference, ParsedChartAlbum},
   util::{clean_artist_name, parse_release_date},
 };
@@ -49,18 +49,7 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
           name: clean_artist_name(get_node_inner_text(dom.parser(), &node).unwrap().as_str())
             .to_string(),
           file_name: FileName::try_from(
-            node
-              .get(dom.parser())
-              .unwrap()
-              .as_tag()
-              .unwrap()
-              .attributes()
-              .get("href")
-              .unwrap()
-              .ok_or(anyhow::anyhow!("No file name found"))
-              .unwrap()
-              .as_utf8_str()
-              .to_string(),
+            get_link_tag_href(&node.get(dom.parser()).unwrap().as_tag().unwrap()).unwrap(),
           )
           .unwrap(),
         })
@@ -107,13 +96,12 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
         .unwrap_or(Vec::new());
 
         let file_name = FileName::try_from(
-          query_select_first(dom.parser(), tag, ".page_charts_section_charts_item_link")?
-            .attributes()
-            .get("href")
-            .unwrap()
-            .ok_or(anyhow::anyhow!("No file name found"))?
-            .as_utf8_str()
-            .to_string(),
+          get_link_tag_href(query_select_first(
+            dom.parser(),
+            tag,
+            ".page_charts_section_charts_item_link",
+          )?)
+          .unwrap(),
         )?;
 
         let release_date_string = get_tag_inner_text(
