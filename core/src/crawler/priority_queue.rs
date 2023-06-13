@@ -318,13 +318,12 @@ impl PriorityQueue {
       .filter_map(|item| item.clone())
       .collect::<Vec<QueueItem>>();
 
-    let claimed_items = claimed_keys
+    let claimed_items = items
       .iter()
-      .zip(items)
-      .map(|(key, item)| ClaimedQueueItem {
-        item,
+      .map(|item| ClaimedQueueItem {
+        item: item.clone(),
         claim_ttl_seconds: connection
-          .ttl(self.claimed_item_key(&key.to_string()))
+          .ttl(self.claimed_item_key(&item.item_key.to_string()))
           .unwrap(),
       })
       .collect::<Vec<ClaimedQueueItem>>();
