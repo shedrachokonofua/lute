@@ -1,3 +1,4 @@
+pub mod crawler;
 pub mod db;
 pub mod events;
 pub mod files;

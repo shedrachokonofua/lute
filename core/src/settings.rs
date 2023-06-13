@@ -1,10 +1,13 @@
-#[derive(Debug, Clone, Default, serde_derive::Deserialize, PartialEq, Eq)]
+use chrono::Duration;
+use serde_derive::Deserialize;
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct RedisSettings {
   pub url: String,
   pub max_pool_size: u32,
 }
 
-#[derive(Debug, Clone, Default, serde_derive::Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 
 pub struct FileTtlDaysSettings {
   pub artist: u32,
@@ -13,7 +16,7 @@ pub struct FileTtlDaysSettings {
   pub chart: u32,
 }
 
-#[derive(Debug, Clone, Default, serde_derive::Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct ContentStoreSettings {
   pub region: String,
   pub endpoint: String,
@@ -22,16 +25,32 @@ pub struct ContentStoreSettings {
   pub bucket: String,
 }
 
-#[derive(Debug, Clone, Default, serde_derive::Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct FileSettings {
   pub ttl_days: FileTtlDaysSettings,
   pub content_store: ContentStoreSettings,
 }
 
-#[derive(Debug, Clone, Default, serde_derive::Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct CrawlerRateLimitSettings {
+  pub window_seconds: u32,
+  pub max_requests: u32,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct CrawlerSettings {
+  pub pool_size: u32,
+  pub claim_ttl_seconds: u32,
+  pub max_queue_size: u32,
+  pub wait_time_seconds: u32,
+  pub rate_limit: CrawlerRateLimitSettings,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Settings {
   pub redis: RedisSettings,
   pub file: FileSettings,
+  pub crawler: CrawlerSettings,
 }
 
 impl Settings {
@@ -42,6 +61,18 @@ impl Settings {
       .set_default("file.ttl_days.album", 7)?
       .set_default("file.ttl_days.chart", 7)?
       .set_default("file.ttl_days.search", 1)?
+      .set_default("crawler.pool_size", 10)?
+      .set_default(
+        "crawler.claim_ttl_seconds",
+        Duration::minutes(5).num_seconds(),
+      )?
+      .set_default("crawler.max_queue_size", 5000)?
+      .set_default("crawler.wait_time_seconds", 5)?
+      .set_default(
+        "crawler.rate_limit.window_seconds",
+        Duration::days(1).num_seconds(),
+      )?
+      .set_default("crawler.rate_limit.max_requests", 2000)?
       .build()?;
 
     Ok(s.try_deserialize()?)

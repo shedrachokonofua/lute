@@ -23,12 +23,6 @@ pub async fn parse_file_on_store(
   file_name: FileName,
 ) -> Result<ParsedFileData> {
   let file_content = file_content_store.get(&file_name).await?;
-  println!(
-    "Parsing file: {} {} {}",
-    file_id,
-    file_name.to_string(),
-    file_name.page_type().to_string()
-  );
 
   let parse_result: Result<ParsedFileData> = match file_name.page_type() {
     PageType::Chart => parse_chart(&file_content).map(|albums| ParsedFileData::Chart(albums)),
