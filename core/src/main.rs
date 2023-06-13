@@ -1,6 +1,6 @@
 use core::{
   crawler::crawler::Crawler, db::build_redis_connection_pool,
-  events::event_subscriber::EventSubscriber,
+  events::event_subscriber::EventSubscriber, log::setup_logging,
   parser::parser_event_subscribers::get_parser_event_subscribers, rpc::RpcServer,
   settings::Settings,
 };
@@ -44,6 +44,8 @@ fn start_event_subscribers(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   dotenv().ok();
+  setup_logging();
+
   let settings: Settings = Settings::new()?;
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()));
   let crawler = Arc::new(Crawler::new(

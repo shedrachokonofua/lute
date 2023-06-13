@@ -14,6 +14,7 @@ use reqwest::{Client, ClientBuilder, Proxy};
 use std::sync::Arc;
 use tokio::time::sleep;
 use tokio_retry::{strategy::FibonacciBackoff, Retry};
+use tracing::info;
 
 pub struct CrawlerWorker {
   pub settings: CrawlerSettings,
@@ -85,6 +86,7 @@ impl CrawlerWorker {
     }
     let queue_item = queue_item.unwrap();
     let result = Retry::spawn(FibonacciBackoff::from_millis(500).take(5), || async {
+      info!(item = &queue_item.item_key, "Processing queue item");
       self.process_queue_item(queue_item.clone()).await
     })
     .await?;

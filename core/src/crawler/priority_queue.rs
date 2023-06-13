@@ -90,7 +90,7 @@ impl FromStr for ItemKey {
   }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QueueItem {
   pub item_key: String,
   pub enqueue_time: NaiveDateTime,

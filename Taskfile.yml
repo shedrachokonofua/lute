@@ -13,6 +13,8 @@ tasks:
 
   "core:run":
     dir: core
+    env:
+      RUST_LOG: core=debug,h2=error,hyper=error,reqwest=error
     cmds:
       - cargo run
 
