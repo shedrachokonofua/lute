@@ -1,8 +1,8 @@
 use super::{file_metadata::FileMetadata, file_name::FileName, file_timestamp::FileTimestamp};
 use anyhow::{bail, Result};
-use r2d2::PooledConnection;
+use r2d2::Pool;
 use redis::{Client, Commands};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use ulid::Ulid;
 
 fn get_key(id: String) -> String {
@@ -48,16 +48,15 @@ impl Into<Vec<(String, String)>> for FileMetadata {
 }
 
 pub struct FileMetadataRepository {
-  redis_connection: PooledConnection<Client>,
+  pub redis_connection_pool: Arc<Pool<Client>>,
 }
 
 impl FileMetadataRepository {
-  pub fn new(redis_connection: PooledConnection<Client>) -> Self {
-    Self { redis_connection }
-  }
-
-  pub fn find_by_id(&mut self, id: &str) -> Result<Option<FileMetadata>> {
-    let res: HashMap<String, String> = self.redis_connection.hgetall(get_key(id.to_string()))?;
+  pub fn find_by_id(&self, id: &str) -> Result<Option<FileMetadata>> {
+    let res: HashMap<String, String> = self
+      .redis_connection_pool
+      .get()?
+      .hgetall(get_key(id.to_string()))?;
 
     if res.is_empty() {
       return Ok(None);
@@ -66,14 +65,16 @@ impl FileMetadataRepository {
     }
   }
 
-  pub fn find_by_name(&mut self, name: &FileName) -> Result<Option<FileMetadata>> {
+  pub fn find_by_name(&self, name: &FileName) -> Result<Option<FileMetadata>> {
     let id: Option<String> = self
-      .redis_connection
+      .redis_connection_pool
+      .get()?
       .get(get_name_index_key(name.to_string()))?;
 
     match id {
       Some(id) => {
-        let res: HashMap<String, String> = self.redis_connection.hgetall(get_key(id))?;
+        let res: HashMap<String, String> =
+          self.redis_connection_pool.get()?.hgetall(get_key(id))?;
 
         if res.is_empty() {
           return Ok(None);
@@ -85,7 +86,7 @@ impl FileMetadataRepository {
     }
   }
 
-  pub fn insert(&mut self, name: &FileName) -> Result<FileMetadata> {
+  pub fn insert(&self, name: &FileName) -> Result<FileMetadata> {
     if self.find_by_name(name)?.is_some() {
       bail!("File already exists");
     }
@@ -97,6 +98,8 @@ impl FileMetadataRepository {
     };
 
     let hset_items: Vec<(String, String)> = file_metadata.clone().try_into()?;
+    let mut connection = self.redis_connection_pool.get()?;
+
     redis::pipe()
       .atomic()
       .hset_multiple(get_key(file_metadata.id.into()), &hset_items)
@@ -106,12 +109,14 @@ impl FileMetadataRepository {
         file_metadata.id.to_string(),
       )
       .ignore()
-      .query(&mut self.redis_connection)?;
+      .query(&mut connection)?;
 
     Ok(file_metadata)
   }
 
-  pub fn upsert(&mut self, name: &FileName) -> Result<FileMetadata> {
+  pub fn upsert(&self, name: &FileName) -> Result<FileMetadata> {
+    let mut connection = self.redis_connection_pool.get()?;
+
     match self.find_by_name(name)? {
       Some(file_metadata) => {
         let last_saved_at = FileTimestamp::now();
@@ -124,7 +129,7 @@ impl FileMetadataRepository {
             last_saved_at.to_string(),
           )
           .ignore()
-          .query(&mut self.redis_connection)?;
+          .query(&mut connection)?;
 
         Ok(FileMetadata {
           id: file_metadata.id,

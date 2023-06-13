@@ -1,18 +1,9 @@
-pub mod crawler;
-pub mod db;
-pub mod events;
-pub mod files;
-pub mod parser;
-pub mod proto;
-pub mod rpc;
-pub mod settings;
-
-use db::build_redis_connection_pool;
+use core::{
+  db::build_redis_connection_pool, events::event_subscriber::EventSubscriber,
+  parser::parser_event_subscribers::get_parser_event_subscribers, rpc::RpcServer,
+  settings::Settings,
+};
 use dotenv::dotenv;
-use events::event_subscriber::EventSubscriber;
-use parser::parser_event_subscribers::get_parser_event_subscribers;
-use rpc::server::RpcServer;
-use settings::Settings;
 use std::sync::Arc;
 use tokio::task;
 
@@ -20,7 +11,7 @@ fn run_rpc_server(
   settings: Settings,
   redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
 ) -> task::JoinHandle<()> {
-  let rpc_server = RpcServer::new(settings.clone(), redis_connection_pool.clone());
+  let rpc_server = RpcServer::new(settings, redis_connection_pool.clone());
 
   task::spawn(async move {
     rpc_server.run().await.unwrap();

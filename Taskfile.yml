@@ -20,6 +20,11 @@ tasks:
     dir: core
     cmds:
       - cargo clippy
+  
+  "core:lint:fix":
+    dir: core
+    cmds:
+      - cargo clippy --fix
 
   "core:fmt":
     dir: core

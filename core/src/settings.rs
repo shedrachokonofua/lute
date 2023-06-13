@@ -48,6 +48,7 @@ pub struct CrawlerSettings {
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Settings {
+  pub port: u32,
   pub redis: RedisSettings,
   pub file: FileSettings,
   pub crawler: CrawlerSettings,
@@ -57,6 +58,7 @@ impl Settings {
   pub fn new() -> Result<Self, config::ConfigError> {
     let s = config::Config::builder()
       .add_source(config::Environment::default())
+      .set_default("port", 22000)?
       .set_default("file.ttl_days.artist", 14)?
       .set_default("file.ttl_days.album", 7)?
       .set_default("file.ttl_days.chart", 7)?

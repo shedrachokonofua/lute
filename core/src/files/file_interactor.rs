@@ -31,12 +31,14 @@ impl FileInteractor {
     Self {
       settings: settings.clone(),
       file_content_store: FileContentStore::new(settings.content_store.clone()).unwrap(),
-      file_metadata_repository: FileMetadataRepository::new(redis_connection_pool.get().unwrap()),
+      file_metadata_repository: FileMetadataRepository {
+        redis_connection_pool: redis_connection_pool.clone(),
+      },
       event_publisher: EventPublisher::new(redis_connection_pool.clone()),
     }
   }
 
-  pub fn is_file_stale(&mut self, name: String) -> Result<bool> {
+  pub fn is_file_stale(&self, name: String) -> Result<bool> {
     let file_name = FileName::try_from(name)?;
     let file_metadata = self.file_metadata_repository.find_by_name(&file_name)?;
 
@@ -53,7 +55,7 @@ impl FileInteractor {
   }
 
   pub async fn put_file(
-    &mut self,
+    &self,
     name: String,
     content: String,
     correlation_id: Option<String>,
