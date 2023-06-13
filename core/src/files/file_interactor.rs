@@ -30,11 +30,11 @@ impl FileInteractor {
   ) -> Self {
     Self {
       settings: settings.clone(),
-      file_content_store: FileContentStore::new(settings.content_store.clone()).unwrap(),
+      file_content_store: FileContentStore::new(settings.content_store).unwrap(),
       file_metadata_repository: FileMetadataRepository {
         redis_connection_pool: redis_connection_pool.clone(),
       },
-      event_publisher: EventPublisher::new(redis_connection_pool.clone()),
+      event_publisher: EventPublisher::new(redis_connection_pool),
     }
   }
 
@@ -67,7 +67,7 @@ impl FileInteractor {
       Stream::File,
       EventPayload {
         event: Event::FileSaved {
-          file_id: file_metadata.id.clone(),
+          file_id: file_metadata.id,
           file_name: file_metadata.name.clone(),
         },
         correlation_id,

@@ -37,12 +37,12 @@ impl From<HashMap<String, String>> for FileMetadata {
   }
 }
 
-impl Into<Vec<(String, String)>> for FileMetadata {
-  fn into(self) -> Vec<(String, String)> {
+impl From<FileMetadata> for Vec<(String, String)> {
+  fn from(val: FileMetadata) -> Self {
     vec![
-      ("id".to_string(), self.id.to_string()),
-      ("name".to_string(), self.name.0),
-      ("last_saved_at".to_string(), self.last_saved_at.to_string()),
+      ("id".to_string(), val.id.to_string()),
+      ("name".to_string(), val.name.0),
+      ("last_saved_at".to_string(), val.last_saved_at.to_string()),
     ]
   }
 }
@@ -59,9 +59,9 @@ impl FileMetadataRepository {
       .hgetall(get_key(id.to_string()))?;
 
     if res.is_empty() {
-      return Ok(None);
+      Ok(None)
     } else {
-      return Ok(Some(res.into()));
+      Ok(Some(res.into()))
     }
   }
 
@@ -77,9 +77,9 @@ impl FileMetadataRepository {
           self.redis_connection_pool.get()?.hgetall(get_key(id))?;
 
         if res.is_empty() {
-          return Ok(None);
+          Ok(None)
         } else {
-          return Ok(Some(res.into()));
+          Ok(Some(res.into()))
         }
       }
       None => Ok(None),

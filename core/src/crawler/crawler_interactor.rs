@@ -34,7 +34,7 @@ impl CrawlerInteractor {
         redis_connection_pool: redis_connection_pool.clone(),
       },
       priority_queue: PriorityQueue::new(
-        redis_connection_pool.clone(),
+        redis_connection_pool,
         settings.max_queue_size,
         settings.claim_ttl_seconds,
       ),

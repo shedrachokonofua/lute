@@ -30,7 +30,7 @@ impl RpcServer {
     Self {
       settings: settings.clone(),
       file_service: Arc::new(FileService {
-        file_interactor: FileInteractor::new(settings.file.clone(), redis_connection_pool.clone()),
+        file_interactor: FileInteractor::new(settings.file, redis_connection_pool),
       }),
     }
   }

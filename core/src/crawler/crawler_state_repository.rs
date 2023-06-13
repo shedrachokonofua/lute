@@ -64,7 +64,7 @@ impl CrawlerStateRepository {
   pub fn get_status(&self) -> Result<CrawlerStatus> {
     let mut connection = self.redis_connection_pool.get()?;
     let status: String = connection.get(self.status_key())?;
-    Ok(CrawlerStatus::from_str(&status)?)
+    CrawlerStatus::from_str(&status)
   }
 
   pub fn set_status(&self, status: CrawlerStatus) -> Result<()> {

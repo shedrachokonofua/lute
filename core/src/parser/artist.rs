@@ -25,7 +25,7 @@ fn parse_artist_album(dom: &VDom, selector: &str) -> Result<Vec<ParsedArtistAlbu
           ParsedArtistAlbum {
             name: dom::get_node_inner_text(dom.parser(), &node)
               .unwrap()
-              .to_string(),
+              ,
             file_name: FileName::try_from(get_link_tag_href(tag).unwrap()).unwrap(),
           }
         })

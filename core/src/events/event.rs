@@ -36,18 +36,18 @@ pub struct EventPayload {
   pub metadata: Option<HashMap<String, String>>,
 }
 
-impl Into<HashMap<String, String>> for EventPayload {
-  fn into(self) -> HashMap<String, String> {
+impl From<EventPayload> for HashMap<String, String> {
+  fn from(val: EventPayload) -> Self {
     let mut result = HashMap::new();
     result.insert(
       "event".to_string(),
-      serde_json::to_string(&self.event).unwrap(),
+      serde_json::to_string(&val.event).unwrap(),
     );
     result.insert(
       "metadata".to_string(),
-      serde_json::to_string(&self.metadata.unwrap_or(HashMap::new())).unwrap(),
+      serde_json::to_string(&val.metadata.unwrap_or(HashMap::new())).unwrap(),
     );
-    if let Some(correlation_id) = self.correlation_id {
+    if let Some(correlation_id) = val.correlation_id {
       result.insert("correlation_id".to_string(), correlation_id);
     }
     result
@@ -57,7 +57,7 @@ impl Into<HashMap<String, String>> for EventPayload {
 fn get_value_as_string(value: &redis::Value) -> Result<String> {
   match value {
     redis::Value::Data(raw) => Ok(String::from_utf8(raw.clone())?),
-    _ => Err(anyhow::anyhow!("data was not binary").into()),
+    _ => Err(anyhow::anyhow!("data was not binary")),
   }
 }
 

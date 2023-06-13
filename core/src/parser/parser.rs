@@ -25,11 +25,11 @@ pub async fn parse_file_on_store(
   let file_content = file_content_store.get(&file_name).await?;
 
   let parse_result: Result<ParsedFileData> = match file_name.page_type() {
-    PageType::Chart => parse_chart(&file_content).map(|albums| ParsedFileData::Chart(albums)),
-    PageType::Album => parse_album(&file_content).map(|album| ParsedFileData::Album(album)),
-    PageType::Artist => parse_artist(&file_content).map(|artist| ParsedFileData::Artist(artist)),
+    PageType::Chart => parse_chart(&file_content).map(ParsedFileData::Chart),
+    PageType::Album => parse_album(&file_content).map(ParsedFileData::Album),
+    PageType::Artist => parse_artist(&file_content).map(ParsedFileData::Artist),
     PageType::AlbumSearchResult => parse_album_search_result(&file_content)
-      .map(|result| ParsedFileData::AlbumSearchResult(result)),
+      .map(ParsedFileData::AlbumSearchResult),
   };
 
   let event = match &parse_result {

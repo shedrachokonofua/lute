@@ -35,7 +35,7 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
           )?,
           ".full",
         )?
-        .replace(",", "")
+        .replace(',', "")
         .parse::<u32>()?;
 
         let artists = query_select_first(
@@ -49,7 +49,7 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
           name: clean_artist_name(get_node_inner_text(dom.parser(), &node).unwrap().as_str())
             .to_string(),
           file_name: FileName::try_from(
-            get_link_tag_href(&node.get(dom.parser()).unwrap().as_tag().unwrap()).unwrap(),
+            get_link_tag_href(node.get(dom.parser()).unwrap().as_tag().unwrap()).unwrap(),
           )
           .unwrap(),
         })

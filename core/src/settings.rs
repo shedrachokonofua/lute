@@ -77,6 +77,6 @@ impl Settings {
       .set_default("crawler.rate_limit.max_requests", 2000)?
       .build()?;
 
-    Ok(s.try_deserialize()?)
+    s.try_deserialize()
   }
 }

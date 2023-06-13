@@ -20,13 +20,13 @@ impl FileMetadata {
   }
 }
 
-impl Into<proto::FileMetadata> for FileMetadata {
-  fn into(self) -> proto::FileMetadata {
+impl From<FileMetadata> for proto::FileMetadata {
+  fn from(val: FileMetadata) -> Self {
     proto::FileMetadata {
-      id: self.id.to_string(),
-      name: self.name.0.clone(),
-      first_saved_at: self.first_saved_at().to_string(),
-      last_saved_at: self.last_saved_at.to_string(),
+      id: val.id.to_string(),
+      name: val.name.0.clone(),
+      first_saved_at: val.first_saved_at().to_string(),
+      last_saved_at: val.last_saved_at.to_string(),
     }
   }
 }

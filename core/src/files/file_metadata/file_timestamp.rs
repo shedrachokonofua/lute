@@ -44,8 +44,8 @@ impl From<DateTime<Utc>> for FileTimestamp {
   }
 }
 
-impl Into<DateTime<Utc>> for FileTimestamp {
-  fn into(self) -> DateTime<Utc> {
-    self.0
+impl From<FileTimestamp> for DateTime<Utc> {
+  fn from(val: FileTimestamp) -> Self {
+    val.0
   }
 }

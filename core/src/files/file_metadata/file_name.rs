@@ -20,9 +20,9 @@ impl TryFrom<String> for FileName {
   }
 }
 
-impl Into<String> for FileName {
-  fn into(self) -> String {
-    self.0
+impl From<FileName> for String {
+  fn from(val: FileName) -> Self {
+    val.0
   }
 }
 

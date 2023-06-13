@@ -11,7 +11,7 @@ fn run_rpc_server(
   settings: Settings,
   redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
 ) -> task::JoinHandle<()> {
-  let rpc_server = RpcServer::new(settings, redis_connection_pool.clone());
+  let rpc_server = RpcServer::new(settings, redis_connection_pool);
 
   task::spawn(async move {
     rpc_server.run().await.unwrap();
@@ -24,8 +24,8 @@ fn start_event_subscribers(
 ) {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
   event_subscribers.extend(get_parser_event_subscribers(
-    redis_connection_pool.clone(),
-    settings.clone(),
+    redis_connection_pool,
+    settings,
   ));
 
   event_subscribers.into_iter().for_each(|subscriber| {

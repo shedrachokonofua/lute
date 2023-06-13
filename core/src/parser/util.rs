@@ -8,7 +8,7 @@ pub fn parse_release_date(date_string: String) -> Result<NaiveDate> {
   }
 
   // Possible formats:  "2020", "January 2020", 1 January 2020"
-  let parts = date_string.split(" ").collect::<Vec<&str>>();
+  let parts = date_string.split(' ').collect::<Vec<&str>>();
   match parts.len() {
     1 => {
       let year = parts[0].parse::<i32>()?;
@@ -26,7 +26,7 @@ pub fn parse_release_date(date_string: String) -> Result<NaiveDate> {
       ))
     }
     3 => NaiveDate::parse_from_str(date_string, "%d %B %Y")
-      .map_err(|e| anyhow::anyhow!("Failed to parse date: {}", date_string)),
+      .map_err(|_e| anyhow::anyhow!("Failed to parse date: {}", date_string)),
     _ => Err(anyhow::anyhow!("Invalid date: {}", date_string)),
   }
 }

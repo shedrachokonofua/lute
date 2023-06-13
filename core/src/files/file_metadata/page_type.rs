@@ -35,9 +35,9 @@ impl TryFrom<&str> for PageType {
 
   fn try_from(value: &str) -> Result<Self, Self::Error> {
     match value {
-      file_name if is_album_page(&file_name) => Ok(PageType::Album),
-      file_name if is_chart_page(&file_name) => Ok(PageType::Chart),
-      file_name if is_album_search_result_page(&file_name) => Ok(PageType::AlbumSearchResult),
+      file_name if is_album_page(file_name) => Ok(PageType::Album),
+      file_name if is_chart_page(file_name) => Ok(PageType::Chart),
+      file_name if is_album_search_result_page(file_name) => Ok(PageType::AlbumSearchResult),
       file_name if file_name.starts_with("artist") => Ok(PageType::Artist),
       _ => Err(()),
     }
@@ -57,30 +57,18 @@ impl ToString for PageType {
 
 impl PageType {
   pub fn is_album(&self) -> bool {
-    match self {
-      PageType::Album => true,
-      _ => false,
-    }
+    matches!(self, PageType::Album)
   }
 
   pub fn is_chart(&self) -> bool {
-    match self {
-      PageType::Chart => true,
-      _ => false,
-    }
+    matches!(self, PageType::Chart)
   }
 
-  pub fn is_search_result(&self) -> bool {
-    match self {
-      PageType::AlbumSearchResult => true,
-      _ => false,
-    }
+  pub fn is_album_search_result(&self) -> bool {
+    matches!(self, PageType::AlbumSearchResult)
   }
 
   pub fn is_artist(&self) -> bool {
-    match self {
-      PageType::Artist => true,
-      _ => false,
-    }
+    matches!(self, PageType::Artist)
   }
 }

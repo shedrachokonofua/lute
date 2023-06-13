@@ -56,7 +56,7 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
           ParsedArtistReference {
             name: clean_artist_name(get_node_inner_text(dom.parser(), &node).unwrap().as_str())
               .to_string(),
-            file_name: FileName::try_from(get_link_tag_href(&tag).unwrap()).unwrap(),
+            file_name: FileName::try_from(get_link_tag_href(tag).unwrap()).unwrap(),
           }
         })
         .collect::<Vec<ParsedArtistReference>>()

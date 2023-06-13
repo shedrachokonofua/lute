@@ -44,14 +44,11 @@ pub fn parse_album_search_result(file_content: &str) -> Result<ParsedAlbumSearch
         artists,
       })
     })
-    .filter(|result| result.is_ok())
-    .map(|result| result.unwrap())
+    .filter_map(|result| result.ok())
     .collect::<Vec<ParsedAlbumSearchResult>>();
 
   results
-    .iter()
-    .filter(|result| result.file_name.page_type().is_album())
-    .next()
+    .iter().find(|result| result.file_name.page_type().is_album())
     .ok_or(anyhow::anyhow!("No album found in search results"))
     .map(|album| album.clone())
 }

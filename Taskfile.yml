@@ -24,7 +24,7 @@ tasks:
   "core:lint:fix":
     dir: core
     cmds:
-      - cargo clippy --fix
+      - cargo clippy --fix --allow-dirty
 
   "core:fmt":
     dir: core

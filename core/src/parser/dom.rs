@@ -7,7 +7,7 @@ pub fn query_select_first<'a>(
   selector: &'a str,
 ) -> Result<&'a tl::HTMLTag<'a>> {
   tag
-    .query_selector(parser, &selector)
+    .query_selector(parser, selector)
     .and_then(|mut iter| iter.next())
     .ok_or(anyhow::anyhow!(
       "No element found for selector: {}",

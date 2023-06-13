@@ -61,33 +61,30 @@ impl EventSubscriber {
       &[&cursor],
       &StreamReadOptions::default().count(100).block(500),
     )?;
-    match reply.keys.get(0) {
-      Some(stream) => {
-        let futures = stream
-          .ids
-          .iter()
-          .map(|id| {
-            let payload = EventPayload::try_from(id.map.clone()).unwrap();
-            let pool = self.redis_connection_pool.clone();
-            let settings = self.settings.clone();
-            let handle = self.handle.clone();
-            tokio::spawn(async move {
-              let context = SubscriberContext {
-                redis_connection_pool: pool,
-                settings,
-                payload,
-              };
-              handle(context).await
-            })
+    if let Some(stream) = reply.keys.get(0) {
+      let futures = stream
+        .ids
+        .iter()
+        .map(|id| {
+          let payload = EventPayload::try_from(id.map.clone()).unwrap();
+          let pool = self.redis_connection_pool.clone();
+          let settings = self.settings.clone();
+          let handle = self.handle.clone();
+          tokio::spawn(async move {
+            let context = SubscriberContext {
+              redis_connection_pool: pool,
+              settings,
+              payload,
+            };
+            handle(context).await
           })
-          .collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
-        join_all(futures).await;
+      join_all(futures).await;
 
-        let tail = stream.ids.last().unwrap().id.clone();
-        self.set_cursor(&tail)?;
-      }
-      None => {}
+      let tail = stream.ids.last().unwrap().id.clone();
+      self.set_cursor(&tail)?;
     }
     Ok(())
   }

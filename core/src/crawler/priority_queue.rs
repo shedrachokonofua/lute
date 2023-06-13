@@ -315,8 +315,7 @@ impl PriorityQueue {
 
     let items = items_opt
       .iter()
-      .filter(|item| item.is_some())
-      .map(|item| item.clone().unwrap())
+      .filter_map(|item| item.clone())
       .collect::<Vec<QueueItem>>();
 
     let claimed_items = claimed_keys
