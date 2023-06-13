@@ -38,7 +38,16 @@ pub struct CrawlerRateLimitSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct CrawlerProxySettings {
+  pub host: String,
+  pub port: u32,
+  pub username: String,
+  pub password: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct CrawlerSettings {
+  pub proxy: CrawlerProxySettings,
   pub pool_size: u32,
   pub claim_ttl_seconds: u32,
   pub max_queue_size: u32,
@@ -56,7 +65,7 @@ pub struct Settings {
 
 impl Settings {
   pub fn new() -> Result<Self, config::ConfigError> {
-    let s = config::Config::builder()
+    config::Config::builder()
       .add_source(config::Environment::default())
       .set_default("port", 22000)?
       .set_default("file.ttl_days.artist", 14)?
@@ -75,8 +84,7 @@ impl Settings {
         Duration::days(1).num_seconds(),
       )?
       .set_default("crawler.rate_limit.max_requests", 2000)?
-      .build()?;
-
-    s.try_deserialize()
+      .build()?
+      .try_deserialize()
   }
 }

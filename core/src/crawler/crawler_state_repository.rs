@@ -63,8 +63,12 @@ impl CrawlerStateRepository {
 
   pub fn get_status(&self) -> Result<CrawlerStatus> {
     let mut connection = self.redis_connection_pool.get()?;
-    let status: String = connection.get(self.status_key())?;
-    CrawlerStatus::from_str(&status)
+    let status: Option<String> = connection.get(self.status_key())?;
+    Ok(
+      status
+        .map(|status| CrawlerStatus::from_str(&status).unwrap())
+        .unwrap_or(CrawlerStatus::Running),
+    )
   }
 
   pub fn set_status(&self, status: CrawlerStatus) -> Result<()> {
@@ -75,8 +79,8 @@ impl CrawlerStateRepository {
 
   pub fn get_window_request_count(&self) -> Result<u32> {
     let mut connection = self.redis_connection_pool.get()?;
-    let count: u32 = connection.get(self.window_request_count_key())?;
-    Ok(count)
+    let count: Option<u32> = connection.get(self.window_request_count_key())?;
+    Ok(count.unwrap_or(0))
   }
 
   pub fn increment_window_request_count(&self) -> Result<()> {

@@ -40,3 +40,71 @@ message IsFileStaleRequest {
 message IsFileStaleReply {
   bool stale = 1;
 }
+
+service CrawlerService {
+  rpc GetMonitor (google.protobuf.Empty) returns (GetCrawlerMonitorReply) {}
+  rpc SetStatus (SetStatusRequest) returns (SetCrawlerStatusReply) {}
+  rpc Enqueue (EnqueueRequest) returns (CrawlerEnqueueReply) {}
+}
+
+message GetCrawlerMonitorReply {
+  CrawlerMonitor monitor = 1;
+}
+
+enum CrawlerStatus {
+  Paused = 0;
+  Running = 1;
+  Draining = 2;
+  Throttled = 3;
+}
+
+enum CrawlerItemPriority {
+  Express = 0;
+  High = 1;
+  Standard = 2;
+  Low = 3;
+}
+
+message CrawlerQueueItem {
+  string item_key = 1;
+  string enqueue_time = 2;
+  string deduplication_key = 3;
+  string file_name = 4;
+  CrawlerItemPriority priority = 5;
+  optional string correlation_id = 6;
+  map<string, string> metadata = 7;
+}
+
+message ClaimedCrawlerQueueItem {
+  CrawlerQueueItem item = 1;
+  int32 claim_ttl_seconds = 2;
+}
+
+message CrawlerMonitor {
+  CrawlerStatus status = 1;
+  int32 size = 2;
+  int32 claimed_item_count = 3;
+  repeated ClaimedCrawlerQueueItem claimed_items = 4;
+  int32 remaining_window_requests = 5;
+  int32 window_request_count = 6;
+}
+
+message SetStatusRequest {
+  CrawlerStatus status = 1;
+}
+
+message SetCrawlerStatusReply {
+  CrawlerStatus status = 1;
+}
+
+message EnqueueRequest {
+  string file_name = 1;
+  CrawlerItemPriority priority = 2;
+  string deduplication_key = 3;
+  optional string correlation_id = 4;
+  map<string, string> metadata = 5;
+}
+
+message CrawlerEnqueueReply {
+  bool ok = 1;
+}

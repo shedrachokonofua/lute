@@ -1,9 +1,11 @@
 use super::{
   crawler_state_repository::{CrawlerStateRepository, CrawlerStatus},
-  priority_queue::{ClaimedQueueItem, PriorityQueue, QueuePushParameters},
+  priority_queue::{ClaimedQueueItem, PriorityQueue, QueueItem, QueuePushParameters},
 };
-use crate::settings::CrawlerSettings;
+use crate::{settings::CrawlerSettings};
 use anyhow::{bail, Result};
+use r2d2::Pool;
+use redis::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -19,25 +21,22 @@ pub struct CrawlerMonitor {
 pub struct CrawlerInteractor {
   settings: CrawlerSettings,
   crawler_state_repository: CrawlerStateRepository,
-  priority_queue: PriorityQueue,
+  priority_queue: Arc<PriorityQueue>,
   throttle_lock: Mutex<()>,
 }
 
 impl CrawlerInteractor {
   pub fn new(
     settings: CrawlerSettings,
-    redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+    redis_connection_pool: Arc<Pool<Client>>,
+    priority_queue: Arc<PriorityQueue>,
   ) -> Self {
     Self {
-      settings: settings.clone(),
+      settings,
       crawler_state_repository: CrawlerStateRepository {
-        redis_connection_pool: redis_connection_pool.clone(),
-      },
-      priority_queue: PriorityQueue::new(
         redis_connection_pool,
-        settings.max_queue_size,
-        settings.claim_ttl_seconds,
-      ),
+      },
+      priority_queue,
       throttle_lock: Mutex::new(()),
     }
   }
@@ -110,5 +109,9 @@ impl CrawlerInteractor {
       remaining_window_requests,
       window_request_count,
     })
+  }
+
+  pub async fn claim_item(&self) -> Result<Option<QueueItem>> {
+    self.priority_queue.claim_item().await
   }
 }

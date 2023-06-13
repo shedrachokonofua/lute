@@ -1,4 +1,6 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-  tonic_build::compile_protos("../proto/lute.proto")?;
+  let mut config = prost_build::Config::new();
+  config.protoc_arg("--experimental_allow_proto3_optional");
+  tonic_build::configure().compile_with_config(config, &["lute.proto"], &["../proto"])?;
   Ok(())
 }

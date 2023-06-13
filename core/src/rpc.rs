@@ -1,6 +1,7 @@
 use crate::{
+  crawler::{crawler::Crawler, crawler_service::CrawlerService},
   files::{file_interactor::FileInteractor, file_service::FileService},
-  proto::{FileServiceServer, HealthCheckReply, Lute, LuteServer},
+  proto::{CrawlerServiceServer, FileServiceServer, HealthCheckReply, Lute, LuteServer},
   settings::Settings,
 };
 use anyhow::Result;
@@ -23,15 +24,21 @@ impl Lute for LuteService {
 pub struct RpcServer {
   settings: Settings,
   file_service: Arc<FileService>,
+  crawler_service: Arc<CrawlerService>,
 }
 
 impl RpcServer {
-  pub fn new(settings: Settings, redis_connection_pool: Arc<r2d2::Pool<redis::Client>>) -> Self {
+  pub fn new(
+    settings: Settings,
+    redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+    crawler: Arc<Crawler>,
+  ) -> Self {
     Self {
       settings: settings.clone(),
       file_service: Arc::new(FileService {
         file_interactor: FileInteractor::new(settings.file, redis_connection_pool),
       }),
+      crawler_service: Arc::new(CrawlerService { crawler }),
     }
   }
 
@@ -51,6 +58,9 @@ impl RpcServer {
       .add_service(tonic_web::enable(LuteServer::new(lute_service)))
       .add_service(tonic_web::enable(FileServiceServer::from_arc(
         self.file_service.clone(),
+      )))
+      .add_service(tonic_web::enable(CrawlerServiceServer::from_arc(
+        self.crawler_service.clone(),
       )))
       .serve(addr)
       .await?;
