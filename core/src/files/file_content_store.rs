@@ -3,6 +3,7 @@ use crate::settings::ContentStoreSettings;
 use anyhow::{Ok, Result};
 use s3::{creds::Credentials, Bucket};
 use std::str;
+use tracing::info;
 
 pub struct FileContentStore {
   bucket: Bucket,
@@ -33,6 +34,10 @@ impl FileContentStore {
       .bucket
       .put_object(file_name.to_string(), content.as_bytes())
       .await?;
+    info!(
+      file_name = file_name.to_string().as_str(),
+      "File saved to content store"
+    );
     Ok(())
   }
 

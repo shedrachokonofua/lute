@@ -78,7 +78,7 @@ impl From<proto::CrawlerItemPriority> for Priority {
 impl From<QueueItem> for proto::CrawlerQueueItem {
   fn from(val: QueueItem) -> Self {
     proto::CrawlerQueueItem {
-      item_key: val.item_key,
+      item_key: val.item_key.to_string(),
       enqueue_time: val.enqueue_time.to_string(),
       deduplication_key: val.deduplication_key,
       file_name: val.file_name.0,

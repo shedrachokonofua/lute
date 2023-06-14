@@ -14,6 +14,7 @@ use crate::{
   },
 };
 use anyhow::Result;
+use tracing::{info, warn};
 use ulid::Ulid;
 
 pub async fn parse_file_on_store(
@@ -28,21 +29,41 @@ pub async fn parse_file_on_store(
     PageType::Chart => parse_chart(&file_content).map(ParsedFileData::Chart),
     PageType::Album => parse_album(&file_content).map(ParsedFileData::Album),
     PageType::Artist => parse_artist(&file_content).map(ParsedFileData::Artist),
-    PageType::AlbumSearchResult => parse_album_search_result(&file_content)
-      .map(ParsedFileData::AlbumSearchResult),
+    PageType::AlbumSearchResult => {
+      parse_album_search_result(&file_content).map(ParsedFileData::AlbumSearchResult)
+    }
   };
 
   let event = match &parse_result {
-    Ok(file_data) => Event::FileParsed {
-      file_id,
-      file_name,
-      data: file_data.clone(),
-    },
-    Err(error) => Event::FileParseFailed {
-      file_id,
-      file_name,
-      error: error.to_string(),
-    },
+    Ok(file_data) => {
+      info!(
+        file_id = file_id.to_string(),
+        file_name = file_name.to_string(),
+        page_type = file_name.page_type().to_string(),
+        "File parsed"
+      );
+
+      Event::FileParsed {
+        file_id,
+        file_name: file_name.clone(),
+        data: file_data.clone(),
+      }
+    }
+    Err(error) => {
+      warn!(
+        file_id = file_id.to_string(),
+        file_name = file_name.to_string(),
+        page_type = file_name.page_type().to_string(),
+        error = error.to_string(),
+        "File parse failed"
+      );
+
+      Event::FileParseFailed {
+        file_id,
+        file_name: file_name.clone(),
+        error: error.to_string(),
+      }
+    }
   };
 
   event_publisher.publish(

@@ -15,6 +15,7 @@ use crate::{
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use std::sync::Arc;
+use tracing::info;
 
 pub struct FileInteractor {
   settings: FileSettings,
@@ -74,6 +75,7 @@ impl FileInteractor {
         metadata: None,
       },
     )?;
+    info!(file_name = file_name.to_string(), "File saved");
     Ok(file_metadata)
   }
 }

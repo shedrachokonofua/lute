@@ -31,6 +31,6 @@ pub fn get_parser_event_subscribers(
     settings,
     id: "parse_saved_file".to_string(),
     stream: Stream::File,
-    handle: Arc::new(|content| Box::pin(async move { parse_saved_file(content).await })),
+    handle: Arc::new(|context| Box::pin(async move { parse_saved_file(context).await })),
   }]
 }

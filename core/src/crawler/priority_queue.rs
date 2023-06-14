@@ -55,6 +55,7 @@ pub struct QueueItemSetRecord {
   pub metadata: Option<HashMap<String, String>>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ItemKey {
   pub enqueue_time: NaiveDateTime,
   pub deduplication_key: String,
@@ -92,7 +93,7 @@ impl FromStr for ItemKey {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QueueItem {
-  pub item_key: String,
+  pub item_key: ItemKey,
   pub enqueue_time: NaiveDateTime,
   pub deduplication_key: String,
   pub file_name: FileName,
@@ -138,16 +139,12 @@ impl PriorityQueue {
     format!("{}:items", self.redis_key())
   }
 
-  fn claimed_set_key(&self) -> String {
-    format!("{}:claimed", self.redis_key())
+  fn claimed_item_key_str(&self, key: &str) -> String {
+    format!("{}:claimed:{}", self.redis_key(), key)
   }
 
-  fn item_key(&self, key: &str) -> String {
-    format!("{}:{}", self.item_set_key(), key)
-  }
-
-  fn claimed_item_key(&self, key: &str) -> String {
-    format!("{}:{}", self.claimed_set_key(), key)
+  fn claimed_item_key(&self, key: &ItemKey) -> String {
+    self.claimed_item_key_str(key.to_string().as_str())
   }
 
   fn contains(&self, key: &str) -> Result<bool> {
@@ -217,7 +214,7 @@ impl PriorityQueue {
     let priority_score = priority_score.unwrap_or(Priority::Standard as u32);
 
     Ok(Some(QueueItem {
-      item_key: key.to_string(),
+      item_key: key.clone(),
       enqueue_time: key.enqueue_time,
       deduplication_key: key.deduplication_key.clone(),
       file_name: item_set_record.file_name,
@@ -227,7 +224,7 @@ impl PriorityQueue {
     }))
   }
 
-  pub fn is_claimed(&self, key: &str) -> Result<bool> {
+  pub fn is_claimed(&self, key: &ItemKey) -> Result<bool> {
     let mut connection = self.redis_connection_pool.get()?;
     let result: bool = connection.exists(self.claimed_item_key(key))?;
     Ok(result)
@@ -252,7 +249,6 @@ impl PriorityQueue {
     let mut transaction = redis::pipe();
     transaction.del(&self.redis_key());
     transaction.del(self.item_set_key());
-    transaction.del(self.claimed_set_key());
     transaction.query(&mut connection)?;
     Ok(())
   }
@@ -295,17 +291,19 @@ impl PriorityQueue {
     let mut transaction = redis::pipe();
     transaction.zrem(&self.redis_key(), &key.to_string());
     transaction.hdel(self.item_set_key(), &key.deduplication_key);
-    transaction.del(self.claimed_item_key(&key.to_string()));
+    transaction.del(self.claimed_item_key(&key));
     transaction.query(&mut connection)?;
     Ok(())
   }
 
   pub fn get_claimed_items(&self) -> Result<Vec<ClaimedQueueItem>> {
     let mut connection = self.redis_connection_pool.get()?;
-    let claimed_redis_keys: Vec<String> = connection.keys(self.claimed_item_key("*"))?;
+    let claimed_redis_keys: Vec<String> = connection.keys(self.claimed_item_key_str("*"))?;
     let claimed_keys = claimed_redis_keys
       .iter()
-      .map(|key| ItemKey::from_str(key.replace(&self.claimed_item_key(""), "").as_str()).unwrap())
+      .map(|key| {
+        ItemKey::from_str(key.replace(&self.claimed_item_key_str(""), "").as_str()).unwrap()
+      })
       .collect::<Vec<ItemKey>>();
 
     let items_opt = claimed_keys
@@ -323,7 +321,7 @@ impl PriorityQueue {
       .map(|item| ClaimedQueueItem {
         item: item.clone(),
         claim_ttl_seconds: connection
-          .ttl(self.claimed_item_key(&item.item_key.to_string()))
+          .ttl(self.claimed_item_key(&item.item_key))
           .unwrap(),
       })
       .collect::<Vec<ClaimedQueueItem>>();
@@ -333,7 +331,7 @@ impl PriorityQueue {
 
   pub fn get_claimed_item_count(&self) -> Result<u32> {
     let mut connection = self.redis_connection_pool.get()?;
-    let claimed_redis_keys: Vec<String> = connection.keys(self.claimed_item_key("*"))?;
+    let claimed_redis_keys: Vec<String> = connection.keys(self.claimed_item_key_str("*"))?;
     Ok(claimed_redis_keys.len() as u32)
   }
 }

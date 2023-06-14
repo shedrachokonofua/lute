@@ -64,14 +64,17 @@ impl CrawlerWorker {
   }
 
   async fn process_queue_item(&self, queue_item: QueueItem) -> Result<FileMetadata> {
-    self
+    let metadata = self
       .file_interactor
       .put_file(
         queue_item.file_name.to_string(),
         self.get_file_content(&queue_item.file_name).await?,
         queue_item.correlation_id,
       )
-      .await
+      .await?;
+    self.crawler_interactor.release_item(queue_item.item_key)?;
+
+    Ok(metadata)
   }
 
   async fn execute(&self) -> Result<Option<FileMetadata>> {
@@ -86,7 +89,10 @@ impl CrawlerWorker {
     }
     let queue_item = queue_item.unwrap();
     let result = Retry::spawn(FibonacciBackoff::from_millis(500).take(5), || async {
-      info!(item = &queue_item.item_key, "Processing queue item");
+      info!(
+        item = &queue_item.item_key.to_string(),
+        "Processing queue item"
+      );
       self.process_queue_item(queue_item.clone()).await
     })
     .await?;

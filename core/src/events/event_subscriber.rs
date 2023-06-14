@@ -10,8 +10,10 @@ use redis::{
 };
 use std::thread;
 use std::{sync::Arc, time::Duration};
+use tracing::info;
 
 pub struct SubscriberContext {
+  pub entry_id: String,
   pub redis_connection_pool: Arc<Pool<Client>>,
   pub settings: Settings,
   pub payload: EventPayload,
@@ -66,13 +68,23 @@ impl EventSubscriber {
         .ids
         .iter()
         .map(|id| {
+          let entry_id = id.id.clone();
           let payload = EventPayload::try_from(id.map.clone()).unwrap();
           let pool = self.redis_connection_pool.clone();
           let settings = self.settings.clone();
           let handle = self.handle.clone();
+
+          info!(
+            stream = self.stream.tag(),
+            subscriber_id = self.id,
+            entry_id = entry_id,
+            "Handling event"
+          );
+
           tokio::spawn(async move {
             let context = SubscriberContext {
               redis_connection_pool: pool,
+              entry_id,
               settings,
               payload,
             };

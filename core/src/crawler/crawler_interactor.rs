@@ -1,8 +1,8 @@
 use super::{
   crawler_state_repository::{CrawlerStateRepository, CrawlerStatus},
-  priority_queue::{ClaimedQueueItem, PriorityQueue, QueueItem, QueuePushParameters},
+  priority_queue::{ClaimedQueueItem, ItemKey, PriorityQueue, QueueItem, QueuePushParameters},
 };
-use crate::{settings::CrawlerSettings};
+use crate::settings::CrawlerSettings;
 use anyhow::{bail, Result};
 use r2d2::Pool;
 use redis::Client;
@@ -113,5 +113,9 @@ impl CrawlerInteractor {
 
   pub async fn claim_item(&self) -> Result<Option<QueueItem>> {
     self.priority_queue.claim_item().await
+  }
+
+  pub fn release_item(&self, item_key: ItemKey) -> Result<()> {
+    self.priority_queue.delete_item(item_key)
   }
 }

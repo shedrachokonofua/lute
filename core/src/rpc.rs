@@ -7,6 +7,7 @@ use crate::{
 use anyhow::Result;
 use std::{net::SocketAddr, sync::Arc};
 use tonic::{transport::Server, Request, Response, Status};
+use tracing::info;
 
 pub struct LuteService {}
 
@@ -51,7 +52,7 @@ impl RpcServer {
   pub async fn run(&self) -> Result<()> {
     let lute_service = LuteService {};
     let addr = self.addr();
-    println!("Starting core rpc server on {}", addr);
+    info!(address = addr.to_string(), "Starting RPC server");
 
     Server::builder()
       .accept_http1(true)
