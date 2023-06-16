@@ -1,7 +1,15 @@
 FROM rust:1.67 as builder
 WORKDIR /usr/src/app
-COPY ./core core
-COPY ./proto proto
+
+# Install protobuf compiler
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17.3/protoc-3.17.3-linux-x86_64.zip && \
+  unzip protoc-3.17.3-linux-x86_64.zip -d protoc3 && \
+  mv protoc3/bin/* /usr/local/bin/ && \
+  mv protoc3/include/* /usr/local/include/ && \
+  rm -rf protoc3 protoc-3.17.3-linux-x86_64.zip
+
+COPY core core
+COPY proto proto
 
 RUN cargo install --path core
 

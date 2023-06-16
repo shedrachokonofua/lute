@@ -44,9 +44,7 @@ impl RpcServer {
   }
 
   pub fn addr(&self) -> SocketAddr {
-    format!("127.0.0.1:{}", &self.settings.port)
-      .parse()
-      .unwrap()
+    format!("0.0.0.0:{}", &self.settings.port).parse().unwrap()
   }
 
   pub async fn run(&self) -> Result<()> {

@@ -67,7 +67,7 @@ impl Settings {
   pub fn new() -> Result<Self, config::ConfigError> {
     config::Config::builder()
       .add_source(config::Environment::default())
-      .set_default("port", 22000)?
+      .set_default("port", 80)?
       .set_default("file.ttl_days.artist", 14)?
       .set_default("file.ttl_days.album", 7)?
       .set_default("file.ttl_days.chart", 7)?

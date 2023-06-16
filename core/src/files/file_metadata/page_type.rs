@@ -23,11 +23,11 @@ lazy_static! {
 }
 
 fn is_chart_page(file_name: &str) -> bool {
-  CHART_PAGE_RE.is_match(file_name)
+  (*CHART_PAGE_RE).is_match(file_name)
 }
 
 pub fn is_album_search_result_page(file_name: &str) -> bool {
-  ALBUM_SEARCH_RESULT_PAGE_RE.is_match(file_name)
+  (*ALBUM_SEARCH_RESULT_PAGE_RE).is_match(file_name)
 }
 
 impl TryFrom<&str> for PageType {

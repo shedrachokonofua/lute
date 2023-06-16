@@ -20,12 +20,6 @@ fn run_rpc_server(
   })
 }
 
-fn run_crawler(crawler: Arc<Crawler>) -> task::JoinHandle<()> {
-  task::spawn(async move {
-    crawler.run().await.unwrap();
-  })
-}
-
 fn start_event_subscribers(
   settings: Settings,
   redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
@@ -53,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     redis_connection_pool.clone(),
   ));
 
-  run_crawler(crawler.clone());
+  crawler.run()?;
   start_event_subscribers(settings.clone(), redis_connection_pool.clone());
   run_rpc_server(settings, redis_connection_pool.clone(), crawler.clone()).await?;
 

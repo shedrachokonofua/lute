@@ -10,7 +10,7 @@ use crate::{
   settings::CrawlerSettings,
 };
 use anyhow::Result;
-use reqwest::{Client, ClientBuilder, Proxy};
+use reqwest::Client;
 use std::sync::Arc;
 use tokio::time::sleep;
 use tokio_retry::{strategy::FibonacciBackoff, Retry};
@@ -24,32 +24,8 @@ pub struct CrawlerWorker {
 }
 
 impl CrawlerWorker {
-  pub fn new(
-    settings: CrawlerSettings,
-    crawler_interactor: Arc<CrawlerInteractor>,
-    file_interactor: Arc<FileInteractor>,
-  ) -> Self {
-    Self {
-      settings: settings.clone(),
-      crawler_interactor,
-      file_interactor,
-      client: ClientBuilder::new()
-        .proxy(
-          Proxy::all(format!(
-            "https://{}:{}",
-            &settings.proxy.host, &settings.proxy.port
-          ))
-          .unwrap()
-          .basic_auth(&settings.proxy.username, &settings.proxy.password),
-        )
-        .danger_accept_invalid_certs(true)
-        .build()
-        .unwrap(),
-    }
-  }
-
   fn get_url(&self, file_name: &FileName) -> String {
-    format!("https://www.rateyourmusic.com/{}", file_name.to_string())
+    format!("http://www.rateyourmusic.com/{}", file_name.to_string())
   }
 
   async fn get_file_content(&self, file_name: &FileName) -> Result<String> {
@@ -72,7 +48,7 @@ impl CrawlerWorker {
         queue_item.correlation_id,
       )
       .await?;
-    self.crawler_interactor.release_item(queue_item.item_key)?;
+    self.crawler_interactor.delete_item(queue_item.item_key)?;
 
     Ok(metadata)
   }

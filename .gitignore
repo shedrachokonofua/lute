@@ -1,4 +1,4 @@
-.env
+/**/*.env
 
 # Core
 core/target

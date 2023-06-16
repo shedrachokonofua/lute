@@ -6,6 +6,7 @@ pub fn build_redis_connection_pool(redis_settings: RedisSettings) -> r2d2::Pool<
     .unwrap_or_else(|e| panic!("Error connecting to redis: {}", e));
 
   r2d2::Pool::builder()
+    .min_idle(Some(1))
     .max_size(redis_settings.max_pool_size)
     .connection_timeout(Duration::from_secs(120))
     .build(client)

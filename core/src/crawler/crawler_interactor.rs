@@ -115,7 +115,7 @@ impl CrawlerInteractor {
     self.priority_queue.claim_item().await
   }
 
-  pub fn release_item(&self, item_key: ItemKey) -> Result<()> {
+  pub fn delete_item(&self, item_key: ItemKey) -> Result<()> {
     self.priority_queue.delete_item(item_key)
   }
 }

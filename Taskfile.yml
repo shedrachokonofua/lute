@@ -84,5 +84,5 @@ tasks:
 
   "core:up":
     cmds:
-      - docker-compose -f ./infra/dev/docker-compose.yml up -d --build
+      - docker-compose -f ./infra/dev/docker-compose.yml up -d
       - task: "core:run"
