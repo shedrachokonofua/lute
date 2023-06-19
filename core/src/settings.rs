@@ -8,7 +8,6 @@ pub struct RedisSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
-
 pub struct FileTtlDaysSettings {
   pub artist: u32,
   pub album: u32,
