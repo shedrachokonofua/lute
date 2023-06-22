@@ -8,11 +8,6 @@ service Lute {
   rpc HealthCheck (google.protobuf.Empty) returns (HealthCheckReply) {}
 }
 
-service FileService {
-  rpc IsFileStale (IsFileStaleRequest) returns (IsFileStaleReply) {}
-  rpc PutFile (PutFileRequest) returns (PutFileReply) {}
-}
-
 message HealthCheckReply {
   bool ok = 1;
 }
@@ -41,13 +36,9 @@ message IsFileStaleReply {
   bool stale = 1;
 }
 
-service CrawlerService {
-  rpc GetMonitor (google.protobuf.Empty) returns (GetCrawlerMonitorReply) {}
-  rpc SetStatus (SetStatusRequest) returns (SetCrawlerStatusReply) {}
-  rpc Enqueue (EnqueueRequest) returns (google.protobuf.Empty) {}
-  rpc Empty (google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  rpc ResetLimiter(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  rpc RemoveThrottle(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+service FileService {
+  rpc IsFileStale (IsFileStaleRequest) returns (IsFileStaleReply) {}
+  rpc PutFile (PutFileRequest) returns (PutFileReply) {}
 }
 
 message GetCrawlerMonitorReply {
@@ -80,16 +71,16 @@ message CrawlerQueueItem {
 
 message ClaimedCrawlerQueueItem {
   CrawlerQueueItem item = 1;
-  int32 claim_ttl_seconds = 2;
+  uint32 claim_ttl_seconds = 2;
 }
 
 message CrawlerMonitor {
   CrawlerStatus status = 1;
-  int32 size = 2;
-  int32 claimed_item_count = 3;
+  uint32 size = 2;
+  uint32 claimed_item_count = 3;
   repeated ClaimedCrawlerQueueItem claimed_items = 4;
-  int32 remaining_window_requests = 5;
-  int32 window_request_count = 6;
+  uint32 remaining_window_requests = 5;
+  uint32 window_request_count = 6;
 }
 
 message SetStatusRequest {
@@ -106,4 +97,50 @@ message EnqueueRequest {
   string deduplication_key = 3;
   optional string correlation_id = 4;
   map<string, string> metadata = 5;
+}
+
+service CrawlerService {
+  rpc GetMonitor (google.protobuf.Empty) returns (GetCrawlerMonitorReply) {}
+  rpc SetStatus (SetStatusRequest) returns (SetCrawlerStatusReply) {}
+  rpc Enqueue (EnqueueRequest) returns (google.protobuf.Empty) {}
+  rpc Empty (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc ResetLimiter(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc RemoveThrottle(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+message GetAlbumRequest {
+  string file_name = 1;
+}
+
+message AlbumArtist {
+  string name = 1;
+  string file_name = 2;
+}
+
+message Track {
+  string name = 1;
+  optional uint32 duration_seconds = 2;
+  optional float rating = 3;
+  optional string position = 4;
+}
+
+message Album {
+  string name = 1;
+  string file_name = 2;
+  float rating = 3;
+  uint32 rating_count = 4;
+  repeated AlbumArtist artists = 5;
+  repeated string primary_genres = 6;
+  repeated string secondary_genres = 7;
+  repeated string descriptors = 8;
+  repeated Track tracks = 9;
+  optional string release_date = 10;
+}
+
+message GetAlbumReply {
+  Album album = 1;
+}
+
+service AlbumService {
+  rpc GetAlbum (GetAlbumRequest) returns (GetAlbumReply) {}
 }

@@ -1,3 +1,4 @@
+pub mod albums;
 pub mod crawler;
 pub mod db;
 pub mod events;

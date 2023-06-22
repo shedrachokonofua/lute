@@ -1,4 +1,5 @@
 use core::{
+  albums::album_event_subscribers::build_album_event_subscribers,
   crawler::{crawler::Crawler, crawler_event_subscriber::build_crawler_event_subscribers},
   db::build_redis_connection_pool,
   events::event_subscriber::EventSubscriber,
@@ -43,6 +44,10 @@ fn start_event_subscribers(
     redis_connection_pool.clone(),
     settings.clone(),
     crawler.crawler_interactor.clone(),
+  ));
+  event_subscribers.extend(build_album_event_subscribers(
+    redis_connection_pool.clone(),
+    settings.clone(),
   ));
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });

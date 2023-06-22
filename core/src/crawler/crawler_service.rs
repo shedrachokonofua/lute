@@ -15,15 +15,15 @@ impl From<CrawlerMonitor> for proto::CrawlerMonitor {
   fn from(val: CrawlerMonitor) -> Self {
     proto::CrawlerMonitor {
       status: proto::CrawlerStatus::from(val.status).into(),
-      size: val.size as i32,
-      claimed_item_count: val.claimed_item_count as i32,
+      size: val.size,
+      claimed_item_count: val.claimed_item_count,
       claimed_items: val
         .claimed_items
         .into_iter()
         .map(|item| item.into())
         .collect(),
-      remaining_window_requests: val.remaining_window_requests as i32,
-      window_request_count: val.window_request_count as i32,
+      remaining_window_requests: val.remaining_window_requests,
+      window_request_count: val.window_request_count,
     }
   }
 }
@@ -90,7 +90,7 @@ impl From<ClaimedQueueItem> for proto::ClaimedCrawlerQueueItem {
   fn from(val: ClaimedQueueItem) -> Self {
     proto::ClaimedCrawlerQueueItem {
       item: Some(val.item.into()),
-      claim_ttl_seconds: val.claim_ttl_seconds as i32,
+      claim_ttl_seconds: val.claim_ttl_seconds,
     }
   }
 }

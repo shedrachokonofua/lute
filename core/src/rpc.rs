@@ -1,9 +1,10 @@
 use crate::{
+  albums::album_service::AlbumService,
   crawler::{crawler::Crawler, crawler_service::CrawlerService},
   files::{file_interactor::FileInteractor, file_service::FileService},
   proto::{
-    CrawlerServiceServer, FileServiceServer, HealthCheckReply, Lute, LuteServer,
-    FILE_DESCRIPTOR_SET,
+    AlbumServiceServer, CrawlerServiceServer, FileServiceServer, HealthCheckReply, Lute,
+    LuteServer, FILE_DESCRIPTOR_SET,
   },
   settings::Settings,
 };
@@ -25,6 +26,7 @@ pub struct RpcServer {
   settings: Settings,
   file_service: Arc<FileService>,
   crawler_service: Arc<CrawlerService>,
+  album_service: Arc<AlbumService>,
 }
 
 impl RpcServer {
@@ -36,9 +38,12 @@ impl RpcServer {
     Self {
       settings: settings.clone(),
       file_service: Arc::new(FileService {
-        file_interactor: FileInteractor::new(settings.file, redis_connection_pool),
+        file_interactor: FileInteractor::new(settings.file, redis_connection_pool.clone()),
       }),
       crawler_service: Arc::new(CrawlerService { crawler }),
+      album_service: Arc::new(AlbumService {
+        redis_connection_pool: redis_connection_pool.clone(),
+      }),
     }
   }
 
@@ -64,6 +69,9 @@ impl RpcServer {
       )))
       .add_service(tonic_web::enable(CrawlerServiceServer::from_arc(
         self.crawler_service.clone(),
+      )))
+      .add_service(tonic_web::enable(AlbumServiceServer::from_arc(
+        self.album_service.clone(),
       )))
       .serve(addr)
       .await?;
