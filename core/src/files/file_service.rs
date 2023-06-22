@@ -1,4 +1,4 @@
-use super::file_interactor::FileInteractor;
+use super::{file_interactor::FileInteractor, file_metadata::file_name::FileName};
 use crate::proto::{self, IsFileStaleReply, IsFileStaleRequest, PutFileReply, PutFileRequest};
 use anyhow::Result;
 use tonic::{Request, Response, Status};
@@ -14,9 +14,11 @@ impl proto::FileService for FileService {
     request: Request<IsFileStaleRequest>,
   ) -> Result<Response<IsFileStaleReply>, Status> {
     let name = request.into_inner().name;
+    let file_name =
+      FileName::try_from(name.clone()).map_err(|e| Status::invalid_argument(e.to_string()))?;
     let stale = self
       .file_interactor
-      .is_file_stale(name)
+      .is_file_stale(&file_name)
       .map_err(|e| Status::internal(e.to_string()))?;
 
     let reply = IsFileStaleReply { stale };
@@ -28,9 +30,12 @@ impl proto::FileService for FileService {
     request: Request<PutFileRequest>,
   ) -> Result<Response<PutFileReply>, Status> {
     let inner = request.into_inner();
+    let name = inner.name;
+    let file_name =
+      FileName::try_from(name.clone()).map_err(|e| Status::invalid_argument(e.to_string()))?;
     let file_metadata = self
       .file_interactor
-      .put_file(inner.name.clone(), inner.content, Some("id".to_string()))
+      .put_file(&file_name, inner.content, Some("id".to_string()))
       .await
       .map_err(|e| {
         println!("Error: {:?}", e);

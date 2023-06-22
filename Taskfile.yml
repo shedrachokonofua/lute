@@ -4,7 +4,7 @@ tasks:
   "protoc:gen:web":
     internal: true
     cmds:
-      - docker run -v {{.TASKFILE_DIR}}/proto:/proto -v {{.OUTPUT_DIR}}:/out namely/protoc-all -d /proto -o /out -l web
+      - docker run --rm -v {{.TASKFILE_DIR}}/proto:/proto -v {{.OUTPUT_DIR}}:/out namely/protoc-all -d /proto -o /out -l web
 
   "core:build":
     dir: core

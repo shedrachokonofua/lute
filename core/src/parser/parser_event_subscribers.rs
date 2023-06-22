@@ -22,7 +22,7 @@ async fn parse_saved_file(context: SubscriberContext) -> Result<()> {
   Ok(())
 }
 
-pub fn get_parser_event_subscribers(
+pub fn build_parser_event_subscribers(
   redis_connection_pool: Arc<Pool<Client>>,
   settings: Settings,
 ) -> Vec<EventSubscriber> {

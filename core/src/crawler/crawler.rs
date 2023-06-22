@@ -11,21 +11,22 @@ use tokio::task;
 
 pub struct Crawler {
   settings: Settings,
-  redis_connection_pool: Arc<Pool<redis::Client>>,
-  priority_queue: Arc<PriorityQueue>,
+  client: reqwest::Client,
   pub crawler_interactor: Arc<CrawlerInteractor>,
   pub file_interactor: Arc<FileInteractor>,
 }
 
 impl Crawler {
-  pub fn new(settings: Settings, redis_connection_pool: Arc<Pool<redis::Client>>) -> Self {
+  pub fn new(settings: Settings, redis_connection_pool: Arc<Pool<redis::Client>>) -> Result<Self> {
     let priority_queue = Arc::new(PriorityQueue::new(
       redis_connection_pool.clone(),
       settings.crawler.max_queue_size,
       settings.crawler.claim_ttl_seconds,
     ));
+    let file_interactor = FileInteractor::new(settings.file.clone(), redis_connection_pool.clone());
     let crawler_interactor = Arc::new(CrawlerInteractor::new(
       settings.crawler.clone(),
+      file_interactor,
       redis_connection_pool.clone(),
       priority_queue.clone(),
     ));
@@ -33,19 +34,8 @@ impl Crawler {
       settings.file.clone(),
       redis_connection_pool.clone(),
     ));
-
-    Self {
-      settings,
-      redis_connection_pool,
-      priority_queue,
-      crawler_interactor,
-      file_interactor,
-    }
-  }
-
-  pub fn client(&self) -> Result<reqwest::Client> {
-    let proxy_settings = &self.settings.crawler.proxy;
-    ClientBuilder::new()
+    let proxy_settings = &settings.crawler.proxy;
+    let client = ClientBuilder::new()
       .proxy(
         Proxy::all(format!(
           "https://{}:{}",
@@ -58,17 +48,23 @@ impl Crawler {
       )
       .danger_accept_invalid_certs(true)
       .build()
-      .map_err(|error| anyhow::Error::msg(error.to_string()))
+      .map_err(|error| anyhow::Error::msg(error.to_string()))?;
+
+    Ok(Self {
+      client,
+      settings,
+      crawler_interactor,
+      file_interactor,
+    })
   }
 
   pub fn run(&self) -> Result<()> {
-    let client = self.client()?;
-    for _ in 1..self.settings.crawler.pool_size {
+    for _ in 0..self.settings.crawler.pool_size {
       let crawler_worker = CrawlerWorker {
         settings: self.settings.crawler.clone(),
         crawler_interactor: self.crawler_interactor.clone(),
         file_interactor: self.file_interactor.clone(),
-        client: client.clone(),
+        client: self.client.clone(),
       };
       task::spawn(async move { crawler_worker.run().await });
     }

@@ -44,7 +44,10 @@ message IsFileStaleReply {
 service CrawlerService {
   rpc GetMonitor (google.protobuf.Empty) returns (GetCrawlerMonitorReply) {}
   rpc SetStatus (SetStatusRequest) returns (SetCrawlerStatusReply) {}
-  rpc Enqueue (EnqueueRequest) returns (CrawlerEnqueueReply) {}
+  rpc Enqueue (EnqueueRequest) returns (google.protobuf.Empty) {}
+  rpc Empty (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc ResetLimiter(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc RemoveThrottle(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 message GetCrawlerMonitorReply {
@@ -103,8 +106,4 @@ message EnqueueRequest {
   string deduplication_key = 3;
   optional string correlation_id = 4;
   map<string, string> metadata = 5;
-}
-
-message CrawlerEnqueueReply {
-  bool ok = 1;
 }

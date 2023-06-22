@@ -6,10 +6,7 @@ use super::{
 };
 use crate::{
   files::file_metadata::file_name::FileName,
-  proto::{
-    self, CrawlerEnqueueReply, EnqueueRequest, GetCrawlerMonitorReply, SetCrawlerStatusReply,
-    SetStatusRequest,
-  },
+  proto::{self, EnqueueRequest, GetCrawlerMonitorReply, SetCrawlerStatusReply, SetStatusRequest},
 };
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
@@ -145,10 +142,7 @@ impl proto::CrawlerService for CrawlerService {
     Ok(Response::new(reply))
   }
 
-  async fn enqueue(
-    &self,
-    request: Request<EnqueueRequest>,
-  ) -> Result<Response<CrawlerEnqueueReply>, Status> {
+  async fn enqueue(&self, request: Request<EnqueueRequest>) -> Result<Response<()>, Status> {
     self
       .crawler
       .crawler_interactor
@@ -161,7 +155,42 @@ impl proto::CrawlerService for CrawlerService {
         println!("Error: {:?}", e);
         Status::internal("Internal server error")
       })?;
-    let reply = CrawlerEnqueueReply { ok: true };
-    Ok(Response::new(reply))
+
+    Ok(Response::new(()))
+  }
+
+  async fn empty(&self, _request: Request<()>) -> Result<Response<()>, Status> {
+    self.crawler.crawler_interactor.empty_queue().map_err(|e| {
+      println!("Error: {:?}", e);
+      Status::internal("Internal server error")
+    })?;
+
+    Ok(Response::new(()))
+  }
+
+  async fn reset_limiter(&self, _request: Request<()>) -> Result<Response<()>, Status> {
+    self
+      .crawler
+      .crawler_interactor
+      .reset_window_request_count()
+      .map_err(|e| {
+        println!("Error: {:?}", e);
+        Status::internal("Internal server error")
+      })?;
+
+    Ok(Response::new(()))
+  }
+
+  async fn remove_throttle(&self, _request: Request<()>) -> Result<Response<()>, Status> {
+    self
+      .crawler
+      .crawler_interactor
+      .remove_throttle()
+      .map_err(|e| {
+        println!("Error: {:?}", e);
+        Status::internal("Internal server error")
+      })?;
+
+    Ok(Response::new(()))
   }
 }

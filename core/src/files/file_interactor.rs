@@ -39,9 +39,8 @@ impl FileInteractor {
     }
   }
 
-  pub fn is_file_stale(&self, name: String) -> Result<bool> {
-    let file_name = FileName::try_from(name)?;
-    let file_metadata = self.file_metadata_repository.find_by_name(&file_name)?;
+  pub fn is_file_stale(&self, file_name: &FileName) -> Result<bool> {
+    let file_metadata = self.file_metadata_repository.find_by_name(file_name)?;
 
     Ok(
       file_metadata
@@ -57,11 +56,10 @@ impl FileInteractor {
 
   pub async fn put_file(
     &self,
-    name: String,
+    file_name: &FileName,
     content: String,
     correlation_id: Option<String>,
   ) -> Result<FileMetadata> {
-    let file_name = FileName::try_from(name)?;
     self.file_content_store.put(&file_name, content).await?;
     let file_metadata = self.file_metadata_repository.upsert(&file_name)?;
     self.event_publisher.publish(

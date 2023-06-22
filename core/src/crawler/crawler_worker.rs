@@ -12,7 +12,7 @@ use crate::{
 use anyhow::Result;
 use reqwest::Client;
 use std::sync::Arc;
-use tokio::time::sleep;
+use tokio::time::{sleep, Duration};
 use tokio_retry::{strategy::FibonacciBackoff, Retry};
 use tracing::info;
 
@@ -43,7 +43,7 @@ impl CrawlerWorker {
     let metadata = self
       .file_interactor
       .put_file(
-        queue_item.file_name.to_string(),
+        &queue_item.file_name,
         self.get_file_content(&queue_item.file_name).await?,
         queue_item.correlation_id,
       )
@@ -72,23 +72,18 @@ impl CrawlerWorker {
       self.process_queue_item(queue_item.clone()).await
     })
     .await?;
+    self.crawler_interactor.increment_window_request_count()?;
     Ok(Some(result))
   }
 
-  async fn wait(&self) -> Result<()> {
-    sleep(std::time::Duration::from_secs(
-      self.settings.wait_time_seconds as u64,
-    ))
-    .await;
-    Ok(())
+  async fn wait(&self) {
+    sleep(Duration::from_secs(self.settings.wait_time_seconds as u64)).await
   }
 
   pub async fn run(&self) -> Result<()> {
     loop {
-      let result = self.execute().await?;
-      if result.is_none() {
-        self.wait().await?;
-      }
+      self.execute().await?;
+      self.wait().await;
     }
   }
 }

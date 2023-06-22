@@ -1,7 +1,10 @@
 use core::{
-  crawler::crawler::Crawler, db::build_redis_connection_pool,
-  events::event_subscriber::EventSubscriber, log::setup_logging,
-  parser::parser_event_subscribers::get_parser_event_subscribers, rpc::RpcServer,
+  crawler::{crawler::Crawler, crawler_event_subscriber::build_crawler_event_subscribers},
+  db::build_redis_connection_pool,
+  events::event_subscriber::EventSubscriber,
+  log::setup_logging,
+  parser::parser_event_subscribers::build_parser_event_subscribers,
+  rpc::RpcServer,
   settings::Settings,
 };
 use dotenv::dotenv;
@@ -29,13 +32,18 @@ fn run_rpc_server(
 fn start_event_subscribers(
   settings: Settings,
   redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+  crawler: Arc<Crawler>,
 ) {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
-  event_subscribers.extend(get_parser_event_subscribers(
-    redis_connection_pool,
-    settings,
+  event_subscribers.extend(build_parser_event_subscribers(
+    redis_connection_pool.clone(),
+    settings.clone(),
   ));
-
+  event_subscribers.extend(build_crawler_event_subscribers(
+    redis_connection_pool.clone(),
+    settings.clone(),
+    crawler.crawler_interactor.clone(),
+  ));
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });
   });
@@ -51,10 +59,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let crawler = Arc::new(Crawler::new(
     settings.clone(),
     redis_connection_pool.clone(),
-  ));
+  )?);
 
   crawler.run()?;
-  start_event_subscribers(settings.clone(), redis_connection_pool.clone());
+  start_event_subscribers(
+    settings.clone(),
+    redis_connection_pool.clone(),
+    crawler.clone(),
+  );
   run_rpc_server(settings, redis_connection_pool.clone(), crawler.clone()).await?;
 
   Ok(())

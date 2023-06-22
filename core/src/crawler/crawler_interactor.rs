@@ -2,7 +2,7 @@ use super::{
   crawler_state_repository::{CrawlerStateRepository, CrawlerStatus},
   priority_queue::{ClaimedQueueItem, ItemKey, PriorityQueue, QueueItem, QueuePushParameters},
 };
-use crate::settings::CrawlerSettings;
+use crate::{files::file_interactor::FileInteractor, settings::CrawlerSettings};
 use anyhow::{bail, Result};
 use r2d2::Pool;
 use redis::Client;
@@ -20,6 +20,7 @@ pub struct CrawlerMonitor {
 
 pub struct CrawlerInteractor {
   settings: CrawlerSettings,
+  file_interactor: FileInteractor,
   crawler_state_repository: CrawlerStateRepository,
   priority_queue: Arc<PriorityQueue>,
   throttle_lock: Mutex<()>,
@@ -28,15 +29,17 @@ pub struct CrawlerInteractor {
 impl CrawlerInteractor {
   pub fn new(
     settings: CrawlerSettings,
+    file_interactor: FileInteractor,
     redis_connection_pool: Arc<Pool<Client>>,
     priority_queue: Arc<PriorityQueue>,
   ) -> Self {
     Self {
       settings,
+      file_interactor,
+      priority_queue,
       crawler_state_repository: CrawlerStateRepository {
         redis_connection_pool,
       },
-      priority_queue,
       throttle_lock: Mutex::new(()),
     }
   }
@@ -57,6 +60,13 @@ impl CrawlerInteractor {
     self.priority_queue.push(params).await
   }
 
+  pub async fn enqueue_if_stale(&self, params: QueuePushParameters) -> Result<()> {
+    if self.file_interactor.is_file_stale(&params.file_name)? {
+      self.enqueue(params).await?
+    }
+    Ok(())
+  }
+
   pub fn empty_queue(&self) -> Result<()> {
     self.priority_queue.empty()
   }
@@ -73,6 +83,10 @@ impl CrawlerInteractor {
 
   pub fn remaining_window_requests(&self) -> Result<u32> {
     Ok(self.settings.rate_limit.max_requests - self.get_window_request_count()?)
+  }
+
+  pub fn reset_window_request_count(&self) -> Result<()> {
+    self.crawler_state_repository.reset_window_request_count()
   }
 
   pub fn remove_throttle(&self) -> Result<()> {
