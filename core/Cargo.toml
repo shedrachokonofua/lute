@@ -35,6 +35,8 @@ tracing = "0.1.37"
 tracing-bunyan-formatter = "0.3.7"
 tracing-subscriber = { version = "0.3.17", features = ["fmt", "json", "env-filter"] }
 ulid = { version = "1.0.0", features = ["serde"] }
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = { version = "0.5.0", features = ['unprefixed_malloc_on_supported_platforms'] }
 
 [build-dependencies]
 tonic-build = "0.9.2"

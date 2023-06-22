@@ -6,7 +6,13 @@ use core::{
 };
 use dotenv::dotenv;
 use std::sync::Arc;
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
 use tokio::task;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 fn run_rpc_server(
   settings: Settings,
