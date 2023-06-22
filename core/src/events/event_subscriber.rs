@@ -20,6 +20,7 @@ pub struct SubscriberContext {
 }
 
 pub struct EventSubscriber {
+  pub concurrency: Option<usize>,
   pub redis_connection_pool: Arc<Pool<Client>>,
   pub settings: Settings,
   pub id: String,
@@ -61,7 +62,9 @@ impl EventSubscriber {
     let reply: StreamReadReply = self.redis_connection_pool.get()?.xread_options(
       &[&self.stream.redis_key()],
       &[&cursor],
-      &StreamReadOptions::default().count(100).block(500),
+      &StreamReadOptions::default()
+        .count(self.concurrency.unwrap_or(10))
+        .block(500),
     )?;
     if let Some(stream) = reply.keys.get(0) {
       let futures = stream
