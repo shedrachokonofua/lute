@@ -1,0 +1,38 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+
+processors:
+  batch:
+
+exporters:
+  elasticsearch/log:
+    endpoints: [http://openobserve:5080/api/default]
+    user: admin@lute.xyz
+    password: voNhGz9oMuA22JET
+
+  prometheusremotewrite:
+    endpoint: http://openobserve:5080/api/default/prometheus/api/v1/write
+    headers:
+      Authorization: Basic YWRtaW5AbHV0ZS54eXo6dm9OaEd6OW9NdUEyMkpFVA==
+
+  otlphttp:
+    traces_endpoint: http://openobserve:5080/api/default/traces
+    headers:
+      Authorization: Basic YWRtaW5AbHV0ZS54eXo6dm9OaEd6OW9NdUEyMkpFVA==
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [elasticsearch/log]
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheusremotewrite]

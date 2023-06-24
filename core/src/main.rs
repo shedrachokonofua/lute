@@ -57,7 +57,7 @@ fn start_event_subscribers(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   dotenv().ok();
-  setup_logging();
+  setup_logging()?;
 
   let settings: Settings = Settings::new()?;
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()));

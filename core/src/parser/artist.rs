@@ -5,6 +5,7 @@ use super::{
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::Result;
 use tl::VDom;
+use tracing::instrument;
 
 fn parse_artist_album(dom: &VDom, selector: &str) -> Result<Vec<ParsedArtistAlbum>> {
   dom
@@ -23,9 +24,7 @@ fn parse_artist_album(dom: &VDom, selector: &str) -> Result<Vec<ParsedArtistAlbu
             .unwrap();
 
           ParsedArtistAlbum {
-            name: dom::get_node_inner_text(dom.parser(), &node)
-              .unwrap()
-              ,
+            name: dom::get_node_inner_text(dom.parser(), &node).unwrap(),
             file_name: FileName::try_from(get_link_tag_href(tag).unwrap()).unwrap(),
           }
         })
@@ -33,6 +32,7 @@ fn parse_artist_album(dom: &VDom, selector: &str) -> Result<Vec<ParsedArtistAlbu
     })
 }
 
+#[instrument(skip(file_content))]
 pub fn parse_artist(file_content: &str) -> Result<ParsedArtist> {
   let dom = tl::parse(file_content, tl::ParserOptions::default())?;
   let name = get_meta_value(&dom, "name")?;

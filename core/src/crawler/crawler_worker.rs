@@ -10,17 +10,18 @@ use crate::{
   settings::CrawlerSettings,
 };
 use anyhow::Result;
-use reqwest::Client;
+use reqwest_middleware::ClientWithMiddleware;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_retry::{strategy::FibonacciBackoff, Retry};
-use tracing::info;
+use tracing::{info, instrument};
 
+#[derive(Debug)]
 pub struct CrawlerWorker {
   pub settings: CrawlerSettings,
   pub crawler_interactor: Arc<CrawlerInteractor>,
   pub file_interactor: Arc<FileInteractor>,
-  pub client: Client,
+  pub client: ClientWithMiddleware,
 }
 
 impl CrawlerWorker {
@@ -39,6 +40,7 @@ impl CrawlerWorker {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip(self))]
   async fn process_queue_item(&self, queue_item: QueueItem) -> Result<FileMetadata> {
     let metadata = self
       .file_interactor
@@ -53,6 +55,7 @@ impl CrawlerWorker {
     Ok(metadata)
   }
 
+  #[instrument(skip(self))]
   async fn execute(&self) -> Result<Option<FileMetadata>> {
     self.crawler_interactor.enforce_throttle().await?;
     let status = self.crawler_interactor.get_status()?;

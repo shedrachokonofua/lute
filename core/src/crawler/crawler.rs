@@ -5,13 +5,15 @@ use super::{
 use crate::{files::file_interactor::FileInteractor, settings::Settings};
 use anyhow::Result;
 use r2d2::Pool;
-use reqwest::{ClientBuilder, Proxy};
+use reqwest::Proxy;
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_tracing::TracingMiddleware;
 use std::sync::Arc;
 use tokio::task;
 
 pub struct Crawler {
   settings: Settings,
-  client: reqwest::Client,
+  client: ClientWithMiddleware,
   pub crawler_interactor: Arc<CrawlerInteractor>,
   pub file_interactor: Arc<FileInteractor>,
 }
@@ -34,8 +36,9 @@ impl Crawler {
       settings.file.clone(),
       redis_connection_pool.clone(),
     ));
+
     let proxy_settings = &settings.crawler.proxy;
-    let client = ClientBuilder::new()
+    let base_client = reqwest::ClientBuilder::new()
       .proxy(
         Proxy::all(format!(
           "https://{}:{}",
@@ -49,6 +52,10 @@ impl Crawler {
       .danger_accept_invalid_certs(true)
       .build()
       .map_err(|error| anyhow::Error::msg(error.to_string()))?;
+
+    let client = ClientBuilder::new(base_client)
+      .with(TracingMiddleware::default())
+      .build();
 
     Ok(Self {
       client,

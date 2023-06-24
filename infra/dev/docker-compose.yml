@@ -14,3 +14,7 @@ services:
 
 volumes:
   redis_data:
+
+networks:
+  lute_network:
+    driver: bridge

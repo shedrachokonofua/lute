@@ -48,6 +48,7 @@ impl FromStr for CrawlerStatus {
   }
 }
 
+#[derive(Debug)]
 pub struct CrawlerStateRepository {
   pub redis_connection_pool: Arc<Pool<Client>>,
 }

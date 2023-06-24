@@ -10,7 +10,7 @@ use redis::{
 };
 use std::thread;
 use std::{sync::Arc, time::Duration};
-use tracing::info;
+use tracing::debug;
 
 pub struct SubscriberContext {
   pub entry_id: String,
@@ -77,7 +77,7 @@ impl EventSubscriber {
           let settings = self.settings.clone();
           let handle = self.handle.clone();
 
-          info!(
+          debug!(
             stream = self.stream.tag(),
             subscriber_id = self.id,
             entry_id = entry_id,

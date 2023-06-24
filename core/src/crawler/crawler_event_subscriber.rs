@@ -14,6 +14,7 @@ use anyhow::Result;
 use r2d2::Pool;
 use redis::Client;
 use std::sync::Arc;
+use tracing::info;
 
 async fn crawl_chart_albums(
   context: SubscriberContext,
@@ -51,7 +52,7 @@ pub fn build_crawler_event_subscribers(
     redis_connection_pool,
     settings,
     id: "crawl_chart_albums".to_string(),
-    concurrency: Some(100),
+    concurrency: Some(250),
     stream: Stream::Parser,
     handle: Arc::new(move |context| {
       let crawler_interactor = crawler_interactor.clone();

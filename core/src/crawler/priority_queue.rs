@@ -6,6 +6,7 @@ use redis::{Client, Commands};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
+use tracing::instrument;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Priority {
@@ -108,6 +109,7 @@ pub struct ClaimedQueueItem {
   pub claim_ttl_seconds: u32,
 }
 
+#[derive(Debug)]
 pub struct PriorityQueue {
   pub redis_connection_pool: Arc<Pool<Client>>,
   pub max_size: u32,
@@ -253,6 +255,7 @@ impl PriorityQueue {
     Ok(())
   }
 
+  #[instrument]
   pub fn get_next_unclaimed_item(&self) -> Result<Option<QueueItem>> {
     let mut index = 0;
     loop {
@@ -268,6 +271,7 @@ impl PriorityQueue {
     }
   }
 
+  #[instrument]
   pub async fn claim_item(&self) -> Result<Option<QueueItem>> {
     let _ = self.claim_lock.lock().await;
     let item = self.get_next_unclaimed_item()?;

@@ -7,7 +7,9 @@ use super::{
 };
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::Result;
+use tracing::instrument;
 
+#[instrument(skip(file_content))]
 pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
   let dom = tl::parse(file_content, tl::ParserOptions::default())?;
 

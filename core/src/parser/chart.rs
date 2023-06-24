@@ -5,7 +5,9 @@ use super::{
 };
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::{Ok, Result};
+use tracing::instrument;
 
+#[instrument(skip(file_content))]
 pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
   let dom = tl::parse(file_content, tl::ParserOptions::default())?;
   let handle = dom

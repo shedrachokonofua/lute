@@ -17,6 +17,7 @@ use chrono::{DateTime, Duration, Utc};
 use std::sync::Arc;
 use tracing::info;
 
+#[derive(Debug)]
 pub struct FileInteractor {
   settings: FileSettings,
   file_content_store: FileContentStore,

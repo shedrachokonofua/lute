@@ -8,6 +8,7 @@ use r2d2::Pool;
 use redis::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tracing::instrument;
 
 pub struct CrawlerMonitor {
   pub status: CrawlerStatus,
@@ -18,6 +19,7 @@ pub struct CrawlerMonitor {
   pub window_request_count: u32,
 }
 
+#[derive(Debug)]
 pub struct CrawlerInteractor {
   settings: CrawlerSettings,
   file_interactor: FileInteractor,
@@ -99,6 +101,7 @@ impl CrawlerInteractor {
     Ok(total >= self.settings.rate_limit.max_requests)
   }
 
+  #[instrument]
   pub async fn enforce_throttle(&self) -> Result<()> {
     let _ = self.throttle_lock.lock().await;
     if self.should_throttle()? {

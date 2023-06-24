@@ -2,8 +2,9 @@ use super::file_metadata::file_name::FileName;
 use crate::settings::ContentStoreSettings;
 use anyhow::{Ok, Result};
 use s3::{creds::Credentials, Bucket};
-use tracing::info;
+use tracing::{info, instrument};
 
+#[derive(Debug)]
 pub struct FileContentStore {
   bucket: Bucket,
 }
@@ -40,6 +41,7 @@ impl FileContentStore {
     Ok(())
   }
 
+  #[instrument(skip(self))]
   pub async fn get(&self, file_name: &FileName) -> Result<String> {
     let response = self.bucket.get_object(file_name.to_string()).await?;
     response.to_string().map_err(|e| e.into())

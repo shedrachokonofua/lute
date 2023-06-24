@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/otel-collector-config.yml"]
+    volumes:
+      - ./openobserve/otel-collector-config.yml:/otel-collector-config.yml
+    ports:
+      - 22003:4317
+
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    environment:
+      - ZO_DATA_DIR=/data
+      - ZO_ROOT_USER_EMAIL=admin@lute.xyz
+      - ZO_ROOT_USER_PASSWORD=password
+    volumes:
+      - openobserve_data:/data
+    ports:
+      - 22004:5080
+      
+volumes:
+  openobserve_data:
+
+networks:
+  lute_network:
+    external: true

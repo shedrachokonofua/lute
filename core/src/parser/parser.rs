@@ -14,9 +14,10 @@ use crate::{
   },
 };
 use anyhow::Result;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 use ulid::Ulid;
 
+#[instrument(skip(file_content_store, event_publisher))]
 pub async fn parse_file_on_store(
   file_content_store: FileContentStore,
   event_publisher: EventPublisher,

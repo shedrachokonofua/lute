@@ -6,7 +6,9 @@ use super::{
   util::clean_artist_name,
 };
 use anyhow::Result;
+use tracing::instrument;
 
+#[instrument(skip(file_content))]
 pub fn parse_album_search_result(file_content: &str) -> Result<ParsedAlbumSearchResult> {
   let dom = tl::parse(file_content, tl::ParserOptions::default())?;
 
@@ -48,7 +50,8 @@ pub fn parse_album_search_result(file_content: &str) -> Result<ParsedAlbumSearch
     .collect::<Vec<ParsedAlbumSearchResult>>();
 
   results
-    .iter().find(|result| result.file_name.page_type().is_album())
+    .iter()
+    .find(|result| result.file_name.page_type().is_album())
     .ok_or(anyhow::anyhow!("No album found in search results"))
     .map(|album| album.clone())
 }

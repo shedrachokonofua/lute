@@ -2,13 +2,13 @@ use crate::files::file_metadata::file_name::FileName;
 use chrono::NaiveDate;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedArtistReference {
   pub name: String,
   pub file_name: FileName,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedChartAlbum {
   pub file_name: FileName,
   pub name: String,

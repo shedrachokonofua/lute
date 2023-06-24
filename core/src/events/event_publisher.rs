@@ -4,6 +4,7 @@ use r2d2::Pool;
 use redis::{Client, Commands};
 use std::{collections::HashMap, sync::Arc};
 
+#[derive(Debug)]
 pub struct EventPublisher {
   redis_connection_pool: Arc<Pool<Client>>,
 }
