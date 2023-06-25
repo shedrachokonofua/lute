@@ -69,7 +69,7 @@ fn update_album_read_models(context: SubscriberContext) -> Result<()> {
   {
     if let ParsedFileData::Album(parsed_album) = data {
       let album_read_model_repository = AlbumReadModelRepository {
-        redis_connection_pool: context.redis_connection_pool.clone(),
+        redis_connection_pool: Arc::clone(&context.redis_connection_pool),
       };
       let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
       album_read_model_repository.put(album_read_model)?;

@@ -21,20 +21,21 @@ pub struct Crawler {
 impl Crawler {
   pub fn new(settings: Settings, redis_connection_pool: Arc<Pool<redis::Client>>) -> Result<Self> {
     let priority_queue = Arc::new(PriorityQueue::new(
-      redis_connection_pool.clone(),
+      Arc::clone(&redis_connection_pool),
       settings.crawler.max_queue_size,
       settings.crawler.claim_ttl_seconds,
     ));
-    let file_interactor = FileInteractor::new(settings.file.clone(), redis_connection_pool.clone());
+    let file_interactor =
+      FileInteractor::new(settings.file.clone(), Arc::clone(&redis_connection_pool));
     let crawler_interactor = Arc::new(CrawlerInteractor::new(
       settings.crawler.clone(),
       file_interactor,
-      redis_connection_pool.clone(),
+      Arc::clone(&redis_connection_pool),
       priority_queue.clone(),
     ));
     let file_interactor = Arc::new(FileInteractor::new(
       settings.file.clone(),
-      redis_connection_pool.clone(),
+      Arc::clone(&redis_connection_pool),
     ));
 
     let proxy_settings = &settings.crawler.proxy;

@@ -37,16 +37,16 @@ fn start_event_subscribers(
 ) {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
   event_subscribers.extend(build_parser_event_subscribers(
-    redis_connection_pool.clone(),
+    Arc::clone(&redis_connection_pool),
     settings.clone(),
   ));
   event_subscribers.extend(build_crawler_event_subscribers(
-    redis_connection_pool.clone(),
+    Arc::clone(&redis_connection_pool),
     settings.clone(),
-    crawler.crawler_interactor.clone(),
+    Arc::clone(&crawler.crawler_interactor),
   ));
   event_subscribers.extend(build_album_event_subscribers(
-    redis_connection_pool.clone(),
+    Arc::clone(&redis_connection_pool),
     settings.clone(),
   ));
   event_subscribers.into_iter().for_each(|subscriber| {
@@ -63,16 +63,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()));
   let crawler = Arc::new(Crawler::new(
     settings.clone(),
-    redis_connection_pool.clone(),
+    Arc::clone(&redis_connection_pool),
   )?);
 
   crawler.run()?;
   start_event_subscribers(
     settings.clone(),
-    redis_connection_pool.clone(),
-    crawler.clone(),
+    Arc::clone(&redis_connection_pool),
+    Arc::clone(&crawler),
   );
-  run_rpc_server(settings, redis_connection_pool.clone(), crawler.clone()).await?;
+  run_rpc_server(
+    settings,
+    Arc::clone(&redis_connection_pool),
+    Arc::clone(&crawler),
+  )
+  .await?;
 
   Ok(())
 }

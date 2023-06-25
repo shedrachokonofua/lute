@@ -62,7 +62,7 @@ impl proto::AlbumService for AlbumService {
     let file_name = FileName::try_from(request.into_inner().file_name)
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
     let album_read_model_repository = AlbumReadModelRepository {
-      redis_connection_pool: self.redis_connection_pool.clone(),
+      redis_connection_pool: Arc::clone(&self.redis_connection_pool),
     };
     let album = album_read_model_repository
       .get(&file_name)

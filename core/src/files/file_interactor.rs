@@ -34,7 +34,7 @@ impl FileInteractor {
       settings: settings.clone(),
       file_content_store: FileContentStore::new(settings.content_store).unwrap(),
       file_metadata_repository: FileMetadataRepository {
-        redis_connection_pool: redis_connection_pool.clone(),
+        redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
       event_publisher: EventPublisher::new(redis_connection_pool),
     }

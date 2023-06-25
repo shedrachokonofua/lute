@@ -73,7 +73,7 @@ impl EventSubscriber {
         .map(|id| {
           let entry_id = id.id.clone();
           let payload = EventPayload::try_from(id.map.clone()).unwrap();
-          let pool = self.redis_connection_pool.clone();
+          let pool = Arc::clone(&self.redis_connection_pool);
           let settings = self.settings.clone();
           let handle = self.handle.clone();
 

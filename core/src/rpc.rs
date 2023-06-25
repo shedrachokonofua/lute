@@ -38,11 +38,11 @@ impl RpcServer {
     Self {
       settings: settings.clone(),
       file_service: Arc::new(FileService {
-        file_interactor: FileInteractor::new(settings.file, redis_connection_pool.clone()),
+        file_interactor: FileInteractor::new(settings.file, Arc::clone(&redis_connection_pool)),
       }),
       crawler_service: Arc::new(CrawlerService { crawler }),
       album_service: Arc::new(AlbumService {
-        redis_connection_pool: redis_connection_pool.clone(),
+        redis_connection_pool: Arc::clone(&redis_connection_pool),
       }),
     }
   }
@@ -64,15 +64,15 @@ impl RpcServer {
       .accept_http1(true)
       .add_service(reflection_service)
       .add_service(tonic_web::enable(LuteServer::new(lute_service)))
-      .add_service(tonic_web::enable(FileServiceServer::from_arc(
-        self.file_service.clone(),
-      )))
+      .add_service(tonic_web::enable(FileServiceServer::from_arc(Arc::clone(
+        &self.file_service,
+      ))))
       .add_service(tonic_web::enable(CrawlerServiceServer::from_arc(
-        self.crawler_service.clone(),
+        Arc::clone(&self.crawler_service),
       )))
-      .add_service(tonic_web::enable(AlbumServiceServer::from_arc(
-        self.album_service.clone(),
-      )))
+      .add_service(tonic_web::enable(AlbumServiceServer::from_arc(Arc::clone(
+        &self.album_service,
+      ))))
       .serve(addr)
       .await?;
 
