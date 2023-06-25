@@ -14,7 +14,6 @@ use anyhow::Result;
 use r2d2::Pool;
 use redis::Client;
 use std::sync::Arc;
-use tracing::info;
 
 async fn crawl_chart_albums(
   context: SubscriberContext,

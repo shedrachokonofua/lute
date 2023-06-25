@@ -55,8 +55,14 @@ pub struct CrawlerSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct TracingSettings {
+  pub otel_collector_endpoint: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Settings {
   pub port: u32,
+  pub tracing: TracingSettings,
   pub redis: RedisSettings,
   pub file: FileSettings,
   pub crawler: CrawlerSettings,
