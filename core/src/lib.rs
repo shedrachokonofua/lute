@@ -7,4 +7,5 @@ pub mod parser;
 pub mod proto;
 pub mod rpc;
 pub mod settings;
+pub mod spotify;
 pub mod tracing;

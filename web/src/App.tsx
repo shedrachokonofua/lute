@@ -1,22 +1,20 @@
-import React, { useEffect, useState } from "react";
-import { Empty } from "google-protobuf/google/protobuf/empty_pb";
-import { core } from "./client";
+import React from "react";
+import { MantineProvider } from "@mantine/core";
+import { Route, Router, Switch } from "wouter";
+import { IndexPage, SpotifyOAuthCallbackPage } from "./pages";
+import { Layout } from "./components";
 
-export const App = () => {
-  const [ok, setOk] = useState<boolean | null>(null);
-  useEffect(() => {
-    core
-      .healthCheck(new Empty(), null)
-      .then((res) => {
-        setOk(res.getOk());
-      })
-      .catch((err) => {
-        console.error(err);
-        setOk(false);
-      });
-  }, []);
-
-  return (
-    <div>Healthcheck: {ok === null ? "Loading..." : ok ? "OK" : "Not OK"}</div>
-  );
-};
+export const App = () => (
+  <MantineProvider children={undefined}>
+    <Switch>
+      <Route path="/spotify/oauth/callback">
+        <SpotifyOAuthCallbackPage />
+      </Route>
+      <Layout>
+        <Route path="/">
+          <IndexPage />
+        </Route>
+      </Layout>
+    </Switch>
+  </MantineProvider>
+);

@@ -60,12 +60,20 @@ pub struct TracingSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct SpotifySettings {
+  pub client_id: String,
+  pub client_secret: String,
+  pub redirect_uri: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Settings {
-  pub port: u32,
-  pub tracing: TracingSettings,
-  pub redis: RedisSettings,
-  pub file: FileSettings,
   pub crawler: CrawlerSettings,
+  pub file: FileSettings,
+  pub port: u32,
+  pub redis: RedisSettings,
+  pub spotify: SpotifySettings,
+  pub tracing: TracingSettings,
 }
 
 impl Settings {

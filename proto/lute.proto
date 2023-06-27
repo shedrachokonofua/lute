@@ -144,3 +144,25 @@ message GetAlbumReply {
 service AlbumService {
   rpc GetAlbum (GetAlbumRequest) returns (GetAlbumReply) {}
 }
+
+message IsAuthorizedReply {
+  bool authorized = 1;
+}
+
+message GetAuthorizationUrlReply {
+  string url = 1;
+}
+
+message HandleAuthorizationCodeRequest {
+  string code = 1;
+}
+
+message HandleAuthorizationCodeReply {
+  bool ok = 1;
+}
+
+service SpotifyService {
+  rpc IsAuthorized (google.protobuf.Empty) returns (IsAuthorizedReply) {}
+  rpc GetAuthorizationUrl (google.protobuf.Empty) returns (GetAuthorizationUrlReply) {}
+  rpc HandleAuthorizationCode (HandleAuthorizationCodeRequest) returns (HandleAuthorizationCodeReply) {}
+}

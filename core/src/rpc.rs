@@ -4,9 +4,10 @@ use crate::{
   files::{file_interactor::FileInteractor, file_service::FileService},
   proto::{
     AlbumServiceServer, CrawlerServiceServer, FileServiceServer, HealthCheckReply, Lute,
-    LuteServer, FILE_DESCRIPTOR_SET,
+    LuteServer, SpotifyServiceServer, FILE_DESCRIPTOR_SET,
   },
   settings::Settings,
+  spotify::{spotify_client::SpotifyClient, spotify_service::SpotifyService},
 };
 use anyhow::Result;
 use std::{net::SocketAddr, sync::Arc};
@@ -27,6 +28,7 @@ pub struct RpcServer {
   file_service: Arc<FileService>,
   crawler_service: Arc<CrawlerService>,
   album_service: Arc<AlbumService>,
+  spotify_service: Arc<SpotifyService>,
 }
 
 impl RpcServer {
@@ -43,6 +45,9 @@ impl RpcServer {
       crawler_service: Arc::new(CrawlerService { crawler }),
       album_service: Arc::new(AlbumService {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
+      }),
+      spotify_service: Arc::new(SpotifyService {
+        spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
       }),
     }
   }
@@ -73,6 +78,9 @@ impl RpcServer {
       .add_service(tonic_web::enable(AlbumServiceServer::from_arc(Arc::clone(
         &self.album_service,
       ))))
+      .add_service(tonic_web::enable(SpotifyServiceServer::from_arc(
+        Arc::clone(&self.spotify_service),
+      )))
       .serve(addr)
       .await?;
 
