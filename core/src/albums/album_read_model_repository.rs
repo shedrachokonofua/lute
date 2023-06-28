@@ -1,19 +1,19 @@
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::Result;
 use chrono::NaiveDate;
-use derive_redis_json::RedisJsonValue;
 use r2d2::Pool;
 use redis::{Client, JsonCommands};
+use redis_macros::{FromRedisValue, ToRedisArgs};
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
 
-#[derive(Serialize, Deserialize, Clone, RedisJsonValue)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, FromRedisValue, Clone, Default)]
 pub struct AlbumReadModelArtist {
   pub name: String,
   pub file_name: FileName,
 }
 
-#[derive(Serialize, Deserialize, Clone, RedisJsonValue)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, FromRedisValue, Clone, Default)]
 pub struct AlbumReadModelTrack {
   pub name: String,
   pub duration_seconds: Option<u32>,
@@ -21,7 +21,7 @@ pub struct AlbumReadModelTrack {
   pub position: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, RedisJsonValue)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, FromRedisValue, Clone, Default, ToRedisArgs)]
 pub struct AlbumReadModel {
   pub name: String,
   pub file_name: FileName,
@@ -41,7 +41,7 @@ pub struct AlbumReadModelRepository {
 
 impl AlbumReadModelRepository {
   pub fn key(&self, file_name: &FileName) -> String {
-    format!("album_read_model:{}", file_name.to_string())
+    format!("album:{}", file_name.to_string())
   }
 
   pub fn put(&self, album: AlbumReadModel) -> Result<()> {
@@ -52,7 +52,8 @@ impl AlbumReadModelRepository {
 
   pub fn get(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>> {
     let mut connection = self.redis_connection_pool.get().unwrap();
-    let result: Option<AlbumReadModel> = connection.json_get(self.key(file_name), "$")?;
+    let result = connection.json_get(self.key(file_name), "$")?;
+
     Ok(result)
   }
 }
