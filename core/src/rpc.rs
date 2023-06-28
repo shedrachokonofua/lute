@@ -2,9 +2,10 @@ use crate::{
   albums::album_service::AlbumService,
   crawler::{crawler::Crawler, crawler_service::CrawlerService},
   files::{file_interactor::FileInteractor, file_service::FileService},
+  ops::OperationsService,
   proto::{
     AlbumServiceServer, CrawlerServiceServer, FileServiceServer, HealthCheckReply, Lute,
-    LuteServer, SpotifyServiceServer, FILE_DESCRIPTOR_SET,
+    LuteServer, OperationsServiceServer, SpotifyServiceServer, FILE_DESCRIPTOR_SET,
   },
   settings::Settings,
   spotify::{spotify_client::SpotifyClient, spotify_service::SpotifyService},
@@ -29,6 +30,7 @@ pub struct RpcServer {
   crawler_service: Arc<CrawlerService>,
   album_service: Arc<AlbumService>,
   spotify_service: Arc<SpotifyService>,
+  operations_service: Arc<OperationsService>,
 }
 
 impl RpcServer {
@@ -40,15 +42,17 @@ impl RpcServer {
     Self {
       settings: settings.clone(),
       file_service: Arc::new(FileService {
-        file_interactor: FileInteractor::new(settings.file, Arc::clone(&redis_connection_pool)),
+        file_interactor: FileInteractor::new(
+          settings.file.clone(),
+          Arc::clone(&redis_connection_pool),
+        ),
       }),
       crawler_service: Arc::new(CrawlerService { crawler }),
-      album_service: Arc::new(AlbumService {
-        redis_connection_pool: Arc::clone(&redis_connection_pool),
-      }),
+      album_service: Arc::new(AlbumService::new(Arc::clone(&redis_connection_pool))),
       spotify_service: Arc::new(SpotifyService {
         spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
       }),
+      operations_service: Arc::new(OperationsService::new(&settings, redis_connection_pool)),
     }
   }
 
@@ -80,6 +84,9 @@ impl RpcServer {
       ))))
       .add_service(tonic_web::enable(SpotifyServiceServer::from_arc(
         Arc::clone(&self.spotify_service),
+      )))
+      .add_service(tonic_web::enable(OperationsServiceServer::from_arc(
+        Arc::clone(&self.operations_service),
       )))
       .serve(addr)
       .await?;

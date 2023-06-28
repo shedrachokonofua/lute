@@ -9,7 +9,7 @@ use redis::Client;
 use tonic::Status;
 
 pub struct AlbumService {
-  pub redis_connection_pool: Arc<Pool<Client>>,
+  album_read_model_repository: AlbumReadModelRepository,
 }
 
 impl From<AlbumReadModelTrack> for proto::Track {
@@ -53,6 +53,16 @@ impl From<AlbumReadModel> for proto::Album {
   }
 }
 
+impl AlbumService {
+  pub fn new(redis_connection_pool: Arc<Pool<Client>>) -> Self {
+    Self {
+      album_read_model_repository: AlbumReadModelRepository {
+        redis_connection_pool,
+      },
+    }
+  }
+}
+
 #[tonic::async_trait]
 impl proto::AlbumService for AlbumService {
   async fn get_album(
@@ -61,10 +71,8 @@ impl proto::AlbumService for AlbumService {
   ) -> Result<tonic::Response<proto::GetAlbumReply>, tonic::Status> {
     let file_name = FileName::try_from(request.into_inner().file_name)
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
-    let album_read_model_repository = AlbumReadModelRepository {
-      redis_connection_pool: Arc::clone(&self.redis_connection_pool),
-    };
-    let album = album_read_model_repository
+    let album = self
+      .album_read_model_repository
       .get(&file_name)
       .map_err(|e| Status::internal(e.to_string()))
       .and_then(|album| album.ok_or_else(|| Status::not_found("Album not found")))?;

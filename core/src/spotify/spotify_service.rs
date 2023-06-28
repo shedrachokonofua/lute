@@ -1,9 +1,7 @@
 use tonic::{Request, Response, Status};
 
 use super::spotify_client::SpotifyClient;
-use crate::proto::{
-  self, HandleAuthorizationCodeReply, HandleAuthorizationCodeRequest, IsAuthorizedReply,
-};
+use crate::proto::{self, HandleAuthorizationCodeRequest, IsAuthorizedReply};
 
 pub struct SpotifyService {
   pub spotify_client: SpotifyClient,
@@ -34,7 +32,7 @@ impl proto::SpotifyService for SpotifyService {
   async fn handle_authorization_code(
     &self,
     request: Request<HandleAuthorizationCodeRequest>,
-  ) -> std::result::Result<Response<HandleAuthorizationCodeReply>, Status> {
+  ) -> std::result::Result<Response<()>, Status> {
     self
       .spotify_client
       .receive_auth_code(&request.into_inner().code)
@@ -44,7 +42,6 @@ impl proto::SpotifyService for SpotifyService {
         Status::internal("Internal server error")
       })?;
 
-    let reply = HandleAuthorizationCodeReply { ok: true };
-    Ok(Response::new(reply))
+    Ok(Response::new(()))
   }
 }

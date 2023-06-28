@@ -157,12 +157,18 @@ message HandleAuthorizationCodeRequest {
   string code = 1;
 }
 
-message HandleAuthorizationCodeReply {
-  bool ok = 1;
-}
 
 service SpotifyService {
   rpc IsAuthorized (google.protobuf.Empty) returns (IsAuthorizedReply) {}
   rpc GetAuthorizationUrl (google.protobuf.Empty) returns (GetAuthorizationUrlReply) {}
-  rpc HandleAuthorizationCode (HandleAuthorizationCodeRequest) returns (HandleAuthorizationCodeReply) {}
+  rpc HandleAuthorizationCode (HandleAuthorizationCodeRequest) returns (google.protobuf.Empty) {}
+}
+
+message ParseFileContentStoreReply {
+  uint32 count = 1;
+}
+
+service OperationsService {
+  rpc FlushRedis (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc ParseFileContentStore (google.protobuf.Empty) returns (ParseFileContentStoreReply) {}
 }

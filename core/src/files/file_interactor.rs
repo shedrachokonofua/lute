@@ -55,14 +55,13 @@ impl FileInteractor {
     )
   }
 
-  pub async fn put_file(
+  pub fn put_file_metadata(
     &self,
     file_name: &FileName,
-    content: String,
     correlation_id: Option<String>,
   ) -> Result<FileMetadata> {
-    self.file_content_store.put(&file_name, content).await?;
     let file_metadata = self.file_metadata_repository.upsert(&file_name)?;
+    info!(file_name = file_name.to_string(), "File metadata saved");
     self.event_publisher.publish(
       Stream::File,
       EventPayload {
@@ -74,7 +73,20 @@ impl FileInteractor {
         metadata: None,
       },
     )?;
-    info!(file_name = file_name.to_string(), "File saved");
     Ok(file_metadata)
+  }
+
+  pub async fn put_file(
+    &self,
+    file_name: &FileName,
+    content: String,
+    correlation_id: Option<String>,
+  ) -> Result<FileMetadata> {
+    self.file_content_store.put(&file_name, content).await?;
+    self.put_file_metadata(&file_name, correlation_id)
+  }
+
+  pub async fn list_files(&self) -> Result<Vec<FileName>> {
+    self.file_content_store.list_files().await
   }
 }
