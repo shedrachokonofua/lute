@@ -1,11 +1,10 @@
-use std::sync::Arc;
-
 use super::album_read_model_repository::{
   AlbumReadModel, AlbumReadModelArtist, AlbumReadModelRepository, AlbumReadModelTrack,
 };
 use crate::{files::file_metadata::file_name::FileName, proto};
 use r2d2::Pool;
 use redis::Client;
+use std::sync::Arc;
 use tonic::Status;
 
 pub struct AlbumService {

@@ -172,3 +172,27 @@ service OperationsService {
   rpc FlushRedis (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc ParseFileContentStore (google.protobuf.Empty) returns (ParseFileContentStoreReply) {}
 }
+
+message AggregatedFailureError {
+  string error = 1;
+  uint32 count = 2;
+}
+
+enum PageType {
+  AlbumPage = 0;
+  ArtistPage = 1;
+  ChartPage = 2;
+  AlbumSearchResultPage = 3;
+}
+
+message GetAggregatedFailureErrorsRequest {
+  optional PageType page_type = 1;
+}
+
+message GetAggregatedFailureErrorsReply {
+  repeated AggregatedFailureError errors = 1;
+}
+
+service ParserService {
+  rpc GetAggregatedFailureErrors (GetAggregatedFailureErrorsRequest) returns (GetAggregatedFailureErrorsReply) {}
+}

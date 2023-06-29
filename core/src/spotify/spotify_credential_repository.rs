@@ -27,16 +27,16 @@ impl SpotifyCredentials {
 }
 
 impl SpotifyCredentialRepository {
-  fn access_token_key(&self) -> String {
-    "spotify:access_token".to_string()
+  fn access_token_key(&self) -> &str {
+    "spotify:access_token"
   }
 
-  fn refresh_token_key(&self) -> String {
-    "spotify:refresh_token".to_string()
+  fn refresh_token_key(&self) -> &str {
+    "spotify:refresh_token"
   }
 
-  fn expires_at_key(&self) -> String {
-    "spotify:expires_at".to_string()
+  fn expires_at_key(&self) -> &str {
+    "spotify:expires_at"
   }
 
   pub fn put(&self, credentials: &SpotifyCredentials) -> Result<()> {

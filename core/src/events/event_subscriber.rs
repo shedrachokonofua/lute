@@ -64,7 +64,7 @@ impl EventSubscriber {
       &[&cursor],
       &StreamReadOptions::default()
         .count(self.concurrency.unwrap_or(10))
-        .block(500),
+        .block(2500),
     )?;
     if let Some(stream) = reply.keys.get(0) {
       let futures = stream
@@ -85,13 +85,13 @@ impl EventSubscriber {
           );
 
           tokio::spawn(async move {
-            let context = SubscriberContext {
+            handle(SubscriberContext {
               redis_connection_pool: pool,
               entry_id,
               settings,
               payload,
-            };
-            handle(context).await
+            })
+            .await
           })
         })
         .collect::<Vec<_>>();

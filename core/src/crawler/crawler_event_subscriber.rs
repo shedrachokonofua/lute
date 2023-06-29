@@ -1,7 +1,4 @@
-use super::{
-  crawler_interactor::CrawlerInteractor,
-  priority_queue::{Priority, QueuePushParameters},
-};
+use super::{crawler_interactor::CrawlerInteractor, priority_queue::QueuePushParameters};
 use crate::{
   events::{
     event::{Event, Stream},
@@ -30,7 +27,7 @@ async fn crawl_chart_albums(
         crawler_interactor
           .enqueue_if_stale(QueuePushParameters {
             file_name: album.file_name,
-            priority: Some(Priority::Low),
+            priority: None,
             deduplication_key: None,
             correlation_id: None,
             metadata: None,

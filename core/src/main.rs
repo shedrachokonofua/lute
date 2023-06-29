@@ -1,7 +1,7 @@
 use core::{
   albums::album_event_subscribers::build_album_event_subscribers,
   crawler::{crawler::Crawler, crawler_event_subscriber::build_crawler_event_subscribers},
-  db::build_redis_connection_pool,
+  db::{build_redis_connection_pool, setup_redis_indexes},
   events::event_subscriber::EventSubscriber,
   parser::parser_event_subscribers::build_parser_event_subscribers,
   rpc::RpcServer,
@@ -58,14 +58,15 @@ fn start_event_subscribers(
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   dotenv().ok();
   let settings: Settings = Settings::new()?;
-
   setup_tracing(&settings.tracing)?;
+
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()));
+  setup_redis_indexes(redis_connection_pool.clone())?;
+
   let crawler = Arc::new(Crawler::new(
     settings.clone(),
     Arc::clone(&redis_connection_pool),
   )?);
-
   crawler.run()?;
   start_event_subscribers(
     settings.clone(),
