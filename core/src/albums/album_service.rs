@@ -2,8 +2,7 @@ use super::album_read_model_repository::{
   AlbumReadModel, AlbumReadModelArtist, AlbumReadModelRepository, AlbumReadModelTrack,
 };
 use crate::{files::file_metadata::file_name::FileName, proto};
-use r2d2::Pool;
-use redis::Client;
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tonic::Status;
 
@@ -53,7 +52,7 @@ impl From<AlbumReadModel> for proto::Album {
 }
 
 impl AlbumService {
-  pub fn new(redis_connection_pool: Arc<Pool<Client>>) -> Self {
+  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
     Self {
       album_read_model_repository: AlbumReadModelRepository {
         redis_connection_pool,
@@ -73,6 +72,7 @@ impl proto::AlbumService for AlbumService {
     let album = self
       .album_read_model_repository
       .get(&file_name)
+      .await
       .map_err(|e| Status::internal(e.to_string()))
       .and_then(|album| album.ok_or_else(|| Status::not_found("Album not found")))?;
     let reply = proto::GetAlbumReply {

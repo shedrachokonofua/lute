@@ -1,8 +1,13 @@
 use crate::files::file_metadata::{file_name::FileName, page_type::PageType};
 use anyhow::Result;
 use chrono::NaiveDateTime;
-use r2d2::Pool;
-use redis::{cmd, Client, Commands, Value};
+use rustis::{
+  bb8::Pool,
+  client::PooledClientManager,
+  commands::{FtAggregateOptions, FtReducer, SearchCommands},
+  commands::{FtCreateOptions, FtFieldSchema, FtFieldType, GenericCommands},
+  commands::{FtIndexDataType, HashCommands},
+};
 use std::{collections::HashMap, sync::Arc};
 use tracing::info;
 
@@ -58,8 +63,28 @@ pub struct AggregatedError {
   pub count: u64,
 }
 
+impl From<Vec<(String, String)>> for AggregatedError {
+  fn from(values: Vec<(String, String)>) -> Self {
+    let error = values
+      .iter()
+      .find(|(k, _)| k == "error")
+      .expect("error not found")
+      .1
+      .to_string();
+    let count = values
+      .iter()
+      .find(|(k, _)| k == "count")
+      .expect("count not found")
+      .1
+      .parse()
+      .expect("invalid count");
+
+    Self { error, count }
+  }
+}
+
 pub struct FailedParseFilesRepository {
-  pub redis_connection_pool: Arc<Pool<Client>>,
+  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
 impl FailedParseFilesRepository {
@@ -75,42 +100,41 @@ impl FailedParseFilesRepository {
     format!("{}_idx", self.namespace())
   }
 
-  pub fn put(&self, failed_parse_file: FailedParseFile) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
+  pub async fn put(&self, failed_parse_file: FailedParseFile) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
     let items: Vec<(String, String)> = failed_parse_file.clone().try_into()?;
-    connection.hset_multiple(self.key(&failed_parse_file.file_name), &items)?;
+    connection
+      .hset(self.key(&failed_parse_file.file_name), items)
+      .await?;
     Ok(())
   }
 
-  pub fn remove(&self, file_name: &FileName) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
-    connection.del(self.key(file_name))?;
+  pub async fn remove(&self, file_name: &FileName) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    connection.del(self.key(file_name)).await?;
     Ok(())
   }
 
-  pub fn setup_index(&self) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let index_info: Result<Value, _> = cmd("FT.INFO")
-      .arg(self.search_index_name())
-      .query(&mut connection);
+  pub async fn setup_index(&self) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    let index_info = connection.ft_info(self.search_index_name()).await;
 
     if let Err(err) = index_info {
       if err.to_string().contains("Unknown: Index name") {
         info!("Creating new search index: {}", self.search_index_name());
 
-        cmd("FT.CREATE")
-          .arg(self.search_index_name())
-          .arg("ON")
-          .arg("HASH")
-          .arg("PREFIX")
-          .arg("1")
-          .arg(format!("{}:", self.namespace()))
-          .arg("SCHEMA")
-          .arg("error")
-          .arg("TEXT")
-          .arg("page_type")
-          .arg("TEXT")
-          .query(&mut connection)?;
+        connection
+          .ft_create(
+            self.search_index_name(),
+            FtCreateOptions::default()
+              .on(FtIndexDataType::Hash)
+              .prefix(format!("{}:", self.namespace())),
+            [
+              FtFieldSchema::identifier("error").field_type(FtFieldType::Text),
+              FtFieldSchema::identifier("page_type").field_type(FtFieldType::Text),
+            ],
+          )
+          .await?;
       } else {
         return Err(err.into());
       }
@@ -119,30 +143,24 @@ impl FailedParseFilesRepository {
     Ok(())
   }
 
-  pub fn aggregate_errors(&self, page_type: Option<PageType>) -> Result<Vec<AggregatedError>> {
-    let mut connection = self.redis_connection_pool.get()?;
+  pub async fn aggregate_errors(
+    &self,
+    _page_type: Option<PageType>,
+  ) -> Result<Vec<AggregatedError>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection
+      .ft_aggregate(
+        self.search_index_name(),
+        "*",
+        FtAggregateOptions::default().groupby("@error", FtReducer::count().as_name("count")),
+      )
+      .await?;
+    let aggregates = result
+      .results
+      .iter()
+      .map(|r| AggregatedError::from(r.to_owned()))
+      .collect::<Vec<_>>();
 
-    let results: Vec<HashMap<String, String>> = cmd("FT.AGGREGATE")
-      .arg(self.search_index_name())
-      .arg("*")
-      .arg("GROUPBY")
-      .arg("1")
-      .arg("@error")
-      .arg("REDUCE")
-      .arg("COUNT")
-      .arg("0")
-      .arg("AS")
-      .arg("count")
-      .query(&mut connection)?;
-
-    Ok(
-      results
-        .into_iter()
-        .map(|result| AggregatedError {
-          error: result.get("error").unwrap().to_string(),
-          count: result.get("count").unwrap().parse().unwrap(),
-        })
-        .collect(),
-    )
+    Ok(aggregates)
   }
 }

@@ -8,8 +8,7 @@ use crate::{
   settings::Settings,
 };
 use anyhow::Result;
-use r2d2::Pool;
-use redis::Client;
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
 async fn crawl_chart_albums(
@@ -19,28 +18,26 @@ async fn crawl_chart_albums(
   if let Event::FileParsed {
     file_id: _,
     file_name: _,
-    data,
+    data: ParsedFileData::Chart(albums),
   } = context.payload.event
   {
-    if let ParsedFileData::Chart(albums) = data {
-      for album in albums {
-        crawler_interactor
-          .enqueue_if_stale(QueuePushParameters {
-            file_name: album.file_name,
-            priority: None,
-            deduplication_key: None,
-            correlation_id: None,
-            metadata: None,
-          })
-          .await?;
-      }
+    for album in albums {
+      crawler_interactor
+        .enqueue_if_stale(QueuePushParameters {
+          file_name: album.file_name,
+          priority: None,
+          deduplication_key: None,
+          correlation_id: None,
+          metadata: None,
+        })
+        .await?;
     }
   }
   Ok(())
 }
 
 pub fn build_crawler_event_subscribers(
-  redis_connection_pool: Arc<Pool<Client>>,
+  redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Settings,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Vec<EventSubscriber> {

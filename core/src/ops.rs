@@ -3,19 +3,22 @@ use crate::{
   proto::{self, ParseFileContentStoreReply},
   settings::Settings,
 };
-use r2d2::Pool;
-use redis::Client;
+use rustis::{
+  bb8::Pool,
+  client::PooledClientManager,
+  commands::{FlushingMode, ServerCommands},
+};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::error;
 
 pub struct OperationsService {
-  redis_connection_pool: Arc<Pool<Client>>,
+  redis_connection_pool: Arc<Pool<PooledClientManager>>,
   file_interactor: FileInteractor,
 }
 
 impl OperationsService {
-  pub fn new(settings: &Settings, redis_connection_pool: Arc<Pool<Client>>) -> Self {
+  pub fn new(settings: &Settings, redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
     Self {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
       file_interactor: FileInteractor::new(settings.file.clone(), redis_connection_pool),
@@ -26,15 +29,16 @@ impl OperationsService {
 #[tonic::async_trait]
 impl proto::OperationsService for OperationsService {
   async fn flush_redis(&self, _: Request<()>) -> Result<Response<()>, Status> {
-    let mut connection = self.redis_connection_pool.get().map_err(|e| {
-      println!("Error: {:?}", e);
-      Status::internal("Internal server error")
+    let connection = self.redis_connection_pool.get().await.map_err(|e| {
+      error!("Error: {:?}", e);
+      Status::internal("Failed to get redis connection")
     })?;
-    redis::cmd("FLUSHALL")
-      .query(&mut *connection)
+    connection
+      .flushall(FlushingMode::default())
+      .await
       .map_err(|e| {
-        println!("Error: {:?}", e);
-        Status::internal("Internal server error")
+        error!("Error: {:?}", e);
+        Status::internal("Failed to flush redis")
       })?;
     Ok(Response::new(()))
   }
@@ -44,12 +48,15 @@ impl proto::OperationsService for OperationsService {
     _: Request<()>,
   ) -> Result<Response<ParseFileContentStoreReply>, Status> {
     let file_names = self.file_interactor.list_files().await.map_err(|e| {
-      println!("Error: {:?}", e);
+      error!("Error: {:?}", e);
       Status::internal("Failed to list files")
     })?;
     let count = file_names.len() as u32;
     for file_name in file_names {
-      let result = self.file_interactor.put_file_metadata(&file_name, None);
+      let result = self
+        .file_interactor
+        .put_file_metadata(&file_name, None)
+        .await;
       if let Err(e) = result {
         error!("Failed to put file metadata: {:?}", e);
       }

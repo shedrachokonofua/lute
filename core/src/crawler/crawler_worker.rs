@@ -50,7 +50,10 @@ impl CrawlerWorker {
         queue_item.correlation_id,
       )
       .await?;
-    self.crawler_interactor.delete_item(queue_item.item_key)?;
+    self
+      .crawler_interactor
+      .delete_item(queue_item.item_key)
+      .await?;
 
     Ok(metadata)
   }
@@ -58,7 +61,7 @@ impl CrawlerWorker {
   #[instrument(skip(self))]
   async fn execute(&self) -> Result<Option<FileMetadata>> {
     self.crawler_interactor.enforce_throttle().await?;
-    let status = self.crawler_interactor.get_status()?;
+    let status = self.crawler_interactor.get_status().await?;
     if status == CrawlerStatus::Paused || status == CrawlerStatus::Throttled {
       return Ok(None);
     }
@@ -75,7 +78,10 @@ impl CrawlerWorker {
       self.process_queue_item(queue_item.clone()).await
     })
     .await?;
-    self.crawler_interactor.increment_window_request_count()?;
+    self
+      .crawler_interactor
+      .increment_window_request_count()
+      .await?;
     Ok(Some(result))
   }
 

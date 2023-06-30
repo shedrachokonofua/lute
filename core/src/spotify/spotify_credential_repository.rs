@@ -1,12 +1,16 @@
 use anyhow::Result;
 use chrono::{NaiveDateTime, Utc};
-use r2d2::Pool;
-use redis::{Client, Commands};
 use rspotify::scopes;
+use rustis::{
+  bb8::Pool,
+  client::{BatchPreparedCommand, PooledClientManager},
+  commands::GenericCommands,
+  commands::StringCommands,
+};
 use std::{collections::HashSet, sync::Arc};
 
 pub struct SpotifyCredentialRepository {
-  pub redis_connection_pool: Arc<Pool<Client>>,
+  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,31 +43,37 @@ impl SpotifyCredentialRepository {
     "spotify:expires_at"
   }
 
-  pub fn put(&self, credentials: &SpotifyCredentials) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let mut transaction = redis::pipe();
-    transaction.set(self.access_token_key(), &credentials.access_token);
-    transaction.set(self.refresh_token_key(), &credentials.refresh_token);
-    transaction.set(self.expires_at_key(), &credentials.expires_at.to_string());
-    transaction.query(&mut connection)?;
+  pub async fn put(&self, credentials: &SpotifyCredentials) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    let mut transaction = connection.create_transaction();
+    transaction
+      .set(self.access_token_key(), &credentials.access_token)
+      .forget();
+    transaction
+      .set(self.refresh_token_key(), &credentials.refresh_token)
+      .forget();
+    transaction
+      .set(self.expires_at_key(), &credentials.expires_at.to_string())
+      .queue();
+    transaction.execute().await?;
     Ok(())
   }
 
-  pub fn get_refresh_token(&self) -> Result<Option<String>> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let result: Option<String> = connection.get(self.refresh_token_key())?;
+  pub async fn get_refresh_token(&self) -> Result<Option<String>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: Option<String> = connection.get(self.refresh_token_key()).await?;
     Ok(result)
   }
 
-  pub fn get_access_token(&self) -> Result<Option<String>> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let result: Option<String> = connection.get(self.access_token_key())?;
+  pub async fn get_access_token(&self) -> Result<Option<String>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: Option<String> = connection.get(self.access_token_key()).await?;
     Ok(result)
   }
 
-  pub fn get_expires_at(&self) -> Result<Option<NaiveDateTime>> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let result: Option<String> = connection.get(self.expires_at_key())?;
+  pub async fn get_expires_at(&self) -> Result<Option<NaiveDateTime>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: Option<String> = connection.get(self.expires_at_key()).await?;
     match result {
       Some(date) => Ok(Some(NaiveDateTime::parse_from_str(
         &date,
@@ -73,10 +83,10 @@ impl SpotifyCredentialRepository {
     }
   }
 
-  pub fn get_credentials(&self) -> Result<Option<SpotifyCredentials>> {
-    let access_token = self.get_access_token()?;
-    let refresh_token = self.get_refresh_token()?;
-    let expires_at = self.get_expires_at()?;
+  pub async fn get_credentials(&self) -> Result<Option<SpotifyCredentials>> {
+    let access_token = self.get_access_token().await?;
+    let refresh_token = self.get_refresh_token().await?;
+    let expires_at = self.get_expires_at().await?;
     match (access_token, refresh_token, expires_at) {
       (Some(access_token), Some(refresh_token), Some(expires_at)) => Ok(Some(SpotifyCredentials {
         access_token,
@@ -87,13 +97,15 @@ impl SpotifyCredentialRepository {
     }
   }
 
-  pub fn delete(&self) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let mut transaction = redis::pipe();
-    transaction.del(self.access_token_key());
-    transaction.del(self.refresh_token_key());
-    transaction.del(self.expires_at_key());
-    transaction.query(&mut connection)?;
+  pub async fn delete(&self) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    connection
+      .del(vec![
+        self.access_token_key(),
+        self.refresh_token_key(),
+        self.expires_at_key(),
+      ])
+      .await?;
     Ok(())
   }
 }

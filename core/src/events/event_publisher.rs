@@ -1,27 +1,32 @@
 use super::event::{EventPayload, Stream};
 use anyhow::Result;
-use r2d2::Pool;
-use redis::{Client, Commands};
+use rustis::{
+  bb8::Pool,
+  client::PooledClientManager,
+  commands::{StreamCommands, XAddOptions},
+};
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug)]
 pub struct EventPublisher {
-  redis_connection_pool: Arc<Pool<Client>>,
+  redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
 impl EventPublisher {
-  pub fn new(redis_connection_pool: Arc<Pool<Client>>) -> Self {
+  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
     Self {
       redis_connection_pool,
     }
   }
 
-  pub fn publish(&self, stream: Stream, payload: EventPayload) -> Result<()> {
+  pub async fn publish(&self, stream: Stream, payload: EventPayload) -> Result<()> {
     let value: HashMap<String, String> = payload.into();
-    self
+    let _: String = self
       .redis_connection_pool
-      .get()?
-      .xadd_map(&stream.redis_key(), "*", value)?;
+      .get()
+      .await?
+      .xadd(&stream.redis_key(), "*", value, XAddOptions::default())
+      .await?;
     Ok(())
   }
 }

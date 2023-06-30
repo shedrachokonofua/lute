@@ -14,6 +14,7 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::info;
 
@@ -28,7 +29,7 @@ pub struct FileInteractor {
 impl FileInteractor {
   pub fn new(
     settings: FileSettings,
-    redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
   ) -> Self {
     Self {
       settings: settings.clone(),
@@ -40,8 +41,11 @@ impl FileInteractor {
     }
   }
 
-  pub fn is_file_stale(&self, file_name: &FileName) -> Result<bool> {
-    let file_metadata = self.file_metadata_repository.find_by_name(file_name)?;
+  pub async fn is_file_stale(&self, file_name: &FileName) -> Result<bool> {
+    let file_metadata = self
+      .file_metadata_repository
+      .find_by_name(file_name)
+      .await?;
 
     Ok(
       file_metadata
@@ -55,24 +59,27 @@ impl FileInteractor {
     )
   }
 
-  pub fn put_file_metadata(
+  pub async fn put_file_metadata(
     &self,
     file_name: &FileName,
     correlation_id: Option<String>,
   ) -> Result<FileMetadata> {
-    let file_metadata = self.file_metadata_repository.upsert(&file_name)?;
+    let file_metadata = self.file_metadata_repository.upsert(file_name).await?;
     info!(file_name = file_name.to_string(), "File metadata saved");
-    self.event_publisher.publish(
-      Stream::File,
-      EventPayload {
-        event: Event::FileSaved {
-          file_id: file_metadata.id,
-          file_name: file_metadata.name.clone(),
+    self
+      .event_publisher
+      .publish(
+        Stream::File,
+        EventPayload {
+          event: Event::FileSaved {
+            file_id: file_metadata.id,
+            file_name: file_metadata.name.clone(),
+          },
+          correlation_id,
+          metadata: None,
         },
-        correlation_id,
-        metadata: None,
-      },
-    )?;
+      )
+      .await?;
     Ok(file_metadata)
   }
 
@@ -82,8 +89,8 @@ impl FileInteractor {
     content: String,
     correlation_id: Option<String>,
   ) -> Result<FileMetadata> {
-    self.file_content_store.put(&file_name, content).await?;
-    self.put_file_metadata(&file_name, correlation_id)
+    self.file_content_store.put(file_name, content).await?;
+    self.put_file_metadata(file_name, correlation_id).await
   }
 
   pub async fn list_files(&self) -> Result<Vec<FileName>> {

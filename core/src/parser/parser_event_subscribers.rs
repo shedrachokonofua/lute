@@ -13,8 +13,7 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::Utc;
-use r2d2::Pool;
-use redis::Client;
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
 async fn parse_saved_file(context: SubscriberContext) -> Result<()> {
@@ -36,18 +35,20 @@ async fn populate_failed_parse_files_repository(context: SubscriberContext) -> R
       file_name,
       error,
     } => {
-      failed_parse_files_repository.put(FailedParseFile {
-        file_name,
-        error,
-        last_attempted_at: Utc::now().naive_utc(),
-      })?;
+      failed_parse_files_repository
+        .put(FailedParseFile {
+          file_name,
+          error,
+          last_attempted_at: Utc::now().naive_utc(),
+        })
+        .await?;
     }
     Event::FileParsed {
       file_id: _,
       file_name,
       data: _,
     } => {
-      failed_parse_files_repository.remove(&file_name)?;
+      failed_parse_files_repository.remove(&file_name).await?;
     }
     _ => {}
   }
@@ -55,7 +56,7 @@ async fn populate_failed_parse_files_repository(context: SubscriberContext) -> R
 }
 
 pub fn build_parser_event_subscribers(
-  redis_connection_pool: Arc<Pool<Client>>,
+  redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Settings,
 ) -> Vec<EventSubscriber> {
   vec![
@@ -69,7 +70,7 @@ pub fn build_parser_event_subscribers(
     },
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: settings.clone(),
+      settings,
       id: "populate_failed_parse_files_repository".to_string(),
       concurrency: Some(1),
       stream: Stream::Parser,

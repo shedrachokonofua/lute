@@ -67,14 +67,16 @@ pub async fn parse_file_on_store(
     }
   };
 
-  event_publisher.publish(
-    Stream::Parser,
-    EventPayload {
-      event,
-      correlation_id: None,
-      metadata: None,
-    },
-  )?;
+  event_publisher
+    .publish(
+      Stream::Parser,
+      EventPayload {
+        event,
+        correlation_id: None,
+        metadata: None,
+      },
+    )
+    .await?;
 
   parse_result
 }

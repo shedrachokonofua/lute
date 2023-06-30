@@ -1,19 +1,22 @@
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::Result;
 use chrono::NaiveDate;
-use r2d2::Pool;
-use redis::{Client, JsonCommands};
-use redis_macros::{FromRedisValue, ToRedisArgs};
+use rustis::{
+  bb8::Pool,
+  client::PooledClientManager,
+  commands::SetCondition,
+  commands::{JsonCommands, JsonGetOptions},
+};
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, FromRedisValue, Clone, Default)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModelArtist {
   pub name: String,
   pub file_name: FileName,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, FromRedisValue, Clone, Default)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModelTrack {
   pub name: String,
   pub duration_seconds: Option<u32>,
@@ -21,7 +24,7 @@ pub struct AlbumReadModelTrack {
   pub position: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, FromRedisValue, Clone, Default, ToRedisArgs)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModel {
   pub name: String,
   pub file_name: FileName,
@@ -36,7 +39,7 @@ pub struct AlbumReadModel {
 }
 
 pub struct AlbumReadModelRepository {
-  pub redis_connection_pool: Arc<Pool<Client>>,
+  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
 impl AlbumReadModelRepository {
@@ -44,16 +47,26 @@ impl AlbumReadModelRepository {
     format!("album:{}", file_name.to_string())
   }
 
-  pub fn put(&self, album: AlbumReadModel) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get().unwrap();
-    connection.json_set(self.key(&album.file_name), "$", &album)?;
+  pub async fn put(&self, album: AlbumReadModel) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    connection
+      .json_set(
+        self.key(&album.file_name),
+        "$",
+        serde_json::to_string(&album)?,
+        SetCondition::default(),
+      )
+      .await?;
     Ok(())
   }
 
-  pub fn get(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>> {
-    let mut connection = self.redis_connection_pool.get().unwrap();
-    let result = connection.json_get(self.key(file_name), "$")?;
+  pub async fn get(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: Option<String> = connection
+      .json_get(self.key(file_name), JsonGetOptions::default())
+      .await?;
+    let record = result.map(|r| serde_json::from_str(&r)).transpose()?;
 
-    Ok(result)
+    Ok(record)
   }
 }

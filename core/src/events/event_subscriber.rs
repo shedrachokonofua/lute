@@ -3,25 +3,25 @@ use crate::settings::Settings;
 use super::event::{EventPayload, Stream};
 use anyhow::Result;
 use futures::future::{join_all, BoxFuture};
-use r2d2::Pool;
-use redis::{
-  streams::{StreamReadOptions, StreamReadReply},
-  Client, Commands,
+use rustis::{
+  bb8::Pool,
+  client::PooledClientManager,
+  commands::{GenericCommands, StreamCommands, StreamEntry, StringCommands, XReadOptions},
 };
 use std::thread;
 use std::{sync::Arc, time::Duration};
-use tracing::debug;
+use tracing::{debug, error};
 
 pub struct SubscriberContext {
   pub entry_id: String,
-  pub redis_connection_pool: Arc<Pool<Client>>,
+  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub settings: Settings,
   pub payload: EventPayload,
 }
 
 pub struct EventSubscriber {
   pub concurrency: Option<usize>,
-  pub redis_connection_pool: Arc<Pool<Client>>,
+  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub settings: Settings,
   pub id: String,
   pub stream: Stream,
@@ -33,74 +33,90 @@ impl EventSubscriber {
     self.stream.redis_cursor_key(&self.id)
   }
 
-  pub fn get_cursor(&self) -> Result<String> {
+  pub async fn get_cursor(&self) -> Result<String> {
     let cursor: Option<String> = self
       .redis_connection_pool
-      .get()?
-      .get(self.get_cursor_key())?;
+      .get()
+      .await?
+      .get(self.get_cursor_key())
+      .await?;
     Ok(cursor.unwrap_or("0".to_string()))
   }
 
-  pub fn set_cursor(&self, cursor: &str) -> Result<()> {
+  pub async fn set_cursor(&self, cursor: &str) -> Result<()> {
     self
       .redis_connection_pool
-      .get()?
-      .set(self.get_cursor_key(), cursor)?;
+      .get()
+      .await?
+      .set(self.get_cursor_key(), cursor)
+      .await?;
     Ok(())
   }
 
-  pub fn delete_cursor(&self) -> Result<()> {
+  pub async fn delete_cursor(&self) -> Result<()> {
     self
       .redis_connection_pool
-      .get()?
-      .del(self.get_cursor_key())?;
+      .get()
+      .await?
+      .del(self.get_cursor_key())
+      .await?;
     Ok(())
   }
 
   pub async fn poll_stream(&self) -> Result<()> {
-    let cursor = self.get_cursor()?;
-    let reply: StreamReadReply = self.redis_connection_pool.get()?.xread_options(
-      &[&self.stream.redis_key()],
-      &[&cursor],
-      &StreamReadOptions::default()
-        .count(self.concurrency.unwrap_or(10))
-        .block(2500),
-    )?;
-    if let Some(stream) = reply.keys.get(0) {
-      let futures = stream
-        .ids
-        .iter()
-        .map(|id| {
-          let entry_id = id.id.clone();
-          let payload = EventPayload::try_from(id.map.clone()).unwrap();
-          let pool = Arc::clone(&self.redis_connection_pool);
-          let settings = self.settings.clone();
-          let handle = self.handle.clone();
-
-          debug!(
-            stream = self.stream.tag(),
-            subscriber_id = self.id,
-            entry_id = entry_id,
-            "Handling event"
-          );
-
-          tokio::spawn(async move {
-            handle(SubscriberContext {
-              redis_connection_pool: pool,
-              entry_id,
-              settings,
-              payload,
-            })
-            .await
-          })
-        })
-        .collect::<Vec<_>>();
-
-      join_all(futures).await;
-
-      let tail = stream.ids.last().unwrap().id.clone();
-      self.set_cursor(&tail)?;
+    let cursor = self.get_cursor().await?;
+    let results: Vec<(String, Vec<StreamEntry<String>>)> = self
+      .redis_connection_pool
+      .get()
+      .await?
+      .xread(
+        XReadOptions::default()
+          .count(self.concurrency.unwrap_or(10))
+          .block(2500),
+        [&self.stream.redis_key()],
+        &cursor,
+      )
+      .await?;
+    debug!(
+      stream = self.stream.tag(),
+      subscriber_id = self.id,
+      count = results.len(),
+      "Polled stream"
+    );
+    let stream_items = results.first().map(|(_, items)| items.clone());
+    if stream_items.is_none() {
+      return Ok(());
     }
+    let stream_items = stream_items.unwrap();
+
+    let futures = stream_items.iter().map(|entry| {
+      let entry_id = entry.stream_id.clone();
+      let payload = EventPayload::try_from(&entry.items).unwrap();
+      let pool = Arc::clone(&self.redis_connection_pool);
+      let settings = self.settings.clone();
+      let handle = self.handle.clone();
+
+      debug!(
+        stream = self.stream.tag(),
+        subscriber_id = self.id,
+        entry_id = entry_id,
+        "Handling event"
+      );
+
+      tokio::spawn(async move {
+        handle(SubscriberContext {
+          redis_connection_pool: pool,
+          entry_id,
+          settings,
+          payload,
+        })
+        .await
+      })
+    });
+    join_all(futures).await;
+    let tail = stream_items.last().unwrap().stream_id.clone();
+    self.set_cursor(&tail).await?;
+
     Ok(())
   }
 
@@ -113,7 +129,7 @@ impl EventSubscriber {
       match self.poll_stream().await {
         Ok(_) => {}
         Err(error) => {
-          println!("Error polling stream: {}", error);
+          error!("Error polling stream: {}", error);
           thread::sleep(std::time::Duration::from_secs(1));
         }
       }

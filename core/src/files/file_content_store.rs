@@ -2,7 +2,7 @@ use super::file_metadata::file_name::FileName;
 use crate::settings::ContentStoreSettings;
 use anyhow::Result;
 use s3::{creds::Credentials, Bucket};
-use tracing::{info, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 #[derive(Debug)]
 pub struct FileContentStore {
@@ -43,8 +43,25 @@ impl FileContentStore {
 
   #[instrument(skip(self))]
   pub async fn get(&self, file_name: &FileName) -> Result<String> {
-    let response = self.bucket.get_object(file_name.to_string()).await?;
-    response.to_string().map_err(|e| e.into())
+    let response = self
+      .bucket
+      .get_object(file_name.to_string())
+      .await
+      .map_err(|e| {
+        error!("Failed to read file from content store: {:?}", e);
+        e
+      });
+    if response.is_err() {
+      warn!(
+        file_name = file_name.to_string().as_str(),
+        "File not found in content store"
+      );
+    }
+    let response = response?;
+    response.to_string().map_err(|e| {
+      error!("Failed to read file from content store: {:?}", e);
+      e.into()
+    })
   }
 
   #[instrument(skip(self))]

@@ -11,8 +11,7 @@ use crate::{
   settings::Settings,
 };
 use anyhow::Result;
-use r2d2::Pool;
-use redis::Client;
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
 impl AlbumReadModelTrack {
@@ -45,7 +44,7 @@ impl AlbumReadModel {
       artists: parsed_album
         .artists
         .iter()
-        .map(|artist| AlbumReadModelArtist::from_parsed_artist(artist))
+        .map(AlbumReadModelArtist::from_parsed_artist)
         .collect::<Vec<AlbumReadModelArtist>>(),
       primary_genres: parsed_album.primary_genres.clone(),
       secondary_genres: parsed_album.secondary_genres.clone(),
@@ -53,33 +52,31 @@ impl AlbumReadModel {
       tracks: parsed_album
         .tracks
         .iter()
-        .map(|track| AlbumReadModelTrack::from_parsed_track(track))
+        .map(AlbumReadModelTrack::from_parsed_track)
         .collect::<Vec<AlbumReadModelTrack>>(),
       release_date: parsed_album.release_date,
     }
   }
 }
 
-fn update_album_read_models(context: SubscriberContext) -> Result<()> {
+async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
   if let Event::FileParsed {
     file_id: _,
     file_name,
-    data,
+    data: ParsedFileData::Album(parsed_album),
   } = context.payload.event
   {
-    if let ParsedFileData::Album(parsed_album) = data {
-      let album_read_model_repository = AlbumReadModelRepository {
-        redis_connection_pool: Arc::clone(&context.redis_connection_pool),
-      };
-      let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
-      album_read_model_repository.put(album_read_model)?;
-    }
+    let album_read_model_repository = AlbumReadModelRepository {
+      redis_connection_pool: Arc::clone(&context.redis_connection_pool),
+    };
+    let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
+    album_read_model_repository.put(album_read_model).await?;
   }
   Ok(())
 }
 
 pub fn build_album_event_subscribers(
-  redis_connection_pool: Arc<Pool<Client>>,
+  redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Settings,
 ) -> Vec<EventSubscriber> {
   vec![EventSubscriber {
@@ -88,6 +85,6 @@ pub fn build_album_event_subscribers(
     id: "update_album_read_models".to_string(),
     concurrency: Some(250),
     stream: Stream::Parser,
-    handle: Arc::new(|context| Box::pin(async move { update_album_read_models(context) })),
+    handle: Arc::new(|context| Box::pin(async move { update_album_read_models(context).await })),
   }]
 }

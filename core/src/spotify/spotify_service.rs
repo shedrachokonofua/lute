@@ -1,7 +1,7 @@
-use tonic::{Request, Response, Status};
-
 use super::spotify_client::SpotifyClient;
 use crate::proto::{self, HandleAuthorizationCodeRequest, IsAuthorizedReply};
+use tonic::{Request, Response, Status};
+use tracing::error;
 
 pub struct SpotifyService {
   pub spotify_client: SpotifyClient,
@@ -22,7 +22,7 @@ impl proto::SpotifyService for SpotifyService {
   ) -> Result<Response<proto::GetAuthorizationUrlReply>, Status> {
     let reply = proto::GetAuthorizationUrlReply {
       url: self.spotify_client.get_authorize_url().map_err(|e| {
-        println!("Error: {:?}", e);
+        error!("Error: {:?}", e);
         Status::internal("Internal server error")
       })?,
     };
@@ -38,7 +38,7 @@ impl proto::SpotifyService for SpotifyService {
       .receive_auth_code(&request.into_inner().code)
       .await
       .map_err(|e| {
-        println!("Error: {:?}", e);
+        error!("Error: {:?}", e);
         Status::internal("Internal server error")
       })?;
 

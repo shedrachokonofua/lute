@@ -5,7 +5,7 @@ use super::{
 };
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::{Ok, Result};
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 #[instrument(skip(file_content))]
 pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
@@ -130,8 +130,8 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
         Ok(data)
       }
       None => {
-        println!("No node found");
-        Err(anyhow::anyhow!("No node found"))
+        warn!("No album node found");
+        Err(anyhow::anyhow!("No album node found"))
       }
     })
     .map(|res| res.unwrap())

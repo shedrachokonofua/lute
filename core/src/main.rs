@@ -9,6 +9,7 @@ use core::{
   tracing::setup_tracing,
 };
 use dotenv::dotenv;
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
@@ -20,7 +21,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 fn run_rpc_server(
   settings: Settings,
-  redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+  redis_connection_pool: Arc<Pool<PooledClientManager>>,
   crawler: Arc<Crawler>,
 ) -> task::JoinHandle<()> {
   let rpc_server = RpcServer::new(settings, redis_connection_pool, crawler);
@@ -32,7 +33,7 @@ fn run_rpc_server(
 
 fn start_event_subscribers(
   settings: Settings,
-  redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+  redis_connection_pool: Arc<Pool<PooledClientManager>>,
   crawler: Arc<Crawler>,
 ) {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
@@ -47,7 +48,7 @@ fn start_event_subscribers(
   ));
   event_subscribers.extend(build_album_event_subscribers(
     Arc::clone(&redis_connection_pool),
-    settings.clone(),
+    settings,
   ));
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });
@@ -60,8 +61,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let settings: Settings = Settings::new()?;
   setup_tracing(&settings.tracing)?;
 
-  let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()));
-  setup_redis_indexes(redis_connection_pool.clone())?;
+  let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
+  setup_redis_indexes(redis_connection_pool.clone()).await?;
 
   let crawler = Arc::new(Crawler::new(
     settings.clone(),

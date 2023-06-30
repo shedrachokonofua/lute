@@ -2,6 +2,7 @@ use super::{file_interactor::FileInteractor, file_metadata::file_name::FileName}
 use crate::proto::{self, IsFileStaleReply, IsFileStaleRequest, PutFileReply, PutFileRequest};
 use anyhow::Result;
 use tonic::{Request, Response, Status};
+use tracing::error;
 
 pub struct FileService {
   pub file_interactor: FileInteractor,
@@ -19,6 +20,7 @@ impl proto::FileService for FileService {
     let stale = self
       .file_interactor
       .is_file_stale(&file_name)
+      .await
       .map_err(|e| Status::internal(e.to_string()))?;
 
     let reply = IsFileStaleReply { stale };
@@ -38,8 +40,8 @@ impl proto::FileService for FileService {
       .put_file(&file_name, inner.content, Some("id".to_string()))
       .await
       .map_err(|e| {
-        println!("Error: {:?}", e);
-        Status::internal("Internal server error")
+        error!("Error: {:?}", e);
+        Status::internal("Failed to put file")
       })?;
 
     let reply = PutFileReply {

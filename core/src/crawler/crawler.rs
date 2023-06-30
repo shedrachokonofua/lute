@@ -4,10 +4,10 @@ use super::{
 };
 use crate::{files::file_interactor::FileInteractor, settings::Settings};
 use anyhow::Result;
-use r2d2::Pool;
 use reqwest::Proxy;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_tracing::TracingMiddleware;
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tokio::task;
 
@@ -19,7 +19,10 @@ pub struct Crawler {
 }
 
 impl Crawler {
-  pub fn new(settings: Settings, redis_connection_pool: Arc<Pool<redis::Client>>) -> Result<Self> {
+  pub fn new(
+    settings: Settings,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  ) -> Result<Self> {
     let priority_queue = Arc::new(PriorityQueue::new(
       Arc::clone(&redis_connection_pool),
       settings.crawler.max_queue_size,
@@ -31,7 +34,7 @@ impl Crawler {
       settings.crawler.clone(),
       file_interactor,
       Arc::clone(&redis_connection_pool),
-      priority_queue.clone(),
+      priority_queue,
     ));
     let file_interactor = Arc::new(FileInteractor::new(
       settings.file.clone(),

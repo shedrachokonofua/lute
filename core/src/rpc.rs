@@ -13,6 +13,7 @@ use crate::{
   spotify::{spotify_client::SpotifyClient, spotify_service::SpotifyService},
 };
 use anyhow::Result;
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{net::SocketAddr, sync::Arc};
 use tonic::{transport::Server, Request, Response, Status};
 use tracing::info;
@@ -39,7 +40,7 @@ pub struct RpcServer {
 impl RpcServer {
   pub fn new(
     settings: Settings,
-    redis_connection_pool: Arc<r2d2::Pool<redis::Client>>,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
     crawler: Arc<Crawler>,
   ) -> Self {
     Self {

@@ -3,8 +3,7 @@ use crate::{
   files::file_metadata::page_type::PageType,
   proto::{self, GetAggregatedFailureErrorsReply, GetAggregatedFailureErrorsRequest},
 };
-use r2d2::Pool;
-use redis::Client;
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -27,7 +26,7 @@ impl TryFrom<i32> for PageType {
 }
 
 impl ParserService {
-  pub fn new(redis_connection_pool: Arc<Pool<Client>>) -> Self {
+  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
     Self {
       failed_parse_files_repository: FailedParseFilesRepository {
         redis_connection_pool,
@@ -51,6 +50,7 @@ impl proto::ParserService for ParserService {
     let aggregated_errors = self
       .failed_parse_files_repository
       .aggregate_errors(page_type)
+      .await
       .map_err(|err| {
         tracing::error!("failed to get aggregated errors: {:?}", err);
         Status::internal("failed to get aggregated errors")

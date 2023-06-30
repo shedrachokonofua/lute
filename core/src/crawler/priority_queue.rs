@@ -1,12 +1,18 @@
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::{bail, Result};
 use chrono::NaiveDateTime;
-use r2d2::Pool;
-use redis::{Client, Commands};
+use futures::future::join_all;
+use rustis::{
+  bb8::Pool,
+  client::{BatchPreparedCommand, PooledClientManager},
+  commands::{
+    GenericCommands, HashCommands, SortedSetCommands, StringCommands, ZAddOptions, ZRangeOptions,
+  },
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Priority {
@@ -30,6 +36,14 @@ impl TryFrom<u32> for Priority {
   }
 }
 
+impl TryFrom<f64> for Priority {
+  type Error = anyhow::Error;
+
+  fn try_from(value: f64) -> Result<Self, Self::Error> {
+    Self::try_from(value as u32)
+  }
+}
+
 impl ToString for Priority {
   fn to_string(&self) -> String {
     match self {
@@ -41,6 +55,7 @@ impl ToString for Priority {
   }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct QueuePushParameters {
   pub file_name: FileName,
   pub priority: Option<Priority>,
@@ -111,7 +126,7 @@ pub struct ClaimedQueueItem {
 
 #[derive(Debug)]
 pub struct PriorityQueue {
-  pub redis_connection_pool: Arc<Pool<Client>>,
+  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub max_size: u32,
   pub claim_ttl_seconds: u32,
   push_lock: Mutex<()>,
@@ -120,7 +135,7 @@ pub struct PriorityQueue {
 
 impl PriorityQueue {
   pub fn new(
-    redis_connection_pool: Arc<Pool<Client>>,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
     max_size: u32,
     claim_ttl_seconds: u32,
   ) -> Self {
@@ -133,8 +148,8 @@ impl PriorityQueue {
     }
   }
 
-  pub fn redis_key(&self) -> String {
-    "crawler:queue".to_string()
+  pub fn redis_key(&self) -> &str {
+    "crawler:queue"
   }
 
   fn item_set_key(&self) -> String {
@@ -149,71 +164,88 @@ impl PriorityQueue {
     self.claimed_item_key_str(key.to_string().as_str())
   }
 
-  fn contains(&self, key: &str) -> Result<bool> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let result: bool = connection.hexists(self.item_set_key(), key)?;
+  #[instrument(skip(self))]
+  async fn contains(&self, key: &str) -> Result<bool> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection.hexists(self.item_set_key(), key).await?;
     Ok(result)
   }
 
-  pub fn get_size(&self) -> Result<u32> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let result: u32 = connection.zcard(&self.redis_key())?;
+  #[instrument(skip(self))]
+  pub async fn get_size(&self) -> Result<u32> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection.zcard(self.redis_key()).await?;
+    Ok(result as u32)
+  }
+
+  async fn is_full(&self) -> Result<bool> {
+    let result = self.get_size().await? >= self.max_size;
     Ok(result)
   }
 
-  fn is_full(&self) -> Result<bool> {
-    let result = self.get_size()? >= self.max_size;
-    Ok(result)
-  }
-
+  #[instrument(skip(self))]
   pub async fn push(&self, params: QueuePushParameters) -> Result<()> {
     let _ = self.push_lock.lock().await;
     let deduplication_key = params
       .deduplication_key
       .unwrap_or_else(|| params.file_name.to_string());
 
-    if self.contains(&deduplication_key)? {
+    if self.contains(&deduplication_key).await? {
       bail!("Item already exists in queue");
     }
 
-    if self.is_full()? {
+    if self.is_full().await? {
       bail!("Queue is full");
     }
 
-    let mut connection = self.redis_connection_pool.get()?;
-    let mut transaction = redis::pipe();
-    transaction.zadd(
-      &self.redis_key(),
-      ItemKey {
-        enqueue_time: chrono::Utc::now().naive_utc(),
-        deduplication_key: deduplication_key.clone(),
-      }
-      .to_string(),
-      params.priority.unwrap_or(Priority::Standard) as u32,
-    );
-    transaction.hset(
-      self.item_set_key(),
-      &deduplication_key,
-      serde_json::to_string(&QueueItemSetRecord {
-        file_name: params.file_name,
-        metadata: params.metadata,
-        correlation_id: params.correlation_id,
-      })?,
-    );
-    transaction.query(&mut connection)?;
+    let connection = self.redis_connection_pool.get().await?;
+    let mut transaction = connection.create_transaction();
+    transaction
+      .zadd(
+        self.redis_key(),
+        (
+          params.priority.unwrap_or(Priority::Standard) as u32 as f64,
+          ItemKey {
+            enqueue_time: chrono::Utc::now().naive_utc(),
+            deduplication_key: deduplication_key.clone(),
+          }
+          .to_string(),
+        ),
+        ZAddOptions::default(),
+      )
+      .forget();
+    transaction
+      .hset(
+        self.item_set_key(),
+        (
+          &deduplication_key,
+          serde_json::to_string(&QueueItemSetRecord {
+            file_name: params.file_name,
+            metadata: params.metadata,
+            correlation_id: params.correlation_id,
+          })?,
+        ),
+      )
+      .queue();
+    transaction.execute().await?;
 
     Ok(())
   }
 
-  pub fn get_item(&self, key: &ItemKey) -> Result<Option<QueueItem>> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let result: Option<String> = connection.hget(self.item_set_key(), &key.deduplication_key)?;
+  #[instrument(skip(self))]
+  pub async fn get_item(&self, key: &ItemKey) -> Result<Option<QueueItem>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: Option<String> = connection
+      .hget(self.item_set_key(), &key.deduplication_key)
+      .await?;
     if result.is_none() {
       return Ok(None);
     }
     let item_set_record: QueueItemSetRecord = serde_json::from_str(&result.unwrap())?;
-    let priority_score: Option<u32> = connection.zscore(&self.redis_key(), &key.to_string())?;
-    let priority_score = priority_score.unwrap_or(Priority::Standard as u32);
+    let priority_score: Option<f64> = connection
+      .zscore(self.redis_key(), &key.to_string())
+      .await?;
+    let priority_score = priority_score.unwrap_or(Priority::Standard as u32 as f64);
 
     Ok(Some(QueueItem {
       item_key: key.clone(),
@@ -226,83 +258,100 @@ impl PriorityQueue {
     }))
   }
 
-  pub fn is_claimed(&self, key: &ItemKey) -> Result<bool> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let result: bool = connection.exists(self.claimed_item_key(key))?;
+  #[instrument(skip(self))]
+  pub async fn is_claimed(&self, key: &ItemKey) -> Result<bool> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection.exists(self.claimed_item_key(key)).await? == 1;
     Ok(result)
   }
 
-  pub fn at(&self, position: isize) -> Result<Option<QueueItem>> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let result: Vec<String> = connection.zrange(&self.redis_key(), position, position)?;
+  #[instrument(skip(self))]
+  pub async fn at(&self, position: isize) -> Result<Option<QueueItem>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: Vec<String> = connection
+      .zrange(
+        self.redis_key(),
+        position,
+        position,
+        ZRangeOptions::default(),
+      )
+      .await?;
     let item_key = result.first();
     if item_key.is_none() {
       return Ok(None);
     }
-    self.get_item(&item_key.unwrap().parse::<ItemKey>()?)
+    self.get_item(&item_key.unwrap().parse::<ItemKey>()?).await
   }
 
-  pub fn peek(&self) -> Result<Option<QueueItem>> {
-    self.at(0)
+  pub async fn peek(&self) -> Result<Option<QueueItem>> {
+    self.at(0).await
   }
 
-  pub fn empty(&self) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let mut transaction = redis::pipe();
-    transaction.del(&self.redis_key());
-    transaction.del(self.item_set_key());
-    transaction.query(&mut connection)?;
+  #[instrument(skip(self))]
+  pub async fn empty(&self) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    connection
+      .del([self.redis_key(), self.item_set_key().as_str()])
+      .await?;
     Ok(())
   }
 
-  #[instrument]
-  pub fn get_next_unclaimed_item(&self) -> Result<Option<QueueItem>> {
+  #[instrument(skip(self))]
+  pub async fn get_next_unclaimed_item(&self) -> Result<Option<QueueItem>> {
     let mut index = 0;
     loop {
-      let item = self.at(index)?;
+      let item = self.at(index).await?;
       if item.is_none() {
         return Ok(None);
       }
       let item = item.unwrap();
-      if !self.is_claimed(&item.item_key)? {
+      if !self.is_claimed(&item.item_key).await? {
         return Ok(Some(item));
       }
       index += 1;
     }
   }
 
-  #[instrument]
+  #[instrument(skip(self))]
   pub async fn claim_item(&self) -> Result<Option<QueueItem>> {
     let _ = self.claim_lock.lock().await;
-    let item = self.get_next_unclaimed_item()?;
+    let item = self.get_next_unclaimed_item().await?;
     if item.is_none() {
       return Ok(None);
     }
+    info!("Found item to claim {:?}", item);
     let item = item.unwrap();
 
-    let mut connection = self.redis_connection_pool.get()?;
-    connection.set_ex(
-      self.claimed_item_key(&item.item_key),
-      "1",
-      self.claim_ttl_seconds as usize,
-    )?;
-
+    let connection = self.redis_connection_pool.get().await?;
+    connection
+      .setex(
+        self.claimed_item_key(&item.item_key),
+        self.claim_ttl_seconds as u64,
+        "1",
+      )
+      .await?;
     Ok(Some(item))
   }
 
-  pub fn delete_item(&self, key: ItemKey) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let mut transaction = redis::pipe();
-    transaction.zrem(&self.redis_key(), &key.to_string());
-    transaction.hdel(self.item_set_key(), &key.deduplication_key);
-    transaction.del(self.claimed_item_key(&key));
-    transaction.query(&mut connection)?;
+  #[instrument(skip(self))]
+  pub async fn delete_item(&self, key: ItemKey) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    let mut transaction = connection.create_transaction();
+    transaction
+      .zrem(self.redis_key(), &key.to_string())
+      .forget();
+    transaction
+      .hdel(self.item_set_key(), &key.deduplication_key)
+      .forget();
+    transaction.del(self.claimed_item_key(&key)).queue();
+    transaction.execute().await?;
     Ok(())
   }
 
-  pub fn get_claimed_items(&self) -> Result<Vec<ClaimedQueueItem>> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let claimed_redis_keys: Vec<String> = connection.keys(self.claimed_item_key_str("*"))?;
+  #[instrument(skip(self))]
+  pub async fn get_claimed_items(&self) -> Result<Vec<ClaimedQueueItem>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let claimed_redis_keys: Vec<String> = connection.keys(self.claimed_item_key_str("*")).await?;
     let claimed_keys = claimed_redis_keys
       .iter()
       .map(|key| {
@@ -310,32 +359,34 @@ impl PriorityQueue {
       })
       .collect::<Vec<ItemKey>>();
 
-    let items_opt = claimed_keys
+    let item_futures: Vec<_> = claimed_keys.iter().map(|key| self.get_item(key)).collect();
+    let items: Vec<QueueItem> = join_all(item_futures)
+      .await
       .iter()
-      .map(|key| self.get_item(key))
-      .collect::<Result<Vec<Option<QueueItem>>>>()?;
-
-    let items = items_opt
-      .iter()
-      .filter_map(|item| item.clone())
+      .filter_map(|item_result| match item_result {
+        Ok(Some(item)) => Some(item.clone()),
+        _ => None,
+      })
       .collect::<Vec<QueueItem>>();
 
-    let claimed_items = items
-      .iter()
-      .map(|item| ClaimedQueueItem {
+    let claimed_items = join_all(items.iter().map(|item| async {
+      ClaimedQueueItem {
         item: item.clone(),
         claim_ttl_seconds: connection
           .ttl(self.claimed_item_key(&item.item_key))
-          .unwrap(),
-      })
-      .collect::<Vec<ClaimedQueueItem>>();
+          .await
+          .unwrap() as u32,
+      }
+    }))
+    .await;
 
     Ok(claimed_items)
   }
 
-  pub fn get_claimed_item_count(&self) -> Result<u32> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let claimed_redis_keys: Vec<String> = connection.keys(self.claimed_item_key_str("*"))?;
+  #[instrument(skip(self))]
+  pub async fn get_claimed_item_count(&self) -> Result<u32> {
+    let connection = self.redis_connection_pool.get().await?;
+    let claimed_redis_keys: Vec<String> = connection.keys(self.claimed_item_key_str("*")).await?;
     Ok(claimed_redis_keys.len() as u32)
   }
 }

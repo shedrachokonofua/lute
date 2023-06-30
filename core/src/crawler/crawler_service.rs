@@ -10,6 +10,7 @@ use crate::{
 };
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
+use tracing::error;
 
 impl From<CrawlerMonitor> for proto::CrawlerMonitor {
   fn from(val: CrawlerMonitor) -> Self {
@@ -120,10 +121,15 @@ impl proto::CrawlerService for CrawlerService {
     request: Request<()>,
   ) -> Result<Response<GetCrawlerMonitorReply>, Status> {
     let _ = request.into_inner();
-    let monitor = self.crawler.crawler_interactor.get_monitor().map_err(|e| {
-      println!("Error: {:?}", e);
-      Status::internal("Internal server error")
-    })?;
+    let monitor = self
+      .crawler
+      .crawler_interactor
+      .get_monitor()
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Internal server error")
+      })?;
     let reply = GetCrawlerMonitorReply {
       monitor: Some(monitor.into()),
     };
@@ -135,7 +141,15 @@ impl proto::CrawlerService for CrawlerService {
     request: Request<SetStatusRequest>,
   ) -> Result<Response<SetCrawlerStatusReply>, Status> {
     let status = CrawlerStatus::from(request.into_inner().status());
-    self.crawler.crawler_interactor.set_status(status).unwrap();
+    self
+      .crawler
+      .crawler_interactor
+      .set_status(status)
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Internal server error")
+      })?;
     let reply = SetCrawlerStatusReply {
       status: proto::CrawlerStatus::from(status).into(),
     };
@@ -147,12 +161,12 @@ impl proto::CrawlerService for CrawlerService {
       .crawler
       .crawler_interactor
       .enqueue(request.into_inner().try_into().map_err(|e| {
-        println!("Error: {:?}", e);
+        error!("Error: {:?}", e);
         Status::internal("Internal server error")
       })?)
       .await
       .map_err(|e| {
-        println!("Error: {:?}", e);
+        error!("Error: {:?}", e);
         Status::internal("Internal server error")
       })?;
 
@@ -160,10 +174,15 @@ impl proto::CrawlerService for CrawlerService {
   }
 
   async fn empty(&self, _request: Request<()>) -> Result<Response<()>, Status> {
-    self.crawler.crawler_interactor.empty_queue().map_err(|e| {
-      println!("Error: {:?}", e);
-      Status::internal("Internal server error")
-    })?;
+    self
+      .crawler
+      .crawler_interactor
+      .empty_queue()
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Internal server error")
+      })?;
 
     Ok(Response::new(()))
   }
@@ -173,8 +192,9 @@ impl proto::CrawlerService for CrawlerService {
       .crawler
       .crawler_interactor
       .reset_window_request_count()
+      .await
       .map_err(|e| {
-        println!("Error: {:?}", e);
+        error!("Error: {:?}", e);
         Status::internal("Internal server error")
       })?;
 
@@ -186,8 +206,9 @@ impl proto::CrawlerService for CrawlerService {
       .crawler
       .crawler_interactor
       .remove_throttle()
+      .await
       .map_err(|e| {
-        println!("Error: {:?}", e);
+        error!("Error: {:?}", e);
         Status::internal("Internal server error")
       })?;
 

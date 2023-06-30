@@ -1,6 +1,5 @@
 use anyhow::{bail, Error, Result};
-use r2d2::Pool;
-use redis::{Client, Commands};
+use rustis::{bb8::Pool, client::PooledClientManager, commands::StringCommands};
 use std::{str::FromStr, sync::Arc};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -50,7 +49,7 @@ impl FromStr for CrawlerStatus {
 
 #[derive(Debug)]
 pub struct CrawlerStateRepository {
-  pub redis_connection_pool: Arc<Pool<Client>>,
+  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
 impl CrawlerStateRepository {
@@ -62,9 +61,9 @@ impl CrawlerStateRepository {
     "crawler:window_request_count".to_string()
   }
 
-  pub fn get_status(&self) -> Result<CrawlerStatus> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let status: Option<String> = connection.get(self.status_key())?;
+  pub async fn get_status(&self) -> Result<CrawlerStatus> {
+    let connection = self.redis_connection_pool.get().await?;
+    let status: Option<String> = connection.get(self.status_key()).await?;
     Ok(
       status
         .map(|status| CrawlerStatus::from_str(&status).unwrap())
@@ -72,27 +71,29 @@ impl CrawlerStateRepository {
     )
   }
 
-  pub fn set_status(&self, status: CrawlerStatus) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
-    connection.set(self.status_key(), status.to_string())?;
+  pub async fn set_status(&self, status: CrawlerStatus) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    connection
+      .set(self.status_key(), status.to_string())
+      .await?;
     Ok(())
   }
 
-  pub fn get_window_request_count(&self) -> Result<u32> {
-    let mut connection = self.redis_connection_pool.get()?;
-    let count: Option<u32> = connection.get(self.window_request_count_key())?;
+  pub async fn get_window_request_count(&self) -> Result<u32> {
+    let connection = self.redis_connection_pool.get().await?;
+    let count: Option<u32> = connection.get(self.window_request_count_key()).await?;
     Ok(count.unwrap_or(0))
   }
 
-  pub fn increment_window_request_count(&self) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
-    connection.incr(self.window_request_count_key(), 1)?;
+  pub async fn increment_window_request_count(&self) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    connection.incr(self.window_request_count_key()).await?;
     Ok(())
   }
 
-  pub fn reset_window_request_count(&self) -> Result<()> {
-    let mut connection = self.redis_connection_pool.get()?;
-    connection.set(self.window_request_count_key(), 0)?;
+  pub async fn reset_window_request_count(&self) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    connection.set(self.window_request_count_key(), 0).await?;
     Ok(())
   }
 }

@@ -4,10 +4,10 @@ use crate::settings::SpotifySettings;
 use anyhow::Result;
 use chrono::DateTime;
 use chrono::Utc;
-use r2d2::Pool;
-use redis::Client;
 use rspotify::prelude::BaseClient;
 use rspotify::{prelude::OAuthClient, AuthCodeSpotify, Credentials, OAuth, Token};
+use rustis::bb8::Pool;
+use rustis::client::PooledClientManager;
 use std::sync::Arc;
 
 impl From<Token> for SpotifyCredentials {
@@ -50,11 +50,14 @@ async fn set_client_token(client: &AuthCodeSpotify, token: Token) {
 }
 
 impl SpotifyClient {
-  pub fn new(settings: &SpotifySettings, redis_connection_pool: Arc<Pool<Client>>) -> Self {
+  pub fn new(
+    settings: &SpotifySettings,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  ) -> Self {
     Self {
       settings: settings.clone(),
       spotify_credential_repository: SpotifyCredentialRepository {
-        redis_connection_pool: redis_connection_pool.clone(),
+        redis_connection_pool,
       },
     }
   }
@@ -74,7 +77,7 @@ impl SpotifyClient {
   }
 
   pub async fn is_authorized(&self) -> bool {
-    let creds = self.spotify_credential_repository.get_credentials();
+    let creds = self.spotify_credential_repository.get_credentials().await;
     creds.is_ok() && creds.unwrap().is_some()
   }
 
@@ -92,7 +95,8 @@ impl SpotifyClient {
     let credentials: SpotifyCredentials = token.into();
     self
       .spotify_credential_repository
-      .put(&credentials.clone())?;
+      .put(&credentials.clone())
+      .await?;
 
     Ok(credentials)
   }
@@ -100,7 +104,8 @@ impl SpotifyClient {
   async fn client(&self) -> Result<AuthCodeSpotify> {
     let credentials = self
       .spotify_credential_repository
-      .get_credentials()?
+      .get_credentials()
+      .await?
       .ok_or(anyhow::anyhow!("Credentials not found"))?;
     let client = self.base_client();
     set_client_token(&client, credentials.clone().into()).await;
@@ -109,7 +114,8 @@ impl SpotifyClient {
       client.refresh_token().await?;
       self
         .spotify_credential_repository
-        .put(&get_client_token(&client).await.into())?;
+        .put(&get_client_token(&client).await.into())
+        .await?;
     }
 
     Ok(client)
