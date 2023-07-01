@@ -4,10 +4,11 @@ use crate::{
   files::{file_interactor::FileInteractor, file_service::FileService},
   ops::OperationsService,
   parser::parser_service::ParserService,
+  profile::profile_service::ProfileService,
   proto::{
     AlbumServiceServer, CrawlerServiceServer, FileServiceServer, HealthCheckReply, Lute,
-    LuteServer, OperationsServiceServer, ParserServiceServer, SpotifyServiceServer,
-    FILE_DESCRIPTOR_SET,
+    LuteServer, OperationsServiceServer, ParserServiceServer, ProfileServiceServer,
+    SpotifyServiceServer, FILE_DESCRIPTOR_SET,
   },
   settings::Settings,
   spotify::{spotify_client::SpotifyClient, spotify_service::SpotifyService},
@@ -35,6 +36,7 @@ pub struct RpcServer {
   spotify_service: Arc<SpotifyService>,
   operations_service: Arc<OperationsService>,
   parser_service: Arc<ParserService>,
+  profile_service: Arc<ProfileService>,
 }
 
 impl RpcServer {
@@ -61,6 +63,7 @@ impl RpcServer {
         Arc::clone(&redis_connection_pool),
       )),
       parser_service: Arc::new(ParserService::new(Arc::clone(&redis_connection_pool))),
+      profile_service: Arc::new(ProfileService::new(Arc::clone(&redis_connection_pool))),
     }
   }
 
@@ -98,6 +101,9 @@ impl RpcServer {
       )))
       .add_service(tonic_web::enable(ParserServiceServer::from_arc(
         Arc::clone(&self.parser_service),
+      )))
+      .add_service(tonic_web::enable(ProfileServiceServer::from_arc(
+        Arc::clone(&self.profile_service),
       )))
       .serve(addr)
       .await?;

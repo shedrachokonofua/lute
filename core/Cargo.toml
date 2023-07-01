@@ -3,9 +3,6 @@ name = "core"
 version = "0.1.0"
 edition = "2021"
 
-[profile.release]
-debug = 1
-
 [dependencies]
 anyhow = "1.0.71"
 chrono = { version = "0.4.24", features = ["serde"] }

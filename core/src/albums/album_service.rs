@@ -73,8 +73,7 @@ impl proto::AlbumService for AlbumService {
       .album_read_model_repository
       .get(&file_name)
       .await
-      .map_err(|e| Status::internal(e.to_string()))
-      .and_then(|album| album.ok_or_else(|| Status::not_found("Album not found")))?;
+      .map_err(|e| Status::internal(e.to_string()))?;
     let reply = proto::GetAlbumReply {
       album: Some(album.into()),
     };

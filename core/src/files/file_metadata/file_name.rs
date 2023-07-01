@@ -2,7 +2,7 @@ use super::page_type::PageType;
 use anyhow::Result;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct FileName(pub String);
 
 impl TryFrom<String> for FileName {

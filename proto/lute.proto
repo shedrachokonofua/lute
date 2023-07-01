@@ -196,3 +196,76 @@ message GetAggregatedFailureErrorsReply {
 service ParserService {
   rpc GetAggregatedFailureErrors (GetAggregatedFailureErrorsRequest) returns (GetAggregatedFailureErrorsReply) {}
 }
+
+message Profile {
+  string id = 1;
+  string name = 2;
+  string last_updated_at = 3;
+  map<string, uint32> albums = 4;
+}
+
+message ItemWithFactor {
+  string item = 1;
+  uint32 factor = 2;
+}
+
+message ProfileSummary {
+  string id = 1;
+  string name = 2;
+  uint32 album_count = 3;
+  uint32 indexed_album_count = 4;
+  float average_rating = 5;
+  uint32 median_year = 6;
+  repeated ItemWithFactor artists = 7;
+  repeated ItemWithFactor primary_genres = 8;
+  repeated ItemWithFactor secondary_genres = 9;
+  repeated ItemWithFactor descriptors = 10;
+  repeated ItemWithFactor years = 11;
+  repeated ItemWithFactor decades = 12;
+}
+
+message CreateProfileRequest {
+  string id = 1;
+  string name = 2;
+}
+
+message CreateProfileReply {
+  Profile profile = 1;
+}
+
+message GetProfileRequest {
+  string id = 1;
+}
+
+message GetProfileReply {
+  Profile profile = 1;
+}
+
+message GetProfileSummaryRequest {
+  string id = 1;
+}
+
+message GetProfileSummaryReply {
+  ProfileSummary summary = 1;
+}
+
+message FileNameWithFactor {
+  string file_name = 1;
+  uint32 factor = 2;
+}
+
+message AddManyAlbumsToProfileRequest {
+  string profile_id = 1;
+  repeated FileNameWithFactor albums = 2;
+}
+
+message AddManyAlbumsToProfileReply {
+  Profile profile = 1;
+}
+
+service ProfileService {
+  rpc CreateProfile (CreateProfileRequest) returns (CreateProfileReply) {}
+  rpc GetProfile (GetProfileRequest) returns (GetProfileReply) {}
+  rpc GetProfileSummary (GetProfileSummaryRequest) returns (GetProfileSummaryReply) {}
+  rpc AddManyAlbumsToProfile (AddManyAlbumsToProfileRequest) returns (AddManyAlbumsToProfileReply) {}
+}
