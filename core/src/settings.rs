@@ -57,6 +57,7 @@ pub struct CrawlerSettings {
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct TracingSettings {
   pub otel_collector_endpoint: String,
+  pub host_name: String,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]

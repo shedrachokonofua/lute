@@ -16,6 +16,7 @@ pub fn setup_tracing(tracing_settings: &TracingSettings) -> Result<()> {
   let trace_config = trace::Config::default().with_resource(Resource::new(vec![
     opentelemetry::KeyValue::new("service.namespace", "lute"),
     opentelemetry::KeyValue::new("service.name", "core"),
+    opentelemetry::KeyValue::new("host.name", tracing_settings.host_name.clone()),
   ]));
 
   let tracer = opentelemetry_otlp::new_pipeline()
