@@ -8,6 +8,7 @@ anyhow = "1.0.71"
 chrono = { version = "0.4.24", features = ["serde"] }
 config = "0.13.3"
 console-subscriber = "0.1.9"
+data-encoding = "2.4.0"
 dotenv = "0.15.0"
 futures = "0.3.28"
 lazy_static = "1.4.0"

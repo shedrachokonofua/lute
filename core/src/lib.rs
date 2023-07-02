@@ -3,6 +3,7 @@ pub mod crawler;
 pub mod db;
 pub mod events;
 pub mod files;
+pub mod lookup;
 pub mod ops;
 pub mod parser;
 pub mod profile;
