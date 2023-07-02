@@ -5,6 +5,10 @@ use super::{
 };
 use crate::{
   albums::album_read_model_repository::AlbumReadModelRepository,
+  events::{
+    event::{Event, EventPayload, Stream},
+    event_publisher::EventPublisher,
+  },
   files::file_metadata::file_name::FileName,
 };
 use anyhow::Result;
@@ -14,6 +18,7 @@ use std::sync::Arc;
 pub struct ProfileInteractor {
   profile_repository: ProfileRepository,
   album_read_model_repository: AlbumReadModelRepository,
+  event_publisher: EventPublisher,
 }
 
 impl ProfileInteractor {
@@ -25,6 +30,7 @@ impl ProfileInteractor {
       album_read_model_repository: AlbumReadModelRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
+      event_publisher: EventPublisher::new(redis_connection_pool),
     }
   }
 
@@ -40,18 +46,33 @@ impl ProfileInteractor {
   pub async fn add_album_to_profile(
     &self,
     id: &ProfileId,
-    album_file_name: &FileName,
+    file_name: &FileName,
     factor: u32,
   ) -> Result<Profile> {
-    let _ = self
-      .album_read_model_repository
-      .get(album_file_name)
+    if !self.album_read_model_repository.exists(file_name).await? {
+      anyhow::bail!("Album does not exist");
+    }
+
+    let (profile, new_addition) = self
+      .profile_repository
+      .add_album_to_profile(id, file_name, factor)
       .await?;
 
-    self
-      .profile_repository
-      .add_album_to_profile(id, album_file_name, factor)
-      .await
+    if new_addition {
+      self
+        .event_publisher
+        .publish(
+          Stream::Profile,
+          EventPayload::from_event(Event::ProfileAlbumAdded {
+            profile_id: id.clone(),
+            file_name: file_name.clone(),
+            factor,
+          }),
+        )
+        .await?;
+    }
+
+    Ok(profile)
   }
 
   pub async fn add_many_albums_to_profile(
@@ -59,10 +80,8 @@ impl ProfileInteractor {
     id: &ProfileId,
     entries: Vec<(FileName, u32)>,
   ) -> Result<Profile> {
-    for (album_file_name, factor) in entries {
-      self
-        .add_album_to_profile(id, &album_file_name, factor)
-        .await?;
+    for (file_name, factor) in entries {
+      self.add_album_to_profile(id, &file_name, factor).await?;
     }
     Ok(self.get_profile(id).await?)
   }

@@ -4,8 +4,7 @@ use chrono::NaiveDate;
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
-  commands::SetCondition,
-  commands::{JsonCommands, JsonGetOptions},
+  commands::{GenericCommands, JsonCommands, JsonGetOptions, SetCondition},
 };
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -76,6 +75,12 @@ impl AlbumReadModelRepository {
       Some(record) => Ok(record),
       None => anyhow::bail!("Album does not exist"),
     }
+  }
+
+  pub async fn exists(&self, file_name: &FileName) -> Result<bool> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: usize = connection.exists(self.key(file_name)).await?;
+    Ok(result == 1)
   }
 
   pub async fn get_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>> {

@@ -1,5 +1,6 @@
 use crate::files::file_metadata::file_name::FileName;
 use crate::parser::parsed_file_data::ParsedFileData;
+use crate::profile::profile::ProfileId;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -26,6 +27,11 @@ pub enum Event {
     file_name: FileName,
     error: String,
   },
+  ProfileAlbumAdded {
+    profile_id: ProfileId,
+    file_name: FileName,
+    factor: u32,
+  },
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -33,6 +39,16 @@ pub struct EventPayload {
   pub event: Event,
   pub correlation_id: Option<String>,
   pub metadata: Option<HashMap<String, String>>,
+}
+
+impl EventPayload {
+  pub fn from_event(event: Event) -> Self {
+    EventPayload {
+      event,
+      correlation_id: None,
+      metadata: None,
+    }
+  }
 }
 
 impl From<EventPayload> for HashMap<String, String> {
@@ -77,6 +93,7 @@ impl TryFrom<&HashMap<String, String>> for EventPayload {
 pub enum Stream {
   File,
   Parser,
+  Profile,
   Lookup,
 }
 
@@ -84,6 +101,7 @@ impl Stream {
   pub fn tag(&self) -> String {
     match &self {
       Stream::File => "file".to_string(),
+      Stream::Profile => "profile".to_string(),
       Stream::Parser => "parser".to_string(),
       Stream::Lookup => "lookup".to_string(),
     }

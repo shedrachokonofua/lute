@@ -5,8 +5,7 @@ use chrono::Utc;
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
-  commands::SetCondition,
-  commands::{JsonCommands, JsonGetOptions},
+  commands::{GenericCommands, JsonCommands, JsonGetOptions, SetCondition},
 };
 use std::sync::Arc;
 
@@ -39,13 +38,14 @@ impl ProfileRepository {
     }
   }
 
-  pub async fn does_profile_exist(&self, id: &ProfileId) -> Result<bool> {
-    let profile = self.find(id).await?;
-    Ok(profile.is_some())
+  pub async fn exists(&self, id: &ProfileId) -> Result<bool> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: usize = connection.exists(self.key(id)).await?;
+    Ok(result == 1)
   }
 
   pub async fn insert(&self, id: ProfileId, name: String) -> Result<Profile> {
-    if self.does_profile_exist(&id).await? {
+    if self.exists(&id).await? {
       bail!("Profile already exists")
     }
     let profile = Profile {
@@ -73,7 +73,7 @@ impl ProfileRepository {
     id: &ProfileId,
     album_file_name: &FileName,
   ) -> Result<bool> {
-    if !self.does_profile_exist(id).await? {
+    if !self.exists(id).await? {
       bail!("Profile does not exist")
     }
     let connection = self.redis_connection_pool.get().await?;
@@ -91,10 +91,11 @@ impl ProfileRepository {
     id: &ProfileId,
     album_file_name: &FileName,
     factor: u32,
-  ) -> Result<Profile> {
-    if !self.does_profile_exist(id).await? {
+  ) -> Result<(Profile, bool)> {
+    if !self.exists(id).await? {
       bail!("Profile does not exist")
     }
+    let new_addition = !self.is_album_on_profile(id, album_file_name).await?;
     let connection = self.redis_connection_pool.get().await?;
     connection
       .json_set(
@@ -104,6 +105,6 @@ impl ProfileRepository {
         SetCondition::default(),
       )
       .await?;
-    Ok(self.get(id).await?)
+    Ok((self.get(id).await?, new_addition))
   }
 }
