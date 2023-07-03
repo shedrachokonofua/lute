@@ -9,7 +9,7 @@ use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug)]
 pub struct EventPublisher {
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
 impl EventPublisher {

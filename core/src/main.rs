@@ -3,6 +3,7 @@ use core::{
   crawler::{crawler::Crawler, crawler_event_subscriber::build_crawler_event_subscribers},
   db::{build_redis_connection_pool, setup_redis_indexes},
   events::event_subscriber::EventSubscriber,
+  lookup::lookup_event_subscribers::build_lookup_event_subscribers,
   parser::parser_event_subscribers::build_parser_event_subscribers,
   rpc::RpcServer,
   settings::Settings,
@@ -37,7 +38,7 @@ fn start_event_subscribers(
   crawler: Arc<Crawler>,
 ) {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
-  event_subscribers.extend(build_parser_event_subscribers(
+  event_subscribers.extend(build_album_event_subscribers(
     Arc::clone(&redis_connection_pool),
     settings.clone(),
   ));
@@ -46,10 +47,15 @@ fn start_event_subscribers(
     settings.clone(),
     Arc::clone(&crawler.crawler_interactor),
   ));
-  event_subscribers.extend(build_album_event_subscribers(
+  event_subscribers.extend(build_parser_event_subscribers(
     Arc::clone(&redis_connection_pool),
-    settings,
+    settings.clone(),
   ));
+  event_subscribers.extend(build_lookup_event_subscribers(
+    Arc::clone(&redis_connection_pool),
+    settings.clone(),
+  ));
+
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });
   });

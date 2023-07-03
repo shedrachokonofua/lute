@@ -1,4 +1,5 @@
 use crate::files::file_metadata::file_name::FileName;
+use crate::lookup::album_search_lookup_repository::AlbumSearchLookup;
 use crate::parser::parsed_file_data::ParsedFileData;
 use crate::profile::profile::ProfileId;
 use anyhow::{anyhow, Result};
@@ -31,6 +32,9 @@ pub enum Event {
     profile_id: ProfileId,
     file_name: FileName,
     factor: u32,
+  },
+  LookupAlbumSearchStatusChanged {
+    lookup: AlbumSearchLookup,
   },
 }
 
