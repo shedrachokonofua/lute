@@ -9,10 +9,6 @@ use rustis::{bb8::Pool, client::PooledClientManager, commands::HashCommands};
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 
-pub struct AlbumSearchLookupRepository {
-  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-}
-
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct AlbumSearchLookupQuery {
   pub album_name: String,
@@ -20,6 +16,19 @@ pub struct AlbumSearchLookupQuery {
 }
 
 impl AlbumSearchLookupQuery {
+  pub fn file_name(&self) -> FileName {
+    let query_string = serde_urlencoded::to_string(&[
+      (
+        "searchterm",
+        format!("{} {}", self.artist_name, self.album_name),
+      ),
+      ("searchtype", "l".to_string()),
+    ])
+    .expect("Failed to encode query string");
+    FileName::try_from(format!("search{}", query_string))
+      .expect("Failed to create file name from query string")
+  }
+
   pub fn to_encoded_string(&self) -> String {
     BASE64.encode(format!("{}|DELIMETER|{}", self.album_name, self.artist_name).as_bytes())
   }
@@ -383,12 +392,55 @@ impl TryFrom<HashMap<String, String>> for AlbumSearchLookup {
   }
 }
 
+impl Into<u32> for &AlbumSearchLookup {
+  fn into(self) -> u32 {
+    match self {
+      AlbumSearchLookup::Started { .. } => 1,
+      AlbumSearchLookup::SearchCrawling { .. } => 2,
+      AlbumSearchLookup::SearchParsing { .. } => 3,
+      AlbumSearchLookup::SearchParseFailed { .. } => 4,
+      AlbumSearchLookup::AlbumCrawling { .. } => 5,
+      AlbumSearchLookup::AlbumParsing { .. } => 6,
+      AlbumSearchLookup::AlbumParseFailed { .. } => 7,
+      AlbumSearchLookup::AlbumParsed { .. } => 8,
+    }
+  }
+}
+
+impl PartialEq for AlbumSearchLookup {
+  fn eq(&self, other: &Self) -> bool {
+    let self_value: u32 = self.into();
+    let other_value: u32 = other.into();
+    self_value == other_value
+  }
+}
+
+impl Eq for AlbumSearchLookup {}
+
+impl PartialOrd for AlbumSearchLookup {
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for AlbumSearchLookup {
+  fn cmp(&self, other: &Self) -> Ordering {
+    let self_value: u32 = self.into();
+    let other_value: u32 = other.into();
+    self_value.cmp(&other_value)
+  }
+}
+
 fn key(query: &AlbumSearchLookupQuery) -> String {
   format!("lookup:album_search:{}", query.to_encoded_string())
 }
 
 fn key_from_encoded_string(encoded_string: String) -> String {
   format!("lookup:album_search:{}", encoded_string)
+}
+
+pub struct AlbumSearchLookupRepository {
+  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
 impl AlbumSearchLookupRepository {

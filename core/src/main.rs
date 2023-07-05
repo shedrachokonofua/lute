@@ -54,6 +54,7 @@ fn start_event_subscribers(
   event_subscribers.extend(build_lookup_event_subscribers(
     Arc::clone(&redis_connection_pool),
     settings.clone(),
+    Arc::clone(&crawler.crawler_interactor),
   ));
 
   event_subscribers.into_iter().for_each(|subscriber| {
