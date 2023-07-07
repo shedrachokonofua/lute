@@ -1,13 +1,15 @@
 # Todo
 
-- [ ] Lookup: Album
-- [ ] Profile: Import albums from spotify saved tracks, albums, playlists & most played tracks
+- [x] Lookup: Album
+- [ ] Lookup: Check album read model store before crawling
+- [ ] Profile: Import data from spotify saved tracks, albums, playlists & most played tracks
 - [ ] Perf: Replace settings cloning with Arc
 - [ ] Crawler: Fix file staleness check
-- [ ] Parser: Bulk retry, On demand parsing from content store
+- [ ] Parser: Bulk retry queue, rpc method
 - [ ] Crawler: Automatic rate limit reset
 - [ ] Recommendations: KNN vector similarity, quantile ranking, rpc service
 - [ ] Event bus: Subscriber statuses, iterator age, rpc service
+- [ ] Lookup: Refresh album search lookup value with non-lookup related file events
 - [ ] Lookup: Chart
 - [ ] Lookup: Artist
 - [ ] Web: Recommendation dashboard
