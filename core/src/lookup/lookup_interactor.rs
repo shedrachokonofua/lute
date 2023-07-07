@@ -1,5 +1,8 @@
-use super::album_search_lookup_repository::{
-  AlbumSearchLookup, AlbumSearchLookupQuery, AlbumSearchLookupRepository,
+use super::{
+  album_search_lookup::{
+    get_album_search_correlation_id, AlbumSearchLookup, AlbumSearchLookupQuery,
+  },
+  album_search_lookup_repository::AlbumSearchLookupRepository,
 };
 use crate::events::{
   event::{Event, EventPayload, Stream},
@@ -32,9 +35,13 @@ impl LookupInteractor {
       .event_publisher
       .publish(
         Stream::Lookup,
-        EventPayload::from_event(Event::LookupAlbumSearchStatusChanged {
-          lookup: lookup.clone(),
-        }),
+        EventPayload {
+          event: Event::LookupAlbumSearchStatusChanged {
+            lookup: lookup.clone(),
+          },
+          correlation_id: Some(get_album_search_correlation_id(&lookup.query())),
+          metadata: None,
+        },
       )
       .await?;
     Ok(())

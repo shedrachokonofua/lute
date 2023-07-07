@@ -4,9 +4,10 @@ use chrono::NaiveDateTime;
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
-  commands::{FtAggregateOptions, FtReducer, SearchCommands},
-  commands::{FtCreateOptions, FtFieldSchema, FtFieldType, GenericCommands},
-  commands::{FtIndexDataType, HashCommands},
+  commands::{
+    FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtReducer,
+    GenericCommands, HashCommands, SearchCommands,
+  },
 };
 use std::{collections::HashMap, sync::Arc};
 use tracing::info;
@@ -120,7 +121,7 @@ impl FailedParseFilesRepository {
     let index_info = connection.ft_info(self.search_index_name()).await;
 
     if let Err(err) = index_info {
-      if err.to_string().contains("Unknown: Index name") {
+      if err.to_string().contains("Unknown Index name") {
         info!("Creating new search index: {}", self.search_index_name());
 
         connection

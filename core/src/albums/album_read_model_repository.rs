@@ -1,4 +1,4 @@
-use crate::files::file_metadata::file_name::FileName;
+use crate::{files::file_metadata::file_name::FileName, proto};
 use anyhow::Result;
 use chrono::NaiveDate;
 use rustis::{
@@ -13,6 +13,47 @@ use std::sync::Arc;
 pub struct AlbumReadModelArtist {
   pub name: String,
   pub file_name: FileName,
+}
+
+impl From<AlbumReadModelTrack> for proto::Track {
+  fn from(val: AlbumReadModelTrack) -> Self {
+    proto::Track {
+      name: val.name,
+      duration_seconds: val.duration_seconds,
+      rating: val.rating,
+      position: val.position,
+    }
+  }
+}
+
+impl From<AlbumReadModelArtist> for proto::AlbumArtist {
+  fn from(val: AlbumReadModelArtist) -> Self {
+    proto::AlbumArtist {
+      name: val.name,
+      file_name: val.file_name.to_string(),
+    }
+  }
+}
+
+impl From<AlbumReadModel> for proto::Album {
+  fn from(val: AlbumReadModel) -> Self {
+    proto::Album {
+      name: val.name,
+      file_name: val.file_name.to_string(),
+      rating: val.rating,
+      rating_count: val.rating_count,
+      artists: val
+        .artists
+        .into_iter()
+        .map(|artist| artist.into())
+        .collect(),
+      primary_genres: val.primary_genres,
+      secondary_genres: val.secondary_genres,
+      descriptors: val.descriptors,
+      tracks: val.tracks.into_iter().map(|track| track.into()).collect(),
+      release_date: val.release_date.map(|date| date.to_string()),
+    }
+  }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]

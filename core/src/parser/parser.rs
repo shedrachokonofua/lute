@@ -23,6 +23,7 @@ pub async fn parse_file_on_store(
   event_publisher: EventPublisher,
   file_id: Ulid,
   file_name: FileName,
+  correlation_id: Option<String>,
 ) -> Result<ParsedFileData> {
   let file_content = file_content_store.get(&file_name).await?;
 
@@ -72,7 +73,7 @@ pub async fn parse_file_on_store(
       Stream::Parser,
       EventPayload {
         event,
-        correlation_id: None,
+        correlation_id,
         metadata: None,
       },
     )

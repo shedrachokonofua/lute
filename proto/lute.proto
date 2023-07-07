@@ -269,3 +269,38 @@ service ProfileService {
   rpc GetProfileSummary (GetProfileSummaryRequest) returns (GetProfileSummaryReply) {}
   rpc AddManyAlbumsToProfile (AddManyAlbumsToProfileRequest) returns (AddManyAlbumsToProfileReply) {}
 }
+
+message AlbumSearchLookupQuery {
+  string artist_name = 1;
+  string album_name = 2;
+}
+
+message SearchAlbumRequest {
+  AlbumSearchLookupQuery query = 1;
+}
+
+message AlbumSearchResult {
+  string album_name = 1;
+  string file_name = 2;
+  repeated AlbumArtist artists = 3;
+}
+
+message AlbumSearchLookup {
+  AlbumSearchLookupQuery query = 1;
+  optional string last_updated_at = 2;
+  optional string album_search_file_name = 3;
+  optional string file_processing_correlation_id = 4;
+  optional string album_search_file_parse_error = 5;
+  optional AlbumSearchResult album_search_result = 6;
+  optional string album_file_parse_error = 7;
+  optional Album album = 8;
+  string status = 9;
+}
+
+message SearchAlbumReply {
+  AlbumSearchLookup lookup = 1;
+}
+
+service LookupService {
+  rpc SearchAlbum (SearchAlbumRequest) returns (SearchAlbumReply) {}
+}

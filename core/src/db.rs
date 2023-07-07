@@ -1,4 +1,5 @@
 use crate::{
+  lookup::album_search_lookup_repository::AlbumSearchLookupRepository,
   parser::failed_parse_files_repository::FailedParseFilesRepository, settings::RedisSettings,
 };
 use anyhow::Result;
@@ -21,6 +22,12 @@ pub async fn setup_redis_indexes(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
 ) -> Result<()> {
   FailedParseFilesRepository {
+    redis_connection_pool: redis_connection_pool.clone(),
+  }
+  .setup_index()
+  .await?;
+
+  AlbumSearchLookupRepository {
     redis_connection_pool: redis_connection_pool.clone(),
   }
   .setup_index()

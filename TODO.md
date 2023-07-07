@@ -2,7 +2,7 @@
 
 - [ ] Lookup: Album
 - [ ] Profile: Import albums from spotify saved tracks, albums, playlists & most played tracks
-- [ ] Profile: 
+- [ ] Perf: Replace settings cloning with Arc
 - [ ] Crawler: Fix file staleness check
 - [ ] Parser: Bulk retry, On demand parsing from content store
 - [ ] Crawler: Automatic rate limit reset
