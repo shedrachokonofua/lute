@@ -11,8 +11,8 @@ impl From<AlbumSearchLookup> for proto::AlbumSearchLookup {
   fn from(val: AlbumSearchLookup) -> Self {
     proto::AlbumSearchLookup {
       query: Some(proto::AlbumSearchLookupQuery {
-        artist_name: val.query().artist_name.clone(),
-        album_name: val.query().album_name.clone(),
+        artist_name: val.query().artist_name().to_string(),
+        album_name: val.query().album_name().to_string(),
       }),
       last_updated_at: val.last_updated_at().map(|date| date.to_string()),
       album_search_file_name: val

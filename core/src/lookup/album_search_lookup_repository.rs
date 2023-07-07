@@ -17,10 +17,6 @@ fn key(query: &AlbumSearchLookupQuery) -> String {
   format!("{}:{}", NAMESPACE, query.to_encoded_string())
 }
 
-fn key_from_encoded_string(encoded_string: String) -> String {
-  format!("{}:{}", NAMESPACE, encoded_string)
-}
-
 pub struct AlbumSearchLookupRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }

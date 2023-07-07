@@ -28,11 +28,26 @@ pub fn get_query_from_album_search_correlation_id(
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct AlbumSearchLookupQuery {
-  pub album_name: String,
-  pub artist_name: String,
+  album_name: String,
+  artist_name: String,
 }
 
 impl AlbumSearchLookupQuery {
+  pub fn new(album_name: String, artist_name: String) -> Self {
+    AlbumSearchLookupQuery {
+      album_name: album_name.to_lowercase(),
+      artist_name: artist_name.to_lowercase(),
+    }
+  }
+
+  pub fn album_name(&self) -> &str {
+    &self.album_name
+  }
+
+  pub fn artist_name(&self) -> &str {
+    &self.artist_name
+  }
+
   pub fn file_name(&self) -> FileName {
     let query_string = serde_urlencoded::to_string(&[
       (
