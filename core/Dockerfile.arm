@@ -11,7 +11,8 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17
 COPY core core
 COPY proto proto
 
-RUN cargo install --path core
+RUN cd core && \
+  cargo build --release --jobs 20
 
 FROM debian:bullseye-slim
 RUN apt-get update && rm -rf /var/lib/apt/lists/*

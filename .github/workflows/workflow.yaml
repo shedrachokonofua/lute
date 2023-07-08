@@ -48,5 +48,5 @@ jobs:
       - name: Push Docker image
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          docker buildx build --platform linux/arm64 --push -t ${{ env.IMAGE_NAME_ARM }} .
+          docker buildx build --build-arg TARGET_CORES=4 --platform linux/arm64 --push -t ${{ env.IMAGE_NAME_ARM }} .
           docker push ${{ env.IMAGE_NAME }}
