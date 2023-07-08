@@ -3,7 +3,7 @@ use super::{
     get_query_from_album_search_correlation_id, is_album_search_correlation_id, AlbumSearchLookup,
     AlbumSearchLookupStep,
   },
-  album_search_lookup_repository::AlbumSearchLookupRepository,
+  lookup_interactor::LookupInteractor,
 };
 use crate::{
   crawler::{
@@ -11,7 +11,8 @@ use crate::{
     priority_queue::{Priority, QueuePushParameters},
   },
   events::{
-    event::{Event, Stream},
+    event::{Event, EventPayload, Stream},
+    event_publisher::EventPublisher,
     event_subscriber::{EventSubscriber, SubscriberContext},
   },
   files::file_metadata::page_type::PageType,
@@ -19,169 +20,197 @@ use crate::{
   settings::Settings,
 };
 use anyhow::Result;
+use chrono::Utc;
 use futures::future::BoxFuture;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
-async fn handle_event(
+async fn handle_file_processing_event(
+  context: SubscriberContext,
+  lookup_interactor: LookupInteractor,
+  event_publisher: EventPublisher,
+) -> Result<()> {
+  if context.payload.correlation_id.is_none() {
+    return Ok(());
+  }
+  let correlation_id = context.payload.correlation_id.unwrap();
+  if !is_album_search_correlation_id(&correlation_id) {
+    return Ok(());
+  }
+  let query = get_query_from_album_search_correlation_id(&correlation_id)?;
+  let lookup = lookup_interactor.get_album_search_lookup(&query).await?;
+
+  let next_lookup = match context.payload.event {
+    Event::FileSaved { file_name, .. } => match file_name.page_type() {
+      PageType::AlbumSearchResult => {
+        if lookup.can_transition(AlbumSearchLookupStep::SearchParsing, &correlation_id) {
+          Some(AlbumSearchLookup::SearchParsing {
+            album_search_file_name: file_name,
+            query: lookup.query().clone(),
+            last_updated_at: chrono::Utc::now().naive_utc(),
+            file_processing_correlation_id: correlation_id.clone(),
+          })
+        } else {
+          None
+        }
+      }
+      PageType::Album => {
+        if lookup.can_transition(AlbumSearchLookupStep::AlbumParsing, &correlation_id) {
+          Some(AlbumSearchLookup::AlbumParsing {
+            album_search_file_name: file_name,
+            query: lookup.query().clone(),
+            last_updated_at: chrono::Utc::now().naive_utc(),
+            file_processing_correlation_id: correlation_id.clone(),
+            parsed_album_search_result: lookup.parsed_album_search_result().unwrap(),
+          })
+        } else {
+          None
+        }
+      }
+      _ => None,
+    },
+    Event::FileParsed {
+      file_name, data, ..
+    } => match data {
+      ParsedFileData::AlbumSearchResult(album_search_result) => {
+        if lookup.can_transition(AlbumSearchLookupStep::SearchParsed, &correlation_id) {
+          Some(AlbumSearchLookup::SearchParsed {
+            album_search_file_name: file_name,
+            query: lookup.query().clone(),
+            last_updated_at: chrono::Utc::now().naive_utc(),
+            file_processing_correlation_id: correlation_id.clone(),
+            parsed_album_search_result: album_search_result,
+          })
+        } else {
+          None
+        }
+      }
+      ParsedFileData::Album(album) => {
+        if lookup.can_transition(AlbumSearchLookupStep::AlbumParsed, &correlation_id) {
+          Some(AlbumSearchLookup::AlbumParsed {
+            album_search_file_name: file_name,
+            query: lookup.query().clone(),
+            last_updated_at: chrono::Utc::now().naive_utc(),
+            file_processing_correlation_id: correlation_id.clone(),
+            parsed_album_search_result: lookup.parsed_album_search_result().unwrap(),
+            parsed_album: album,
+          })
+        } else {
+          None
+        }
+      }
+      _ => None,
+    },
+    Event::FileParseFailed {
+      file_name, error, ..
+    } => match file_name.page_type() {
+      PageType::AlbumSearchResult => {
+        if lookup.can_transition(AlbumSearchLookupStep::SearchParseFailed, &correlation_id) {
+          Some(AlbumSearchLookup::SearchParseFailed {
+            album_search_file_name: file_name,
+            query: lookup.query().clone(),
+            last_updated_at: chrono::Utc::now().naive_utc(),
+            file_processing_correlation_id: correlation_id.clone(),
+            album_search_file_parse_error: error,
+          })
+        } else {
+          None
+        }
+      }
+      PageType::Album => {
+        if lookup.can_transition(AlbumSearchLookupStep::AlbumParseFailed, &correlation_id) {
+          Some(AlbumSearchLookup::AlbumParseFailed {
+            album_search_file_name: file_name,
+            query: lookup.query().clone(),
+            last_updated_at: chrono::Utc::now().naive_utc(),
+            file_processing_correlation_id: correlation_id.clone(),
+            parsed_album_search_result: lookup.parsed_album_search_result().unwrap(),
+            album_file_parse_error: error,
+          })
+        } else {
+          None
+        }
+      }
+      _ => None,
+    },
+    _ => None,
+  };
+
+  if let Some(next_lookup) = next_lookup {
+    event_publisher
+      .publish(
+        Stream::Lookup,
+        EventPayload {
+          event: Event::LookupAlbumSearchStatusChanged {
+            lookup: next_lookup.clone(),
+          },
+          correlation_id: Some(correlation_id),
+          metadata: None,
+        },
+      )
+      .await?;
+  }
+  Ok(())
+}
+
+async fn handle_lookup_event(
   context: SubscriberContext,
   crawler_interactor: Arc<CrawlerInteractor>,
+  lookup_interactor: LookupInteractor,
 ) -> Result<()> {
-  if let Some(correlation_id) = &context.payload.correlation_id {
-    if !is_album_search_correlation_id(correlation_id) {
-      return Ok(());
-    }
+  if context.payload.correlation_id.is_none() {
+    return Ok(());
+  }
+  let correlation_id = context.payload.correlation_id.unwrap();
 
-    let album_search_lookup_repository = AlbumSearchLookupRepository {
-      redis_connection_pool: Arc::clone(&context.redis_connection_pool),
-    };
+  if !is_album_search_correlation_id(&correlation_id) {
+    return Ok(());
+  }
 
-    if let Event::LookupAlbumSearchStatusChanged {
-      lookup: AlbumSearchLookup::Started { query },
-    } = context.payload.event
-    {
-      let correlation_id = context.payload.correlation_id.unwrap();
+  if let Event::LookupAlbumSearchStatusChanged { lookup } = context.payload.event {
+    lookup_interactor.put_album_search_lookup(&lookup).await?;
+    if let AlbumSearchLookup::Started { query, .. } = lookup {
       crawler_interactor
         .enqueue(QueuePushParameters {
           file_name: query.file_name(),
-          priority: Some(Priority::Express),
-          correlation_id: Some(correlation_id.clone()),
+          priority: Some(Priority::High),
           deduplication_key: None,
+          correlation_id: Some(correlation_id.clone()),
           metadata: None,
         })
         .await?;
-      album_search_lookup_repository
-        .put(&AlbumSearchLookup::SearchCrawling {
+      lookup_interactor
+        .put_album_search_lookup(&AlbumSearchLookup::SearchCrawling {
+          query: query.clone(),
+          last_updated_at: Utc::now().naive_utc(),
           album_search_file_name: query.file_name(),
-          query: query,
-          last_updated_at: chrono::Utc::now().naive_utc(),
           file_processing_correlation_id: correlation_id.clone(),
         })
         .await?;
-    } else if let Event::FileSaved {
-      file_id: _,
-      file_name,
-    } = context.payload.event
+    } else if let AlbumSearchLookup::SearchParsed {
+      parsed_album_search_result,
+      query,
+      ..
+    } = lookup
     {
-      let correlation_id = context.payload.correlation_id.unwrap();
-      let query = get_query_from_album_search_correlation_id(&correlation_id)?;
-      let lookup = album_search_lookup_repository.get(&query).await?;
-
-      match file_name.page_type() {
-        PageType::AlbumSearchResult => {
-          if lookup.can_transition(AlbumSearchLookupStep::SearchParsing, &correlation_id) {
-            album_search_lookup_repository
-              .put(&AlbumSearchLookup::SearchParsing {
-                album_search_file_name: file_name,
-                query: lookup.query().clone(),
-                last_updated_at: chrono::Utc::now().naive_utc(),
-                file_processing_correlation_id: correlation_id.clone(),
-              })
-              .await?;
-          }
-        }
-        PageType::Album => {
-          if lookup.can_transition(AlbumSearchLookupStep::AlbumParsing, &correlation_id) {
-            album_search_lookup_repository
-              .put(&AlbumSearchLookup::AlbumParsing {
-                album_search_file_name: file_name,
-                query: lookup.query().clone(),
-                last_updated_at: chrono::Utc::now().naive_utc(),
-                file_processing_correlation_id: correlation_id.clone(),
-                parsed_album_search_result: lookup.parsed_album_search_result().unwrap(),
-              })
-              .await?;
-          }
-        }
-        _ => {}
-      };
-    } else if let Event::FileParsed {
-      file_name, data, ..
-    } = context.payload.event
-    {
-      let correlation_id = context.payload.correlation_id.unwrap();
-      let query = get_query_from_album_search_correlation_id(&correlation_id)?;
-      let lookup = album_search_lookup_repository.get(&query).await?;
-
-      match data {
-        ParsedFileData::AlbumSearchResult(album_search_result) => {
-          if lookup.can_transition(AlbumSearchLookupStep::AlbumCrawling, &correlation_id) {
-            crawler_interactor
-              .enqueue(QueuePushParameters {
-                file_name: album_search_result.file_name.clone(),
-                priority: Some(Priority::Express),
-                correlation_id: Some(correlation_id.clone()),
-                deduplication_key: None,
-                metadata: None,
-              })
-              .await?;
-            album_search_lookup_repository
-              .put(&AlbumSearchLookup::AlbumCrawling {
-                album_search_file_name: file_name,
-                query: lookup.query().clone(),
-                last_updated_at: chrono::Utc::now().naive_utc(),
-                file_processing_correlation_id: correlation_id.clone(),
-                parsed_album_search_result: album_search_result,
-              })
-              .await?;
-          }
-        }
-        ParsedFileData::Album(album) => {
-          if lookup.can_transition(AlbumSearchLookupStep::AlbumParsed, &correlation_id) {
-            album_search_lookup_repository
-              .put(&AlbumSearchLookup::AlbumParsed {
-                album_search_file_name: file_name,
-                query: lookup.query().clone(),
-                last_updated_at: chrono::Utc::now().naive_utc(),
-                file_processing_correlation_id: correlation_id.clone(),
-                parsed_album_search_result: lookup.parsed_album_search_result().unwrap(),
-                parsed_album: album,
-              })
-              .await?;
-          }
-        }
-        _ => {}
-      };
-    } else if let Event::FileParseFailed {
-      file_name,
-      error,
-      file_id: _,
-    } = context.payload.event
-    {
-      let correlation_id = context.payload.correlation_id.unwrap();
-      let query = get_query_from_album_search_correlation_id(&correlation_id)?;
-      let lookup = album_search_lookup_repository.get(&query).await?;
-
-      match file_name.page_type() {
-        PageType::AlbumSearchResult => {
-          if lookup.can_transition(AlbumSearchLookupStep::SearchParseFailed, &correlation_id) {
-            album_search_lookup_repository
-              .put(&AlbumSearchLookup::SearchParseFailed {
-                album_search_file_name: file_name,
-                query: lookup.query().clone(),
-                last_updated_at: chrono::Utc::now().naive_utc(),
-                file_processing_correlation_id: correlation_id.clone(),
-                album_search_file_parse_error: error,
-              })
-              .await?;
-          }
-        }
-        PageType::Album => {
-          if lookup.can_transition(AlbumSearchLookupStep::AlbumParseFailed, &correlation_id) {
-            album_search_lookup_repository
-              .put(&AlbumSearchLookup::AlbumParseFailed {
-                album_search_file_name: file_name,
-                query: lookup.query().clone(),
-                last_updated_at: chrono::Utc::now().naive_utc(),
-                file_processing_correlation_id: correlation_id.clone(),
-                parsed_album_search_result: lookup.parsed_album_search_result().unwrap(),
-                album_file_parse_error: error,
-              })
-              .await?;
-          }
-        }
-        _ => {}
-      }
+      crawler_interactor
+        .enqueue(QueuePushParameters {
+          file_name: parsed_album_search_result.file_name.clone(),
+          priority: Some(Priority::High),
+          deduplication_key: None,
+          correlation_id: Some(correlation_id.clone()),
+          metadata: None,
+        })
+        .await?;
+      lookup_interactor
+        .put_album_search_lookup(&AlbumSearchLookup::AlbumCrawling {
+          query,
+          last_updated_at: Utc::now().naive_utc(),
+          album_search_file_name: parsed_album_search_result.file_name.clone(),
+          file_processing_correlation_id: correlation_id.clone(),
+          parsed_album_search_result,
+        })
+        .await?;
     }
   }
   Ok(())
@@ -192,12 +221,16 @@ pub fn build_album_search_lookup_event_subscribers(
   settings: Settings,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Vec<EventSubscriber> {
-  let lookup_event_handler: Arc<
+  let file_processing_handler: Arc<
     dyn Fn(SubscriberContext) -> BoxFuture<'static, Result<()>> + Send + Sync,
   > = Arc::new(move |context| {
-    let crawler_interactor = Arc::clone(&crawler_interactor);
-    Box::pin(async move { handle_event(context, crawler_interactor).await })
+    let lookup_interactor = LookupInteractor::new(Arc::clone(&context.redis_connection_pool));
+    let event_publisher = EventPublisher::new(Arc::clone(&context.redis_connection_pool));
+    Box::pin(async move {
+      handle_file_processing_event(context, lookup_interactor, event_publisher).await
+    })
   });
+
   vec![
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
@@ -205,7 +238,13 @@ pub fn build_album_search_lookup_event_subscribers(
       id: "lookup".to_string(),
       concurrency: Some(250),
       stream: Stream::Lookup,
-      handle: Arc::clone(&lookup_event_handler),
+      handle: Arc::new(move |context| {
+        let crawler_interactor = Arc::clone(&crawler_interactor);
+        let lookup_interactor = LookupInteractor::new(Arc::clone(&context.redis_connection_pool));
+        Box::pin(async move {
+          handle_lookup_event(context, crawler_interactor, lookup_interactor).await
+        })
+      }),
     },
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
@@ -213,7 +252,7 @@ pub fn build_album_search_lookup_event_subscribers(
       id: "lookup".to_string(),
       concurrency: Some(250),
       stream: Stream::File,
-      handle: Arc::clone(&lookup_event_handler),
+      handle: Arc::clone(&file_processing_handler),
     },
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
@@ -221,7 +260,7 @@ pub fn build_album_search_lookup_event_subscribers(
       id: "lookup".to_string(),
       concurrency: Some(250),
       stream: Stream::Parser,
-      handle: Arc::clone(&lookup_event_handler),
+      handle: Arc::clone(&file_processing_handler),
     },
   ]
 }

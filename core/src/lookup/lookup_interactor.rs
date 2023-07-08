@@ -2,7 +2,7 @@ use super::{
   album_search_lookup::{
     get_album_search_correlation_id, AlbumSearchLookup, AlbumSearchLookupQuery,
   },
-  album_search_lookup_repository::AlbumSearchLookupRepository,
+  album_search_lookup_repository::{AggregatedStatus, AlbumSearchLookupRepository},
 };
 use crate::events::{
   event::{Event, EventPayload, Stream},
@@ -29,22 +29,15 @@ impl LookupInteractor {
     }
   }
 
-  pub async fn put_lookup(&self, lookup: &AlbumSearchLookup) -> Result<()> {
-    self.album_search_lookup_repository.put(lookup).await?;
-    self
-      .event_publisher
-      .publish(
-        Stream::Lookup,
-        EventPayload {
-          event: Event::LookupAlbumSearchStatusChanged {
-            lookup: lookup.clone(),
-          },
-          correlation_id: Some(get_album_search_correlation_id(&lookup.query())),
-          metadata: None,
-        },
-      )
-      .await?;
-    Ok(())
+  pub async fn put_album_search_lookup(&self, lookup: &AlbumSearchLookup) -> Result<()> {
+    self.album_search_lookup_repository.put(lookup).await
+  }
+
+  pub async fn get_album_search_lookup(
+    &self,
+    query: &AlbumSearchLookupQuery,
+  ) -> Result<AlbumSearchLookup> {
+    self.album_search_lookup_repository.get(query).await
   }
 
   pub async fn search_album(
@@ -58,9 +51,29 @@ impl LookupInteractor {
       Some(lookup) => Ok(lookup),
       None => {
         let lookup = AlbumSearchLookup::new(query);
-        self.put_lookup(&lookup).await?;
+        self.put_album_search_lookup(&lookup).await?;
+        self
+          .event_publisher
+          .publish(
+            Stream::Lookup,
+            EventPayload {
+              event: Event::LookupAlbumSearchStatusChanged {
+                lookup: lookup.clone(),
+              },
+              correlation_id: Some(get_album_search_correlation_id(&lookup.query())),
+              metadata: None,
+            },
+          )
+          .await?;
         Ok(lookup)
       }
     }
+  }
+
+  pub async fn aggregate_statuses(&self) -> Result<Vec<AggregatedStatus>> {
+    self
+      .album_search_lookup_repository
+      .aggregate_statuses()
+      .await
   }
 }

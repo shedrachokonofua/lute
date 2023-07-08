@@ -83,6 +83,7 @@ pub enum AlbumSearchLookupStatus {
   SearchCrawling,
   SearchParsing,
   SearchParseFailed,
+  SearchParsed,
   AlbumCrawling,
   AlbumParsing,
   AlbumParseFailed,
@@ -94,10 +95,11 @@ pub enum AlbumSearchLookupStep {
   SearchCrawling = 2,
   SearchParsing = 3,
   SearchParseFailed = 4,
-  AlbumCrawling = 5,
-  AlbumParsing = 6,
-  AlbumParseFailed = 7,
-  AlbumParsed = 8,
+  SearchParsed = 5,
+  AlbumCrawling = 6,
+  AlbumParsing = 7,
+  AlbumParseFailed = 8,
+  AlbumParsed = 9,
 }
 
 impl AlbumSearchLookupStatus {
@@ -107,6 +109,7 @@ impl AlbumSearchLookupStatus {
       AlbumSearchLookupStatus::SearchCrawling => "search_crawling".to_string(),
       AlbumSearchLookupStatus::SearchParsing => "search_parsing".to_string(),
       AlbumSearchLookupStatus::SearchParseFailed => "search_parse_failed".to_string(),
+      AlbumSearchLookupStatus::SearchParsed => "search_parsed".to_string(),
       AlbumSearchLookupStatus::AlbumCrawling => "album_crawling".to_string(),
       AlbumSearchLookupStatus::AlbumParsing => "album_parsing".to_string(),
       AlbumSearchLookupStatus::AlbumParseFailed => "album_parse_failed".to_string(),
@@ -138,6 +141,13 @@ pub enum AlbumSearchLookup {
     last_updated_at: NaiveDateTime,
     album_search_file_name: FileName,
     album_search_file_parse_error: String,
+    file_processing_correlation_id: String,
+  },
+  SearchParsed {
+    query: AlbumSearchLookupQuery,
+    last_updated_at: NaiveDateTime,
+    album_search_file_name: FileName,
+    parsed_album_search_result: ParsedAlbumSearchResult,
     file_processing_correlation_id: String,
   },
   AlbumCrawling {
@@ -183,6 +193,7 @@ impl AlbumSearchLookup {
       AlbumSearchLookup::SearchCrawling { .. } => AlbumSearchLookupStatus::SearchCrawling,
       AlbumSearchLookup::SearchParsing { .. } => AlbumSearchLookupStatus::SearchParsing,
       AlbumSearchLookup::SearchParseFailed { .. } => AlbumSearchLookupStatus::SearchParseFailed,
+      AlbumSearchLookup::SearchParsed { .. } => AlbumSearchLookupStatus::SearchParsed,
       AlbumSearchLookup::AlbumCrawling { .. } => AlbumSearchLookupStatus::AlbumCrawling,
       AlbumSearchLookup::AlbumParsing { .. } => AlbumSearchLookupStatus::AlbumParsing,
       AlbumSearchLookup::AlbumParseFailed { .. } => AlbumSearchLookupStatus::AlbumParseFailed,
@@ -200,6 +211,7 @@ impl AlbumSearchLookup {
       AlbumSearchLookup::SearchCrawling { query, .. } => query,
       AlbumSearchLookup::SearchParsing { query, .. } => query,
       AlbumSearchLookup::SearchParseFailed { query, .. } => query,
+      AlbumSearchLookup::SearchParsed { query, .. } => query,
       AlbumSearchLookup::AlbumCrawling { query, .. } => query,
       AlbumSearchLookup::AlbumParsing { query, .. } => query,
       AlbumSearchLookup::AlbumParseFailed { query, .. } => query,
@@ -215,6 +227,7 @@ impl AlbumSearchLookup {
       AlbumSearchLookup::SearchParseFailed { .. } => {
         AlbumSearchLookupStep::SearchParseFailed as u32
       }
+      AlbumSearchLookup::SearchParsed { .. } => AlbumSearchLookupStatus::SearchParsed as u32,
       AlbumSearchLookup::AlbumCrawling { .. } => AlbumSearchLookupStep::AlbumCrawling as u32,
       AlbumSearchLookup::AlbumParsing { .. } => AlbumSearchLookupStep::AlbumParsing as u32,
       AlbumSearchLookup::AlbumParseFailed { .. } => AlbumSearchLookupStep::AlbumParseFailed as u32,
@@ -234,6 +247,10 @@ impl AlbumSearchLookup {
         ..
       } => file_processing_correlation_id.to_string(),
       AlbumSearchLookup::SearchParseFailed {
+        file_processing_correlation_id,
+        ..
+      } => file_processing_correlation_id.to_string(),
+      AlbumSearchLookup::SearchParsed {
         file_processing_correlation_id,
         ..
       } => file_processing_correlation_id.to_string(),
@@ -296,6 +313,9 @@ impl AlbumSearchLookup {
       AlbumSearchLookup::SearchParseFailed {
         last_updated_at, ..
       } => Some(*last_updated_at),
+      AlbumSearchLookup::SearchParsed {
+        last_updated_at, ..
+      } => Some(*last_updated_at),
       AlbumSearchLookup::AlbumCrawling {
         last_updated_at, ..
       } => Some(*last_updated_at),
@@ -323,6 +343,10 @@ impl AlbumSearchLookup {
         ..
       } => Some(album_search_file_name.clone()),
       AlbumSearchLookup::SearchParseFailed {
+        album_search_file_name,
+        ..
+      } => Some(album_search_file_name.clone()),
+      AlbumSearchLookup::SearchParsed {
         album_search_file_name,
         ..
       } => Some(album_search_file_name.clone()),
@@ -438,6 +462,31 @@ impl From<AlbumSearchLookup> for HashMap<String, String> {
         map.insert(
           "album_search_file_parse_error".to_string(),
           album_search_file_parse_error,
+        );
+        map.insert("last_updated_at".to_string(), last_updated_at.to_string());
+        map.insert(
+          "file_processing_correlation_id".to_string(),
+          file_processing_correlation_id.to_string(),
+        );
+        map
+      }
+      AlbumSearchLookup::SearchParsed {
+        query,
+        album_search_file_name,
+        parsed_album_search_result,
+        last_updated_at,
+        file_processing_correlation_id,
+      } => {
+        let mut map = HashMap::new();
+        map.insert("status".to_string(), status);
+        map.insert("query".to_string(), serde_json::to_string(&query).unwrap());
+        map.insert(
+          "album_search_file_name".to_string(),
+          album_search_file_name.to_string(),
+        );
+        map.insert(
+          "parsed_album_search_result".to_string(),
+          serde_json::to_string(&parsed_album_search_result).unwrap(),
         );
         map.insert("last_updated_at".to_string(), last_updated_at.to_string());
         map.insert(
@@ -620,6 +669,16 @@ impl TryFrom<HashMap<String, String>> for AlbumSearchLookup {
         last_updated_at: get_last_updated_at_field(&value)?,
         album_search_file_parse_error: get_map_field(&value, "album_search_file_parse_error")?
           .to_string(),
+        file_processing_correlation_id: get_file_processing_correlation_id_field(&value)?,
+      }),
+      "search_parsed" => Ok(AlbumSearchLookup::SearchParsed {
+        query,
+        album_search_file_name: get_album_search_file_name_field(&value)?,
+        last_updated_at: get_last_updated_at_field(&value)?,
+        parsed_album_search_result: serde_json::from_str(get_map_field(
+          &value,
+          "parsed_album_search_result",
+        )?)?,
         file_processing_correlation_id: get_file_processing_correlation_id_field(&value)?,
       }),
       "album_crawling" => Ok(AlbumSearchLookup::AlbumCrawling {

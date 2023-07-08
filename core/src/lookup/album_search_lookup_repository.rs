@@ -4,7 +4,8 @@ use rustis::{
   bb8::Pool,
   client::PooledClientManager,
   commands::{
-    FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, HashCommands, SearchCommands,
+    FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtReducer,
+    HashCommands, SearchCommands,
   },
 };
 use std::{collections::HashMap, sync::Arc};
@@ -15,6 +16,31 @@ const INDEX_NAME: &str = "lookup:album_search_idx";
 
 fn key(query: &AlbumSearchLookupQuery) -> String {
   format!("{}:{}", NAMESPACE, query.to_encoded_string())
+}
+
+pub struct AggregatedStatus {
+  pub status: String,
+  pub count: u32,
+}
+
+impl From<Vec<(String, String)>> for AggregatedStatus {
+  fn from(val: Vec<(String, String)>) -> Self {
+    let mut status = None;
+    let mut count = None;
+
+    for (key, value) in val {
+      match key.as_str() {
+        "status" => status = Some(value),
+        "count" => count = Some(value.parse().expect("invalid count")),
+        _ => {}
+      }
+    }
+
+    Self {
+      status: status.expect("status not found"),
+      count: count.expect("count not found"),
+    }
+  }
 }
 
 pub struct AlbumSearchLookupRepository {
@@ -53,6 +79,24 @@ impl AlbumSearchLookupRepository {
       .hset(key, map)
       .await?;
     Ok(())
+  }
+
+  pub async fn aggregate_statuses(&self) -> Result<Vec<AggregatedStatus>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection
+      .ft_aggregate(
+        INDEX_NAME,
+        "*",
+        FtAggregateOptions::default().groupby("@status", FtReducer::count().as_name("count")),
+      )
+      .await?;
+    let aggregates = result
+      .results
+      .iter()
+      .map(|r| AggregatedStatus::from(r.to_owned()))
+      .collect::<Vec<_>>();
+
+    Ok(aggregates)
   }
 
   pub async fn setup_index(&self) -> Result<()> {

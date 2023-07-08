@@ -78,4 +78,25 @@ impl proto::LookupService for LookupService {
     };
     Ok(Response::new(reply))
   }
+
+  async fn get_aggregated_album_search_statuses(
+    &self,
+    _request: Request<()>,
+  ) -> Result<Response<proto::GetAggregatedAlbumSearchStatusesReply>, Status> {
+    let statuses = self
+      .lookup_interactor
+      .aggregate_statuses()
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+    let reply = proto::GetAggregatedAlbumSearchStatusesReply {
+      statuses: statuses
+        .into_iter()
+        .map(|status| proto::AggregatedStatus {
+          status: status.status,
+          count: status.count,
+        })
+        .collect(),
+    };
+    Ok(Response::new(reply))
+  }
 }

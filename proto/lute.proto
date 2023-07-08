@@ -301,6 +301,16 @@ message SearchAlbumReply {
   AlbumSearchLookup lookup = 1;
 }
 
+message AggregatedStatus {
+  string status = 1;
+  uint32 count = 2;
+}
+
+message GetAggregatedAlbumSearchStatusesReply {
+  repeated AggregatedStatus statuses = 1;
+}
+
 service LookupService {
   rpc SearchAlbum (SearchAlbumRequest) returns (SearchAlbumReply) {}
+  rpc GetAggregatedAlbumSearchStatuses (google.protobuf.Empty) returns (GetAggregatedAlbumSearchStatusesReply) {}
 }
