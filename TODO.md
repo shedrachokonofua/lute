@@ -2,7 +2,7 @@
 
 - [x] Lookup: Album
 - [x] Lookup: Aggregated statuses rpc service
-- [ ] Lookup: Check album read model store before crawling
+- [x] Lookup: Check album read model store before crawling
 - [ ] Profile: Import data from spotify saved tracks, albums, playlists & most played tracks
 - [ ] Perf: Replace settings cloning with Arc
 - [ ] Crawler: Fix file staleness check
