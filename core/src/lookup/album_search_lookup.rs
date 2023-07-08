@@ -235,7 +235,7 @@ impl AlbumSearchLookup {
     }
   }
 
-  pub fn correlation_id(&self) -> String {
+  pub fn file_processing_correlation_id(&self) -> String {
     match self {
       AlbumSearchLookup::Started { query } => get_album_search_correlation_id(query),
       AlbumSearchLookup::SearchCrawling {
@@ -391,7 +391,7 @@ impl AlbumSearchLookup {
   }
 
   pub fn can_transition(&self, target_step: AlbumSearchLookupStep, correlation_id: &str) -> bool {
-    self.step() < target_step as u32 || self.correlation_id() != correlation_id
+    self.step() < target_step as u32 || self.file_processing_correlation_id() != correlation_id
   }
 }
 
