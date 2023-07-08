@@ -4,11 +4,14 @@ use crate::settings::SpotifySettings;
 use anyhow::Result;
 use chrono::DateTime;
 use chrono::Utc;
+use futures::stream::TryStreamExt;
+use rspotify::model::SavedTrack;
 use rspotify::prelude::BaseClient;
 use rspotify::{prelude::OAuthClient, AuthCodeSpotify, Credentials, OAuth, Token};
 use rustis::bb8::Pool;
 use rustis::client::PooledClientManager;
 use std::sync::Arc;
+use tokio::sync::mpsc::unbounded_channel;
 
 impl From<Token> for SpotifyCredentials {
   fn from(token: Token) -> Self {
@@ -32,6 +35,58 @@ impl From<SpotifyCredentials> for Token {
       expires_in: credentials
         .expires_at
         .signed_duration_since(Utc::now().naive_utc()),
+    }
+  }
+}
+
+pub struct SpotifyArtistReference {
+  pub spotify_id: String,
+  pub name: String,
+}
+
+pub enum SpotifyAlbumType {
+  Album,
+  Single,
+  Compilation,
+}
+
+pub struct SpotifyAlbumReference {
+  pub spotify_id: String,
+  pub name: String,
+  pub album_type: SpotifyAlbumType,
+}
+
+pub struct SpotifyTrack {
+  pub spotify_id: String,
+  pub name: String,
+  pub artists: Vec<SpotifyArtistReference>,
+  pub album: SpotifyAlbumReference,
+}
+
+impl From<SavedTrack> for SpotifyTrack {
+  fn from(saved_track: SavedTrack) -> Self {
+    SpotifyTrack {
+      spotify_id: saved_track.track.id.unwrap().to_string(),
+      name: saved_track.track.name,
+      artists: saved_track
+        .track
+        .artists
+        .iter()
+        .map(|artist| SpotifyArtistReference {
+          spotify_id: artist.id.clone().unwrap().to_string(),
+          name: artist.name.clone(),
+        })
+        .collect(),
+      album: SpotifyAlbumReference {
+        spotify_id: saved_track.track.album.id.unwrap().to_string(),
+        name: saved_track.track.album.name,
+        album_type: match saved_track.track.album.album_type.unwrap().as_str() {
+          "album" => SpotifyAlbumType::Album,
+          "single" => SpotifyAlbumType::Single,
+          "compilation" => SpotifyAlbumType::Compilation,
+          _ => panic!("Unknown album type"),
+        },
+      },
     }
   }
 }
@@ -119,5 +174,26 @@ impl SpotifyClient {
     }
 
     Ok(client)
+  }
+
+  pub async fn get_saved_tracks(&self) -> Result<Vec<SpotifyTrack>> {
+    let client = self.client().await?;
+    let (tx, mut rx) = unbounded_channel();
+    let stream = client.current_user_saved_tracks(None);
+    stream
+      .try_for_each_concurrent(1000, |item| {
+        let tx = tx.clone();
+        async move {
+          tx.send(item).unwrap();
+          Ok(())
+        }
+      })
+      .await?;
+    drop(tx);
+    let mut saved_tracks = vec![];
+    while let Some(saved_track) = rx.recv().await {
+      saved_tracks.push(saved_track.into());
+    }
+    Ok(saved_tracks)
   }
 }

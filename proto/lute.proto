@@ -157,11 +157,39 @@ message HandleAuthorizationCodeRequest {
   string code = 1;
 }
 
+message SpotifyArtistReference {
+  string spotify_id = 1;
+  string name = 2;
+}
+
+enum SpotifyAlbumType {
+  ALBUM = 0;
+  SINGLE = 1;
+  COMPILATION = 2;
+}
+
+message SpotifyAlbumReference {
+  string spotify_id = 1;
+  string name = 2;
+  SpotifyAlbumType album_type = 3;
+}
+
+message SpotifyTrack {
+  string spotify_id = 1;
+  string name = 2;
+  repeated SpotifyArtistReference artists = 3;
+  SpotifyAlbumReference album = 4;
+}
+
+message GetSavedTracksReply {
+  repeated SpotifyTrack tracks = 1;
+}
 
 service SpotifyService {
   rpc IsAuthorized (google.protobuf.Empty) returns (IsAuthorizedReply) {}
   rpc GetAuthorizationUrl (google.protobuf.Empty) returns (GetAuthorizationUrlReply) {}
   rpc HandleAuthorizationCode (HandleAuthorizationCodeRequest) returns (google.protobuf.Empty) {}
+  rpc GetSavedTracks (google.protobuf.Empty) returns (GetSavedTracksReply) {}
 }
 
 message ParseFileContentStoreReply {

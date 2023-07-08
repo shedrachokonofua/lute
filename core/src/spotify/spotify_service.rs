@@ -1,10 +1,36 @@
-use super::spotify_client::SpotifyClient;
+use super::spotify_client::{SpotifyAlbumType, SpotifyClient, SpotifyTrack};
 use crate::proto::{self, HandleAuthorizationCodeRequest, IsAuthorizedReply};
 use tonic::{Request, Response, Status};
 use tracing::error;
 
 pub struct SpotifyService {
   pub spotify_client: SpotifyClient,
+}
+
+impl From<SpotifyTrack> for proto::SpotifyTrack {
+  fn from(track: SpotifyTrack) -> Self {
+    proto::SpotifyTrack {
+      spotify_id: track.spotify_id,
+      name: track.name,
+      artists: track
+        .artists
+        .iter()
+        .map(|artist| proto::SpotifyArtistReference {
+          spotify_id: artist.spotify_id.clone(),
+          name: artist.name.clone(),
+        })
+        .collect(),
+      album: Some(proto::SpotifyAlbumReference {
+        spotify_id: track.album.spotify_id,
+        name: track.album.name,
+        album_type: match track.album.album_type {
+          SpotifyAlbumType::Album => proto::SpotifyAlbumType::Album.into(),
+          SpotifyAlbumType::Single => proto::SpotifyAlbumType::Single.into(),
+          SpotifyAlbumType::Compilation => proto::SpotifyAlbumType::Compilation.into(),
+        },
+      }),
+    }
+  }
 }
 
 #[tonic::async_trait]
@@ -43,5 +69,24 @@ impl proto::SpotifyService for SpotifyService {
       })?;
 
     Ok(Response::new(()))
+  }
+
+  async fn get_saved_tracks(
+    &self,
+    _: Request<()>,
+  ) -> Result<Response<proto::GetSavedTracksReply>, Status> {
+    let tracks = self
+      .spotify_client
+      .get_saved_tracks()
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Internal server error")
+      })?
+      .into_iter()
+      .map(|track| track.into())
+      .collect();
+    let reply = proto::GetSavedTracksReply { tracks };
+    Ok(Response::new(reply))
   }
 }
