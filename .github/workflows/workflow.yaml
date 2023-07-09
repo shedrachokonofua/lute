@@ -42,9 +42,9 @@ jobs:
       - name: Build Docker Images
         run: |
           echo "Image names: ${{ env.IMAGE_NAME }}, ${{ env.IMAGE_NAME_ARM }}"
+          docker build -t ${{ env.IMAGE_NAME }} -f core/Dockerfile .
           docker buildx create --use --name builder
           docker buildx build --platform linux/arm64 -t ${{ env.IMAGE_NAME_ARM }} -f core/Dockerfile.arm .
-          docker build -t ${{ env.IMAGE_NAME }} -f core/Dockerfile .
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -56,5 +56,5 @@ jobs:
       - name: Push Docker image
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          docker buildx build --build-arg TARGET_CORES=4 --platform linux/arm64 --push -t ${{ env.IMAGE_NAME_ARM }} .
           docker push ${{ env.IMAGE_NAME }}
+          docker buildx build --build-arg TARGET_CORES=4 --platform linux/arm64 --push -t ${{ env.IMAGE_NAME_ARM }} .
