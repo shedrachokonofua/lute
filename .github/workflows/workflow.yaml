@@ -39,10 +39,14 @@ jobs:
       - name: Install QEMU
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
-      - name: Build Docker Images
+      - name: Build x86 Docker Image
         run: |
-          echo "Image names: ${{ env.IMAGE_NAME }}, ${{ env.IMAGE_NAME_ARM }}"
+          echo "Image name: ${{ env.IMAGE_NAME }}"
           docker build -t ${{ env.IMAGE_NAME }} -f core/Dockerfile .
+
+      - name: Build ARM Docker Image
+        run: |
+          echo "Image name: ${{ env.IMAGE_NAME_ARM }}"
           docker buildx create --use --name builder
           docker buildx build --platform linux/arm64 -t ${{ env.IMAGE_NAME_ARM }} -f core/Dockerfile.arm .
 
@@ -53,7 +57,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push Docker image
+      - name: Push Docker Images
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           docker push ${{ env.IMAGE_NAME }}
