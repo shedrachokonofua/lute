@@ -9,8 +9,6 @@ name: workflow
 env:
   IMAGE_NAME: ghcr.io/shedrachokonofua/lute-v4:${{ github.sha }}
   IMAGE_NAME_ARM: ghcr.io/shedrachokonofua/lute-v4:${{ github.sha }}-arm
-  RUSTC_WRAPPER: sccache
-  SCCACHE_GHA_ENABLED: true
 jobs:
   checks:
     runs-on: ubuntu-latest
