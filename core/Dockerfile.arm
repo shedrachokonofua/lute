@@ -1,4 +1,5 @@
-FROM arm64v8/rust:1.67 as builder
+# FROM arm64v8/rust:1.67 as builder
+FROM rust:1.67 as builder
 WORKDIR /usr/src/app
 
 # Install protobuf compiler
