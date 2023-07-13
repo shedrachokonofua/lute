@@ -1,4 +1,3 @@
-# FROM arm64v8/rust:1.67 as builder
 FROM ghcr.io/yasuyuky/rust-arm:1.67.0 as builder
 WORKDIR /usr/src/app
 
