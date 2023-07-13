@@ -22,7 +22,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ runner.workspace }}/docker-layers
-          key: ${{ runner.os }}-docker-${{ hashFiles('**/Dockerfile*') }}
+          key: ${{ runner.os }}-docker-${{ hashFiles('**/Dockerfile', '**/Dockerfile.arm') }}
           restore-keys: ${{ runner.os }}-docker-
     
       - name: Setup cache storage backend
