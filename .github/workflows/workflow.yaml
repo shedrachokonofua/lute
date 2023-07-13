@@ -31,12 +31,12 @@ jobs:
       - name: Build x86 Docker Image
         run: |
           echo "Image name: ${{ env.IMAGE_NAME }}"
-          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,dest=${{ runner.workspace }}/docker-layers -t ${{ env.IMAGE_NAME }} -f core/Dockerfile --load .
+          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers -t ${{ env.IMAGE_NAME }} -f core/Dockerfile --load .
 
       - name: Build ARM Docker Image
         run: |
           echo "Image name: ${{ env.IMAGE_NAME_ARM }}"
-          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,dest=${{ runner.workspace }}/docker-layers -t ${{ env.IMAGE_NAME_ARM }} -f core/Dockerfile.arm --load .
+          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers -t ${{ env.IMAGE_NAME_ARM }} -f core/Dockerfile.arm --load .
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
