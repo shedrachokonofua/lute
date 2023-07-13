@@ -1,30 +1,19 @@
-FROM arm64v8/rust:1.67 as builder
+# FROM arm64v8/rust:1.67 as builder
+FROM ghcr.io/yasuyuky/rust-arm:1.67.0 as builder
 WORKDIR /usr/src/app
 
-# Install protobuf compiler
-RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17.3/protoc-3.17.3-linux-aarch_64.zip && \
-  unzip protoc-3.17.3-linux-aarch_64.zip -d protoc3 && \
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17.3/protoc-3.17.3-linux-x86_64.zip && \
+  unzip protoc-3.17.3-linux-x86_64.zip -d protoc3 && \
   mv protoc3/bin/* /usr/local/bin/ && \
   mv protoc3/include/* /usr/local/include/ && \
-  rm -rf protoc3 protoc-3.17.3-linux-aarch_64.zip
+  rm -rf protoc3 protoc-3.17.3-linux-x86_64.zip
 
 COPY core core
 COPY proto proto
 
-ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
-    CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
-    CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
-    PKG_CONFIG_SYSROOT_DIR=/ \
-    OPENSSL_DIR=/usr \
-    OPENSSL_LIB_DIR=/usr/lib/aarch64-linux-gnu
+RUN cargo install --path core --target arm-unknown-linux-gnueabihf
 
-RUN apt-get update -y && \
-  apt install -y g++-aarch64-linux-gnu libc6-dev-arm64-cross libssl-dev pkg-config && \
-  rustup update && \
-  rustup target add aarch64-unknown-linux-gnu && \
-  cargo install --path core --target aarch64-unknown-linux-gnu
-
-FROM arm64/debian:bullseye-slim
+FROM arm64v8/debian:bullseye-slim
 RUN apt-get update && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/cargo/bin/core /usr/local/bin/core
 CMD ["core"]
