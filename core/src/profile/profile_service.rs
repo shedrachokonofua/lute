@@ -8,8 +8,9 @@ use crate::{
   proto::{
     self, AddManyAlbumsToProfileReply, AddManyAlbumsToProfileRequest, CreateProfileReply,
     CreateProfileRequest, GetProfileReply, GetProfileRequest, GetProfileSummaryReply,
-    GetProfileSummaryRequest,
+    GetProfileSummaryRequest, ImportSavedSpotifyTracksRequest,
   },
+  settings::Settings,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -64,9 +65,12 @@ pub struct ProfileService {
 }
 
 impl ProfileService {
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+  pub fn new(
+    settings: Arc<Settings>,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  ) -> Self {
     Self {
-      profile_interactor: ProfileInteractor::new(redis_connection_pool),
+      profile_interactor: ProfileInteractor::new(settings, redis_connection_pool),
     }
   }
 }
@@ -178,5 +182,25 @@ impl proto::ProfileService for ProfileService {
       profile: Some(profile.into()),
     };
     Ok(Response::new(reply))
+  }
+
+  async fn import_saved_spotify_tracks(
+    &self,
+    request: Request<ImportSavedSpotifyTracksRequest>,
+  ) -> Result<Response<()>, Status> {
+    let profile_id = ProfileId::try_from(request.into_inner().profile_id).map_err(|err| {
+      tracing::error!("invalid profile id: {:?}", err);
+      Status::invalid_argument("invalid profile id")
+    })?;
+    self
+      .profile_interactor
+      .import_saved_spotify_tracks(&profile_id)
+      .await
+      .map_err(|err| {
+        tracing::error!("failed to import saved spotify tracks: {:?}", err);
+        Status::internal("failed to import saved spotify tracks")
+      })?;
+
+    Ok(Response::new(()))
   }
 }

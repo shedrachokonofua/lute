@@ -1,13 +1,17 @@
-use crate::{files::file_metadata::file_name::FileName, proto};
+use crate::{files::file_metadata::file_name::FileName, helpers::db::does_ft_index_exist, proto};
 use anyhow::Result;
 use chrono::NaiveDate;
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
-  commands::{GenericCommands, JsonCommands, JsonGetOptions, SetCondition},
+  commands::{
+    FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, GenericCommands, JsonCommands,
+    JsonGetOptions, SearchCommands, SetCondition,
+  },
 };
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::info;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModelArtist {
@@ -82,9 +86,12 @@ pub struct AlbumReadModelRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
+const NAMESPACE: &str = "album";
+const INDEX_NAME: &str = "album_idx";
+
 impl AlbumReadModelRepository {
   pub fn key(&self, file_name: &FileName) -> String {
-    format!("album:{}", file_name.to_string())
+    format!("{}:{}", NAMESPACE, file_name.to_string())
   }
 
   pub async fn put(&self, album: AlbumReadModel) -> Result<()> {
@@ -143,5 +150,30 @@ impl AlbumReadModelRepository {
       .collect::<Vec<AlbumReadModel>>();
 
     Ok(data)
+  }
+
+  pub async fn setup_index(&self) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    if !does_ft_index_exist(&connection, INDEX_NAME).await {
+      info!("Creating index {}", INDEX_NAME);
+      connection
+        .ft_create(
+          INDEX_NAME,
+          FtCreateOptions::default()
+            .on(FtIndexDataType::Json)
+            .prefix(format!("{}:", NAMESPACE)),
+          [
+            FtFieldSchema::identifier("$.name").field_type(FtFieldType::Text),
+            FtFieldSchema::identifier("$.file_name").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.artists[*].name").field_type(FtFieldType::Text),
+            FtFieldSchema::identifier("$.artists[*].file_name").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.primary_genres.*").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.secondary_genres.*").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.descriptors.*").field_type(FtFieldType::Tag),
+          ],
+        )
+        .await?;
+    }
+    Ok(())
   }
 }

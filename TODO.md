@@ -4,6 +4,7 @@
 - [x] Lookup: Aggregated statuses rpc service
 - [x] Lookup: Check album read model store before crawling
 - [ ] Profile: Import data from spotify saved tracks, albums, playlists & most played tracks
+- [ ] Scheduled tasks
 - [ ] Perf: Replace settings cloning with Arc
 - [ ] Crawler: Fix file staleness check
 - [ ] Parser: Bulk retry queue, rpc method

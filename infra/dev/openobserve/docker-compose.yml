@@ -5,7 +5,7 @@ services:
     image: otel/opentelemetry-collector-contrib:latest
     command: ["--config=/otel-collector-config.yml"]
     volumes:
-      - ./openobserve/otel-collector-config.yml:/otel-collector-config.yml
+      - ./otel-collector-config.yml:/otel-collector-config.yml
     ports:
       - 22003:4317
 

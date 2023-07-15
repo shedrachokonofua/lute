@@ -3,8 +3,7 @@ use anyhow::{bail, Result};
 use rustis::{
   bb8::Pool,
   client::{BatchPreparedCommand, PooledClientManager},
-  commands::HashCommands,
-  commands::StringCommands,
+  commands::{HashCommands, StringCommands},
 };
 use std::{collections::HashMap, sync::Arc};
 use ulid::Ulid;

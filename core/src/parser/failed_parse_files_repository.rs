@@ -1,4 +1,7 @@
-use crate::files::file_metadata::{file_name::FileName, page_type::PageType};
+use crate::{
+  files::file_metadata::{file_name::FileName, page_type::PageType},
+  helpers::db::does_ft_index_exist,
+};
 use anyhow::Result;
 use chrono::NaiveDateTime;
 use rustis::{
@@ -118,29 +121,21 @@ impl FailedParseFilesRepository {
 
   pub async fn setup_index(&self) -> Result<()> {
     let connection = self.redis_connection_pool.get().await?;
-    let index_info = connection.ft_info(self.search_index_name()).await;
-
-    if let Err(err) = index_info {
-      if err.to_string().contains("Unknown Index name") {
-        info!("Creating new search index: {}", self.search_index_name());
-
-        connection
-          .ft_create(
-            self.search_index_name(),
-            FtCreateOptions::default()
-              .on(FtIndexDataType::Hash)
-              .prefix(format!("{}:", self.namespace())),
-            [
-              FtFieldSchema::identifier("error").field_type(FtFieldType::Text),
-              FtFieldSchema::identifier("page_type").field_type(FtFieldType::Text),
-            ],
-          )
-          .await?;
-      } else {
-        return Err(err.into());
-      }
+    if !does_ft_index_exist(&connection, &self.search_index_name()).await {
+      info!("Creating new search index: {}", self.search_index_name());
+      connection
+        .ft_create(
+          self.search_index_name(),
+          FtCreateOptions::default()
+            .on(FtIndexDataType::Hash)
+            .prefix(format!("{}:", self.namespace())),
+          [
+            FtFieldSchema::identifier("error").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("page_type").field_type(FtFieldType::Tag),
+          ],
+        )
+        .await?;
     }
-
     Ok(())
   }
 

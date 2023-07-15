@@ -12,6 +12,7 @@ impl TryFrom<String> for FileName {
     let clean_value = value
       .trim_start_matches('/')
       .trim_end_matches('/')
+      //.replace("’", "'")
       .to_string();
     match PageType::try_from(clean_value.as_str()) {
       Ok(_) => Ok(Self(clean_value)),

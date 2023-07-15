@@ -275,16 +275,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "combine"
-version = "4.6.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35ed6e9d84f0b51a7f52daf1c7d71dd136fd7a3f41a8462b8cdb8c78d920fad4"
-dependencies = [
- "bytes",
- "memchr",
-]
-
-[[package]]
 name = "config"
 version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -356,7 +346,6 @@ dependencies = [
  "prost",
  "prost-build",
  "rayon",
- "redis-macros",
  "regex",
  "reqwest",
  "reqwest-middleware",
@@ -1662,43 +1651,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "redis"
-version = "0.22.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa8455fa3621f6b41c514946de66ea0531f57ca017b2e6c7cc368035ea5b46df"
-dependencies = [
- "combine",
- "itoa",
- "percent-encoding",
- "ryu",
- "sha1_smol",
- "url",
-]
-
-[[package]]
-name = "redis-macros"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d69575acf48dfa2b9f9dae270d9ba3dfb8c0744127f712dd1f0d52fcc1a04647"
-dependencies = [
- "redis",
- "redis-macros-derive",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "redis-macros-derive"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "860f342ed895cdf87876fde234072e4dbefe7a1886879da2ecf4901f086109ee"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1945,9 +1897,8 @@ dependencies = [
 
 [[package]]
 name = "rustis"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7b6a32fafd07d978c66d3e29f3758d72bc0e812df9342e2dd7e5d75cb0d5679"
+version = "0.1.0"
+source = "git+https://github.com/shedrachokonofua/rustis.git?branch=main#2bb3e2296cadacad036e7884ab7bf6446052fcbd"
 dependencies = [
  "atoi",
  "bb8",
@@ -2092,12 +2043,6 @@ dependencies = [
  "ryu",
  "serde",
 ]
-
-[[package]]
-name = "sha1_smol"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae1a47186c03a32177042e55dbc5fd5aee900b8e0069a8d70fba96a9375cd012"
 
 [[package]]
 name = "sha2"

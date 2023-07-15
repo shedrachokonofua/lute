@@ -174,7 +174,7 @@ async fn handle_file_processing_event(
       .publish(
         Stream::Lookup,
         EventPayload {
-          event: Event::LookupAlbumSearchStatusChanged {
+          event: Event::LookupAlbumSearchUpdated {
             lookup: next_lookup.clone(),
           },
           correlation_id: Some(correlation_id),
@@ -202,7 +202,7 @@ async fn handle_lookup_event(
     return Ok(());
   }
 
-  if let Event::LookupAlbumSearchStatusChanged { lookup } = context.payload.event {
+  if let Event::LookupAlbumSearchUpdated { lookup } = context.payload.event {
     lookup_interactor.put_album_search_lookup(&lookup).await?;
     if let AlbumSearchLookup::Started { query, .. } = lookup {
       crawler_interactor
@@ -239,7 +239,7 @@ async fn handle_lookup_event(
             .publish(
               Stream::Lookup,
               EventPayload {
-                event: Event::LookupAlbumSearchStatusChanged {
+                event: Event::LookupAlbumSearchUpdated {
                   lookup: AlbumSearchLookup::AlbumParsed {
                     query,
                     last_updated_at: Utc::now().naive_utc(),
@@ -326,7 +326,7 @@ pub fn build_album_search_lookup_event_subscribers(
       redis_connection_pool: Arc::clone(&redis_connection_pool),
       settings: settings.clone(),
       id: "lookup".to_string(),
-      concurrency: Some(250),
+      concurrency: Some(1),
       stream: Stream::File,
       handle: Arc::clone(&file_processing_handler),
     },
@@ -334,7 +334,7 @@ pub fn build_album_search_lookup_event_subscribers(
       redis_connection_pool: Arc::clone(&redis_connection_pool),
       settings: settings.clone(),
       id: "lookup".to_string(),
-      concurrency: Some(250),
+      concurrency: Some(1),
       stream: Stream::Parser,
       handle: Arc::clone(&file_processing_handler),
     },

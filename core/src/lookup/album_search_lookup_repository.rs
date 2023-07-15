@@ -1,3 +1,5 @@
+use crate::helpers::db::does_ft_index_exist;
+
 use super::album_search_lookup::{AlbumSearchLookup, AlbumSearchLookupQuery};
 use anyhow::{anyhow, Result};
 use rustis::{
@@ -101,30 +103,21 @@ impl AlbumSearchLookupRepository {
 
   pub async fn setup_index(&self) -> Result<()> {
     let connection = self.redis_connection_pool.get().await?;
-    let index_info = connection.ft_info(INDEX_NAME).await;
-
-    if let Err(err) = index_info {
-      if err.to_string().contains("Unknown Index name") {
-        info!("Creating new search index: {}", INDEX_NAME);
-
-        connection
-          .ft_create(
-            INDEX_NAME,
-            FtCreateOptions::default()
-              .on(FtIndexDataType::Hash)
-              .prefix(format!("{}:", NAMESPACE)),
-            [
-              FtFieldSchema::identifier("status").field_type(FtFieldType::Text),
-              FtFieldSchema::identifier("album_search_file_name").field_type(FtFieldType::Text),
-              FtFieldSchema::identifier("album_file_name").field_type(FtFieldType::Text),
-            ],
-          )
-          .await?;
-      } else {
-        return Err(err.into());
-      }
+    if !does_ft_index_exist(&connection, INDEX_NAME).await {
+      connection
+        .ft_create(
+          INDEX_NAME,
+          FtCreateOptions::default()
+            .on(FtIndexDataType::Hash)
+            .prefix(format!("{}:", NAMESPACE)),
+          [
+            FtFieldSchema::identifier("status").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("album_search_file_name").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("album_file_name").field_type(FtFieldType::Tag),
+          ],
+        )
+        .await?;
     }
-
     Ok(())
   }
 }

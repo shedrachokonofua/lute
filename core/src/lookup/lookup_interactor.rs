@@ -57,7 +57,7 @@ impl LookupInteractor {
           .publish(
             Stream::Lookup,
             EventPayload {
-              event: Event::LookupAlbumSearchStatusChanged {
+              event: Event::LookupAlbumSearchUpdated {
                 lookup: lookup.clone(),
               },
               correlation_id: Some(get_album_search_correlation_id(&lookup.query())),

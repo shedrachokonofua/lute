@@ -26,7 +26,7 @@ pub fn get_query_from_album_search_correlation_id(
   AlbumSearchLookupQuery::from_encoded_string(&encoded)
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Hash)]
 pub struct AlbumSearchLookupQuery {
   album_name: String,
   artist_name: String,
@@ -78,6 +78,13 @@ impl AlbumSearchLookupQuery {
   }
 }
 
+impl ToString for AlbumSearchLookupQuery {
+  fn to_string(&self) -> String {
+    self.to_encoded_string()
+  }
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub enum AlbumSearchLookupStatus {
   Started,
   SearchCrawling,
@@ -118,7 +125,7 @@ impl AlbumSearchLookupStatus {
   }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "status")]
 pub enum AlbumSearchLookup {
   Started {

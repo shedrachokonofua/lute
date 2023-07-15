@@ -5,6 +5,7 @@ use core::{
   events::event_subscriber::EventSubscriber,
   lookup::lookup_event_subscribers::build_lookup_event_subscribers,
   parser::parser_event_subscribers::build_parser_event_subscribers,
+  profile::profile_event_subscribers::build_profile_event_subscribers,
   rpc::RpcServer,
   settings::Settings,
   tracing::setup_tracing,
@@ -56,7 +57,10 @@ fn start_event_subscribers(
     settings.clone(),
     Arc::clone(&crawler.crawler_interactor),
   ));
-
+  event_subscribers.extend(build_profile_event_subscribers(
+    Arc::clone(&redis_connection_pool),
+    settings.clone(),
+  ));
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });
   });

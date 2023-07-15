@@ -88,7 +88,15 @@ tasks:
         
   "docker:dev":
     cmds:
-      - docker-compose -f ./infra/dev/docker-compose.yml up
+      - docker-compose -f ./infra/dev/docker-compose.yml up -d
+  
+  "openobserve:up":
+    cmds:
+      - docker-compose -f ./infra/dev/openobserve/docker-compose.yml up -d
+  
+  "openobserve:down":
+    cmds:
+      - docker-compose -f ./infra/dev/openobserve/docker-compose.yml down
 
   "core:up:openobserve":
     cmds:

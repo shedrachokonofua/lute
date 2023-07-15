@@ -44,6 +44,7 @@ pub struct SpotifyArtistReference {
   pub name: String,
 }
 
+#[derive(PartialEq)]
 pub enum SpotifyAlbumType {
   Album,
   Single,

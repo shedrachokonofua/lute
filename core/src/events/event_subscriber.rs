@@ -95,10 +95,12 @@ impl EventSubscriber {
       let pool = Arc::clone(&self.redis_connection_pool);
       let settings = self.settings.clone();
       let handle = self.handle.clone();
+      let subscriber_id = self.id.clone();
+      let stream_tag = self.stream.tag();
 
       debug!(
-        stream = self.stream.tag(),
-        subscriber_id = self.id,
+        stream = stream_tag,
+        subscriber_id,
         entry_id = entry_id,
         "Handling event"
       );
@@ -106,11 +108,21 @@ impl EventSubscriber {
       tokio::spawn(async move {
         handle(SubscriberContext {
           redis_connection_pool: pool,
-          entry_id,
+          entry_id: entry_id.clone(),
           settings,
           payload,
         })
         .await
+        .map_err(|err| {
+          error!(
+            stream = stream_tag,
+            subscriber_id,
+            entry_id = entry_id,
+            error = err.to_string(),
+            "Error handling event"
+          );
+          err
+        })
       })
     });
     join_all(futures).await;

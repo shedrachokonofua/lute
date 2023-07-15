@@ -21,7 +21,7 @@ pub struct ParsedChartAlbum {
   pub release_date: Option<NaiveDate>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedTrack {
   pub name: String,
   pub duration_seconds: Option<u32>,
@@ -29,7 +29,7 @@ pub struct ParsedTrack {
   pub position: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedAlbum {
   pub name: String,
   pub rating: f32,
@@ -54,7 +54,7 @@ pub struct ParsedArtist {
   pub albums: Vec<ParsedArtistAlbum>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedAlbumSearchResult {
   pub name: String,
   pub file_name: FileName,

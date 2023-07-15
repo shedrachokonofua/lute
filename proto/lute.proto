@@ -291,11 +291,16 @@ message AddManyAlbumsToProfileReply {
   Profile profile = 1;
 }
 
+message ImportSavedSpotifyTracksRequest {
+  string profile_id = 1;
+}
+
 service ProfileService {
   rpc CreateProfile (CreateProfileRequest) returns (CreateProfileReply) {}
   rpc GetProfile (GetProfileRequest) returns (GetProfileReply) {}
   rpc GetProfileSummary (GetProfileSummaryRequest) returns (GetProfileSummaryReply) {}
   rpc AddManyAlbumsToProfile (AddManyAlbumsToProfileRequest) returns (AddManyAlbumsToProfileReply) {}
+  rpc ImportSavedSpotifyTracks (ImportSavedSpotifyTracksRequest) returns (google.protobuf.Empty) {}
 }
 
 message AlbumSearchLookupQuery {

@@ -33,7 +33,7 @@ pub enum Event {
     file_name: FileName,
     factor: u32,
   },
-  LookupAlbumSearchStatusChanged {
+  LookupAlbumSearchUpdated {
     lookup: AlbumSearchLookup,
   },
 }
