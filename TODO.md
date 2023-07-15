@@ -3,12 +3,15 @@
 - [x] Lookup: Album
 - [x] Lookup: Aggregated statuses rpc service
 - [x] Lookup: Check album read model store before crawling
-- [ ] Profile: Import data from spotify saved tracks, albums, playlists & most played tracks
+- [x] Profile: Import data from spotify saved tracks
+- [ ] Profile: Import data from spotify playlists
+- [ ] Profile: Import data from spotify most played tracks
 - [ ] Scheduled tasks
 - [ ] Perf: Replace settings cloning with Arc
 - [ ] Crawler: Fix file staleness check
 - [ ] Parser: Bulk retry queue, rpc method
 - [ ] Crawler: Automatic rate limit reset
+- [ ] Recommendations: Generate album embeddings using OpenAI api
 - [ ] Recommendations: KNN vector similarity, quantile ranking, rpc service
 - [ ] Event bus: Subscriber statuses, iterator age, rpc service
 - [ ] Lookup: Refresh album search lookup value with non-lookup related file events
@@ -18,5 +21,6 @@
 - [ ] Documentation: System diagram, how-tos
 - [ ] Parser: Extract credits, album language
 - [ ] Extension: Recommendation popup
-- [ ] Recommendation: Export to spotify playlist
+- [ ] Recommendations: Export to spotify playlist
 - [ ] Parser: Parser versioning/Target site change detection + playbook
+- [ ] Recommendations: T-SNE Visualization export
