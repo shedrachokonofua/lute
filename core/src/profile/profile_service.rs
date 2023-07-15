@@ -204,4 +204,26 @@ impl proto::ProfileService for ProfileService {
 
     Ok(Response::new(()))
   }
+
+  async fn import_spotify_playlist_tracks(
+    &self,
+    request: Request<proto::ImportSpotifyPlaylistTracksRequest>,
+  ) -> Result<Response<()>, Status> {
+    let inner = request.into_inner();
+    let profile_id = ProfileId::try_from(inner.profile_id).map_err(|err| {
+      error!("invalid profile id: {:?}", err);
+      Status::invalid_argument("invalid profile id")
+    })?;
+    let playlist_id = inner.playlist_id;
+    self
+      .profile_interactor
+      .import_spotify_playlist_tracks(&profile_id, &playlist_id)
+      .await
+      .map_err(|err| {
+        error!("failed to import spotify playlist tracks: {:?}", err);
+        Status::internal("failed to import spotify playlist tracks")
+      })?;
+
+    Ok(Response::new(()))
+  }
 }

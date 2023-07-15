@@ -210,6 +210,15 @@ impl ProfileInteractor {
     self.import_spotify_tracks(id, spotify_tracks).await
   }
 
+  pub async fn import_spotify_playlist_tracks(
+    &self,
+    id: &ProfileId,
+    playlist_id: &str,
+  ) -> Result<()> {
+    let spotify_tracks = self.spotify_client.get_playlist_tracks(playlist_id).await?;
+    self.import_spotify_tracks(id, spotify_tracks).await
+  }
+
   pub async fn find_spotify_import_subscriptions_by_query(
     &self,
     album_search_lookup_query: &AlbumSearchLookupQuery,

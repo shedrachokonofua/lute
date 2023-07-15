@@ -4,7 +4,7 @@
 - [x] Lookup: Aggregated statuses rpc service
 - [x] Lookup: Check album read model store before crawling
 - [x] Profile: Import data from spotify saved tracks
-- [ ] Profile: Import data from spotify playlists
+- [x] Profile: Import data from spotify playlists
 - [ ] Profile: Import data from spotify most played tracks
 - [ ] Crawler: Fix file staleness check
 - [ ] Parser: Bulk retry queue, rpc method

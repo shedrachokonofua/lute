@@ -304,12 +304,18 @@ message ImportSavedSpotifyTracksRequest {
   string profile_id = 1;
 }
 
+message ImportSpotifyPlaylistTracksRequest {
+  string profile_id = 1;
+  string playlist_id = 2;
+}
+
 service ProfileService {
   rpc CreateProfile (CreateProfileRequest) returns (CreateProfileReply) {}
   rpc GetProfile (GetProfileRequest) returns (GetProfileReply) {}
   rpc GetProfileSummary (GetProfileSummaryRequest) returns (GetProfileSummaryReply) {}
   rpc AddManyAlbumsToProfile (AddManyAlbumsToProfileRequest) returns (AddManyAlbumsToProfileReply) {}
   rpc ImportSavedSpotifyTracks (ImportSavedSpotifyTracksRequest) returns (google.protobuf.Empty) {}
+  rpc ImportSpotifyPlaylistTracks (ImportSpotifyPlaylistTracksRequest) returns (google.protobuf.Empty) {}
 }
 
 message AlbumSearchLookupQuery {
