@@ -25,6 +25,7 @@ use anyhow::Result;
 use futures::future::join_all;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
+use tracing::warn;
 
 pub struct ProfileInteractor {
   profile_repository: ProfileRepository,
@@ -113,7 +114,7 @@ impl ProfileInteractor {
       match self.add_album_to_profile(id, &file_name, factor).await {
         Ok(_) => (),
         Err(e) => {
-          tracing::warn!(
+          warn!(
             profile_id = id.to_string(),
             file_name = file_name.to_string(),
             factor = factor,

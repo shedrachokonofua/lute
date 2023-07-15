@@ -6,6 +6,7 @@ use crate::{
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
+use tracing::error;
 
 pub struct ParserService {
   failed_parse_files_repository: FailedParseFilesRepository,
@@ -43,7 +44,7 @@ impl proto::ParserService for ParserService {
   ) -> Result<Response<GetAggregatedFailureErrorsReply>, Status> {
     let page_type = request.into_inner().page_type.and_then(|val| {
       val.try_into().map(Some).unwrap_or_else(|_| {
-        tracing::error!("invalid page type: {}", val);
+        error!("invalid page type: {}", val);
         None
       })
     });
@@ -52,7 +53,7 @@ impl proto::ParserService for ParserService {
       .aggregate_errors(page_type)
       .await
       .map_err(|err| {
-        tracing::error!("failed to get aggregated errors: {:?}", err);
+        error!("failed to get aggregated errors: {:?}", err);
         Status::internal("failed to get aggregated errors")
       })?;
 

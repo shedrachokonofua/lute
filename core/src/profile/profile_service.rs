@@ -16,6 +16,7 @@ use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
+use tracing::error;
 
 impl From<Profile> for proto::Profile {
   fn from(val: Profile) -> Self {
@@ -83,7 +84,7 @@ impl proto::ProfileService for ProfileService {
   ) -> Result<Response<CreateProfileReply>, Status> {
     let request = request.into_inner();
     let id: ProfileId = request.id.try_into().map_err(|err| {
-      tracing::error!("invalid profile id: {:?}", err);
+      error!("invalid profile id: {:?}", err);
       Status::invalid_argument("invalid profile id")
     })?;
     let profile = self
@@ -91,7 +92,7 @@ impl proto::ProfileService for ProfileService {
       .create_profile(id, request.name)
       .await
       .map_err(|err| {
-        tracing::error!("failed to create profile: {:?}", err);
+        error!("failed to create profile: {:?}", err);
         Status::internal("failed to create profile")
       })?;
     let reply = CreateProfileReply {
@@ -106,7 +107,7 @@ impl proto::ProfileService for ProfileService {
   ) -> Result<Response<GetProfileReply>, Status> {
     let request = request.into_inner();
     let id: ProfileId = request.id.try_into().map_err(|err| {
-      tracing::error!("invalid profile id: {:?}", err);
+      error!("invalid profile id: {:?}", err);
       Status::invalid_argument("invalid profile id")
     })?;
     let profile = self
@@ -114,7 +115,7 @@ impl proto::ProfileService for ProfileService {
       .get_profile(&id)
       .await
       .map_err(|err| {
-        tracing::error!("failed to get profile: {:?}", err);
+        error!("failed to get profile: {:?}", err);
         Status::internal("failed to get profile")
       })?;
     let reply = GetProfileReply {
@@ -129,7 +130,7 @@ impl proto::ProfileService for ProfileService {
   ) -> Result<Response<GetProfileSummaryReply>, Status> {
     let request = request.into_inner();
     let id: ProfileId = request.id.try_into().map_err(|err| {
-      tracing::error!("invalid profile id: {:?}", err);
+      error!("invalid profile id: {:?}", err);
       Status::invalid_argument("invalid profile id")
     })?;
     let profile_summary = self
@@ -137,7 +138,7 @@ impl proto::ProfileService for ProfileService {
       .get_profile_summary(&id)
       .await
       .map_err(|err| {
-        tracing::error!("failed to get profile summary: {:?}", err);
+        error!("failed to get profile summary: {:?}", err);
         Status::internal("failed to get profile summary")
       })?;
     let reply = GetProfileSummaryReply {
@@ -152,7 +153,7 @@ impl proto::ProfileService for ProfileService {
   ) -> Result<Response<AddManyAlbumsToProfileReply>, Status> {
     let request = request.into_inner();
     let id: ProfileId = request.profile_id.try_into().map_err(|err| {
-      tracing::error!("invalid profile id: {:?}", err);
+      error!("invalid profile id: {:?}", err);
       Status::invalid_argument("invalid profile id")
     })?;
     let entries = request
@@ -163,7 +164,7 @@ impl proto::ProfileService for ProfileService {
           .file_name
           .try_into()
           .map_err(|err| {
-            tracing::error!("invalid album file name: {:?}", err);
+            error!("invalid album file name: {:?}", err);
             Status::invalid_argument("invalid album file name")
           })
           .unwrap();
@@ -175,7 +176,7 @@ impl proto::ProfileService for ProfileService {
       .add_many_albums_to_profile(&id, entries)
       .await
       .map_err(|err| {
-        tracing::error!("failed to add album to profile: {:?}", err);
+        error!("failed to add album to profile: {:?}", err);
         Status::internal("failed to add album to profile")
       })?;
     let reply = AddManyAlbumsToProfileReply {
@@ -189,7 +190,7 @@ impl proto::ProfileService for ProfileService {
     request: Request<ImportSavedSpotifyTracksRequest>,
   ) -> Result<Response<()>, Status> {
     let profile_id = ProfileId::try_from(request.into_inner().profile_id).map_err(|err| {
-      tracing::error!("invalid profile id: {:?}", err);
+      error!("invalid profile id: {:?}", err);
       Status::invalid_argument("invalid profile id")
     })?;
     self
@@ -197,7 +198,7 @@ impl proto::ProfileService for ProfileService {
       .import_saved_spotify_tracks(&profile_id)
       .await
       .map_err(|err| {
-        tracing::error!("failed to import saved spotify tracks: {:?}", err);
+        error!("failed to import saved spotify tracks: {:?}", err);
         Status::internal("failed to import saved spotify tracks")
       })?;
 
