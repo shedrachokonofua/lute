@@ -1,13 +1,13 @@
-use super::spotify_credential_repository::SpotifyCredentialRepository;
-use super::spotify_credential_repository::SpotifyCredentials;
+use super::spotify_credential_repository::{SpotifyCredentialRepository, SpotifyCredentials};
 use crate::settings::SpotifySettings;
 use anyhow::Result;
-use chrono::DateTime;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use futures::stream::TryStreamExt;
-use rspotify::model::SavedTrack;
-use rspotify::prelude::BaseClient;
-use rspotify::{prelude::OAuthClient, AuthCodeSpotify, Credentials, OAuth, Token};
+use rspotify::{
+  model::{FullTrack, PlayableItem, PlaylistId, SavedTrack, SimplifiedAlbum, SimplifiedArtist},
+  prelude::{BaseClient, OAuthClient},
+  AuthCodeSpotify, Credentials, OAuth, Token,
+};
 use rustis::bb8::Pool;
 use rustis::client::PooledClientManager;
 use std::sync::Arc;
@@ -64,6 +64,30 @@ pub struct SpotifyTrack {
   pub album: SpotifyAlbumReference,
 }
 
+impl From<SimplifiedAlbum> for SpotifyAlbumReference {
+  fn from(simplified_album: SimplifiedAlbum) -> Self {
+    SpotifyAlbumReference {
+      spotify_id: simplified_album.id.unwrap().to_string(),
+      name: simplified_album.name,
+      album_type: match simplified_album.album_type.unwrap().as_str() {
+        "album" => SpotifyAlbumType::Album,
+        "single" => SpotifyAlbumType::Single,
+        "compilation" => SpotifyAlbumType::Compilation,
+        _ => panic!("Unknown album type"),
+      },
+    }
+  }
+}
+
+impl From<&SimplifiedArtist> for SpotifyArtistReference {
+  fn from(simplified_artist: &SimplifiedArtist) -> Self {
+    SpotifyArtistReference {
+      spotify_id: simplified_artist.id.clone().unwrap().to_string(),
+      name: simplified_artist.name.clone(),
+    }
+  }
+}
+
 impl From<SavedTrack> for SpotifyTrack {
   fn from(saved_track: SavedTrack) -> Self {
     SpotifyTrack {
@@ -73,21 +97,24 @@ impl From<SavedTrack> for SpotifyTrack {
         .track
         .artists
         .iter()
-        .map(|artist| SpotifyArtistReference {
-          spotify_id: artist.id.clone().unwrap().to_string(),
-          name: artist.name.clone(),
-        })
+        .map(|artist| artist.into())
         .collect(),
-      album: SpotifyAlbumReference {
-        spotify_id: saved_track.track.album.id.unwrap().to_string(),
-        name: saved_track.track.album.name,
-        album_type: match saved_track.track.album.album_type.unwrap().as_str() {
-          "album" => SpotifyAlbumType::Album,
-          "single" => SpotifyAlbumType::Single,
-          "compilation" => SpotifyAlbumType::Compilation,
-          _ => panic!("Unknown album type"),
-        },
-      },
+      album: saved_track.track.album.into(),
+    }
+  }
+}
+
+impl From<FullTrack> for SpotifyTrack {
+  fn from(full_track: FullTrack) -> Self {
+    SpotifyTrack {
+      spotify_id: full_track.id.unwrap().to_string(),
+      name: full_track.name,
+      artists: full_track
+        .artists
+        .iter()
+        .map(|artist| artist.into())
+        .collect(),
+      album: full_track.album.into(),
     }
   }
 }
@@ -191,10 +218,36 @@ impl SpotifyClient {
       })
       .await?;
     drop(tx);
-    let mut saved_tracks = vec![];
-    while let Some(saved_track) = rx.recv().await {
-      saved_tracks.push(saved_track.into());
+    let mut tracks = vec![];
+    while let Some(track) = rx.recv().await {
+      tracks.push(track.into());
     }
-    Ok(saved_tracks)
+    Ok(tracks)
+  }
+
+  pub async fn get_playlist_tracks(&self, playlist_id: &str) -> Result<Vec<SpotifyTrack>> {
+    let client = self.client().await?;
+    let (tx, mut rx) = unbounded_channel();
+    let stream = client.playlist_items(PlaylistId::from_id(playlist_id)?, None, None);
+    stream
+      .try_for_each_concurrent(1000, |item| {
+        let tx = tx.clone();
+        async move {
+          tx.send(item).unwrap();
+          Ok(())
+        }
+      })
+      .await?;
+    drop(tx);
+    let mut tracks = vec![];
+    while let Some(playlist_item) = rx.recv().await {
+      if let Some(playable_item) = playlist_item.track {
+        match playable_item {
+          PlayableItem::Track(track) => tracks.push(track.into()),
+          _ => {}
+        }
+      }
+    }
+    Ok(tracks)
   }
 }

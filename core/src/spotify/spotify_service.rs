@@ -89,4 +89,24 @@ impl proto::SpotifyService for SpotifyService {
     let reply = proto::GetSavedTracksReply { tracks };
     Ok(Response::new(reply))
   }
+
+  async fn get_playlist_tracks(
+    &self,
+    request: Request<proto::GetPlaylistTracksRequest>,
+  ) -> Result<Response<proto::GetPlaylistTracksReply>, Status> {
+    let playlist_id = request.into_inner().playlist_id;
+    let tracks = self
+      .spotify_client
+      .get_playlist_tracks(&playlist_id)
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Internal server error")
+      })?
+      .into_iter()
+      .map(|track| track.into())
+      .collect();
+    let reply = proto::GetPlaylistTracksReply { tracks };
+    Ok(Response::new(reply))
+  }
 }
