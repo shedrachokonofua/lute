@@ -3,8 +3,14 @@ permissions:
   contents: read
   id-token: write
 on:
-  - push
-  - pull_request
+  push:
+    paths:
+      - "core/**"
+      - "proto/**"
+  pull_request:
+    paths:
+      - "core/**"
+      - "proto/**"
 name: workflow
 env:
   IMAGE_NAME: ghcr.io/shedrachokonofua/lute-v4:${{ github.sha }}
@@ -17,14 +23,14 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
-      
+
       - name: Cache Docker layers
         uses: actions/cache@v2
         with:
           path: ${{ runner.workspace }}/docker-layers
           key: ${{ runner.os }}-docker-${{ hashFiles('**/Dockerfile', '**/Dockerfile.arm') }}
           restore-keys: ${{ runner.os }}-docker-
-    
+
       - name: Setup cache storage backend
         run: docker buildx create --use --driver=docker-container
 
