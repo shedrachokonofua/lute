@@ -234,6 +234,51 @@ service ParserService {
   rpc GetAggregatedFailureErrors (GetAggregatedFailureErrorsRequest) returns (GetAggregatedFailureErrorsReply) {}
 }
 
+message AlbumSearchLookupQuery {
+  string artist_name = 1;
+  string album_name = 2;
+}
+
+message SearchAlbumRequest {
+  AlbumSearchLookupQuery query = 1;
+}
+
+message AlbumSearchResult {
+  string album_name = 1;
+  string file_name = 2;
+  repeated AlbumArtist artists = 3;
+}
+
+message AlbumSearchLookup {
+  AlbumSearchLookupQuery query = 1;
+  optional string last_updated_at = 2;
+  optional string album_search_file_name = 3;
+  optional string file_processing_correlation_id = 4;
+  optional string album_search_file_parse_error = 5;
+  optional AlbumSearchResult album_search_result = 6;
+  optional string album_file_parse_error = 7;
+  optional Album album = 8;
+  string status = 9;
+}
+
+message SearchAlbumReply {
+  AlbumSearchLookup lookup = 1;
+}
+
+message AggregatedStatus {
+  string status = 1;
+  uint32 count = 2;
+}
+
+message GetAggregatedAlbumSearchStatusesReply {
+  repeated AggregatedStatus statuses = 1;
+}
+
+service LookupService {
+  rpc SearchAlbum (SearchAlbumRequest) returns (SearchAlbumReply) {}
+  rpc GetAggregatedAlbumSearchStatuses (google.protobuf.Empty) returns (GetAggregatedAlbumSearchStatusesReply) {}
+}
+
 message Profile {
   string id = 1;
   string name = 2;
@@ -309,6 +354,22 @@ message ImportSpotifyPlaylistTracksRequest {
   string playlist_id = 2;
 }
 
+message PendingSpotifyImport {
+  string profile_id = 1;
+  AlbumSearchLookup album_search_lookup = 2;
+  uint32 factor = 3;
+}
+
+message GetPendingSpotifyImportsRequest {
+  string profile_id = 1;
+}
+
+message GetPendingSpotifyImportsReply {
+  uint32 count = 1;
+  repeated AggregatedStatus statuses = 2;
+  repeated PendingSpotifyImport pending_imports = 3;
+}
+
 service ProfileService {
   rpc CreateProfile (CreateProfileRequest) returns (CreateProfileReply) {}
   rpc GetProfile (GetProfileRequest) returns (GetProfileReply) {}
@@ -316,49 +377,5 @@ service ProfileService {
   rpc AddManyAlbumsToProfile (AddManyAlbumsToProfileRequest) returns (AddManyAlbumsToProfileReply) {}
   rpc ImportSavedSpotifyTracks (ImportSavedSpotifyTracksRequest) returns (google.protobuf.Empty) {}
   rpc ImportSpotifyPlaylistTracks (ImportSpotifyPlaylistTracksRequest) returns (google.protobuf.Empty) {}
-}
-
-message AlbumSearchLookupQuery {
-  string artist_name = 1;
-  string album_name = 2;
-}
-
-message SearchAlbumRequest {
-  AlbumSearchLookupQuery query = 1;
-}
-
-message AlbumSearchResult {
-  string album_name = 1;
-  string file_name = 2;
-  repeated AlbumArtist artists = 3;
-}
-
-message AlbumSearchLookup {
-  AlbumSearchLookupQuery query = 1;
-  optional string last_updated_at = 2;
-  optional string album_search_file_name = 3;
-  optional string file_processing_correlation_id = 4;
-  optional string album_search_file_parse_error = 5;
-  optional AlbumSearchResult album_search_result = 6;
-  optional string album_file_parse_error = 7;
-  optional Album album = 8;
-  string status = 9;
-}
-
-message SearchAlbumReply {
-  AlbumSearchLookup lookup = 1;
-}
-
-message AggregatedStatus {
-  string status = 1;
-  uint32 count = 2;
-}
-
-message GetAggregatedAlbumSearchStatusesReply {
-  repeated AggregatedStatus statuses = 1;
-}
-
-service LookupService {
-  rpc SearchAlbum (SearchAlbumRequest) returns (SearchAlbumReply) {}
-  rpc GetAggregatedAlbumSearchStatuses (google.protobuf.Empty) returns (GetAggregatedAlbumSearchStatusesReply) {}
+  rpc GetPendingSpotifyImports (GetPendingSpotifyImportsRequest) returns (GetPendingSpotifyImportsReply) {}
 }

@@ -14,7 +14,7 @@ use crate::{
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tonic::{Request, Response, Status};
 use tracing::error;
 
@@ -225,5 +225,51 @@ impl proto::ProfileService for ProfileService {
       })?;
 
     Ok(Response::new(()))
+  }
+
+  async fn get_pending_spotify_imports(
+    &self,
+    request: Request<proto::GetPendingSpotifyImportsRequest>,
+  ) -> Result<Response<proto::GetPendingSpotifyImportsReply>, Status> {
+    let inner = request.into_inner();
+    let profile_id = ProfileId::try_from(inner.profile_id).map_err(|err| {
+      error!("invalid profile id: {:?}", err);
+      Status::invalid_argument("invalid profile id")
+    })?;
+    let pending_spotify_imports = self
+      .profile_interactor
+      .get_pending_spotify_imports(&profile_id)
+      .await
+      .map_err(|err| {
+        error!("failed to get pending spotify imports: {:?}", err);
+        Status::internal("failed to get pending spotify imports")
+      })?;
+    let mut statuses: HashMap<String, u32> = HashMap::new();
+    for import in &pending_spotify_imports {
+      statuses.insert(
+        import.album_search_lookup.status_string(),
+        statuses
+          .get(&import.album_search_lookup.status_string())
+          .unwrap_or(&0)
+          + 1,
+      );
+    }
+    let aggreated_statuses: Vec<proto::AggregatedStatus> = statuses
+      .into_iter()
+      .map(|(status, count)| proto::AggregatedStatus { status, count })
+      .collect();
+    let reply = proto::GetPendingSpotifyImportsReply {
+      count: pending_spotify_imports.len() as u32,
+      statuses: aggreated_statuses,
+      pending_imports: pending_spotify_imports
+        .into_iter()
+        .map(|import| proto::PendingSpotifyImport {
+          profile_id: import.profile_id.to_string(),
+          factor: import.factor,
+          album_search_lookup: Some(import.album_search_lookup.into()),
+        })
+        .collect(),
+    };
+    Ok(Response::new(reply))
   }
 }

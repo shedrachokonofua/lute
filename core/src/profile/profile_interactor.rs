@@ -15,7 +15,7 @@ use crate::{
   },
   files::file_metadata::file_name::FileName,
   lookup::{
-    album_search_lookup::{AlbumSearchLookupQuery, AlbumSearchLookupStatus},
+    album_search_lookup::{AlbumSearchLookup, AlbumSearchLookupQuery, AlbumSearchLookupStatus},
     lookup_interactor::LookupInteractor,
   },
   settings::Settings,
@@ -26,6 +26,12 @@ use futures::future::join_all;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::warn;
+
+pub struct PendingSpotifyImport {
+  pub profile_id: ProfileId,
+  pub factor: u32,
+  pub album_search_lookup: AlbumSearchLookup,
+}
 
 pub struct ProfileInteractor {
   profile_repository: ProfileRepository,
@@ -238,5 +244,48 @@ impl ProfileInteractor {
       .spotify_import_repository
       .remove_subscription(profile_id, album_search_lookup_query)
       .await
+  }
+
+  pub async fn get_pending_spotify_imports(
+    &self,
+    profile_id: &ProfileId,
+  ) -> Result<Vec<PendingSpotifyImport>> {
+    let subscriptions = self
+      .spotify_import_repository
+      .find_subscriptions_by_profile_id(profile_id)
+      .await?;
+
+    if subscriptions.is_empty() {
+      return Ok(Vec::new());
+    }
+
+    let lookups = self
+      .lookup_interactor
+      .find_many_album_search_lookups(
+        subscriptions
+          .iter()
+          .map(|subscription| &subscription.album_search_lookup_query)
+          .collect(),
+      )
+      .await?
+      .into_iter()
+      .filter_map(|lookup| lookup)
+      .filter(|lookup| lookup.status() != AlbumSearchLookupStatus::AlbumParsed)
+      .collect::<Vec<_>>();
+    let pending_imports: Vec<PendingSpotifyImport> = lookups
+      .into_iter()
+      .map(|lookup| {
+        let subscription = subscriptions
+          .iter()
+          .find(|subscription| &subscription.album_search_lookup_query == lookup.query())
+          .unwrap();
+        PendingSpotifyImport {
+          profile_id: profile_id.clone(),
+          factor: subscription.factor,
+          album_search_lookup: lookup,
+        }
+      })
+      .collect::<Vec<_>>();
+    Ok(pending_imports)
   }
 }

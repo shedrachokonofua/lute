@@ -6,7 +6,7 @@ use super::{
   util::clean_artist_name,
 };
 use anyhow::Result;
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 #[instrument(skip(file_content))]
 pub fn parse_album_search_result(file_content: &str) -> Result<ParsedAlbumSearchResult> {
@@ -46,7 +46,13 @@ pub fn parse_album_search_result(file_content: &str) -> Result<ParsedAlbumSearch
         artists,
       })
     })
-    .filter_map(|result| result.ok())
+    .filter_map(|result| match result {
+      Ok(result) => Some(result),
+      Err(err) => {
+        warn!(err = err.to_string(), "Failed to parse search result");
+        None
+      }
+    })
     .collect::<Vec<ParsedAlbumSearchResult>>();
 
   results

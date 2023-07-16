@@ -1,6 +1,6 @@
 use super::spotify_credential_repository::{SpotifyCredentialRepository, SpotifyCredentials};
 use crate::settings::SpotifySettings;
-use anyhow::Result;
+use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
 use futures::stream::TryStreamExt;
 use rspotify::{
@@ -12,6 +12,7 @@ use rustis::bb8::Pool;
 use rustis::client::PooledClientManager;
 use std::sync::Arc;
 use tokio::sync::mpsc::unbounded_channel;
+use tracing::warn;
 
 impl From<Token> for SpotifyCredentials {
   fn from(token: Token) -> Self {
@@ -64,58 +65,118 @@ pub struct SpotifyTrack {
   pub album: SpotifyAlbumReference,
 }
 
-impl From<SimplifiedAlbum> for SpotifyAlbumReference {
-  fn from(simplified_album: SimplifiedAlbum) -> Self {
-    SpotifyAlbumReference {
-      spotify_id: simplified_album.id.unwrap().to_string(),
+impl TryFrom<SimplifiedAlbum> for SpotifyAlbumReference {
+  type Error = Error;
+
+  fn try_from(simplified_album: SimplifiedAlbum) -> Result<Self> {
+    let spotify_id = simplified_album
+      .id
+      .ok_or_else(|| anyhow!("Album ID is missing"))?;
+
+    let album_type = match simplified_album
+      .album_type
+      .ok_or_else(|| anyhow!("Album type is missing"))?
+      .as_str()
+    {
+      "album" => SpotifyAlbumType::Album,
+      "single" => SpotifyAlbumType::Single,
+      "compilation" => SpotifyAlbumType::Compilation,
+      _ => return Err(anyhow!("Unknown album type")),
+    };
+
+    Ok(SpotifyAlbumReference {
+      spotify_id: spotify_id.to_string(),
       name: simplified_album.name,
-      album_type: match simplified_album.album_type.unwrap().as_str() {
-        "album" => SpotifyAlbumType::Album,
-        "single" => SpotifyAlbumType::Single,
-        "compilation" => SpotifyAlbumType::Compilation,
-        _ => panic!("Unknown album type"),
-      },
-    }
+      album_type,
+    })
   }
 }
 
-impl From<&SimplifiedArtist> for SpotifyArtistReference {
-  fn from(simplified_artist: &SimplifiedArtist) -> Self {
-    SpotifyArtistReference {
-      spotify_id: simplified_artist.id.clone().unwrap().to_string(),
+impl TryFrom<&SimplifiedArtist> for SpotifyArtistReference {
+  type Error = Error;
+
+  fn try_from(simplified_artist: &SimplifiedArtist) -> Result<Self> {
+    let spotify_id = simplified_artist
+      .id
+      .clone()
+      .ok_or_else(|| anyhow!("Artist ID is missing"))?;
+
+    Ok(SpotifyArtistReference {
+      spotify_id: spotify_id.to_string(),
       name: simplified_artist.name.clone(),
-    }
+    })
   }
 }
 
-impl From<SavedTrack> for SpotifyTrack {
-  fn from(saved_track: SavedTrack) -> Self {
-    SpotifyTrack {
-      spotify_id: saved_track.track.id.unwrap().to_string(),
+impl TryFrom<SavedTrack> for SpotifyTrack {
+  type Error = Error;
+
+  fn try_from(saved_track: SavedTrack) -> Result<Self> {
+    let spotify_id = saved_track
+      .track
+      .id
+      .ok_or_else(|| anyhow!("Track ID is missing"))?;
+
+    Ok(SpotifyTrack {
+      spotify_id: spotify_id.to_string(),
       name: saved_track.track.name,
       artists: saved_track
         .track
         .artists
         .iter()
-        .map(|artist| artist.into())
+        .map(|artist| (artist, artist.try_into()))
+        .filter_map(
+          |(spotify_artist, artist): (&SimplifiedArtist, Result<SpotifyArtistReference>)| {
+            match artist {
+              Ok(artist) => Some(artist),
+              Err(err) => {
+                warn!(
+                  err = err.to_string(),
+                  spotify_artist = format!("{:?}", spotify_artist),
+                  "Failed to convert artist"
+                );
+                None
+              }
+            }
+          },
+        )
         .collect(),
-      album: saved_track.track.album.into(),
-    }
+      album: saved_track.track.album.try_into()?,
+    })
   }
 }
 
-impl From<FullTrack> for SpotifyTrack {
-  fn from(full_track: FullTrack) -> Self {
-    SpotifyTrack {
-      spotify_id: full_track.id.unwrap().to_string(),
+impl TryFrom<FullTrack> for SpotifyTrack {
+  type Error = anyhow::Error;
+
+  fn try_from(full_track: FullTrack) -> Result<Self> {
+    let spotify_id = full_track.id.ok_or_else(|| anyhow!("ID is missing"))?;
+
+    Ok(SpotifyTrack {
+      spotify_id: spotify_id.to_string(),
       name: full_track.name,
       artists: full_track
         .artists
         .iter()
-        .map(|artist| artist.into())
+        .map(|artist| (artist, artist.try_into()))
+        .filter_map(
+          |(spotify_artist, artist): (&SimplifiedArtist, Result<SpotifyArtistReference>)| {
+            match artist {
+              Ok(artist) => Some(artist),
+              Err(err) => {
+                warn!(
+                  err = err.to_string(),
+                  spotify_artist = format!("{:?}", spotify_artist),
+                  "Failed to convert artist"
+                );
+                None
+              }
+            }
+          },
+        )
         .collect(),
-      album: full_track.album.into(),
-    }
+      album: full_track.album.try_into()?,
+    })
   }
 }
 
@@ -220,7 +281,7 @@ impl SpotifyClient {
     drop(tx);
     let mut tracks = vec![];
     while let Some(track) = rx.recv().await {
-      tracks.push(track.into());
+      tracks.push(track.try_into()?);
     }
     Ok(tracks)
   }
@@ -243,7 +304,12 @@ impl SpotifyClient {
     while let Some(playlist_item) = rx.recv().await {
       if let Some(playable_item) = playlist_item.track {
         match playable_item {
-          PlayableItem::Track(track) => tracks.push(track.into()),
+          PlayableItem::Track(track) => match track.try_into() {
+            Ok(track) => tracks.push(track),
+            Err(err) => {
+              warn!("Failed to convert track: {}", err);
+            }
+          },
           _ => {}
         }
       }

@@ -76,4 +76,11 @@ impl LookupInteractor {
       .aggregate_statuses()
       .await
   }
+
+  pub async fn find_many_album_search_lookups(
+    &self,
+    queries: Vec<&AlbumSearchLookupQuery>,
+  ) -> Result<Vec<Option<AlbumSearchLookup>>> {
+    self.album_search_lookup_repository.find_many(queries).await
+  }
 }

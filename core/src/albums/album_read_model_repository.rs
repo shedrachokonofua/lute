@@ -163,13 +163,27 @@ impl AlbumReadModelRepository {
             .on(FtIndexDataType::Json)
             .prefix(format!("{}:", NAMESPACE)),
           [
-            FtFieldSchema::identifier("$.name").field_type(FtFieldType::Text),
-            FtFieldSchema::identifier("$.file_name").field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.artists[*].name").field_type(FtFieldType::Text),
-            FtFieldSchema::identifier("$.artists[*].file_name").field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.primary_genres.*").field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.secondary_genres.*").field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.descriptors.*").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.name")
+              .as_attribute("name")
+              .field_type(FtFieldType::Text),
+            FtFieldSchema::identifier("$.file_name")
+              .as_attribute("file_name")
+              .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.artists[*].name")
+              .as_attribute("artist_name")
+              .field_type(FtFieldType::Text),
+            FtFieldSchema::identifier("$.artists[*].file_name")
+              .as_attribute("artist_file_name")
+              .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.primary_genres.*")
+              .as_attribute("primary_genre")
+              .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.secondary_genres.*")
+              .as_attribute("secondary_genre")
+              .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.descriptors.*")
+              .as_attribute("descriptor")
+              .field_type(FtFieldType::Tag),
           ],
         )
         .await?;

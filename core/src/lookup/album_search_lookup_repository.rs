@@ -4,14 +4,13 @@ use super::album_search_lookup::{AlbumSearchLookup, AlbumSearchLookupQuery};
 use anyhow::{anyhow, Result};
 use rustis::{
   bb8::Pool,
-  client::PooledClientManager,
+  client::{BatchPreparedCommand, PooledClientManager},
   commands::{
     FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtReducer,
     HashCommands, SearchCommands,
   },
 };
 use std::{collections::HashMap, sync::Arc};
-use tracing::info;
 
 const NAMESPACE: &str = "lookup:album_search";
 const INDEX_NAME: &str = "lookup:album_search_idx";
@@ -62,6 +61,27 @@ impl AlbumSearchLookupRepository {
       true => Ok(None),
       false => Ok(Some(AlbumSearchLookup::try_from(res)?)),
     }
+  }
+
+  pub async fn find_many(
+    &self,
+    queries: Vec<&AlbumSearchLookupQuery>,
+  ) -> Result<Vec<Option<AlbumSearchLookup>>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let mut pipeline = connection.create_pipeline();
+    for query in queries {
+      pipeline
+        .hgetall::<String, _, _, HashMap<String, String>>(key(query))
+        .queue();
+    }
+    let results: Vec<HashMap<String, String>> = pipeline.execute().await?;
+    results
+      .into_iter()
+      .map(|res| match res.is_empty() {
+        true => Ok(None),
+        false => Ok(Some(AlbumSearchLookup::try_from(res)?)),
+      })
+      .collect::<Result<Vec<_>>>()
   }
 
   pub async fn get(&self, query: &AlbumSearchLookupQuery) -> Result<AlbumSearchLookup> {
