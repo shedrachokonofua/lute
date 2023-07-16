@@ -5,9 +5,10 @@
 - [x] Lookup: Check album read model store before crawling
 - [x] Profile: Import data from spotify saved tracks
 - [x] Profile: Import data from spotify playlists
-- [ ] Profile: Pending import statuses rpc method
-- [ ] Parser: Support missing secondary genres
+- [x] Profile: Pending import statuses rpc method
 - [ ] Parser: Parse file from store rpc method
+- [ ] Telemetry: Export logs to otel collector
+- [ ] Parser: Support missing secondary genres
 - [ ] Parser: Bulk retry queue, rpc method
 - [ ] Profile: Import data from spotify most played tracks
 - [ ] Crawler: Fix file staleness check
