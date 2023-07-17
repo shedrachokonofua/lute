@@ -6,7 +6,7 @@
 - [x] Profile: Import data from spotify saved tracks
 - [x] Profile: Import data from spotify playlists
 - [x] Profile: Pending import statuses rpc method
-- [ ] Parser: Parse file from store rpc method
+- [x] Parser: Parse file from store rpc method
 - [ ] Telemetry: Export logs to otel collector
 - [ ] Parser: Support missing secondary genres
 - [ ] Parser: Bulk retry queue, rpc method

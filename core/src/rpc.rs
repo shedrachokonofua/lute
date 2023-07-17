@@ -47,6 +47,7 @@ impl RpcServer {
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     crawler: Arc<Crawler>,
   ) -> Self {
+    let settings_arc = Arc::new(settings.clone());
     Self {
       settings: settings.clone(),
       file_service: Arc::new(FileService {
@@ -64,9 +65,12 @@ impl RpcServer {
         &settings,
         Arc::clone(&redis_connection_pool),
       )),
-      parser_service: Arc::new(ParserService::new(Arc::clone(&redis_connection_pool))),
+      parser_service: Arc::new(ParserService::new(
+        Arc::clone(&settings_arc),
+        Arc::clone(&redis_connection_pool),
+      )),
       profile_service: Arc::new(ProfileService::new(
-        Arc::new(settings),
+        Arc::clone(&settings_arc),
         Arc::clone(&redis_connection_pool),
       )),
       lookup_service: Arc::new(LookupService::new(Arc::clone(&redis_connection_pool))),

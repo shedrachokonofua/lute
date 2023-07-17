@@ -96,4 +96,17 @@ impl FileInteractor {
   pub async fn list_files(&self) -> Result<Vec<FileName>> {
     self.file_content_store.list_files().await
   }
+
+  pub async fn get_file_metadata(&self, file_name: &FileName) -> Result<FileMetadata> {
+    self
+      .file_metadata_repository
+      .find_by_name(file_name)
+      .await?
+      .ok_or_else(|| {
+        anyhow::anyhow!(
+          "File metadata not found for file name: {}",
+          file_name.to_string()
+        )
+      })
+  }
 }

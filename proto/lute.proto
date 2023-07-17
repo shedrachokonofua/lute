@@ -230,7 +230,81 @@ message GetAggregatedFailureErrorsReply {
   repeated AggregatedFailureError errors = 1;
 }
 
+message ParsedArtistReference {
+  string name = 1;
+  string file_name = 2;
+}
+
+message ParsedChartAlbum {
+  string file_name = 1;
+  string name = 2;
+  float rating = 3;
+  uint32 rating_count = 4;
+  repeated ParsedArtistReference artists = 5;
+  repeated string primary_genres = 6;
+  repeated string secondary_genres = 7;
+  repeated string descriptors = 8;
+  optional string release_date = 9;
+}
+
+message ParsedTrack {
+  string name = 1;
+  optional uint32 duration_seconds = 2;
+  optional float rating = 3;
+  optional string position = 4;
+}
+
+message ParsedAlbum {
+  string name = 1;
+  float rating = 2;
+  uint32 rating_count = 3;
+  repeated ParsedArtistReference artists = 4;
+  repeated string primary_genres = 5;
+  repeated string secondary_genres = 6;
+  repeated string descriptors = 7;
+  repeated ParsedTrack tracks = 8;
+  optional string release_date = 9;
+}
+
+message ParsedArtistAlbum {
+  string name = 1;
+  string file_name = 2;
+}
+
+message ParsedArtist {
+  string name = 1;
+  repeated ParsedArtistAlbum albums = 2;
+}
+
+message ParsedAlbumSearchResult {
+  string name = 1;
+  string file_name = 2;
+  repeated ParsedArtistReference artists = 3;
+}
+
+message ParsedChart {
+  repeated ParsedChartAlbum albums = 1;
+}
+
+message ParsedFileData {
+  oneof data {
+    ParsedChart chart = 1;
+    ParsedAlbum album = 2;
+    ParsedArtist artist = 3;
+    ParsedAlbumSearchResult album_search_result = 4;
+  }
+}
+
+message ParseFileOnContentStoreRequest {
+  string file_name = 1;
+}
+
+message ParseFileOnContentStoreReply {
+  ParsedFileData data = 1;
+}
+
 service ParserService {
+  rpc ParseFileOnContentStore (ParseFileOnContentStoreRequest) returns (ParseFileOnContentStoreReply) {}
   rpc GetAggregatedFailureErrors (GetAggregatedFailureErrorsRequest) returns (GetAggregatedFailureErrorsReply) {}
 }
 
