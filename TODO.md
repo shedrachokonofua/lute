@@ -7,8 +7,8 @@
 - [x] Profile: Import data from spotify playlists
 - [x] Profile: Pending import statuses rpc method
 - [x] Parser: Parse file from store rpc method
-- [ ] Telemetry: Export logs to otel collector
-- [ ] Parser: Support missing secondary genres
+- [x] Parser: Support missing secondary genres
+- [ ] Lookup: Refresh album search lookup value with non-lookup related file events
 - [ ] Parser: Bulk retry queue, rpc method
 - [ ] Profile: Import data from spotify most played tracks
 - [ ] Crawler: Fix file staleness check
@@ -18,7 +18,6 @@
 - [ ] Recommendations: Generate album embeddings using OpenAI api
 - [ ] Recommendations: KNN vector similarity, quantile ranking, rpc service
 - [ ] Event bus: Subscriber statuses, iterator age, rpc service
-- [ ] Lookup: Refresh album search lookup value with non-lookup related file events
 - [ ] Lookup: Chart
 - [ ] Lookup: Artist
 - [ ] Web: Recommendation dashboard
@@ -30,3 +29,4 @@
 - [ ] Parser: Parser versioning/Target site change detection + playbook
 - [ ] Recommendations: T-SNE Visualization export
 - [ ] RYM Reviews: Crawl, parse, store, generate embeddings
+- [ ] Telemetry: Export logs to otel collector(Blocked, crate support currently WIP)

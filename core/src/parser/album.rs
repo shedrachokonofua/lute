@@ -74,14 +74,17 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     })
     .ok_or(anyhow::anyhow!("Failed to parse primary genres"))?;
 
-  let secondary_genres = query_select_first(dom.parser(), container, ".release_sec_genres")?
-    .query_selector(dom.parser(), ".genre")
-    .map(|iter| {
-      iter
-        .map(|node| get_node_inner_text(dom.parser(), &node).unwrap())
-        .collect::<Vec<String>>()
-    })
-    .ok_or(anyhow::anyhow!("Failed to parse secondary genres"))?;
+  let secondary_genres = match query_select_first(dom.parser(), container, ".release_sec_genres") {
+    Ok(node) => node
+      .query_selector(dom.parser(), ".genre")
+      .map(|iter| {
+        iter
+          .map(|node| get_node_inner_text(dom.parser(), &node).unwrap())
+          .collect::<Vec<String>>()
+      })
+      .ok_or(anyhow::anyhow!("Failed to parse secondary genres"))?,
+    Err(_) => vec![],
+  };
 
   let descriptors = query_select_first(dom.parser(), container, ".release_descriptors")?
     .query_selector(dom.parser(), "meta")
