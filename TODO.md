@@ -8,16 +8,16 @@
 - [x] Profile: Pending import statuses rpc method
 - [x] Parser: Parse file from store rpc method
 - [x] Parser: Support missing secondary genres
-- [ ] Lookup: Refresh album search lookup value with non-lookup related file events
+- [x] Lookup: Refresh album search lookup value with non-lookup related file events
 - [ ] Parser: Bulk retry queue, rpc method
+- [ ] Recommendations: Generate album embeddings using OpenAI api
+- [ ] Recommendations: KNN vector similarity, quantile ranking, rpc service
+- [ ] Event bus: Subscriber statuses, iterator age, rpc service
 - [ ] Profile: Import data from spotify most played tracks
 - [ ] Crawler: Fix file staleness check
 - [ ] Scheduled tasks
 - [ ] Perf: Replace settings cloning with Arc
 - [ ] Crawler: Automatic rate limit reset
-- [ ] Recommendations: Generate album embeddings using OpenAI api
-- [ ] Recommendations: KNN vector similarity, quantile ranking, rpc service
-- [ ] Event bus: Subscriber statuses, iterator age, rpc service
 - [ ] Lookup: Chart
 - [ ] Lookup: Artist
 - [ ] Web: Recommendation dashboard
