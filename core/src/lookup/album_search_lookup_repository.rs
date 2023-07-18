@@ -1,16 +1,16 @@
-use crate::helpers::db::does_ft_index_exist;
-
 use super::album_search_lookup::{AlbumSearchLookup, AlbumSearchLookupQuery};
+use crate::{files::file_metadata::file_name::FileName, helpers::db::does_ft_index_exist};
 use anyhow::{anyhow, Result};
 use rustis::{
   bb8::Pool,
   client::{BatchPreparedCommand, PooledClientManager},
   commands::{
     FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtReducer,
-    HashCommands, SearchCommands,
+    FtSearchOptions, HashCommands, SearchCommands,
   },
 };
 use std::{collections::HashMap, sync::Arc};
+use tracing::warn;
 
 const NAMESPACE: &str = "lookup:album_search";
 const INDEX_NAME: &str = "lookup:album_search_idx";
@@ -44,11 +44,35 @@ impl From<Vec<(String, String)>> for AggregatedStatus {
   }
 }
 
+pub fn escape_file_name(input: &str) -> String {
+  input.replace("/", "\\/").replace("-", "\\-")
+}
+
 pub struct AlbumSearchLookupRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
 impl AlbumSearchLookupRepository {
+  pub async fn setup_index(&self) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    if !does_ft_index_exist(&connection, INDEX_NAME).await {
+      connection
+        .ft_create(
+          INDEX_NAME,
+          FtCreateOptions::default()
+            .on(FtIndexDataType::Hash)
+            .prefix(format!("{}:", NAMESPACE)),
+          [
+            FtFieldSchema::identifier("status").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("album_search_file_name").field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("album_file_name").field_type(FtFieldType::Tag),
+          ],
+        )
+        .await?;
+    }
+    Ok(())
+  }
+
   pub async fn find(&self, query: &AlbumSearchLookupQuery) -> Result<Option<AlbumSearchLookup>> {
     let res: HashMap<String, String> = self
       .redis_connection_pool
@@ -82,6 +106,45 @@ impl AlbumSearchLookupRepository {
         false => Ok(Some(AlbumSearchLookup::try_from(res)?)),
       })
       .collect::<Result<Vec<_>>>()
+  }
+
+  pub async fn find_many_by_album_file_name(
+    &self,
+    file_name: &FileName,
+  ) -> Result<Vec<AlbumSearchLookup>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let search_result = connection
+      .ft_search(
+        INDEX_NAME,
+        format!(
+          "@album_file_name:{{ {} }}",
+          escape_file_name(&file_name.to_string())
+        ),
+        FtSearchOptions::default().limit(0, 10000),
+      )
+      .await?;
+    let result = search_result
+      .results
+      .iter()
+      .map(|r| {
+        let lookup: Result<AlbumSearchLookup> = r
+          .values
+          .clone()
+          .into_iter()
+          .collect::<HashMap<_, _>>()
+          .try_into();
+        lookup
+      })
+      .filter_map(|r| match r {
+        Ok(lookup) => Some(lookup),
+        Err(err) => {
+          warn!("Failed to deserialize AlbumSearchLookup: {}", err);
+          None
+        }
+      })
+      .collect::<Vec<_>>();
+
+    Ok(result)
   }
 
   pub async fn get(&self, query: &AlbumSearchLookupQuery) -> Result<AlbumSearchLookup> {
@@ -119,25 +182,5 @@ impl AlbumSearchLookupRepository {
       .collect::<Vec<_>>();
 
     Ok(aggregates)
-  }
-
-  pub async fn setup_index(&self) -> Result<()> {
-    let connection = self.redis_connection_pool.get().await?;
-    if !does_ft_index_exist(&connection, INDEX_NAME).await {
-      connection
-        .ft_create(
-          INDEX_NAME,
-          FtCreateOptions::default()
-            .on(FtIndexDataType::Hash)
-            .prefix(format!("{}:", NAMESPACE)),
-          [
-            FtFieldSchema::identifier("status").field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("album_search_file_name").field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("album_file_name").field_type(FtFieldType::Tag),
-          ],
-        )
-        .await?;
-    }
-    Ok(())
   }
 }

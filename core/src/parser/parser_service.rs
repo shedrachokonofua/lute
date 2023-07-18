@@ -24,6 +24,7 @@ use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::error;
+use ulid::Ulid;
 
 pub struct ParserService {
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
@@ -290,7 +291,7 @@ impl proto::ParserService for ParserService {
       EventPublisher::new(Arc::clone(&self.redis_connection_pool)),
       file_metadata.id,
       file_name,
-      None,
+      Some(format!("rpc:{}", Ulid::new().to_string())),
     )
     .await
     .map_err(|e| {

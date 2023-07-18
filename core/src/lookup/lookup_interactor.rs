@@ -4,9 +4,12 @@ use super::{
   },
   album_search_lookup_repository::{AggregatedStatus, AlbumSearchLookupRepository},
 };
-use crate::events::{
-  event::{Event, EventPayload, Stream},
-  event_publisher::EventPublisher,
+use crate::{
+  events::{
+    event::{Event, EventPayload, Stream},
+    event_publisher::EventPublisher,
+  },
+  files::file_metadata::file_name::FileName,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -31,6 +34,13 @@ impl LookupInteractor {
 
   pub async fn put_album_search_lookup(&self, lookup: &AlbumSearchLookup) -> Result<()> {
     self.album_search_lookup_repository.put(lookup).await
+  }
+
+  pub async fn find_album_search_lookup(
+    &self,
+    query: &AlbumSearchLookupQuery,
+  ) -> Result<Option<AlbumSearchLookup>> {
+    self.album_search_lookup_repository.find(query).await
   }
 
   pub async fn get_album_search_lookup(
@@ -82,5 +92,15 @@ impl LookupInteractor {
     queries: Vec<&AlbumSearchLookupQuery>,
   ) -> Result<Vec<Option<AlbumSearchLookup>>> {
     self.album_search_lookup_repository.find_many(queries).await
+  }
+
+  pub async fn find_many_album_search_lookups_by_album_file_name(
+    &self,
+    album_file_name: &FileName,
+  ) -> Result<Vec<AlbumSearchLookup>> {
+    self
+      .album_search_lookup_repository
+      .find_many_by_album_file_name(album_file_name)
+      .await
   }
 }
