@@ -9,9 +9,10 @@
 - [x] Parser: Parse file from store rpc method
 - [x] Parser: Support missing secondary genres
 - [x] Lookup: Refresh album search lookup value with non-lookup related file events
-- [ ] Parser: Bulk retry queue, rpc method
+- [x] Parser: Bulk retry queue, rpc method
+- [ ] Recommendations: Quantile rank, rpc method
 - [ ] Recommendations: Generate album embeddings using OpenAI api
-- [ ] Recommendations: KNN vector similarity, quantile ranking, rpc service
+- [ ] Recommendations: KNN vector similarity, rpc method
 - [ ] Event bus: Subscriber statuses, iterator age, rpc service
 - [ ] Profile: Import data from spotify most played tracks
 - [ ] Crawler: Fix file staleness check
