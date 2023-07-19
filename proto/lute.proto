@@ -303,9 +303,14 @@ message ParseFileOnContentStoreReply {
   ParsedFileData data = 1;
 }
 
+message EnqueueRetriesRequest {
+  string error = 1;
+}
+
 service ParserService {
   rpc ParseFileOnContentStore (ParseFileOnContentStoreRequest) returns (ParseFileOnContentStoreReply) {}
   rpc GetAggregatedFailureErrors (GetAggregatedFailureErrorsRequest) returns (GetAggregatedFailureErrorsReply) {}
+  rpc EnqueueRetries (EnqueueRetriesRequest) returns (google.protobuf.Empty) {}
 }
 
 message AlbumSearchLookupQuery {

@@ -71,7 +71,7 @@ pub fn build_parser_event_subscribers(
       redis_connection_pool: Arc::clone(&redis_connection_pool),
       settings: settings.clone(),
       id: "parse_saved_file".to_string(),
-      concurrency: Some(100),
+      concurrency: Some(25),
       stream: Stream::File,
       handle: Arc::new(|context| Box::pin(async move { parse_saved_file(context).await })),
     },

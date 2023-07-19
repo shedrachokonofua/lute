@@ -9,7 +9,7 @@ use rustis::{
   client::PooledClientManager,
   commands::{
     FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtReducer,
-    GenericCommands, HashCommands, SearchCommands,
+    FtSearchOptions, GenericCommands, HashCommands, SearchCommands,
   },
 };
 use std::{collections::HashMap, sync::Arc};
@@ -31,12 +31,13 @@ impl From<HashMap<String, String>> for FailedParseFile {
         .to_string(),
     );
     let error = values.get("error").expect("error not found").to_string();
-    let last_attempted_at: NaiveDateTime = values
-      .get("last_attempted_at")
-      .expect("last_attempted_at not found")
-      .parse()
-      .expect("invalid last_attempted_at");
-
+    let last_attempted_at = NaiveDateTime::parse_from_str(
+      values
+        .get("last_attempted_at")
+        .expect("last_attempted_at not found"),
+      "%Y-%m-%d %H:%M:%S%.f",
+    )
+    .expect("invalid last_attempted_at");
     Self {
       file_name,
       error,
@@ -137,6 +138,34 @@ impl FailedParseFilesRepository {
         .await?;
     }
     Ok(())
+  }
+
+  pub async fn find_many_by_error(&self, error: &str) -> Result<Vec<FailedParseFile>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection
+      .ft_search(
+        self.search_index_name(),
+        format!(
+          "@error:{{ {} }}",
+          error.replace(" ", "\\ ").replace(":", "\\:")
+        ),
+        FtSearchOptions::default().limit(0, 10000),
+      )
+      .await?;
+    let file_names = result
+      .results
+      .iter()
+      .map(|row| {
+        let values = row
+          .values
+          .iter()
+          .map(|(k, v)| (k.to_string(), v.to_string()))
+          .collect::<HashMap<_, _>>();
+        FailedParseFile::from(values)
+      })
+      .collect::<Vec<_>>();
+
+    Ok(file_names)
   }
 
   pub async fn aggregate_errors(

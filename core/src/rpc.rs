@@ -1,7 +1,10 @@
 use crate::{
   albums::album_service::AlbumService,
   crawler::{crawler::Crawler, crawler_service::CrawlerService},
-  files::{file_interactor::FileInteractor, file_service::FileService},
+  files::{
+    file_interactor::FileInteractor, file_metadata::file_name::FileName, file_service::FileService,
+  },
+  helpers::fifo_queue::FifoQueue,
   lookup::lookup_service::LookupService,
   ops::OperationsService,
   parser::parser_service::ParserService,
@@ -46,6 +49,7 @@ impl RpcServer {
     settings: Settings,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     crawler: Arc<Crawler>,
+    parser_retry_queue: Arc<FifoQueue<FileName>>,
   ) -> Self {
     let settings_arc = Arc::new(settings.clone());
     Self {
@@ -68,6 +72,7 @@ impl RpcServer {
       parser_service: Arc::new(ParserService::new(
         Arc::clone(&settings_arc),
         Arc::clone(&redis_connection_pool),
+        Arc::clone(&parser_retry_queue),
       )),
       profile_service: Arc::new(ProfileService::new(
         Arc::clone(&settings_arc),

@@ -68,6 +68,12 @@ pub struct SpotifySettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct ParserSettings {
+  pub concurrency: u16,
+  pub retry_concurrency: u16,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Settings {
   pub crawler: CrawlerSettings,
   pub file: FileSettings,
@@ -75,6 +81,7 @@ pub struct Settings {
   pub redis: RedisSettings,
   pub spotify: SpotifySettings,
   pub tracing: TracingSettings,
+  pub parser: ParserSettings,
 }
 
 impl Settings {
@@ -98,6 +105,8 @@ impl Settings {
         Duration::days(1).num_seconds(),
       )?
       .set_default("crawler.rate_limit.max_requests", 2000)?
+      .set_default("parser.concurrency", 50)?
+      .set_default("parser.retry_concurrency", 50)?
       .build()?
       .try_deserialize()
   }

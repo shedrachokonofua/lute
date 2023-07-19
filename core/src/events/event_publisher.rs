@@ -7,7 +7,7 @@ use rustis::{
 };
 use std::{collections::HashMap, sync::Arc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EventPublisher {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }

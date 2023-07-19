@@ -4,7 +4,7 @@ use anyhow::Result;
 use s3::{creds::Credentials, Bucket};
 use tracing::{error, info, instrument, warn};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileContentStore {
   bucket: Bucket,
 }

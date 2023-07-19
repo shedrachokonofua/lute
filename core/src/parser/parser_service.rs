@@ -13,9 +13,11 @@ use crate::{
     file_interactor::FileInteractor,
     file_metadata::{file_name::FileName, page_type::PageType},
   },
+  helpers::fifo_queue::FifoQueue,
   proto::{
-    self, GetAggregatedFailureErrorsReply, GetAggregatedFailureErrorsRequest,
-    ParseFileOnContentStoreReply, ParseFileOnContentStoreRequest,
+    self, EnqueueRetriesRequest, GetAggregatedFailureErrorsReply,
+    GetAggregatedFailureErrorsRequest, ParseFileOnContentStoreReply,
+    ParseFileOnContentStoreRequest,
   },
   settings::Settings,
 };
@@ -31,6 +33,7 @@ pub struct ParserService {
   failed_parse_files_repository: FailedParseFilesRepository,
   file_interactor: FileInteractor,
   settings: Arc<Settings>,
+  parser_retry_queue: Arc<FifoQueue<FileName>>,
 }
 
 impl TryFrom<i32> for PageType {
@@ -215,6 +218,7 @@ impl ParserService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    parser_retry_queue: Arc<FifoQueue<FileName>>,
   ) -> Self {
     Self {
       failed_parse_files_repository: FailedParseFilesRepository {
@@ -224,6 +228,7 @@ impl ParserService {
         settings.file.clone(),
         Arc::clone(&redis_connection_pool),
       ),
+      parser_retry_queue,
       redis_connection_pool,
       settings,
     }
@@ -305,5 +310,30 @@ impl proto::ParserService for ParserService {
     Ok(Response::new(ParseFileOnContentStoreReply {
       data: Some(result),
     }))
+  }
+
+  async fn enqueue_retries(
+    &self,
+    request: Request<EnqueueRetriesRequest>,
+  ) -> Result<Response<()>, Status> {
+    let request: EnqueueRetriesRequest = request.into_inner();
+    let error_type = request.error.to_string();
+    let failures = self
+      .failed_parse_files_repository
+      .find_many_by_error(&error_type)
+      .await
+      .map_err(|err| {
+        error!(err = err.to_string(), "failed to find many by error");
+        Status::internal("failed to find many by error")
+      })?;
+    self
+      .parser_retry_queue
+      .push_many(failures.into_iter().map(|val| val.file_name).collect())
+      .await
+      .map_err(|err| {
+        error!(err = err.to_string(), "failed to push many to queue");
+        Status::internal("failed to push many to queue")
+      })?;
+    Ok(Response::new(()))
   }
 }

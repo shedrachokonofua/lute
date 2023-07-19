@@ -8,4 +8,5 @@ pub mod parsed_file_data;
 pub mod parser;
 pub mod parser_event_subscribers;
 pub mod parser_service;
+pub mod retry;
 mod util;
