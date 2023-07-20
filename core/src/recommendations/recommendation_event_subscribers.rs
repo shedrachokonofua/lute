@@ -82,6 +82,7 @@ async fn crawl_similar_albums(
             years_range_start: 1900,
             years_range_end: Local::now().year() as u32,
             include_primary_genres: Some(album.primary_genres.clone()),
+            include_descriptors: Some(album.descriptors.clone()),
             ..Default::default()
           })?,
           correlation_id: Some(format!("crawl_similar_albums:{}", file_name.to_string())),
