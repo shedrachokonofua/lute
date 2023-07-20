@@ -33,8 +33,65 @@ impl ToString for FileName {
   }
 }
 
+#[derive(Default)]
+pub struct ChartParameters {
+  pub release_type: String,
+  pub page_number: u32,
+  pub years_range_start: u32,
+  pub years_range_end: u32,
+  pub include_primary_genres: Option<Vec<String>>,
+  pub include_secondary_genres: Option<Vec<String>>,
+  pub exclude_primary_genres: Option<Vec<String>>,
+  pub exclude_secondary_genres: Option<Vec<String>>,
+  pub include_descriptors: Option<Vec<String>>,
+  pub exclude_descriptors: Option<Vec<String>>,
+}
+
+pub fn to_url_tag(value: &str) -> String {
+  value.replace(" ", "-").replace("&", "and")
+}
+
 impl FileName {
   pub fn page_type(&self) -> PageType {
     PageType::try_from(self.0.as_str()).unwrap()
+  }
+
+  pub fn create_chart_file_name(params: ChartParameters) -> Result<FileName> {
+    let mut file_name = format!(
+      "charts/top/{}/{}-{}",
+      params.release_type, params.years_range_start, params.years_range_end
+    );
+
+    if let Some(include_primary_genres) = params.include_primary_genres {
+      file_name.push_str(
+        format!(
+          "/g:{}",
+          include_primary_genres
+            .iter()
+            .map(|genre| to_url_tag(genre))
+            .collect::<Vec<String>>()
+            .join(",")
+            .as_str()
+        )
+        .as_str(),
+      );
+    }
+
+    if let Some(include_descriptors) = params.include_descriptors {
+      file_name.push_str(
+        format!(
+          "/d:{}",
+          include_descriptors
+            .iter()
+            .map(|descriptor| to_url_tag(descriptor))
+            .collect::<Vec<String>>()
+            .join(",")
+            .as_str()
+        )
+        .as_str(),
+      );
+    }
+
+    FileName::try_from(file_name)
   }
 }

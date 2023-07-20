@@ -1,6 +1,6 @@
 use core::{
   albums::album_event_subscribers::build_album_event_subscribers,
-  crawler::{crawler::Crawler, crawler_event_subscriber::build_crawler_event_subscribers},
+  crawler::crawler::Crawler,
   db::{build_redis_connection_pool, setup_redis_indexes},
   events::event_subscriber::EventSubscriber,
   files::file_metadata::file_name::FileName,
@@ -10,6 +10,7 @@ use core::{
     parser_event_subscribers::build_parser_event_subscribers, retry::start_parser_retry_consumer,
   },
   profile::profile_event_subscribers::build_profile_event_subscribers,
+  recommendations::recommendation_event_subscribers::build_recommendation_event_subscribers,
   rpc::RpcServer,
   settings::Settings,
   tracing::setup_tracing,
@@ -47,10 +48,6 @@ fn start_event_subscribers(
   event_subscribers.extend(build_album_event_subscribers(
     Arc::clone(&redis_connection_pool),
     settings.clone(),
-  ));
-  event_subscribers.extend(build_crawler_event_subscribers(
-    Arc::clone(&redis_connection_pool),
-    settings.clone(),
     Arc::clone(&crawler.crawler_interactor),
   ));
   event_subscribers.extend(build_parser_event_subscribers(
@@ -65,6 +62,11 @@ fn start_event_subscribers(
   event_subscribers.extend(build_profile_event_subscribers(
     Arc::clone(&redis_connection_pool),
     settings.clone(),
+  ));
+  event_subscribers.extend(build_recommendation_event_subscribers(
+    Arc::clone(&redis_connection_pool),
+    settings.clone(),
+    Arc::clone(&crawler.crawler_interactor),
   ));
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });

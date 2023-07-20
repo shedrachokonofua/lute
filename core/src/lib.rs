@@ -9,6 +9,7 @@ pub mod ops;
 pub mod parser;
 pub mod profile;
 pub mod proto;
+pub mod recommendations;
 pub mod rpc;
 pub mod settings;
 pub mod spotify;

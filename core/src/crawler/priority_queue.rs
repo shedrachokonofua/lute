@@ -55,7 +55,7 @@ impl ToString for Priority {
   }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct QueuePushParameters {
   pub file_name: FileName,
   pub priority: Option<Priority>,
