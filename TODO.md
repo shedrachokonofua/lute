@@ -13,6 +13,8 @@
 - [ ] Recommendations: Quantile rank, rpc method
 - [ ] Recommendations: Generate album embeddings using OpenAI api
 - [ ] Recommendations: KNN vector similarity, rpc method
+- [ ] Album read model repoistory stats, rpc method
+- [ ] Parser: Retry queue monitor, rpc method
 - [ ] Event bus: Subscriber statuses, iterator age, rpc service
 - [ ] Profile: Import data from spotify most played tracks
 - [ ] Crawler: Fix file staleness check
@@ -24,10 +26,10 @@
 - [ ] Web: Recommendation dashboard
 - [ ] Web: Add to docker image
 - [ ] Documentation: System diagram, how-tos
-- [ ] Parser: Extract credits, album language
+- [ ] Parser: Extract album credits, language
 - [ ] Extension: Recommendation popup
 - [ ] Recommendations: Export to spotify playlist
-- [ ] Parser: Parser versioning/Target site change detection + playbook
+- [ ] Parser: Parser versioning, Target site change detection + playbook
 - [ ] Recommendations: T-SNE Visualization export
 - [ ] RYM Reviews: Crawl, parse, store, generate embeddings
 - [ ] Telemetry: Export logs to otel collector(Blocked, crate support currently WIP)
