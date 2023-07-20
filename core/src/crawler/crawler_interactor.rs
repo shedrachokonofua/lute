@@ -92,7 +92,13 @@ impl CrawlerInteractor {
   }
 
   pub async fn remaining_window_requests(&self) -> Result<u32> {
-    Ok(self.settings.rate_limit.max_requests - self.get_window_request_count().await?)
+    Ok(
+      self
+        .settings
+        .rate_limit
+        .max_requests
+        .saturating_sub(self.get_window_request_count().await?),
+    )
   }
 
   pub async fn reset_window_request_count(&self) -> Result<()> {
