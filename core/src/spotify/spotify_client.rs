@@ -1,4 +1,6 @@
-use super::spotify_credential_repository::{SpotifyCredentialRepository, SpotifyCredentials};
+use super::spotify_credential_repository::{
+  SpotifyCredentialRepository, SpotifyCredentials, SCOPES,
+};
 use crate::settings::SpotifySettings;
 use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
@@ -29,7 +31,7 @@ impl From<SpotifyCredentials> for Token {
     let expires_at: DateTime<Utc> = DateTime::from_utc(credentials.expires_at, Utc);
 
     Self {
-      scopes: SpotifyCredentials::scopes(),
+      scopes: SCOPES.clone(),
       access_token: credentials.access_token,
       refresh_token: Some(credentials.refresh_token),
       expires_at: Some(expires_at),
@@ -214,7 +216,7 @@ impl SpotifyClient {
       },
       OAuth {
         redirect_uri: self.settings.redirect_uri.clone(),
-        scopes: SpotifyCredentials::scopes(),
+        scopes: SCOPES.clone(),
         ..OAuth::default()
       },
     )

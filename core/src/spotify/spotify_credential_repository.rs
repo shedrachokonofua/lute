@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::{NaiveDateTime, Utc};
+use lazy_static::lazy_static;
 use rspotify::scopes;
 use rustis::{
   bb8::Pool,
@@ -20,40 +21,31 @@ pub struct SpotifyCredentials {
   pub expires_at: NaiveDateTime,
 }
 
-impl SpotifyCredentials {
-  pub fn scopes() -> HashSet<String> {
-    scopes!("user-library-read", "user-top-read")
-  }
+const ACCESS_TOKEN_KEY: &str = "spotify:access_token";
+const REFRESH_TOKEN_KEY: &str = "spotify:refresh_token";
+const EXPIRES_AT_KEY: &str = "spotify:expires_at";
+lazy_static! {
+  pub static ref SCOPES: HashSet<String> = scopes!("user-library-read", "user-top-read");
+}
 
+impl SpotifyCredentials {
   pub fn is_expired(&self) -> bool {
     self.expires_at < Utc::now().naive_utc()
   }
 }
 
 impl SpotifyCredentialRepository {
-  fn access_token_key(&self) -> &str {
-    "spotify:access_token"
-  }
-
-  fn refresh_token_key(&self) -> &str {
-    "spotify:refresh_token"
-  }
-
-  fn expires_at_key(&self) -> &str {
-    "spotify:expires_at"
-  }
-
   pub async fn put(&self, credentials: &SpotifyCredentials) -> Result<()> {
     let connection = self.redis_connection_pool.get().await?;
     let mut transaction = connection.create_transaction();
     transaction
-      .set(self.access_token_key(), &credentials.access_token)
+      .set(ACCESS_TOKEN_KEY, &credentials.access_token)
       .forget();
     transaction
-      .set(self.refresh_token_key(), &credentials.refresh_token)
+      .set(REFRESH_TOKEN_KEY, &credentials.refresh_token)
       .forget();
     transaction
-      .set(self.expires_at_key(), &credentials.expires_at.to_string())
+      .set(EXPIRES_AT_KEY, &credentials.expires_at.to_string())
       .queue();
     transaction.execute().await?;
     Ok(())
@@ -61,19 +53,19 @@ impl SpotifyCredentialRepository {
 
   pub async fn get_refresh_token(&self) -> Result<Option<String>> {
     let connection = self.redis_connection_pool.get().await?;
-    let result: Option<String> = connection.get(self.refresh_token_key()).await?;
+    let result: Option<String> = connection.get(REFRESH_TOKEN_KEY).await?;
     Ok(result)
   }
 
   pub async fn get_access_token(&self) -> Result<Option<String>> {
     let connection = self.redis_connection_pool.get().await?;
-    let result: Option<String> = connection.get(self.access_token_key()).await?;
+    let result: Option<String> = connection.get(ACCESS_TOKEN_KEY).await?;
     Ok(result)
   }
 
   pub async fn get_expires_at(&self) -> Result<Option<NaiveDateTime>> {
     let connection = self.redis_connection_pool.get().await?;
-    let result: Option<String> = connection.get(self.expires_at_key()).await?;
+    let result: Option<String> = connection.get(EXPIRES_AT_KEY).await?;
     match result {
       Some(date) => Ok(Some(NaiveDateTime::parse_from_str(
         &date,
@@ -100,11 +92,7 @@ impl SpotifyCredentialRepository {
   pub async fn delete(&self) -> Result<()> {
     let connection = self.redis_connection_pool.get().await?;
     connection
-      .del(vec![
-        self.access_token_key(),
-        self.refresh_token_key(),
-        self.expires_at_key(),
-      ])
+      .del(vec![ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, EXPIRES_AT_KEY])
       .await?;
     Ok(())
   }
