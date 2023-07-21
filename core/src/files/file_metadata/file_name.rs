@@ -55,14 +55,18 @@ impl FileName {
   pub fn page_type(&self) -> PageType {
     PageType::try_from(self.0.as_str()).unwrap()
   }
+}
 
-  pub fn create_chart_file_name(params: ChartParameters) -> Result<FileName> {
+impl TryInto<FileName> for ChartParameters {
+  type Error = anyhow::Error;
+
+  fn try_into(self) -> Result<FileName> {
     let mut file_name = format!(
       "charts/top/{}/{}-{}",
-      params.release_type, params.years_range_start, params.years_range_end
+      self.release_type, self.years_range_start, self.years_range_end
     );
 
-    if let Some(include_primary_genres) = params.include_primary_genres {
+    if let Some(include_primary_genres) = self.include_primary_genres {
       file_name.push_str(
         format!(
           "/g:{}",
@@ -77,7 +81,7 @@ impl FileName {
       );
     }
 
-    if let Some(include_descriptors) = params.include_descriptors {
+    if let Some(include_descriptors) = self.include_descriptors {
       file_name.push_str(
         format!(
           "/d:{}",

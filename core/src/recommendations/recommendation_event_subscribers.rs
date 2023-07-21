@@ -8,7 +8,7 @@ use crate::{
     event::{Event, Stream},
     event_subscriber::{EventSubscriber, SubscriberContext},
   },
-  files::file_metadata::file_name::{ChartParameters, FileName},
+  files::file_metadata::file_name::ChartParameters,
   settings::Settings,
 };
 use anyhow::Result;
@@ -52,14 +52,15 @@ async fn crawl_similar_albums(
       primary_genres.insert(0, "all".to_string());
       if let Err(e) = crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
-          file_name: FileName::create_chart_file_name(ChartParameters {
+          file_name: ChartParameters {
             release_type: release_type.to_string(),
             page_number: 1,
             years_range_start: release_date.year() as u32,
             years_range_end: release_date.year() as u32,
             include_primary_genres: Some(primary_genres),
             ..Default::default()
-          })?,
+          }
+          .try_into()?,
           correlation_id: Some(format!("crawl_similar_albums:{}", file_name.to_string())),
           priority: Some(Priority::Low),
           deduplication_key: None,
@@ -76,7 +77,7 @@ async fn crawl_similar_albums(
       // Same genres, same descriptors
       if let Err(e) = crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
-          file_name: FileName::create_chart_file_name(ChartParameters {
+          file_name: ChartParameters {
             release_type: release_type.to_string(),
             page_number: 1,
             years_range_start: 1900,
@@ -84,7 +85,8 @@ async fn crawl_similar_albums(
             include_primary_genres: Some(album.primary_genres.clone()),
             include_descriptors: Some(album.descriptors.clone()),
             ..Default::default()
-          })?,
+          }
+          .try_into()?,
           correlation_id: Some(format!("crawl_similar_albums:{}", file_name.to_string())),
           priority: Some(Priority::Low),
           deduplication_key: None,
