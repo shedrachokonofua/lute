@@ -31,22 +31,24 @@ jobs:
           key: ${{ runner.os }}-docker-${{ hashFiles('**/Dockerfile', '**/Dockerfile.arm') }}
           restore-keys: ${{ runner.os }}-docker-
 
-      - name: Setup cache storage backend
-        run: docker buildx create --use --driver=docker-container
-
-      - name: Build x86 Docker Image
+      - name: Setup docker
         run: |
-          echo "Image name: ${{ env.IMAGE_NAME }}"
-          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,src=${{ runner.workspace }}/docker-layers -t ${{ env.IMAGE_NAME }} -f core/Dockerfile --load .
+          docker buildx create --use --name builder --driver=docker-container --bootstrap
+          docker run --privileged --rm tonistiigi/binfmt --install all
+
+      # - name: Build x86 Docker Image
+      #   run: |
+      #     echo "Image name: ${{ env.IMAGE_NAME }}"
+      #     docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,src=${{ runner.workspace }}/docker-layers  --platform linux/amd64 -t ${{ env.IMAGE_NAME }} -f core/Dockerfile --load .
 
       - name: Build ARM Docker Image
         run: |
           echo "Image name: ${{ env.IMAGE_NAME_ARM }}"
-          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,src=${{ runner.workspace }}/docker-layers -t ${{ env.IMAGE_NAME_ARM }} -f core/Dockerfile.arm --load .
+          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,src=${{ runner.workspace }}/docker-layers --platform linux/arm64 -t ${{ env.IMAGE_NAME_ARM }} -f core/Dockerfile --load .
 
-      - name: Push Docker Images
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ghcr.io
-          docker push ${{ env.IMAGE_NAME }}
-          docker push ${{ env.IMAGE_NAME_ARM }}
+      # - name: Push Docker Images
+      #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      #   run: |
+      #     docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ghcr.io
+      #     docker push ${{ env.IMAGE_NAME }}
+      #     docker push ${{ env.IMAGE_NAME_ARM }}
