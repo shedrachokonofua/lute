@@ -12,7 +12,7 @@ COPY proto proto
 
 RUN cargo install --path core --target arm-unknown-linux-gnueabihf
 
-FROM debian:bullseye-slim
+FROM --platform=linux/arm64 debian:bullseye-slim
 RUN apt-get update && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/cargo/bin/core /usr/local/bin/core
 CMD ["core"]
