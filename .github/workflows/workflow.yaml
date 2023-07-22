@@ -7,10 +7,12 @@ on:
     paths:
       - "core/**"
       - "proto/**"
+      - ".github/**"
   pull_request:
     paths:
       - "core/**"
       - "proto/**"
+      - ".github/**"
 name: workflow
 env:
   IMAGE_NAME: ghcr.io/shedrachokonofua/lute-v4:${{ github.sha }}
