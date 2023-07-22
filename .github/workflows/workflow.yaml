@@ -15,8 +15,8 @@ on:
       - ".github/**"
 name: workflow
 env:
-  IMAGE_NAME: ghcr.io/${{ github.actor }}/lute-v4:${{ github.sha }}
-  IMAGE_NAME_ARM: ghcr.io/${{ github.actor }}/lute-v4-arm:${{ github.sha }}
+  IMAGE_NAME: ghcr.io/shedrachokonofua/lute-v4:${{ github.sha }}
+  IMAGE_NAME_ARM: ghcr.io/shedrachokonofua/lute-v4-arm:${{ github.sha }}
 jobs:
   checks:
     runs-on: ubuntu-latest
