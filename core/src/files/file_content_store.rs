@@ -25,7 +25,8 @@ impl FileContentStore {
           None,
           None,
         )?,
-      )?,
+      )?
+      .with_path_style(),
     })
   }
 
