@@ -28,10 +28,12 @@ ENV OPENSSL_VER 1.1.1i \
   CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
   CARGO_INCREMENTAL=0
 
-# setup aarch c/c++ compiler and compile openssl 
+# setup aarch c/c++ compiler 
 RUN apt-get -y update && apt-get install -y \
-  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross && \
-  curl -sL http://www.openssl.org/source/openssl-$OPENSSL_VER.tar.gz | tar xz && \
+  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
+
+# compile openssl 
+RUN  curl -L http://www.openssl.org/source/openssl-$OPENSSL_VER.tar.gz | tar xz && \
   cd openssl-$OPENSSL_VER && \
   ./Configure no-shared --prefix=$PREFIX --openssldir=$PREFIX/ssl no-zlib linux-aarch64 -fPIC && \
   make -j$(nproc) && make install && cd .. && rm -rf openssl-$OPENSSL_VER && \
