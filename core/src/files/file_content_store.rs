@@ -19,8 +19,8 @@ impl FileContentStore {
           endpoint: settings.endpoint,
         },
         Credentials::new(
-          Some(&settings.key),
-          Some(&settings.secret),
+          settings.key.as_ref().map(|k| k.as_str()),
+          settings.secret.as_ref().map(|k| k.as_str()),
           None,
           None,
           None,

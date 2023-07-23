@@ -19,8 +19,8 @@ pub struct FileTtlDaysSettings {
 pub struct ContentStoreSettings {
   pub region: String,
   pub endpoint: String,
-  pub key: String,
-  pub secret: String,
+  pub key: Option<String>,
+  pub secret: Option<String>,
   pub bucket: String,
 }
 
