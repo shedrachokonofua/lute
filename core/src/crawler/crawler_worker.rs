@@ -14,7 +14,7 @@ use reqwest_middleware::ClientWithMiddleware;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_retry::{strategy::FibonacciBackoff, Retry};
-use tracing::{info, instrument};
+use tracing::{info, instrument, warn};
 
 #[derive(Debug)]
 pub struct CrawlerWorker {
@@ -29,6 +29,7 @@ impl CrawlerWorker {
     format!("http://www.rateyourmusic.com/{}", file_name.to_string())
   }
 
+  #[instrument(skip(self))]
   async fn get_file_content(&self, file_name: &FileName) -> Result<String> {
     self
       .client
@@ -77,7 +78,15 @@ impl CrawlerWorker {
       );
       self.process_queue_item(queue_item.clone()).await
     })
-    .await?;
+    .await
+    .map_err(|e| {
+      warn!(
+        item = &queue_item.item_key.to_string(),
+        e = &e.to_string().as_str(),
+        "Failed to process queue item after 5 retries"
+      );
+      anyhow::anyhow!("Failed to process queue item after 5 retries: {:?}", e)
+    })?;
     self
       .crawler_interactor
       .increment_window_request_count()
