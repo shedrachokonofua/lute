@@ -11,6 +11,12 @@ pub struct FileContentStore {
 
 impl FileContentStore {
   pub fn new(settings: ContentStoreSettings) -> Result<Self> {
+    let credentials = match (settings.key, settings.secret) {
+      (Some(key), Some(secret)) => {
+        Credentials::new(Some(key.as_str()), Some(secret.as_str()), None, None, None)
+      }
+      _ => Credentials::anonymous(),
+    }?;
     Ok(Self {
       bucket: Bucket::new(
         &settings.bucket,
@@ -18,13 +24,7 @@ impl FileContentStore {
           region: settings.region,
           endpoint: settings.endpoint,
         },
-        Credentials::new(
-          settings.key.as_ref().map(|k| k.as_str()),
-          settings.secret.as_ref().map(|k| k.as_str()),
-          None,
-          None,
-          None,
-        )?,
+        credentials,
       )?
       .with_path_style(),
     })

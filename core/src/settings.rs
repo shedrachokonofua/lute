@@ -93,6 +93,8 @@ impl Settings {
       .set_default("file.ttl_days.album", 7)?
       .set_default("file.ttl_days.chart", 7)?
       .set_default("file.ttl_days.search", 1)?
+      .set_default("file.content_store.key", None::<String>)?
+      .set_default("file.content_store.secret", None::<String>)?
       .set_default("crawler.pool_size", 10)?
       .set_default(
         "crawler.claim_ttl_seconds",
