@@ -1,6 +1,7 @@
-FROM ghcr.io/yasuyuky/rust-arm:1.67.0 as builder
+FROM --platform=amd64 rust:1.67.0 as builder
 WORKDIR /usr/src/app
 
+# setup protobuf compile
 RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17.3/protoc-3.17.3-linux-x86_64.zip && \
   unzip protoc-3.17.3-linux-x86_64.zip -d protoc3 && \
   mv protoc3/bin/* /usr/local/bin/ && \
@@ -10,9 +11,37 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17
 COPY core core
 COPY proto proto
 
-RUN cargo install --path core --target arm-unknown-linux-gnueabihf
+ENV OPENSSL_VER 1.1.1i \
+  PREFIX /usr/aarch64-linux \
+  PATH /usr/local/bin:$PATH \
+  PKG_CONFIG_PATH /usr/local/lib/pkgconfig \
+  CC aarch64-linux-gnu-gcc \
+  SSL_CERT_FILE /etc/ssl/certs/ca-certificates.crt \
+  SSL_CERT_DIR /etc/ssl/certs \
+  OPENSSL_LIB_DIR $PREFIX/lib \
+  OPENSSL_INCLUDE_DIR $PREFIX/include \
+  OPENSSL_DIR $PREFIX \
+  OPENSSL_STATIC 1 \
+  PKG_CONFIG_ALLOW_CROSS 1 \
+  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+  CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
+  CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
+  CARGO_INCREMENTAL=0
+
+# setup aarch c/c++ compiler and compile openssl 
+RUN apt-get -y update && apt-get install -y \
+  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross && \
+  curl -sL http://www.openssl.org/source/openssl-$OPENSSL_VER.tar.gz | tar xz && \
+  cd openssl-$OPENSSL_VER && \
+  ./Configure no-shared --prefix=$PREFIX --openssldir=$PREFIX/ssl no-zlib linux-aarch64 -fPIC && \
+  make -j$(nproc) && make install && cd .. && rm -rf openssl-$OPENSSL_VER && \
+  rm -rf /var/lib/apt/lists/*
+
+RUN rustup target add aarch64-unknown-linux-gnu && \
+  rustup toolchain install stable-aarch64-unknown-linux-gnu && \
+  cargo install --path core --target aarch64-unknown-linux-gnu
 
 FROM --platform=linux/arm64 debian:bullseye-slim
 RUN apt-get update && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/cargo/bin/core /usr/local/bin/core
+COPY --from=builder --link /usr/local/cargo/bin/core /usr/local/bin/core
 CMD ["core"]
