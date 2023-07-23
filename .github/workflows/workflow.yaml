@@ -7,10 +7,12 @@ on:
     paths:
       - "core/**"
       - "proto/**"
+      - ".github/**"
   pull_request:
     paths:
       - "core/**"
       - "proto/**"
+      - ".github/**"
 name: workflow
 env:
   IMAGE_NAME: ghcr.io/shedrachokonofua/lute-v4:${{ github.sha }}
@@ -31,18 +33,21 @@ jobs:
           key: ${{ runner.os }}-docker-${{ hashFiles('**/Dockerfile', '**/Dockerfile.arm') }}
           restore-keys: ${{ runner.os }}-docker-
 
-      - name: Setup cache storage backend
-        run: docker buildx create --use --driver=docker-container
+      - name: Setup docker
+        run: |
+          docker info
+          docker buildx create --use --name builder --driver=docker-container --bootstrap
+          docker run --privileged --rm tonistiigi/binfmt --install all
 
       - name: Build x86 Docker Image
         run: |
           echo "Image name: ${{ env.IMAGE_NAME }}"
-          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,src=${{ runner.workspace }}/docker-layers -t ${{ env.IMAGE_NAME }} -f core/Dockerfile --load .
+          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,src=${{ runner.workspace }}/docker-layers --platform=linux/amd64 -t ${{ env.IMAGE_NAME }} -f core/Dockerfile --load .
 
       - name: Build ARM Docker Image
         run: |
           echo "Image name: ${{ env.IMAGE_NAME_ARM }}"
-          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,src=${{ runner.workspace }}/docker-layers -t ${{ env.IMAGE_NAME_ARM }} -f core/Dockerfile.arm --load .
+          docker buildx build --cache-to type=local,dest=${{ runner.workspace }}/docker-layers --cache-from type=local,src=${{ runner.workspace }}/docker-layers --platform=linux/arm64 -t ${{ env.IMAGE_NAME_ARM }} -f core/Dockerfile.arm --load .
 
       - name: Push Docker Images
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
