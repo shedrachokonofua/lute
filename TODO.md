@@ -33,3 +33,4 @@
 - [ ] Recommendations: T-SNE Visualization export
 - [ ] RYM Reviews: Crawl, parse, store, generate embeddings
 - [ ] Telemetry: Export logs to otel collector(Blocked, crate support currently WIP)
+- [ ] Make telemetry optional

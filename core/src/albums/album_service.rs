@@ -2,7 +2,7 @@ use super::album_read_model_repository::AlbumReadModelRepository;
 use crate::{files::file_metadata::file_name::FileName, proto};
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
-use tonic::Status;
+use tonic::{async_trait, Request, Response, Status};
 
 pub struct AlbumService {
   album_read_model_repository: AlbumReadModelRepository,
@@ -18,12 +18,12 @@ impl AlbumService {
   }
 }
 
-#[tonic::async_trait]
+#[async_trait]
 impl proto::AlbumService for AlbumService {
   async fn get_album(
     &self,
-    request: tonic::Request<proto::GetAlbumRequest>,
-  ) -> Result<tonic::Response<proto::GetAlbumReply>, tonic::Status> {
+    request: Request<proto::GetAlbumRequest>,
+  ) -> Result<Response<proto::GetAlbumReply>, Status> {
     let file_name = FileName::try_from(request.into_inner().file_name)
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
     let album = self
@@ -34,6 +34,6 @@ impl proto::AlbumService for AlbumService {
     let reply = proto::GetAlbumReply {
       album: Some(album.into()),
     };
-    Ok(tonic::Response::new(reply))
+    Ok(Response::new(reply))
   }
 }

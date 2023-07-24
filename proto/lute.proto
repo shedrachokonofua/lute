@@ -458,3 +458,26 @@ service ProfileService {
   rpc ImportSpotifyPlaylistTracks (ImportSpotifyPlaylistTracksRequest) returns (google.protobuf.Empty) {}
   rpc GetPendingSpotifyImports (GetPendingSpotifyImportsRequest) returns (GetPendingSpotifyImportsReply) {}
 }
+
+message QuantileRankAlbumAssessmentSettings {
+  float primary_genre_weight = 1;
+  float secondary_genre_weight = 2;
+  float descriptor_weight = 3;
+}
+
+message AssessAlbumReply {
+  float score = 1;
+  map<string, string> metadata = 2;
+}
+
+message AssessAlbumRequest {
+  string file_name = 1;
+  string profile_id = 2;
+  oneof settings {
+    QuantileRankAlbumAssessmentSettings quantile_rank_settings = 3;
+  }
+}
+
+service RecommendationService {
+  rpc AssessAlbum (AssessAlbumRequest) returns (AssessAlbumReply) {}
+}
