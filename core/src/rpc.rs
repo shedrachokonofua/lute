@@ -81,9 +81,10 @@ impl RpcServer {
         Arc::clone(&redis_connection_pool),
       )),
       lookup_service: Arc::new(LookupService::new(Arc::clone(&redis_connection_pool))),
-      recommendation_service: Arc::new(RecommendationService::new(Arc::clone(
-        &redis_connection_pool,
-      ))),
+      recommendation_service: Arc::new(RecommendationService::new(
+        Arc::clone(&settings_arc),
+        Arc::clone(&redis_connection_pool),
+      )),
     }
   }
 

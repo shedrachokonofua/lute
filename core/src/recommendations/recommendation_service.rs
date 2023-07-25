@@ -1,9 +1,10 @@
 use super::{
   quantile_rank_interactor::QuantileRankAlbumAssessmentSettings,
   recommendation_interactor::{AlbumAssessmentSettings, RecommendationInteractor},
-  types::AlbumAssessment,
 };
-use crate::{files::file_metadata::file_name::FileName, profile::profile::ProfileId, proto};
+use crate::{
+  files::file_metadata::file_name::FileName, profile::profile::ProfileId, proto, settings::Settings,
+};
 use anyhow::Error;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{collections::HashMap, sync::Arc};
@@ -15,9 +16,12 @@ pub struct RecommendationService {
 }
 
 impl RecommendationService {
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+  pub fn new(
+    settings: Arc<Settings>,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  ) -> Self {
     Self {
-      recommendation_interactor: RecommendationInteractor::new(redis_connection_pool),
+      recommendation_interactor: RecommendationInteractor::new(settings, redis_connection_pool),
     }
   }
 }
@@ -75,6 +79,7 @@ impl proto::RecommendationService for RecommendationService {
     let assessment = self
       .recommendation_interactor
       .assess_album(&profile_id, &file_name, settings)
+      .await
       .map_err(|e| {
         error!(error = e.to_string(), "Failed to assess album");
         Status::internal(e.to_string())

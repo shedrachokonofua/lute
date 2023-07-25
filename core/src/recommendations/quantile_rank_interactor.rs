@@ -1,9 +1,10 @@
 use super::types::{AlbumAssessment, RecommendationMethodInteractor};
 use crate::{
-  albums::album_read_model_repository::AlbumReadModelRepository,
-  files::file_metadata::file_name::FileName, profile::profile::ProfileId,
+  albums::album_read_model_repository::{AlbumReadModel, AlbumReadModelRepository},
+  profile::profile_summary::ProfileSummary,
 };
 use anyhow::Result;
+use async_trait::async_trait;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::instrument;
@@ -17,28 +18,29 @@ pub struct QuantileRankAlbumAssessmentSettings {
 
 pub struct QuantileRankInteractor {
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  album_read_model_repository: Arc<AlbumReadModelRepository>,
+  album_read_model_repository: AlbumReadModelRepository,
 }
 
 impl QuantileRankInteractor {
   pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
     Self {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      album_read_model_repository: Arc::new(AlbumReadModelRepository {
-        redis_connection_pool: Arc::clone(&redis_connection_pool),
-      }),
+      album_read_model_repository: AlbumReadModelRepository::new(Arc::clone(
+        &redis_connection_pool,
+      )),
     }
   }
 }
 
+#[async_trait]
 impl RecommendationMethodInteractor<QuantileRankAlbumAssessmentSettings>
   for QuantileRankInteractor
 {
   #[instrument(name = "QuantileRankInteractor::assess_album", skip(self))]
-  fn assess_album(
+  async fn assess_album(
     &self,
-    profile_id: &ProfileId,
-    album_file_name: &FileName,
+    profile_summary: &ProfileSummary,
+    album_read_model: &AlbumReadModel,
     settings: QuantileRankAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
     Err(anyhow::anyhow!("Not implemented"))

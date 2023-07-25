@@ -90,6 +90,12 @@ const NAMESPACE: &str = "album";
 const INDEX_NAME: &str = "album_idx";
 
 impl AlbumReadModelRepository {
+  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+    Self {
+      redis_connection_pool,
+    }
+  }
+
   pub fn key(&self, file_name: &FileName) -> String {
     format!("{}:{}", NAMESPACE, file_name.to_string())
   }
