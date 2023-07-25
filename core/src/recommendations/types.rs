@@ -11,11 +11,15 @@ pub struct AlbumAssessment {
 }
 
 #[async_trait]
-pub trait RecommendationMethodInteractor<TAlbumAssessmentSettings> {
+pub trait RecommendationMethodInteractor<
+  TAssessableAlbum: TryFrom<AlbumReadModel>,
+  TAlbumAssessmentSettings,
+>
+{
   async fn assess_album(
     &self,
     profile_summary: &ProfileSummary,
-    album_read_model: &AlbumReadModel,
+    album: &TAssessableAlbum,
     settings: TAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment>;
 }

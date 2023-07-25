@@ -26,14 +26,22 @@ impl RecommendationService {
   }
 }
 
+fn default_if_zero(value: u32, default: u32) -> u32 {
+  if value == 0 {
+    default
+  } else {
+    value
+  }
+}
+
 impl TryFrom<proto::QuantileRankAlbumAssessmentSettings> for QuantileRankAlbumAssessmentSettings {
   type Error = Error;
 
   fn try_from(value: proto::QuantileRankAlbumAssessmentSettings) -> Result<Self, Self::Error> {
     Ok(Self {
-      primary_genre_weight: value.primary_genre_weight,
-      secondary_genre_weight: value.secondary_genre_weight,
-      descriptor_weight: value.descriptor_weight,
+      primary_genre_weight: default_if_zero(value.primary_genre_weight, 6),
+      secondary_genre_weight: default_if_zero(value.secondary_genre_weight, 3),
+      descriptor_weight: default_if_zero(value.descriptor_weight, 20),
     })
   }
 }

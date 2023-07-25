@@ -1,5 +1,7 @@
 use super::{
-  quantile_rank_interactor::{QuantileRankAlbumAssessmentSettings, QuantileRankInteractor},
+  quantile_rank_interactor::{
+    QuantileRankAlbumAssessmentSettings, QuantileRankAssessableAlbum, QuantileRankInteractor,
+  },
   types::{AlbumAssessment, RecommendationMethodInteractor},
 };
 use crate::{
@@ -54,7 +56,11 @@ impl RecommendationInteractor {
       AlbumAssessmentSettings::QuantileRank(settings) => {
         self
           .quantile_rank_interactor
-          .assess_album(&profile_summary, &album, settings)
+          .assess_album(
+            &profile_summary,
+            &QuantileRankAssessableAlbum::try_from(album)?,
+            settings,
+          )
           .await
       }
     }
