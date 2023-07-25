@@ -2,7 +2,7 @@ use super::{
   profile::ProfileId, spotify_import_lookup_subscription::SpotifyImportLookupSubscription,
 };
 use crate::{
-  helpers::db::does_ft_index_exist, lookup::album_search_lookup::AlbumSearchLookupQuery,
+  helpers::redisearch::does_ft_index_exist, lookup::album_search_lookup::AlbumSearchLookupQuery,
 };
 use anyhow::{anyhow, Error, Result};
 use rustis::{

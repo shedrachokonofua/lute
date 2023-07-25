@@ -1,12 +1,17 @@
-use crate::{files::file_metadata::file_name::FileName, helpers::db::does_ft_index_exist, proto};
-use anyhow::Result;
+use crate::{
+  files::file_metadata::file_name::FileName,
+  helpers::redisearch::{does_ft_index_exist, escape_tag_value},
+  proto,
+};
+use anyhow::{anyhow, Error, Result};
 use chrono::NaiveDate;
+use derive_builder::Builder;
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
   commands::{
-    FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, GenericCommands, JsonCommands,
-    JsonGetOptions, SearchCommands, SetCondition,
+    FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtSearchOptions, GenericCommands,
+    JsonCommands, JsonGetOptions, SearchCommands, SetCondition,
   },
 };
 use serde_derive::{Deserialize, Serialize};
@@ -82,8 +87,50 @@ pub struct AlbumReadModel {
   pub release_date: Option<NaiveDate>,
 }
 
+impl TryFrom<&Vec<(String, String)>> for AlbumReadModel {
+  type Error = Error;
+
+  fn try_from(values: &Vec<(String, String)>) -> Result<Self> {
+    let json = values
+      .get(0)
+      .map(|(_, json)| json)
+      .ok_or(anyhow!("invalid AlbumReadModel: missing json"))?;
+    let subscription: AlbumReadModel = serde_json::from_str(json)?;
+    Ok(subscription)
+  }
+}
+
+#[derive(Default, Builder, Debug)]
+#[builder(setter(into), default)]
+pub struct AlbumSearchQuery {
+  exclude_file_names: Vec<FileName>,
+  include_artists: Vec<String>,
+  exclude_artists: Vec<String>,
+  include_primary_genres: Vec<String>,
+  exclude_primary_genres: Vec<String>,
+  include_secondary_genres: Vec<String>,
+  exclude_secondary_genres: Vec<String>,
+  include_descriptors: Vec<String>,
+}
+
 pub struct AlbumReadModelRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
+}
+
+fn get_tag_query<T: ToString>(tag: String, items: &Vec<T>) -> String {
+  if !items.is_empty() {
+    format!(
+      "{}:{{{}}} ",
+      tag,
+      items
+        .iter()
+        .map(|item| escape_tag_value(item.to_string().as_str()))
+        .collect::<Vec<String>>()
+        .join("|")
+    )
+  } else {
+    String::from("")
+  }
 }
 
 const NAMESPACE: &str = "album";
@@ -156,6 +203,69 @@ impl AlbumReadModelRepository {
       .collect::<Vec<AlbumReadModel>>();
 
     Ok(data)
+  }
+
+  pub async fn search(
+    &self,
+    query: &AlbumSearchQuery,
+    offset: Option<usize>,
+    limit: Option<usize>,
+  ) -> Result<Vec<AlbumReadModel>> {
+    let mut redis_query = String::from("");
+    redis_query.push_str(&get_tag_query(
+      "-@file_name".to_string(),
+      &query.exclude_file_names,
+    ));
+    redis_query.push_str(&get_tag_query(
+      "@artist_file_name".to_string(),
+      &query.include_artists,
+    ));
+    redis_query.push_str(&get_tag_query(
+      "-@artist_file_name".to_string(),
+      &query.exclude_artists,
+    ));
+    redis_query.push_str(&get_tag_query(
+      "@primary_genre".to_string(),
+      &query.include_primary_genres,
+    ));
+    redis_query.push_str(&get_tag_query(
+      "-@primary_genre".to_string(),
+      &query.exclude_primary_genres,
+    ));
+    redis_query.push_str(&get_tag_query(
+      "@secondary_genre".to_string(),
+      &query.include_secondary_genres,
+    ));
+    redis_query.push_str(&get_tag_query(
+      "-@secondary_genre".to_string(),
+      &query.exclude_secondary_genres,
+    ));
+    redis_query.push_str(&get_tag_query(
+      "@descriptor".to_string(),
+      &query.include_descriptors,
+    ));
+    let redis_query = redis_query.trim().to_string();
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection
+      .ft_search(
+        INDEX_NAME,
+        redis_query,
+        FtSearchOptions::default().limit(offset.unwrap_or(0), limit.unwrap_or(100)),
+      )
+      .await?;
+    let albums = result
+      .results
+      .iter()
+      .map(|row| AlbumReadModel::try_from(&row.values))
+      .filter_map(|r| match r {
+        Ok(album) => Some(album),
+        Err(e) => {
+          info!("Failed to parse album: {}", e);
+          None
+        }
+      })
+      .collect::<Vec<_>>();
+    Ok(albums)
   }
 
   pub async fn setup_index(&self) -> Result<()> {

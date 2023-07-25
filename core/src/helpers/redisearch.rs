@@ -13,3 +13,11 @@ pub async fn does_ft_index_exist<'a>(
     }
   }
 }
+
+pub fn escape_tag_value(input: &str) -> String {
+  input
+    .replace("/", "\\/")
+    .replace("-", "\\-")
+    .replace(" ", "\\ ")
+    .replace(":", "\\:")
+}

@@ -1,5 +1,8 @@
 use super::album_search_lookup::{AlbumSearchLookup, AlbumSearchLookupQuery};
-use crate::{files::file_metadata::file_name::FileName, helpers::db::does_ft_index_exist};
+use crate::{
+  files::file_metadata::file_name::FileName,
+  helpers::redisearch::{does_ft_index_exist, escape_tag_value},
+};
 use anyhow::{anyhow, Result};
 use rustis::{
   bb8::Pool,
@@ -42,10 +45,6 @@ impl From<Vec<(String, String)>> for AggregatedStatus {
       count: count.expect("count not found"),
     }
   }
-}
-
-pub fn escape_file_name(input: &str) -> String {
-  input.replace("/", "\\/").replace("-", "\\-")
 }
 
 pub struct AlbumSearchLookupRepository {
@@ -118,7 +117,7 @@ impl AlbumSearchLookupRepository {
         INDEX_NAME,
         format!(
           "@album_file_name:{{ {} }}",
-          escape_file_name(&file_name.to_string())
+          escape_tag_value(&file_name.to_string())
         ),
         FtSearchOptions::default().limit(0, 10000),
       )

@@ -1,15 +1,12 @@
-use std::{cmp::Reverse, collections::BinaryHeap};
+use std::cmp::Reverse;
+use std::collections::BinaryHeap;
 
-pub trait HeapItem: Ord + Clone {
-  fn get_heap_key(&self) -> f64;
-}
-
-pub struct BoundedMinHeap<T: HeapItem> {
+pub struct BoundedMinHeap<T: Ord> {
   heap: BinaryHeap<Reverse<T>>,
   capacity: usize,
 }
 
-impl<T: HeapItem> BoundedMinHeap<T> {
+impl<T: Ord> BoundedMinHeap<T> {
   pub fn new(capacity: usize) -> Self {
     Self {
       heap: BinaryHeap::new(),
@@ -20,10 +17,11 @@ impl<T: HeapItem> BoundedMinHeap<T> {
   pub fn push(&mut self, item: T) {
     if self.heap.len() < self.capacity {
       self.heap.push(Reverse(item));
-    } else {
-      let mut min = self.heap.peek_mut().unwrap();
-      if item.get_heap_key() > (min.0).get_heap_key() {
-        *min = Reverse(item);
+    } else if let Some(Reverse(min)) = self.heap.pop() {
+      if item > min {
+        self.heap.push(Reverse(item));
+      } else {
+        self.heap.push(Reverse(min));
       }
     }
   }
@@ -34,5 +32,9 @@ impl<T: HeapItem> BoundedMinHeap<T> {
 
   pub fn peek(&self) -> Option<&T> {
     self.heap.peek().map(|x| &x.0)
+  }
+
+  pub fn drain(&mut self) -> Vec<T> {
+    self.heap.drain().map(|x| x.0).collect()
   }
 }

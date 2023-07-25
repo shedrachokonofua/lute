@@ -2,17 +2,17 @@ use std::cmp::Ord;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-pub struct QuantileRanking<T: Ord + Debug> {
+pub struct QuantileRanking<T: Ord + Debug + Clone> {
   map: BTreeMap<T, usize>,
   total: usize,
 }
 
-impl<T: Ord + Debug> QuantileRanking<T> {
-  pub fn new(data: Vec<T>) -> Self {
+impl<T: Ord + Debug + Clone> QuantileRanking<T> {
+  pub fn new(data: &Vec<T>) -> Self {
     let mut map = BTreeMap::new();
     let total = data.len();
     for item in data {
-      *map.entry(item).or_insert(0) += 1;
+      *map.entry(item.clone()).or_insert(0) += 1;
     }
     QuantileRanking { map, total }
   }

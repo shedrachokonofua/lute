@@ -1,6 +1,6 @@
 use crate::{
   files::file_metadata::{file_name::FileName, page_type::PageType},
-  helpers::db::does_ft_index_exist,
+  helpers::redisearch::{does_ft_index_exist, escape_tag_value},
 };
 use anyhow::Result;
 use chrono::NaiveDateTime;
@@ -145,10 +145,7 @@ impl FailedParseFilesRepository {
     let result = connection
       .ft_search(
         self.search_index_name(),
-        format!(
-          "@error:{{ {} }}",
-          error.replace(" ", "\\ ").replace(":", "\\:")
-        ),
+        format!("@error:{{ {} }}", escape_tag_value(error)),
         FtSearchOptions::default().limit(0, 10000),
       )
       .await?;
