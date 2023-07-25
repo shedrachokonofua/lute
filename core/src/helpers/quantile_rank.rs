@@ -1,7 +1,6 @@
 use std::cmp::Ord;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
-use tracing::instrument;
 
 pub struct QuantileRanking<T: Ord + Debug> {
   map: BTreeMap<T, usize>,
@@ -18,7 +17,6 @@ impl<T: Ord + Debug> QuantileRanking<T> {
     QuantileRanking { map, total }
   }
 
-  #[instrument(skip(self))]
   pub fn get_rank(&self, key: &T) -> Option<f64> {
     let mut rank_sum = 0;
     let mut count = 0;

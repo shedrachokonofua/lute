@@ -10,6 +10,15 @@ pub struct AlbumAssessment {
   pub metadata: Option<HashMap<String, String>>,
 }
 
+pub struct AlbumRecommendationSettings {
+  pub count: u32,
+}
+
+pub struct AlbumRecommendation {
+  pub album: AlbumReadModel,
+  pub assessment: AlbumAssessment,
+}
+
 #[async_trait]
 pub trait RecommendationMethodInteractor<
   TAssessableAlbum: TryFrom<AlbumReadModel>,
@@ -22,4 +31,11 @@ pub trait RecommendationMethodInteractor<
     album: &TAssessableAlbum,
     settings: TAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment>;
+
+  async fn recommend_albums(
+    &self,
+    profile_summary: &ProfileSummary,
+    assessment_settings: TAlbumAssessmentSettings,
+    recommendation_settings: AlbumRecommendationSettings,
+  ) -> Result<Vec<AlbumRecommendation>>;
 }

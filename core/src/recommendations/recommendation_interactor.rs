@@ -2,7 +2,10 @@ use super::{
   quantile_rank_interactor::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAssessableAlbum, QuantileRankInteractor,
   },
-  types::{AlbumAssessment, RecommendationMethodInteractor},
+  types::{
+    AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
+    RecommendationMethodInteractor,
+  },
 };
 use crate::{
   albums::album_read_model_repository::AlbumReadModelRepository,
@@ -61,6 +64,26 @@ impl RecommendationInteractor {
             &QuantileRankAssessableAlbum::try_from(album)?,
             settings,
           )
+          .await
+      }
+    }
+  }
+
+  pub async fn recommend_albums(
+    &self,
+    profile_id: &ProfileId,
+    assessment_settings: AlbumAssessmentSettings,
+    recommendation_settings: AlbumRecommendationSettings,
+  ) -> Result<Vec<AlbumRecommendation>> {
+    let profile_summary = self
+      .profile_interactor
+      .get_profile_summary(profile_id)
+      .await?;
+    match assessment_settings {
+      AlbumAssessmentSettings::QuantileRank(settings) => {
+        self
+          .quantile_rank_interactor
+          .recommend_albums(&profile_summary, settings, recommendation_settings)
           .await
       }
     }

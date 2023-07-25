@@ -466,19 +466,47 @@ message QuantileRankAlbumAssessmentSettings {
   float novelty_score = 4;
 }
 
-message AssessAlbumReply {
+message AlbumAssessment {
   float score = 1;
   map<string, string> metadata = 2;
 }
 
-message AssessAlbumRequest {
-  string file_name = 1;
-  string profile_id = 2;
+message AssessAlbumReply {
+  AlbumAssessment assessment = 1;
+}
+
+message AlbumAssessmentSettings {
   oneof settings {
     QuantileRankAlbumAssessmentSettings quantile_rank_settings = 3;
   }
 }
 
+message AssessAlbumRequest {
+  string file_name = 1;
+  string profile_id = 2;
+  AlbumAssessmentSettings settings = 3;
+}
+
+message AlbumRecommendationSettings {
+  uint32 count = 1;
+}
+
+message RecommendAlbumsRequest {
+  string profile_id = 1;
+  AlbumRecommendationSettings recommendation_settings = 2;
+  AlbumAssessmentSettings assessment_settings = 3;
+}
+
+message AlbumRecommendation {
+  Album album = 1;
+  AlbumAssessment assessment = 2;
+}
+
+message RecommendAlbumsReply {
+  repeated AlbumRecommendation recommendations = 1;
+}
+
 service RecommendationService {
   rpc AssessAlbum (AssessAlbumRequest) returns (AssessAlbumReply) {}
+  rpc RecommendAlbums (RecommendAlbumsRequest) returns (RecommendAlbumsReply) {}
 }

@@ -1,4 +1,6 @@
-use super::types::{AlbumAssessment, RecommendationMethodInteractor};
+use super::types::{
+  AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings, RecommendationMethodInteractor,
+};
 use crate::{
   albums::album_read_model_repository::{AlbumReadModel, AlbumReadModelRepository},
   helpers::quantile_rank::QuantileRanking,
@@ -130,5 +132,14 @@ impl
       score: score as f32,
       metadata: None,
     })
+  }
+
+  async fn recommend_albums(
+    &self,
+    profile_summary: &ProfileSummary,
+    assessment_settings: QuantileRankAlbumAssessmentSettings,
+    recommendation_settings: AlbumRecommendationSettings,
+  ) -> Result<Vec<AlbumRecommendation>> {
+    Err(anyhow::anyhow!("Not implemented"))
   }
 }
