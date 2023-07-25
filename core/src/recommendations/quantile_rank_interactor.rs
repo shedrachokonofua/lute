@@ -2,19 +2,20 @@ use super::types::{AlbumAssessment, RecommendationMethodInteractor};
 use crate::{
   albums::album_read_model_repository::{AlbumReadModel, AlbumReadModelRepository},
   helpers::quantile_rank::QuantileRanking,
-  profile::profile_summary::ProfileSummary,
+  profile::profile_summary::{ItemWithFactor, ProfileSummary},
 };
 use anyhow::Result;
 use async_trait::async_trait;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 #[derive(Clone, Debug)]
 pub struct QuantileRankAlbumAssessmentSettings {
   pub primary_genre_weight: u32,
   pub secondary_genre_weight: u32,
   pub descriptor_weight: u32,
+  pub novelty_score: f64,
 }
 
 impl Default for QuantileRankAlbumAssessmentSettings {
@@ -23,6 +24,7 @@ impl Default for QuantileRankAlbumAssessmentSettings {
       primary_genre_weight: 6,
       secondary_genre_weight: 3,
       descriptor_weight: 20,
+      novelty_score: 0.5,
     }
   }
 }
@@ -58,6 +60,33 @@ impl TryFrom<AlbumReadModel> for QuantileRankAssessableAlbum {
   }
 }
 
+impl QuantileRankInteractor {
+  fn calculate_average_rank(
+    &self,
+    profile_tags: &Vec<ItemWithFactor>,
+    album_tags: &Vec<String>,
+    novelty_score: f64,
+  ) -> Result<f64> {
+    let ranker: QuantileRanking<ItemWithFactor> = QuantileRanking::new(profile_tags.clone());
+    let ranks = album_tags
+      .iter()
+      .map(|tag: &String| {
+        let item = profile_tags.iter().find(|item| &item.item == tag);
+        let rank = match item {
+          Some(item) => ranker.get_rank(item),
+          None => {
+            warn!("Tag {} not found in profile", tag);
+            None
+          }
+        };
+        rank.unwrap_or(novelty_score)
+      })
+      .collect::<Vec<f64>>();
+
+    Ok(ranks.iter().sum::<f64>() / ranks.len() as f64)
+  }
+}
+
 #[async_trait]
 impl
   RecommendationMethodInteractor<QuantileRankAssessableAlbum, QuantileRankAlbumAssessmentSettings>
@@ -70,65 +99,21 @@ impl
     album_read_model: &QuantileRankAssessableAlbum,
     settings: QuantileRankAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
-    let primary_genre_ranker = QuantileRanking::new(profile_summary.primary_genres.clone());
-    let primary_genre_ranks = album_read_model
-      .0
-      .primary_genres
-      .iter()
-      .map(|genre| {
-        primary_genre_ranker.get_rank(
-          profile_summary
-            .primary_genres
-            .iter()
-            .find(|g| &g.item == genre)
-            .unwrap()
-            .clone(),
-        )
-      })
-      .collect::<Option<Vec<f64>>>()
-      .unwrap_or_default();
-    let average_primary_genre_rank =
-      primary_genre_ranks.iter().sum::<f64>() / primary_genre_ranks.len() as f64;
-
-    let secondary_genre_ranker = QuantileRanking::new(profile_summary.secondary_genres.clone());
-    let secondary_genre_ranks = album_read_model
-      .0
-      .secondary_genres
-      .iter()
-      .map(|genre| {
-        secondary_genre_ranker.get_rank(
-          profile_summary
-            .secondary_genres
-            .iter()
-            .find(|g| &g.item == genre)
-            .unwrap()
-            .clone(),
-        )
-      })
-      .collect::<Option<Vec<f64>>>()
-      .unwrap_or_default();
-    let average_secondary_genre_rank =
-      secondary_genre_ranks.iter().sum::<f64>() / secondary_genre_ranks.len() as f64;
-
-    let descriptor_ranker = QuantileRanking::new(profile_summary.descriptors.clone());
-    let descriptor_ranks = album_read_model
-      .0
-      .descriptors
-      .iter()
-      .map(|descriptor| {
-        descriptor_ranker.get_rank(
-          profile_summary
-            .descriptors
-            .iter()
-            .find(|d| &d.item == descriptor)
-            .unwrap()
-            .clone(),
-        )
-      })
-      .collect::<Option<Vec<f64>>>()
-      .unwrap_or_default();
-    let average_descriptor_rank =
-      descriptor_ranks.iter().sum::<f64>() / descriptor_ranks.len() as f64;
+    let average_primary_genre_rank = self.calculate_average_rank(
+      &profile_summary.primary_genres,
+      &album_read_model.0.primary_genres,
+      settings.novelty_score,
+    )?;
+    let average_secondary_genre_rank = self.calculate_average_rank(
+      &profile_summary.secondary_genres,
+      &album_read_model.0.secondary_genres,
+      settings.novelty_score,
+    )?;
+    let average_descriptor_rank = self.calculate_average_rank(
+      &profile_summary.descriptors,
+      &album_read_model.0.descriptors,
+      settings.novelty_score,
+    )?;
 
     let mut ranks = vec![average_primary_genre_rank; settings.primary_genre_weight as usize];
     ranks.append(&mut vec![

@@ -463,6 +463,7 @@ message QuantileRankAlbumAssessmentSettings {
   uint32 primary_genre_weight = 1;
   uint32 secondary_genre_weight = 2;
   uint32 descriptor_weight = 3;
+  float novelty_score = 4;
 }
 
 message AssessAlbumReply {

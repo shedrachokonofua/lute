@@ -19,14 +19,14 @@ impl<T: Ord + Debug> QuantileRanking<T> {
   }
 
   #[instrument(skip(self))]
-  pub fn get_rank(&self, key: T) -> Option<f64> {
+  pub fn get_rank(&self, key: &T) -> Option<f64> {
     let mut rank_sum = 0;
     let mut count = 0;
 
     for (&ref item, &cnt) in self.map.iter() {
-      if item < &key {
+      if item < key {
         rank_sum += cnt;
-      } else if item == &key {
+      } else if item == key {
         count = cnt;
       } else {
         break;
