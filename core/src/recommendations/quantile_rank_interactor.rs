@@ -68,7 +68,7 @@ impl TryFrom<AlbumReadModel> for QuantileRankAssessableAlbum {
 }
 
 fn calculate_average_rank(
-  ranker: &QuantileRanking<ItemWithFactor>,
+  ranking: &QuantileRanking<ItemWithFactor>,
   profile_tags: &Vec<ItemWithFactor>,
   album_tags: &Vec<String>,
   novelty_score: f64,
@@ -78,7 +78,7 @@ fn calculate_average_rank(
     .map(|tag: &String| {
       let item = profile_tags.iter().find(|item| &item.item == tag);
       let rank = match item {
-        Some(item) => ranker.get_rank(item),
+        Some(item) => ranking.get_rank(item),
         None => {
           warn!("Tag {} not found in profile", tag);
           None
@@ -148,24 +148,27 @@ impl
   ) -> Result<Vec<AlbumRecommendation>> {
     let search_query = AlbumSearchQueryBuilder::default()
       .exclude_file_names(profile.albums.keys().cloned().collect::<Vec<_>>())
+      .min_primary_genre_count(1)
+      .min_secondary_genre_count(1)
+      .min_descriptor_count(5)
       .build()?;
     let albums = self
       .album_read_model_repository
       .search(&search_query, Some(0), Some(10000))
       .await?;
 
-    let primary_genre_ranker = QuantileRanking::new(&profile_summary.primary_genres);
-    let secondary_genre_ranker = QuantileRanking::new(&profile_summary.secondary_genres);
-    let descriptor_ranker = QuantileRanking::new(&profile_summary.descriptors);
+    let primary_genre_ranking = QuantileRanking::new(&profile_summary.primary_genres);
+    let secondary_genre_ranking = QuantileRanking::new(&profile_summary.secondary_genres);
+    let descriptor_ranking = QuantileRanking::new(&profile_summary.descriptors);
     let result_heap = Arc::new(Mutex::new(BoundedMinHeap::new(
       recommendation_settings.count as usize,
     )));
 
-    let (send, mut recv) = mpsc::unbounded_channel();
+    let (recommendation_sender, mut recommendation_receiver) = mpsc::unbounded_channel();
     rayon::spawn(move || {
       albums.par_iter().for_each(|album| {
         let average_primary_genre_rank = calculate_average_rank(
-          &primary_genre_ranker,
+          &primary_genre_ranking,
           &profile_summary.primary_genres,
           &album.primary_genres,
           assessment_settings.novelty_score,
@@ -173,14 +176,14 @@ impl
         .unwrap();
 
         let average_secondary_genre_rank = calculate_average_rank(
-          &secondary_genre_ranker,
+          &secondary_genre_ranking,
           &profile_summary.secondary_genres,
           &album.secondary_genres,
           assessment_settings.novelty_score,
         )
         .unwrap();
         let average_descriptor_rank = calculate_average_rank(
-          &descriptor_ranker,
+          &descriptor_ranking,
           &profile_summary.descriptors,
           &album.descriptors,
           assessment_settings.novelty_score,
@@ -209,11 +212,11 @@ impl
             },
           };
 
-          send.send(recommendation).unwrap();
+          recommendation_sender.send(recommendation).unwrap();
         }
       });
     });
-    while let Some(recommendation) = recv.recv().await {
+    while let Some(recommendation) = recommendation_receiver.recv().await {
       result_heap.lock().unwrap().push(recommendation);
     }
     let mut recommendations = (*result_heap.lock().unwrap()).drain();

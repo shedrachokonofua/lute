@@ -16,7 +16,7 @@ use rustis::{
 };
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::info;
+use tracing::{info, instrument};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModelArtist {
@@ -80,11 +80,16 @@ pub struct AlbumReadModel {
   pub rating: f32,
   pub rating_count: u32,
   pub artists: Vec<AlbumReadModelArtist>,
+  pub artist_count: u32,
   pub primary_genres: Vec<String>,
+  pub primary_genre_count: u32,
   pub secondary_genres: Vec<String>,
+  pub secondary_genre_count: u32,
   pub descriptors: Vec<String>,
+  pub descriptor_count: u32,
   pub tracks: Vec<AlbumReadModelTrack>,
   pub release_date: Option<NaiveDate>,
+  pub release_year: Option<u32>,
 }
 
 impl TryFrom<&Vec<(String, String)>> for AlbumReadModel {
@@ -111,13 +116,16 @@ pub struct AlbumSearchQuery {
   include_secondary_genres: Vec<String>,
   exclude_secondary_genres: Vec<String>,
   include_descriptors: Vec<String>,
+  min_primary_genre_count: Option<usize>,
+  min_secondary_genre_count: Option<usize>,
+  min_descriptor_count: Option<usize>,
 }
 
 pub struct AlbumReadModelRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
-fn get_tag_query<T: ToString>(tag: String, items: &Vec<T>) -> String {
+fn get_tag_query<T: ToString>(tag: &str, items: &Vec<T>) -> String {
   if !items.is_empty() {
     format!(
       "{}:{{{}}} ",
@@ -128,6 +136,14 @@ fn get_tag_query<T: ToString>(tag: String, items: &Vec<T>) -> String {
         .collect::<Vec<String>>()
         .join("|")
     )
+  } else {
+    String::from("")
+  }
+}
+
+fn get_min_num_query(tag: &str, min: Option<usize>) -> String {
+  if let Some(min) = min {
+    format!("{}:[{}, +inf] ", tag, min)
   } else {
     String::from("")
   }
@@ -205,6 +221,7 @@ impl AlbumReadModelRepository {
     Ok(data)
   }
 
+  #[instrument(skip(self))]
   pub async fn search(
     &self,
     query: &AlbumSearchQuery,
@@ -212,38 +229,39 @@ impl AlbumReadModelRepository {
     limit: Option<usize>,
   ) -> Result<Vec<AlbumReadModel>> {
     let mut redis_query = String::from("");
-    redis_query.push_str(&get_tag_query(
-      "-@file_name".to_string(),
-      &query.exclude_file_names,
+    redis_query.push_str(&get_min_num_query(
+      "@primary_genre_count",
+      query.min_primary_genre_count,
     ));
-    redis_query.push_str(&get_tag_query(
-      "@artist_file_name".to_string(),
-      &query.include_artists,
+    redis_query.push_str(&get_min_num_query(
+      "@secondary_genre_count",
+      query.min_secondary_genre_count,
     ));
-    redis_query.push_str(&get_tag_query(
-      "-@artist_file_name".to_string(),
-      &query.exclude_artists,
+    redis_query.push_str(&get_min_num_query(
+      "@descriptor_count",
+      query.min_descriptor_count,
     ));
+    redis_query.push_str(&get_tag_query("-@file_name", &query.exclude_file_names));
+    redis_query.push_str(&get_tag_query("@artist_file_name", &query.include_artists));
+    redis_query.push_str(&get_tag_query("-@artist_file_name", &query.exclude_artists));
     redis_query.push_str(&get_tag_query(
-      "@primary_genre".to_string(),
+      "@primary_genre",
       &query.include_primary_genres,
     ));
     redis_query.push_str(&get_tag_query(
-      "-@primary_genre".to_string(),
+      "-@primary_genre",
       &query.exclude_primary_genres,
     ));
     redis_query.push_str(&get_tag_query(
-      "@secondary_genre".to_string(),
+      "@secondary_genre",
       &query.include_secondary_genres,
     ));
     redis_query.push_str(&get_tag_query(
-      "-@secondary_genre".to_string(),
+      "-@secondary_genre",
       &query.exclude_secondary_genres,
     ));
-    redis_query.push_str(&get_tag_query(
-      "@descriptor".to_string(),
-      &query.include_descriptors,
-    ));
+    redis_query.push_str(&get_tag_query("@descriptor", &query.include_descriptors));
+
     let redis_query = redis_query.trim().to_string();
     let connection = self.redis_connection_pool.get().await?;
     let result = connection
@@ -291,15 +309,33 @@ impl AlbumReadModelRepository {
             FtFieldSchema::identifier("$.artists[*].file_name")
               .as_attribute("artist_file_name")
               .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.rating")
+              .as_attribute("rating")
+              .field_type(FtFieldType::Numeric),
+            FtFieldSchema::identifier("$.rating_count")
+              .as_attribute("rating_count")
+              .field_type(FtFieldType::Numeric),
             FtFieldSchema::identifier("$.primary_genres.*")
               .as_attribute("primary_genre")
               .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.primary_genre_count")
+              .as_attribute("primary_genre_count")
+              .field_type(FtFieldType::Numeric),
             FtFieldSchema::identifier("$.secondary_genres.*")
               .as_attribute("secondary_genre")
               .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.secondary_genre_count")
+              .as_attribute("secondary_genre_count")
+              .field_type(FtFieldType::Numeric),
             FtFieldSchema::identifier("$.descriptors.*")
               .as_attribute("descriptor")
               .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.descriptor_count")
+              .as_attribute("descriptor_count")
+              .field_type(FtFieldType::Numeric),
+            FtFieldSchema::identifier("$.release_year")
+              .as_attribute("release_year")
+              .field_type(FtFieldType::Numeric),
           ],
         )
         .await?;

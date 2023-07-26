@@ -12,6 +12,7 @@ use crate::{
   settings::Settings,
 };
 use anyhow::Result;
+use chrono::Datelike;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
@@ -47,15 +48,20 @@ impl AlbumReadModel {
         .iter()
         .map(AlbumReadModelArtist::from_parsed_artist)
         .collect::<Vec<AlbumReadModelArtist>>(),
+      artist_count: parsed_album.artists.len() as u32,
       primary_genres: parsed_album.primary_genres.clone(),
+      primary_genre_count: parsed_album.primary_genres.len() as u32,
       secondary_genres: parsed_album.secondary_genres.clone(),
+      secondary_genre_count: parsed_album.secondary_genres.len() as u32,
       descriptors: parsed_album.descriptors.clone(),
+      descriptor_count: parsed_album.descriptors.len() as u32,
       tracks: parsed_album
         .tracks
         .iter()
         .map(AlbumReadModelTrack::from_parsed_track)
         .collect::<Vec<AlbumReadModelTrack>>(),
       release_date: parsed_album.release_date,
+      release_year: parsed_album.release_date.map(|date| date.year() as u32),
     }
   }
 }
