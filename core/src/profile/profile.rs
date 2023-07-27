@@ -38,3 +38,9 @@ pub struct Profile {
   pub albums: HashMap<FileName, u32>,
   pub last_updated_at: NaiveDateTime,
 }
+
+impl Profile {
+  pub fn album_file_names(&self) -> Vec<FileName> {
+    self.albums.keys().cloned().collect()
+  }
+}

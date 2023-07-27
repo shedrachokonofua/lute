@@ -144,15 +144,12 @@ impl proto::RecommendationService for RecommendationService {
       error!(error = e.to_string(), "Invalid album file name");
       Status::invalid_argument(e.to_string())
     })?;
-    let settings = match request.settings {
+    let settings: AlbumAssessmentSettings = match request.settings {
       Some(settings) => AlbumAssessmentSettings::try_from(settings).map_err(|e| {
         error!(error = e.to_string(), "Invalid settings");
         Status::invalid_argument(e.to_string())
       })?,
-      None => {
-        error!("Settings not provided");
-        return Err(Status::invalid_argument("Settings not provided"));
-      }
+      None => AlbumAssessmentSettings::QuantileRank(QuantileRankAlbumAssessmentSettings::default()),
     };
     let assessment = self
       .recommendation_interactor

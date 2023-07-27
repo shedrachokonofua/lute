@@ -486,7 +486,7 @@ message AlbumAssessmentSettings {
 message AssessAlbumRequest {
   string file_name = 1;
   string profile_id = 2;
-  AlbumAssessmentSettings settings = 3;
+  optional AlbumAssessmentSettings settings = 3;
 }
 
 message AlbumRecommendationSettings {

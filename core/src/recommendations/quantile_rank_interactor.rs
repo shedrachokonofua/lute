@@ -6,10 +6,7 @@ use crate::{
     AlbumReadModel, AlbumReadModelRepository, AlbumSearchQueryBuilder,
   },
   helpers::{bounded_min_heap::BoundedMinHeap, quantile_rank::QuantileRanking},
-  profile::{
-    profile::Profile,
-    profile_summary::{ItemWithFactor, ProfileSummary},
-  },
+  profile::{profile::Profile, profile_summary::ItemWithFactor},
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -106,10 +103,12 @@ impl
   #[instrument(name = "QuantileRankInteractor::assess_album", skip(self))]
   async fn assess_album(
     &self,
-    profile_summary: &ProfileSummary,
+    profile: &Profile,
+    profile_albums: &Vec<AlbumReadModel>,
     album_read_model: &QuantileRankAssessableAlbum,
     settings: QuantileRankAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
+    let profile_summary = profile.summarize(profile_albums);
     let average_primary_genre_rank = calculate_average_rank(
       &QuantileRanking::new(&profile_summary.primary_genres),
       &profile_summary.primary_genres,
@@ -128,6 +127,22 @@ impl
       &album_read_model.0.descriptors,
       settings.novelty_score,
     )?;
+    let rating_rank = QuantileRanking::new(
+      &profile_albums
+        .iter()
+        .map(|album| OrderedFloat(album.rating))
+        .collect::<Vec<_>>(),
+    )
+    .get_rank(&OrderedFloat(album_read_model.0.rating))
+    .unwrap_or(settings.novelty_score);
+    let rating_count_rank = QuantileRanking::new(
+      &profile_albums
+        .iter()
+        .map(|album| album.rating_count)
+        .collect::<Vec<_>>(),
+    )
+    .get_rank(&album_read_model.0.rating_count)
+    .unwrap_or(settings.novelty_score);
 
     let mut ranks = vec![average_primary_genre_rank; settings.primary_genre_weight as usize];
     ranks.append(&mut vec![
@@ -137,6 +152,11 @@ impl
     ranks.append(&mut vec![
       average_descriptor_rank;
       settings.descriptor_weight as usize
+    ]);
+    ranks.append(&mut vec![rating_rank; settings.rating_weight as usize]);
+    ranks.append(&mut vec![
+      rating_count_rank;
+      settings.rating_count_weight as usize
     ]);
     let score = ranks.iter().sum::<f64>() / ranks.len() as f64;
 
@@ -150,11 +170,11 @@ impl
   async fn recommend_albums(
     &self,
     profile: &Profile,
-    profile_summary: ProfileSummary,
     profile_albums: &Vec<AlbumReadModel>,
     assessment_settings: QuantileRankAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
+    let profile_summary = profile.summarize(profile_albums);
     let search_query = AlbumSearchQueryBuilder::default()
       .exclude_file_names(profile.albums.keys().cloned().collect::<Vec<_>>())
       .include_primary_genres(recommendation_settings.include_primary_genres)

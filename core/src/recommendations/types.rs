@@ -1,7 +1,4 @@
-use crate::{
-  albums::album_read_model_repository::AlbumReadModel,
-  profile::{profile::Profile, profile_summary::ProfileSummary},
-};
+use crate::{albums::album_read_model_repository::AlbumReadModel, profile::profile::Profile};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::{cmp::Ordering, collections::HashMap};
@@ -71,7 +68,8 @@ pub trait RecommendationMethodInteractor<
 {
   async fn assess_album(
     &self,
-    profile_summary: &ProfileSummary,
+    profile: &Profile,
+    profile_albums: &Vec<AlbumReadModel>,
     album: &TAssessableAlbum,
     settings: TAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment>;
@@ -79,7 +77,6 @@ pub trait RecommendationMethodInteractor<
   async fn recommend_albums(
     &self,
     profile: &Profile,
-    profile_summary: ProfileSummary,
     profile_albums: &Vec<AlbumReadModel>,
     assessment_settings: TAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
