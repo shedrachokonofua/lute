@@ -1,4 +1,5 @@
 use anyhow::Result;
+use htmlescape::decode_html;
 use tl::VDom;
 
 pub fn query_select_first<'a>(
@@ -24,7 +25,12 @@ pub fn get_tag_inner_text<'a>(
   tag: &'a tl::HTMLTag<'a>,
   selector: &'a str,
 ) -> Result<String> {
-  query_select_first(parser, tag, selector).map(|tag| tag.inner_text(parser).trim().to_string())
+  query_select_first(parser, tag, selector)
+    .map(|tag| tag.inner_text(parser).trim().to_string())
+    .and_then(|value| {
+      decode_html(&value).map_err(|err| anyhow::anyhow!("Failed to decode html: {:?}", err))
+    })
+    .map(|text| text.trim().to_string())
 }
 
 pub fn get_node_inner_text<'a>(
@@ -36,7 +42,11 @@ pub fn get_node_inner_text<'a>(
     .ok_or(anyhow::anyhow!("Failed to get parser node"))?
     .as_tag()
     .ok_or(anyhow::anyhow!("Failed to convert node to tag"))
-    .map(|tag| tag.inner_text(parser).trim().to_string())
+    .and_then(|tag| {
+      decode_html(tag.inner_text(parser).as_ref())
+        .map_err(|err| anyhow::anyhow!("Failed to decode html: {:?}", err))
+    })
+    .map(|text| text.trim().to_string())
 }
 
 pub fn get_meta_value<'a>(dom: &'a VDom, name: &'a str) -> Result<String> {
@@ -50,6 +60,10 @@ pub fn get_meta_value<'a>(dom: &'a VDom, name: &'a str) -> Result<String> {
     .map(|content| content.as_utf8_str())
     .map(|name| name.to_string())
     .ok_or(anyhow::anyhow!("No meta value found for name: {}", name))
+    .and_then(|value| {
+      decode_html(&value).map_err(|err| anyhow::anyhow!("Failed to decode html: {:?}", err))
+    })
+    .map(|text| text.trim().to_string())
 }
 
 pub fn get_link_tag_href(tag: &tl::HTMLTag) -> Result<String> {
