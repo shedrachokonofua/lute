@@ -20,4 +20,5 @@ pub fn escape_tag_value(input: &str) -> String {
     .replace("-", "\\-")
     .replace(" ", "\\ ")
     .replace(":", "\\:")
+    .replace("&", "\\&")
 }
