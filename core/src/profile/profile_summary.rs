@@ -54,11 +54,11 @@ pub struct ProfileSummary {
 }
 
 impl Profile {
-  pub fn summarize(&self, album_read_models: Vec<AlbumReadModel>) -> ProfileSummary {
+  pub fn summarize(&self, album_read_models: &Vec<AlbumReadModel>) -> ProfileSummary {
     let album_read_models_map = album_read_models
       .into_par_iter()
       .map(|album_read_model| (album_read_model.file_name.clone(), album_read_model))
-      .collect::<HashMap<FileName, AlbumReadModel>>();
+      .collect::<HashMap<FileName, &AlbumReadModel>>();
     let mut artists_map: HashMap<String, u32> = HashMap::new();
     let mut primary_genres_map: HashMap<String, u32> = HashMap::new();
     let mut secondary_genres_map: HashMap<String, u32> = HashMap::new();

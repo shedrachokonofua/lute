@@ -76,15 +76,21 @@ impl RecommendationInteractor {
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
     let profile = self.profile_interactor.get_profile(profile_id).await?;
-    let profile_summary = self
+    let (profile_summary, albums) = self
       .profile_interactor
-      .get_profile_summary(profile_id)
+      .get_profile_summary_and_albums(profile_id)
       .await?;
     match assessment_settings {
       AlbumAssessmentSettings::QuantileRank(settings) => {
         self
           .quantile_rank_interactor
-          .recommend_albums(&profile, profile_summary, settings, recommendation_settings)
+          .recommend_albums(
+            &profile,
+            profile_summary,
+            &albums,
+            settings,
+            recommendation_settings,
+          )
           .await
       }
     }

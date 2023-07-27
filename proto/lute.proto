@@ -460,10 +460,12 @@ service ProfileService {
 }
 
 message QuantileRankAlbumAssessmentSettings {
-  uint32 primary_genre_weight = 1;
-  uint32 secondary_genre_weight = 2;
-  uint32 descriptor_weight = 3;
-  float novelty_score = 4;
+  optional uint32 primary_genre_weight = 1;
+  optional uint32 secondary_genre_weight = 2;
+  optional uint32 descriptor_weight = 3;
+  optional uint32 rating_weight = 4;
+  optional uint32 rating_count_weight = 5;
+  optional float novelty_score = 6;
 }
 
 message AlbumAssessment {
@@ -488,13 +490,17 @@ message AssessAlbumRequest {
 }
 
 message AlbumRecommendationSettings {
-  uint32 count = 1;
+  optional uint32 count = 1;
+  repeated string include_primary_genres = 2;
+  repeated string include_secondary_genres = 3;
+  repeated string exclude_primary_genres = 4;
+  repeated string exclude_secondary_genres = 5;
 }
 
 message RecommendAlbumsRequest {
   string profile_id = 1;
-  AlbumRecommendationSettings recommendation_settings = 2;
-  AlbumAssessmentSettings assessment_settings = 3;
+  optional AlbumRecommendationSettings recommendation_settings = 2;
+  optional AlbumAssessmentSettings assessment_settings = 3;
 }
 
 message AlbumRecommendation {

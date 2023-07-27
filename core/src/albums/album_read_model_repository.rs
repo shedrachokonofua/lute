@@ -241,26 +241,26 @@ impl AlbumReadModelRepository {
       "@descriptor_count",
       query.min_descriptor_count,
     ));
-    redis_query.push_str(&get_tag_query("-@file_name", &query.exclude_file_names));
     redis_query.push_str(&get_tag_query("@artist_file_name", &query.include_artists));
-    redis_query.push_str(&get_tag_query("-@artist_file_name", &query.exclude_artists));
     redis_query.push_str(&get_tag_query(
       "@primary_genre",
       &query.include_primary_genres,
     ));
     redis_query.push_str(&get_tag_query(
-      "-@primary_genre",
-      &query.exclude_primary_genres,
-    ));
-    redis_query.push_str(&get_tag_query(
       "@secondary_genre",
       &query.include_secondary_genres,
+    ));
+    redis_query.push_str(&get_tag_query("@descriptor", &query.include_descriptors));
+    redis_query.push_str(&get_tag_query("-@artist_file_name", &query.exclude_artists));
+    redis_query.push_str(&get_tag_query("-@file_name", &query.exclude_file_names));
+    redis_query.push_str(&get_tag_query(
+      "-@primary_genre",
+      &query.exclude_primary_genres,
     ));
     redis_query.push_str(&get_tag_query(
       "-@secondary_genre",
       &query.exclude_secondary_genres,
     ));
-    redis_query.push_str(&get_tag_query("@descriptor", &query.include_descriptors));
 
     let redis_query = redis_query.trim().to_string();
     let connection = self.redis_connection_pool.get().await?;

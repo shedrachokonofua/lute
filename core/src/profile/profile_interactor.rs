@@ -8,7 +8,7 @@ use super::{
   spotify_import_repository::SpotifyImportRepository,
 };
 use crate::{
-  albums::album_read_model_repository::AlbumReadModelRepository,
+  albums::album_read_model_repository::{AlbumReadModel, AlbumReadModelRepository},
   events::{
     event::{Event, EventPayload, Stream},
     event_publisher::EventPublisher,
@@ -133,7 +133,10 @@ impl ProfileInteractor {
     Ok(self.get_profile(id).await?)
   }
 
-  pub async fn get_profile_summary(&self, id: &ProfileId) -> Result<ProfileSummary> {
+  pub async fn get_profile_summary_and_albums(
+    &self,
+    id: &ProfileId,
+  ) -> Result<(ProfileSummary, Vec<AlbumReadModel>)> {
     let profile = self.profile_repository.get(id).await?;
     let albums = self
       .album_read_model_repository
@@ -145,7 +148,12 @@ impl ProfileInteractor {
           .collect(),
       )
       .await?;
-    Ok(profile.summarize(albums))
+    Ok((profile.summarize(&albums), albums))
+  }
+
+  pub async fn get_profile_summary(&self, id: &ProfileId) -> Result<ProfileSummary> {
+    let (profile_summary, _) = self.get_profile_summary_and_albums(id).await?;
+    Ok(profile_summary)
   }
 
   async fn import_spotify_tracks(

@@ -9,6 +9,22 @@ use std::{cmp::Ordering, collections::HashMap};
 #[derive(Clone, Debug)]
 pub struct AlbumRecommendationSettings {
   pub count: u32,
+  pub include_primary_genres: Vec<String>,
+  pub include_secondary_genres: Vec<String>,
+  pub exclude_primary_genres: Vec<String>,
+  pub exclude_secondary_genres: Vec<String>,
+}
+
+impl Default for AlbumRecommendationSettings {
+  fn default() -> Self {
+    Self {
+      count: 10,
+      include_primary_genres: vec![],
+      include_secondary_genres: vec![],
+      exclude_primary_genres: vec![],
+      exclude_secondary_genres: vec![],
+    }
+  }
 }
 
 #[derive(Clone, Debug)]
@@ -64,6 +80,7 @@ pub trait RecommendationMethodInteractor<
     &self,
     profile: &Profile,
     profile_summary: ProfileSummary,
+    profile_albums: &Vec<AlbumReadModel>,
     assessment_settings: TAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>>;

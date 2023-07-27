@@ -1,5 +1,7 @@
 use super::{
-  quantile_rank_interactor::QuantileRankAlbumAssessmentSettings,
+  quantile_rank_interactor::{
+    QuantileRankAlbumAssessmentSettings, QuantileRankAlbumAssessmentSettingsBuilder,
+  },
   recommendation_interactor::{AlbumAssessmentSettings, RecommendationInteractor},
   types::{AlbumRecommendation, AlbumRecommendationSettings},
 };
@@ -10,6 +12,7 @@ use crate::{
   settings::Settings,
 };
 use anyhow::Error;
+use num_traits::Num;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{collections::HashMap, sync::Arc};
 use tonic::{async_trait, Request, Response, Status};
@@ -30,32 +33,56 @@ impl RecommendationService {
   }
 }
 
+fn default_if_zero<T: Num>(value: T, default: T) -> T {
+  if value.is_zero() {
+    default
+  } else {
+    value
+  }
+}
+
 impl TryFrom<proto::QuantileRankAlbumAssessmentSettings> for QuantileRankAlbumAssessmentSettings {
   type Error = Error;
 
   fn try_from(value: proto::QuantileRankAlbumAssessmentSettings) -> Result<Self, Self::Error> {
-    Ok(Self {
-      primary_genre_weight: if value.primary_genre_weight == 0 {
-        6
-      } else {
-        value.primary_genre_weight
-      },
-      secondary_genre_weight: if value.secondary_genre_weight == 0 {
-        3
-      } else {
-        value.secondary_genre_weight
-      },
-      descriptor_weight: if value.descriptor_weight == 0 {
-        20
-      } else {
-        value.descriptor_weight
-      },
-      novelty_score: if value.novelty_score == 0.0 {
-        0.5
-      } else {
-        value.novelty_score as f64
-      },
-    })
+    let mut builder = QuantileRankAlbumAssessmentSettingsBuilder::default();
+    if let Some(novelty_score) = value.novelty_score {
+      builder.novelty_score(default_if_zero(
+        novelty_score.into(),
+        QuantileRankAlbumAssessmentSettings::default().novelty_score,
+      ));
+    }
+    if let Some(primary_genre_weight) = value.primary_genre_weight {
+      builder.primary_genre_weight(default_if_zero(
+        primary_genre_weight.into(),
+        QuantileRankAlbumAssessmentSettings::default().primary_genre_weight,
+      ));
+    }
+    if let Some(secondary_genre_weight) = value.secondary_genre_weight {
+      builder.secondary_genre_weight(default_if_zero(
+        secondary_genre_weight.into(),
+        QuantileRankAlbumAssessmentSettings::default().secondary_genre_weight,
+      ));
+    }
+    if let Some(descriptor_weight) = value.descriptor_weight {
+      builder.descriptor_weight(default_if_zero(
+        descriptor_weight.into(),
+        QuantileRankAlbumAssessmentSettings::default().descriptor_weight,
+      ));
+    }
+    if let Some(rating_weight) = value.rating_weight {
+      builder.rating_weight(default_if_zero(
+        rating_weight.into(),
+        QuantileRankAlbumAssessmentSettings::default().rating_weight,
+      ));
+    }
+    if let Some(rating_count_weight) = value.rating_count_weight {
+      builder.rating_count_weight(default_if_zero(
+        rating_count_weight.into(),
+        QuantileRankAlbumAssessmentSettings::default().rating_count_weight,
+      ));
+    }
+    Ok(builder.build()?)
   }
 }
 
@@ -76,8 +103,16 @@ impl TryFrom<proto::AlbumRecommendationSettings> for AlbumRecommendationSettings
   type Error = Error;
 
   fn try_from(value: proto::AlbumRecommendationSettings) -> Result<Self, Self::Error> {
+    let default_count = AlbumRecommendationSettings::default().count;
     Ok(Self {
-      count: if value.count == 0 { 50 } else { value.count },
+      count: value
+        .count
+        .map(|count| default_if_zero(count.into(), default_count))
+        .unwrap_or(default_count),
+      include_primary_genres: value.include_primary_genres,
+      include_secondary_genres: value.include_secondary_genres,
+      exclude_primary_genres: value.exclude_primary_genres,
+      exclude_secondary_genres: value.exclude_secondary_genres,
     })
   }
 }
@@ -149,20 +184,14 @@ impl proto::RecommendationService for RecommendationService {
         error!(error = e.to_string(), "Invalid settings");
         Status::invalid_argument(e.to_string())
       })?,
-      None => {
-        error!("Settings not provided");
-        return Err(Status::invalid_argument("Settings not provided"));
-      }
+      None => AlbumAssessmentSettings::QuantileRank(QuantileRankAlbumAssessmentSettings::default()),
     };
     let recommendation_settings = match request.recommendation_settings {
       Some(settings) => AlbumRecommendationSettings::try_from(settings).map_err(|e| {
         error!(error = e.to_string(), "Invalid settings");
         Status::invalid_argument(e.to_string())
       })?,
-      None => {
-        error!("Settings not provided");
-        return Err(Status::invalid_argument("Settings not provided"));
-      }
+      None => AlbumRecommendationSettings::default(),
     };
     let recommendations = self
       .recommendation_interactor
