@@ -6,6 +6,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use std::{cmp::Ordering, collections::HashMap};
 
+#[derive(Clone, Debug)]
 pub struct AlbumRecommendationSettings {
   pub count: u32,
 }

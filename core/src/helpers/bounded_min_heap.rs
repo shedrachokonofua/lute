@@ -37,4 +37,10 @@ impl<T: Ord> BoundedMinHeap<T> {
   pub fn drain(&mut self) -> Vec<T> {
     self.heap.drain().map(|x| x.0).collect()
   }
+
+  pub fn drain_sorted_desc(&mut self) -> Vec<T> {
+    let mut items = self.drain();
+    items.sort_unstable_by(|a, b| b.cmp(a));
+    items
+  }
 }

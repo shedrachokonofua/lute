@@ -139,6 +139,7 @@ impl
     })
   }
 
+  #[instrument(name = "QuantileRankInteractor::recommend_albums", skip(self))]
   async fn recommend_albums(
     &self,
     profile: &Profile,
@@ -219,8 +220,7 @@ impl
     while let Some(recommendation) = recommendation_receiver.recv().await {
       result_heap.lock().unwrap().push(recommendation);
     }
-    let mut recommendations = (*result_heap.lock().unwrap()).drain();
-    recommendations.sort();
+    let recommendations = (*result_heap.lock().unwrap()).drain_sorted_desc();
     Ok(recommendations)
   }
 }
