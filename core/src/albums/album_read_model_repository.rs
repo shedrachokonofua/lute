@@ -121,6 +121,45 @@ pub struct AlbumSearchQuery {
   min_descriptor_count: Option<usize>,
 }
 
+impl AlbumSearchQuery {
+  pub fn to_ft_search_query(&self) -> String {
+    let mut ft_search_query = String::from("");
+    ft_search_query.push_str(&get_min_num_query(
+      "@primary_genre_count",
+      self.min_primary_genre_count,
+    ));
+    ft_search_query.push_str(&get_min_num_query(
+      "@secondary_genre_count",
+      self.min_secondary_genre_count,
+    ));
+    ft_search_query.push_str(&get_min_num_query(
+      "@descriptor_count",
+      self.min_descriptor_count,
+    ));
+    ft_search_query.push_str(&get_tag_query("@artist_file_name", &self.include_artists));
+    ft_search_query.push_str(&get_tag_query(
+      "@primary_genre",
+      &self.include_primary_genres,
+    ));
+    ft_search_query.push_str(&get_tag_query(
+      "@secondary_genre",
+      &self.include_secondary_genres,
+    ));
+    ft_search_query.push_str(&get_tag_query("@descriptor", &self.include_descriptors));
+    ft_search_query.push_str(&get_tag_query("-@artist_file_name", &self.exclude_artists));
+    ft_search_query.push_str(&get_tag_query("-@file_name", &self.exclude_file_names));
+    ft_search_query.push_str(&get_tag_query(
+      "-@primary_genre",
+      &self.exclude_primary_genres,
+    ));
+    ft_search_query.push_str(&get_tag_query(
+      "-@secondary_genre",
+      &self.exclude_secondary_genres,
+    ));
+    return ft_search_query.trim().to_string();
+  }
+}
+
 pub struct AlbumReadModelRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
@@ -228,46 +267,11 @@ impl AlbumReadModelRepository {
     offset: Option<usize>,
     limit: Option<usize>,
   ) -> Result<Vec<AlbumReadModel>> {
-    let mut redis_query = String::from("");
-    redis_query.push_str(&get_min_num_query(
-      "@primary_genre_count",
-      query.min_primary_genre_count,
-    ));
-    redis_query.push_str(&get_min_num_query(
-      "@secondary_genre_count",
-      query.min_secondary_genre_count,
-    ));
-    redis_query.push_str(&get_min_num_query(
-      "@descriptor_count",
-      query.min_descriptor_count,
-    ));
-    redis_query.push_str(&get_tag_query("@artist_file_name", &query.include_artists));
-    redis_query.push_str(&get_tag_query(
-      "@primary_genre",
-      &query.include_primary_genres,
-    ));
-    redis_query.push_str(&get_tag_query(
-      "@secondary_genre",
-      &query.include_secondary_genres,
-    ));
-    redis_query.push_str(&get_tag_query("@descriptor", &query.include_descriptors));
-    redis_query.push_str(&get_tag_query("-@artist_file_name", &query.exclude_artists));
-    redis_query.push_str(&get_tag_query("-@file_name", &query.exclude_file_names));
-    redis_query.push_str(&get_tag_query(
-      "-@primary_genre",
-      &query.exclude_primary_genres,
-    ));
-    redis_query.push_str(&get_tag_query(
-      "-@secondary_genre",
-      &query.exclude_secondary_genres,
-    ));
-
-    let redis_query = redis_query.trim().to_string();
     let connection = self.redis_connection_pool.get().await?;
     let result = connection
       .ft_search(
         INDEX_NAME,
-        redis_query,
+        query.to_ft_search_query(),
         FtSearchOptions::default().limit(offset.unwrap_or(0), limit.unwrap_or(100)),
       )
       .await?;
