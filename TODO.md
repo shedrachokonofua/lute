@@ -10,9 +10,11 @@
 - [x] Parser: Support missing secondary genres
 - [x] Lookup: Refresh album search lookup value with non-lookup related file events
 - [x] Parser: Bulk retry queue, rpc method
-- [ ] Recommendations: Quantile rank, rpc method
-- [ ] Recommendations: Generate album embeddings using OpenAI api
-- [ ] Recommendations: KNN vector similarity, rpc method
+- [x] Recommendations(Quantile rank): Album recommendations, rpc method
+- [ ] Web: Recommendation dashboard
+- [ ] Web: Add to docker image
+- [ ] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
+- [ ] Recommendations(Vector similarity): Album recommendations, rpc method
 - [ ] Album read model repoistory stats, rpc method
 - [ ] Parser: Retry queue monitor, rpc method
 - [ ] Event bus: Subscriber statuses, iterator age, rpc service
@@ -23,8 +25,6 @@
 - [ ] Crawler: Automatic rate limit reset
 - [ ] Lookup: Chart
 - [ ] Lookup: Artist
-- [ ] Web: Recommendation dashboard
-- [ ] Web: Add to docker image
 - [ ] Documentation: System diagram, how-tos
 - [ ] Parser: Extract album credits, language
 - [ ] Extension: Recommendation popup
