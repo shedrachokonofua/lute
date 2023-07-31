@@ -107,8 +107,8 @@ impl Settings {
         Duration::days(1).num_seconds(),
       )?
       .set_default("crawler.rate_limit.max_requests", 2000)?
-      .set_default("parser.concurrency", 50)?
-      .set_default("parser.retry_concurrency", 50)?
+      .set_default("parser.concurrency", 20)?
+      .set_default("parser.retry_concurrency", 20)?
       .build()?
       .try_deserialize()
   }
