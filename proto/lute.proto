@@ -141,8 +141,29 @@ message GetAlbumReply {
   Album album = 1;
 }
 
+message GenreAggregate {
+  string name = 1;
+  uint32 primary_genre_count = 2;
+  uint32 secondary_genre_count = 3;
+}
+
+message GetAggregatedGenresReply {
+  repeated GenreAggregate genres = 1;
+}
+
+message DescriptorAggregate {
+  string name = 1;
+  uint32 count = 2;
+}
+
+message GetAggregatedDescriptorsReply {
+  repeated DescriptorAggregate descriptors = 1;
+}
+
 service AlbumService {
   rpc GetAlbum (GetAlbumRequest) returns (GetAlbumReply) {}
+  rpc GetAggregatedGenres (google.protobuf.Empty) returns (GetAggregatedGenresReply) {}
+  rpc GetAggregatedDescriptors (google.protobuf.Empty) returns (GetAggregatedDescriptorsReply) {}
 }
 
 message IsAuthorizedReply {

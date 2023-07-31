@@ -36,4 +36,38 @@ impl proto::AlbumService for AlbumService {
     };
     Ok(Response::new(reply))
   }
+
+  async fn get_aggregated_genres(
+    &self,
+    _request: Request<()>,
+  ) -> Result<Response<proto::GetAggregatedGenresReply>, Status> {
+    let reply = proto::GetAggregatedGenresReply {
+      genres: self
+        .album_read_model_repository
+        .get_aggregated_genres()
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?
+        .iter()
+        .map(|i| i.into())
+        .collect(),
+    };
+    Ok(Response::new(reply))
+  }
+
+  async fn get_aggregated_descriptors(
+    &self,
+    _request: Request<()>,
+  ) -> Result<Response<proto::GetAggregatedDescriptorsReply>, Status> {
+    let reply = proto::GetAggregatedDescriptorsReply {
+      descriptors: self
+        .album_read_model_repository
+        .get_aggregated_descriptors()
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?
+        .iter()
+        .map(|i| i.into())
+        .collect(),
+    };
+    Ok(Response::new(reply))
+  }
 }

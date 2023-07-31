@@ -10,12 +10,12 @@ use rustis::{
   bb8::Pool,
   client::PooledClientManager,
   commands::{
-    FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtSearchOptions, GenericCommands,
-    JsonCommands, JsonGetOptions, SearchCommands, SetCondition,
+    FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtReducer,
+    FtSearchOptions, GenericCommands, JsonCommands, JsonGetOptions, SearchCommands, SetCondition,
   },
 };
 use serde_derive::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tracing::{info, instrument};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
@@ -102,6 +102,55 @@ impl TryFrom<&Vec<(String, String)>> for AlbumReadModel {
       .ok_or(anyhow!("invalid AlbumReadModel: missing json"))?;
     let subscription: AlbumReadModel = serde_json::from_str(json)?;
     Ok(subscription)
+  }
+}
+
+pub struct GenreAggregate {
+  name: String,
+  primary_genre_count: u32,
+  secondary_genre_count: u32,
+}
+
+pub struct ItemAndCount {
+  name: String,
+  count: u32,
+}
+
+impl From<&GenreAggregate> for proto::GenreAggregate {
+  fn from(val: &GenreAggregate) -> Self {
+    proto::GenreAggregate {
+      name: val.name.clone(),
+      primary_genre_count: val.primary_genre_count,
+      secondary_genre_count: val.secondary_genre_count,
+    }
+  }
+}
+
+impl TryFrom<&Vec<(String, String)>> for ItemAndCount {
+  type Error = Error;
+
+  fn try_from(values: &Vec<(String, String)>) -> Result<Self> {
+    let name = values
+      .get(0)
+      .map(|(_, name)| name)
+      .ok_or(anyhow!("invalid ItemAndCount: missing name"))?;
+    let count = values
+      .get(1)
+      .map(|(_, count)| count)
+      .ok_or(anyhow!("invalid ItemAndCount: missing count"))?;
+    Ok(ItemAndCount {
+      name: name.to_string(),
+      count: count.parse()?,
+    })
+  }
+}
+
+impl From<&ItemAndCount> for proto::DescriptorAggregate {
+  fn from(val: &ItemAndCount) -> Self {
+    proto::DescriptorAggregate {
+      name: val.name.clone(),
+      count: val.count,
+    }
   }
 }
 
@@ -345,5 +394,110 @@ impl AlbumReadModelRepository {
         .await?;
     }
     Ok(())
+  }
+
+  pub async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let primary_genre_result = connection
+      .ft_aggregate(
+        INDEX_NAME,
+        "@primary_genre_count:[1 +inf]",
+        FtAggregateOptions::default()
+          .groupby("@primary_genre", FtReducer::count().as_name("count")),
+      )
+      .await?;
+    let secondary_genre_result = connection
+      .ft_aggregate(
+        INDEX_NAME,
+        "@secondary_genre_count:[1 +inf]",
+        FtAggregateOptions::default()
+          .groupby("@secondary_genre", FtReducer::count().as_name("count")),
+      )
+      .await?;
+    let aggregated_primary_genres = primary_genre_result
+      .results
+      .iter()
+      .map(|r| ItemAndCount::try_from(r))
+      .filter_map(|r| match r {
+        Ok(item) => Some(item),
+        Err(e) => {
+          info!("Failed to parse genre: {}", e);
+          None
+        }
+      })
+      .collect::<Vec<ItemAndCount>>();
+    let aggregated_secondary_genres = secondary_genre_result
+      .results
+      .iter()
+      .map(|r| ItemAndCount::try_from(r))
+      .filter_map(|r| match r {
+        Ok(item) => Some(item),
+        Err(e) => {
+          info!("Failed to parse genre: {}", e);
+          None
+        }
+      })
+      .collect::<Vec<ItemAndCount>>();
+    let mut genres = HashMap::new();
+    for item in aggregated_primary_genres {
+      genres.insert(
+        item.name.clone(),
+        GenreAggregate {
+          name: item.name,
+          primary_genre_count: item.count,
+          secondary_genre_count: 0,
+        },
+      );
+    }
+    for item in aggregated_secondary_genres {
+      if let Some(genre) = genres.get_mut(&item.name) {
+        genre.secondary_genre_count = item.count;
+      } else {
+        genres.insert(
+          item.name.clone(),
+          GenreAggregate {
+            name: item.name,
+            primary_genre_count: 0,
+            secondary_genre_count: item.count,
+          },
+        );
+      }
+    }
+    let mut genres = genres
+      .into_iter()
+      .map(|(_, genre)| genre)
+      .collect::<Vec<GenreAggregate>>();
+    genres
+      .sort_by(|a, b| {
+        let a_total = a.primary_genre_count + a.secondary_genre_count;
+        let b_total = b.primary_genre_count + b.secondary_genre_count;
+        b_total.cmp(&a_total)
+      });
+    Ok(genres)
+  }
+
+  pub async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection
+      .ft_aggregate(
+        INDEX_NAME,
+        "@descriptor_count:[1 +inf]",
+        FtAggregateOptions::default().groupby("@descriptor", FtReducer::count().as_name("count")),
+      )
+      .await?;
+    let mut aggregated_descriptors = result
+      .results
+      .iter()
+      .map(|r| ItemAndCount::try_from(r))
+      .filter_map(|r| match r {
+        Ok(item) => Some(item),
+        Err(e) => {
+          info!("Failed to parse descriptor: {}", e);
+          None
+        }
+      })
+      .collect::<Vec<ItemAndCount>>();
+    aggregated_descriptors.sort_by(|a, b| b.count.cmp(&a.count));
+    Ok(aggregated_descriptors)
   }
 }
