@@ -1,13 +1,15 @@
 use super::profile::{Profile, ProfileId};
 use crate::files::file_metadata::file_name::FileName;
-use anyhow::{bail, Result};
+use anyhow::{bail, Error, Result};
 use chrono::Utc;
+use futures::future::join_all;
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
   commands::{GenericCommands, JsonCommands, JsonGetOptions, SetCondition},
 };
 use std::sync::Arc;
+use tracing::warn;
 
 pub struct ProfileRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
@@ -36,6 +38,27 @@ impl ProfileRepository {
       Some(profile) => Ok(profile),
       None => bail!("Profile does not exist"),
     }
+  }
+
+  pub async fn get_all(&self) -> Result<Vec<Profile>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let keys: Vec<String> = connection.keys("profile:*").await?;
+    let futures = keys.into_iter().map(|key| async {
+      let json: String = connection.json_get(key, JsonGetOptions::default()).await?;
+      Ok::<Profile, Error>(serde_json::from_str(&json).unwrap())
+    });
+    let profiles = join_all(futures)
+      .await
+      .into_iter()
+      .filter_map(|profile: Result<Profile>| match profile {
+        Ok(profile) => Some(profile),
+        Err(_) => {
+          warn!("Failed to deserialize profile");
+          None
+        }
+      })
+      .collect();
+    Ok(profiles)
   }
 
   pub async fn exists(&self, id: &ProfileId) -> Result<bool> {

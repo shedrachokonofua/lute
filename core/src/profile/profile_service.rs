@@ -124,6 +124,24 @@ impl proto::ProfileService for ProfileService {
     Ok(Response::new(reply))
   }
 
+  async fn get_all_profiles(
+    &self,
+    _request: Request<()>,
+  ) -> Result<Response<proto::GetAllProfilesReply>, Status> {
+    let profiles = self
+      .profile_interactor
+      .get_all_profiles()
+      .await
+      .map_err(|err| {
+        error!("failed to get all profiles: {:?}", err);
+        Status::internal("failed to get all profiles")
+      })?;
+    let reply = proto::GetAllProfilesReply {
+      profiles: profiles.into_iter().map(Into::into).collect(),
+    };
+    Ok(Response::new(reply))
+  }
+
   async fn get_profile_summary(
     &self,
     request: Request<GetProfileSummaryRequest>,

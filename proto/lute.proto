@@ -449,9 +449,14 @@ message GetPendingSpotifyImportsReply {
   repeated PendingSpotifyImport pending_imports = 3;
 }
 
+message GetAllProfilesReply {
+  repeated Profile profiles = 1;
+}
+
 service ProfileService {
   rpc CreateProfile (CreateProfileRequest) returns (CreateProfileReply) {}
   rpc GetProfile (GetProfileRequest) returns (GetProfileReply) {}
+  rpc GetAllProfiles (google.protobuf.Empty) returns (GetAllProfilesReply) {}
   rpc GetProfileSummary (GetProfileSummaryRequest) returns (GetProfileSummaryReply) {}
   rpc AddManyAlbumsToProfile (AddManyAlbumsToProfileRequest) returns (AddManyAlbumsToProfileReply) {}
   rpc ImportSavedSpotifyTracks (ImportSavedSpotifyTracksRequest) returns (google.protobuf.Empty) {}

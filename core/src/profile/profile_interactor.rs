@@ -72,6 +72,10 @@ impl ProfileInteractor {
     self.profile_repository.get(id).await
   }
 
+  pub async fn get_all_profiles(&self) -> Result<Vec<Profile>> {
+    self.profile_repository.get_all().await
+  }
+
   pub async fn add_album_to_profile(
     &self,
     id: &ProfileId,
