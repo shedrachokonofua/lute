@@ -17,16 +17,18 @@
     "@emotion/react": "^11.11.1",
     "@mantine/core": "^6.0.14",
     "@mantine/dates": "^6.0.14",
-    "@mantine/form": "^6.0.14",
+    "@mantine/form": "^6.0.17",
     "@mantine/hooks": "^6.0.14",
     "@mantine/modals": "^6.0.14",
     "@mantine/prism": "^6.0.14",
+    "@tabler/icons-react": "^2.30.0",
     "dayjs": "^1.11.8",
     "google-protobuf": "^3.21.2",
     "grpc-web": "^1.4.2",
+    "query-string": "^8.1.0",
     "react": "^18.2.0",
     "react-async": "^10.0.1",
     "react-dom": "^18.2.0",
-    "wouter": "^2.11.0"
+    "react-router-dom": "^6.14.2"
   }
 }

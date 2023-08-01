@@ -1,76 +1,110 @@
-import { Button, Container, Title, Flex, Badge, Header } from "@mantine/core";
 import React from "react";
-import { Async, useAsync } from "react-async";
-import { getSpotifyAuthUrl, isSpotifyAuthorized } from "../client";
+import { SpotifyWidget } from "./SpotifyWidget";
+import { useState } from "react";
+import {
+  AppShell,
+  Navbar,
+  Header,
+  Text,
+  MediaQuery,
+  Burger,
+  useMantineTheme,
+  Flex,
+  Title,
+  NavLink,
+} from "@mantine/core";
+import { Outlet } from "react-router-dom";
 
-const redirect = async () => {
-  try {
-    window.location.assign(await getSpotifyAuthUrl());
-  } catch (error) {
-    alert("Something went wrong");
-    console.error(error);
-  }
-};
+interface NavItemProps {
+  label: string;
+  href: string;
+  active?: boolean;
+}
 
-const SpotifyWidget = () => {
-  const { isLoading: isRedirectLoading, run: redirectForAuth } = useAsync({
-    deferFn: redirect,
-    onReject: (error) => {
-      console.error(error);
-    },
-  });
+const NavItem = ({ label, href, active }: NavItemProps) => (
+  <NavLink
+    component="a"
+    href="/"
+    label="Recommendations"
+    sx={{
+      color: "rgb(200, 200, 200)",
+      "&:hover": {
+        background: "rgb(35, 35, 35)",
+      },
+    }}
+    variant="filled"
+    color="dark"
+    active={active}
+  />
+);
 
+export const Layout = ({ children }: React.FC) => {
+  const theme = useMantineTheme();
+  const [opened, setOpened] = useState(false);
   return (
-    <Async promiseFn={isSpotifyAuthorized}>
-      <Async.Loading>Loading...</Async.Loading>
-      <Async.Rejected>
-        Failed to get spotify status. Refresh page.
-      </Async.Rejected>
-      <Async.Fulfilled>
-        {(isAuthenticated: boolean) =>
-          isAuthenticated ? (
-            <Badge
-              variant="gradient"
-              gradient={{ from: "teal", to: "lime", deg: 105 }}
-            >
-              Spotify Connected
-            </Badge>
-          ) : (
-            <Button
-              variant="gradient"
-              gradient={{ from: "indigo", to: "cyan" }}
-              loading={isRedirectLoading}
-              onClick={redirectForAuth}
-            >
-              Authenticate Spotify
-            </Button>
-          )
-        }
-      </Async.Fulfilled>
-    </Async>
+    <AppShell
+      navbarOffsetBreakpoint="sm"
+      asideOffsetBreakpoint="sm"
+      navbar={
+        <Navbar
+          p="md"
+          hiddenBreakpoint="sm"
+          hidden={!opened}
+          width={{ base: 200 }}
+          style={{
+            background: "rgb(25, 25, 25)",
+            color: "rgb(200, 200, 200)",
+            border: "none",
+            padding: "0.5rem",
+          }}
+        >
+          <NavItem label="Recommendations" href="/" active />
+        </Navbar>
+      }
+      header={
+        <Header
+          height={50}
+          p="md"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgb(25, 110, 150), rgb(6, 80, 120))",
+            borderBottom: "none",
+          }}
+        >
+          <div
+            style={{ display: "flex", alignItems: "center", height: "100%" }}
+          >
+            <MediaQuery largerThan="sm" styles={{ display: "none" }}>
+              <Burger
+                opened={opened}
+                onClick={() => setOpened((o) => !o)}
+                size="sm"
+                color={theme.colors.gray[6]}
+                mr="xl"
+              />
+            </MediaQuery>
+
+            <Flex align="center" justify="space-between" style={{ flex: 1 }}>
+              <Title
+                order={1}
+                weight="normal"
+                sx={{
+                  fontFamily: "YoungSerif",
+                  letterSpacing: "-1.5px",
+                  fontSize: "2rem",
+                }}
+                color="white"
+              >
+                `lute
+              </Title>
+              <SpotifyWidget />
+            </Flex>
+          </div>
+        </Header>
+      }
+      padding="xs"
+    >
+      <Outlet />
+    </AppShell>
   );
 };
-
-export const Layout = ({ children }: React.FC) => (
-  <main>
-    <Header>
-      <Container size="xl">
-        <Flex mih={80} align="center" justify="space-between">
-          <Title
-            order={1}
-            size="h1"
-            weight="normal"
-            sx={{
-              fontFamily: "YoungSerif",
-              letterSpacing: "-1.5px",
-            }}
-          >
-            `lute
-          </Title>
-          <SpotifyWidget />
-        </Flex>
-      </Container>
-    </Header>
-    <div style={{ paddingTop: "2rem" }}>{children}</div>
-  </main>
-);

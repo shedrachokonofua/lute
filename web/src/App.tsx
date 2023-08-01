@@ -1,20 +1,33 @@
 import React from "react";
 import { MantineProvider } from "@mantine/core";
-import { Route, Router, Switch } from "wouter";
-import { IndexPage, SpotifyOAuthCallbackPage } from "./pages";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import {
+  RecommendationPage,
+  SpotifyOAuthCallbackPage,
+  recommendationPageLoader,
+} from "./pages";
 import { Layout } from "./components";
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Layout />,
+    children: [
+      {
+        index: true,
+        element: <RecommendationPage />,
+        loader: recommendationPageLoader,
+      },
+    ],
+  },
+  {
+    path: "/spotify/oauth/callback",
+    element: <SpotifyOAuthCallbackPage />,
+  },
+]);
 
 export const App = () => (
   <MantineProvider children={undefined}>
-    <Switch>
-      <Route path="/spotify/oauth/callback">
-        <SpotifyOAuthCallbackPage />
-      </Route>
-      <Layout>
-        <Route path="/">
-          <IndexPage />
-        </Route>
-      </Layout>
-    </Switch>
+    <RouterProvider router={router} />
   </MantineProvider>
 );

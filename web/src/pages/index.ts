@@ -1,2 +1,2 @@
-export * from "./IndexPage";
+export * from "./RecommendationPage";
 export * from "./SpotifyOAuthCallbackPage";
