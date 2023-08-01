@@ -70,7 +70,7 @@ impl LookupInteractor {
               event: Event::LookupAlbumSearchUpdated {
                 lookup: lookup.clone(),
               },
-              correlation_id: Some(get_album_search_correlation_id(&lookup.query())),
+              correlation_id: Some(get_album_search_correlation_id(lookup.query())),
               metadata: None,
             },
           )

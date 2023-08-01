@@ -10,7 +10,7 @@ pub fn build_profile_event_subscribers(
   let mut subscribers = vec![];
   subscribers.extend(build_spotify_import_event_subscribers(
     Arc::clone(&redis_connection_pool),
-    settings.clone(),
+    settings,
   ));
   subscribers
 }

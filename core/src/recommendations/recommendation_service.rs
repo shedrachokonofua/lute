@@ -54,31 +54,31 @@ impl TryFrom<proto::QuantileRankAlbumAssessmentSettings> for QuantileRankAlbumAs
     }
     if let Some(primary_genre_weight) = value.primary_genre_weight {
       builder.primary_genre_weight(default_if_zero(
-        primary_genre_weight.into(),
+        primary_genre_weight,
         QuantileRankAlbumAssessmentSettings::default().primary_genre_weight,
       ));
     }
     if let Some(secondary_genre_weight) = value.secondary_genre_weight {
       builder.secondary_genre_weight(default_if_zero(
-        secondary_genre_weight.into(),
+        secondary_genre_weight,
         QuantileRankAlbumAssessmentSettings::default().secondary_genre_weight,
       ));
     }
     if let Some(descriptor_weight) = value.descriptor_weight {
       builder.descriptor_weight(default_if_zero(
-        descriptor_weight.into(),
+        descriptor_weight,
         QuantileRankAlbumAssessmentSettings::default().descriptor_weight,
       ));
     }
     if let Some(rating_weight) = value.rating_weight {
       builder.rating_weight(default_if_zero(
-        rating_weight.into(),
+        rating_weight,
         QuantileRankAlbumAssessmentSettings::default().rating_weight,
       ));
     }
     if let Some(rating_count_weight) = value.rating_count_weight {
       builder.rating_count_weight(default_if_zero(
-        rating_count_weight.into(),
+        rating_count_weight,
         QuantileRankAlbumAssessmentSettings::default().rating_count_weight,
       ));
     }
@@ -107,7 +107,7 @@ impl TryFrom<proto::AlbumRecommendationSettings> for AlbumRecommendationSettings
     Ok(Self {
       count: value
         .count
-        .map(|count| default_if_zero(count.into(), default_count))
+        .map(|count| default_if_zero(count, default_count))
         .unwrap_or(default_count),
       include_primary_genres: value.include_primary_genres,
       include_secondary_genres: value.include_secondary_genres,

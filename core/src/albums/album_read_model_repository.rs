@@ -417,7 +417,7 @@ impl AlbumReadModelRepository {
     let aggregated_primary_genres = primary_genre_result
       .results
       .iter()
-      .map(|r| ItemAndCount::try_from(r))
+      .map(ItemAndCount::try_from)
       .filter_map(|r| match r {
         Ok(item) => Some(item),
         Err(e) => {
@@ -429,7 +429,7 @@ impl AlbumReadModelRepository {
     let aggregated_secondary_genres = secondary_genre_result
       .results
       .iter()
-      .map(|r| ItemAndCount::try_from(r))
+      .map(ItemAndCount::try_from)
       .filter_map(|r| match r {
         Ok(item) => Some(item),
         Err(e) => {
@@ -463,9 +463,7 @@ impl AlbumReadModelRepository {
         );
       }
     }
-    let mut genres = genres
-      .into_iter()
-      .map(|(_, genre)| genre)
+    let mut genres = genres.into_values()
       .collect::<Vec<GenreAggregate>>();
     genres
       .sort_by(|a, b| {
@@ -488,7 +486,7 @@ impl AlbumReadModelRepository {
     let mut aggregated_descriptors = result
       .results
       .iter()
-      .map(|r| ItemAndCount::try_from(r))
+      .map(ItemAndCount::try_from)
       .filter_map(|r| match r {
         Ok(item) => Some(item),
         Err(e) => {

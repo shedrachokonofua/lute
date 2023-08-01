@@ -154,7 +154,7 @@ impl AlbumSearchLookupRepository {
   }
 
   pub async fn put(&self, lookup: &AlbumSearchLookup) -> Result<()> {
-    let key = key(&lookup.query());
+    let key = key(lookup.query());
     let map: HashMap<String, String> = (*lookup).clone().into();
     self
       .redis_connection_pool

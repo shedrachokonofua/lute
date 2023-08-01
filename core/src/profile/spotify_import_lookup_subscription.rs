@@ -44,5 +44,5 @@ pub fn build_spotify_import_lookup_subscriptions(
       }
     }
   }
-  subscriptions.into_iter().map(|(_, v)| v).collect()
+  subscriptions.into_values().collect()
 }

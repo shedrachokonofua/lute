@@ -14,7 +14,7 @@ pub fn build_lookup_event_subscribers(
   let mut subscribers = Vec::new();
   subscribers.extend(build_album_search_lookup_event_subscribers(
     Arc::clone(&redis_connection_pool),
-    settings.clone(),
+    settings,
     Arc::clone(&crawler_interactor),
   ));
   subscribers

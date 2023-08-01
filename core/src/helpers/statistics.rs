@@ -9,13 +9,13 @@ where
   }
 
   let middle = count / 2;
-  let median = if count % 2 == 0 {
+  
+
+  if count % 2 == 0 {
     (f(&sorted_values[middle - 1]) + f(&sorted_values[middle])) / 2.0
   } else {
     f(&sorted_values[middle])
-  };
-
-  median
+  }
 }
 
 pub fn desc_sort_by<T, F>(values: &mut Vec<T>, f: F)

@@ -26,7 +26,7 @@ async fn crawl_similar_albums(
     let album = album_read_model_repository.get(&file_name).await?;
     if let Some(release_date) = album.release_date {
       let file_name_string = file_name.to_string();
-      let release_type = file_name_string.split("/").collect::<Vec<&str>>()[1];
+      let release_type = file_name_string.split('/').collect::<Vec<&str>>()[1];
 
       // Artists
       for artist in album.artists {
@@ -111,7 +111,7 @@ pub fn build_recommendation_event_subscribers(
 ) -> Vec<EventSubscriber> {
   vec![EventSubscriber {
     redis_connection_pool: Arc::clone(&redis_connection_pool),
-    settings: settings.clone(),
+    settings,
     id: "crawl_similar_albums".to_string(),
     concurrency: Some(250),
     stream: Stream::Profile,

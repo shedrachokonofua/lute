@@ -134,7 +134,7 @@ impl ProfileInteractor {
         }
       }
     }
-    Ok(self.get_profile(id).await?)
+    self.get_profile(id).await
   }
 
   pub async fn get_profile_summary_and_albums(
@@ -146,9 +146,7 @@ impl ProfileInteractor {
       .album_read_model_repository
       .get_many(
         profile
-          .albums
-          .iter()
-          .map(|(file_name, _)| file_name.clone())
+          .albums.keys().cloned()
           .collect(),
       )
       .await?;
@@ -171,7 +169,7 @@ impl ProfileInteractor {
         .spotify_import_repository
         .put_subscription(
           &subscription.album_search_lookup_query,
-          &id,
+          id,
           subscription.factor,
         )
         .await
@@ -216,7 +214,7 @@ impl ProfileInteractor {
     join_all(complete_pairs.iter().map(|(_, subscription)| {
       self
         .spotify_import_repository
-        .remove_subscription(&id, &subscription.album_search_lookup_query)
+        .remove_subscription(id, &subscription.album_search_lookup_query)
     }))
     .await;
 
@@ -281,7 +279,7 @@ impl ProfileInteractor {
       )
       .await?
       .into_iter()
-      .filter_map(|lookup| lookup)
+      .flatten()
       .filter(|lookup| lookup.status() != AlbumSearchLookupStatus::AlbumParsed)
       .collect::<Vec<_>>();
     let pending_imports: Vec<PendingSpotifyImport> = lookups

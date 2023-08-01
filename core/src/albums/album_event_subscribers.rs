@@ -155,7 +155,7 @@ pub fn build_album_event_subscribers(
     },
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: settings.clone(),
+      settings,
       id: "crawl_artist_albums".to_string(),
       concurrency: Some(250),
       stream: Stream::Parser,

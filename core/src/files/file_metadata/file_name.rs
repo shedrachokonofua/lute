@@ -48,7 +48,7 @@ pub struct ChartParameters {
 }
 
 pub fn to_url_tag(value: &str) -> String {
-  value.replace(" ", "-").replace("&", "and")
+  value.replace(' ', "-").replace('&', "and")
 }
 
 impl FileName {

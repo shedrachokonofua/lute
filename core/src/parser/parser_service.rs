@@ -71,9 +71,9 @@ impl TryInto<proto::ParsedChartAlbum> for ParsedChartAlbum {
       .map(|artist| artist.try_into())
       .collect();
 
-    let primary_genres = self.primary_genres.into();
-    let secondary_genres = self.secondary_genres.into();
-    let descriptors = self.descriptors.into();
+    let primary_genres = self.primary_genres;
+    let secondary_genres = self.secondary_genres;
+    let descriptors = self.descriptors;
 
     Ok(proto::ParsedChartAlbum {
       file_name: self.file_name.try_into()?,
@@ -112,9 +112,9 @@ impl TryInto<proto::ParsedAlbum> for ParsedAlbum {
       .map(|artist| artist.try_into())
       .collect();
 
-    let primary_genres = self.primary_genres.into();
-    let secondary_genres = self.secondary_genres.into();
-    let descriptors = self.descriptors.into();
+    let primary_genres = self.primary_genres;
+    let secondary_genres = self.secondary_genres;
+    let descriptors = self.descriptors;
 
     let tracks: Result<Vec<proto::ParsedTrack>> = self
       .tracks
@@ -301,7 +301,7 @@ impl proto::ParserService for ParserService {
     .await
     .map_err(|e| {
       error!(err = e.to_string(), "Failed to parse file");
-      Status::internal(format!("Failed to parse file: {}", e.to_string()))
+      Status::internal(format!("Failed to parse file: {}", e))
     })?;
     let result: proto::ParsedFileData = parsed_data.try_into().map_err(|e: Error| {
       error!(err = e.to_string(), "Failed to convert parsed data");

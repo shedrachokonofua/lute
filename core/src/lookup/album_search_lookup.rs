@@ -49,7 +49,7 @@ impl AlbumSearchLookupQuery {
   }
 
   pub fn file_name(&self) -> FileName {
-    let query_string = serde_urlencoded::to_string(&[
+    let query_string = serde_urlencoded::to_string([
       (
         "searchterm",
         format!("{} {}", self.artist_name, self.album_name),
@@ -428,7 +428,7 @@ impl From<AlbumSearchLookup> for HashMap<String, String> {
         map.insert("last_updated_at".to_string(), last_updated_at.to_string());
         map.insert(
           "file_processing_correlation_id".to_string(),
-          file_processing_correlation_id.to_string(),
+          file_processing_correlation_id,
         );
         map
       }
@@ -448,7 +448,7 @@ impl From<AlbumSearchLookup> for HashMap<String, String> {
         map.insert("last_updated_at".to_string(), last_updated_at.to_string());
         map.insert(
           "file_processing_correlation_id".to_string(),
-          file_processing_correlation_id.to_string(),
+          file_processing_correlation_id,
         );
         map
       }
@@ -473,7 +473,7 @@ impl From<AlbumSearchLookup> for HashMap<String, String> {
         map.insert("last_updated_at".to_string(), last_updated_at.to_string());
         map.insert(
           "file_processing_correlation_id".to_string(),
-          file_processing_correlation_id.to_string(),
+          file_processing_correlation_id,
         );
         map
       }
@@ -498,7 +498,7 @@ impl From<AlbumSearchLookup> for HashMap<String, String> {
         map.insert("last_updated_at".to_string(), last_updated_at.to_string());
         map.insert(
           "file_processing_correlation_id".to_string(),
-          file_processing_correlation_id.to_string(),
+          file_processing_correlation_id,
         );
         map
       }
@@ -527,7 +527,7 @@ impl From<AlbumSearchLookup> for HashMap<String, String> {
         map.insert("last_updated_at".to_string(), last_updated_at.to_string());
         map.insert(
           "file_processing_correlation_id".to_string(),
-          file_processing_correlation_id.to_string(),
+          file_processing_correlation_id,
         );
         map
       }
@@ -556,7 +556,7 @@ impl From<AlbumSearchLookup> for HashMap<String, String> {
         map.insert("last_updated_at".to_string(), last_updated_at.to_string());
         map.insert(
           "file_processing_correlation_id".to_string(),
-          file_processing_correlation_id.to_string(),
+          file_processing_correlation_id,
         );
         map
       }
@@ -587,7 +587,7 @@ impl From<AlbumSearchLookup> for HashMap<String, String> {
         map.insert("last_updated_at".to_string(), last_updated_at.to_string());
         map.insert(
           "file_processing_correlation_id".to_string(),
-          file_processing_correlation_id.to_string(),
+          file_processing_correlation_id,
         );
         map
       }
@@ -621,7 +621,7 @@ impl From<AlbumSearchLookup> for HashMap<String, String> {
         map.insert("last_updated_at".to_string(), last_updated_at.to_string());
         map.insert(
           "file_processing_correlation_id".to_string(),
-          file_processing_correlation_id.to_string(),
+          file_processing_correlation_id,
         );
         map
       }
@@ -635,7 +635,7 @@ fn get_map_field<'a>(map: &'a HashMap<String, String>, key: &'_ str) -> Result<&
 
 fn get_last_updated_at_field(map: &HashMap<String, String>) -> Result<NaiveDateTime> {
   NaiveDateTime::parse_from_str(
-    &get_map_field(map, "last_updated_at")?,
+    get_map_field(map, "last_updated_at")?,
     "%Y-%m-%d %H:%M:%S%.f",
   )
   .map_err(|e| anyhow!("last_updated_at parse error: {}", e))

@@ -21,7 +21,7 @@ impl<T: Ord + Debug + Clone> QuantileRanking<T> {
     let mut rank_sum = 0;
     let mut count = 0;
 
-    for (&ref item, &cnt) in self.map.iter() {
+    for (item, &cnt) in self.map.iter() {
       if item < key {
         rank_sum += cnt;
       } else if item == key {
