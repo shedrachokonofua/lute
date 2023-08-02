@@ -11,11 +11,17 @@
 - [x] Lookup: Refresh album search lookup value with non-lookup related file events
 - [x] Parser: Bulk retry queue, rpc method
 - [x] Recommendations(Quantile rank): Album recommendations, rpc method
-- [ ] Web: Recommendation dashboard
+- [x] Web: Recommendation page
+- [ ] Recommendations(Quantile rank): Support searching full index
+- [ ] Recommendations(Quantile rank): Descriptor count weight assessment setting to bias for well annotated albums, expose setting on proto
+- [ ] Recommendations(Quantile rank): Genre tokenization
+- [ ] Web(Recommendation page): Expose all quantile rank settings
+- [ ] Web(Recommendation page): Album context menu
+- [ ] Web(Recommendation page): Settings presets
 - [ ] Web: Add to docker image
 - [ ] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
 - [ ] Recommendations(Vector similarity): Album recommendations, rpc method
-- [ ] Album read model repoistory stats, rpc method
+- [ ] Album read model repository stats, rpc method
 - [ ] Parser: Retry queue monitor, rpc method
 - [ ] Event bus: Subscriber statuses, iterator age, rpc service
 - [ ] Profile: Import data from spotify most played tracks
