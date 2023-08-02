@@ -74,8 +74,12 @@ export const RecommendationSettings = ({
     label: profile.getName(),
     value: profile.getId(),
   }));
-  const genreOptions = aggregatedGenres.map((genre) => ({
-    label: genre.getName(),
+  const primaryGenreOptions = aggregatedGenres.map((genre) => ({
+    label: `${genre.getName()} (${genre.getPrimaryGenreCount()})`,
+    value: genre.getName(),
+  }));
+  const secondaryGenreOptions = aggregatedGenres.map((genre) => ({
+    label: `${genre.getName()} (${genre.getSecondaryGenreCount()})`,
     value: genre.getName(),
   }));
 
@@ -105,7 +109,7 @@ export const RecommendationSettings = ({
             <Stack spacing="sm">
               <MultiSelect
                 label="Include Primary Genres"
-                data={genreOptions}
+                data={primaryGenreOptions}
                 placeholder="Select Genres"
                 name={RecommendationSettingsFormName.IncludePrimaryGenres}
                 defaultValue={
@@ -115,7 +119,7 @@ export const RecommendationSettings = ({
               />
               <MultiSelect
                 label="Exclude Primary Genres"
-                data={genreOptions}
+                data={primaryGenreOptions}
                 placeholder="Select Genres"
                 name={RecommendationSettingsFormName.ExcludePrimaryGenres}
                 defaultValue={
@@ -125,7 +129,7 @@ export const RecommendationSettings = ({
               />
               <MultiSelect
                 label="Include Secondary Genres"
-                data={genreOptions}
+                data={secondaryGenreOptions}
                 placeholder="Select Genres"
                 name={RecommendationSettingsFormName.IncludeSecondaryGenres}
                 defaultValue={
@@ -135,7 +139,7 @@ export const RecommendationSettings = ({
               />
               <MultiSelect
                 label="Exclude Secondary Genres"
-                data={genreOptions}
+                data={secondaryGenreOptions}
                 placeholder="Select Genres"
                 name={RecommendationSettingsFormName.ExcludeSecondaryGenres}
                 defaultValue={
