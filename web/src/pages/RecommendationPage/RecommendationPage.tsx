@@ -1,28 +1,28 @@
 import { Grid, Stack } from "@mantine/core";
 import React from "react";
 import {
-  RecommendationMethod,
-  RecommendationSettings,
-  RecommendationSettingsForm,
-  RecommendationSettingsFormName,
-} from "./RecommendationSettings";
-import {
-  getAggregatedGenres,
-  getAlbumRecommendations,
-  getAllProfiles,
-} from "../../client";
-import {
   Await,
   LoaderFunctionArgs,
   defer,
   useLoaderData,
 } from "react-router-dom";
 import {
+  getAggregatedGenres,
+  getAlbumRecommendations,
+  getAllProfiles,
+} from "../../client";
+import {
   AlbumRecommendation,
   GenreAggregate,
   Profile,
 } from "../../proto/lute_pb";
 import { AlbumRecommendationItem } from "./AlbumRecommendationItem";
+import {
+  RecommendationMethod,
+  RecommendationSettings,
+  RecommendationSettingsForm,
+  RecommendationSettingsFormName,
+} from "./RecommendationSettings";
 
 const coerceToUndefined = <
   T extends string | Record<string, unknown> | null | undefined,

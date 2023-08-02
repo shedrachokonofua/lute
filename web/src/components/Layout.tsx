@@ -1,19 +1,17 @@
-import React from "react";
-import { SpotifyWidget } from "./SpotifyWidget";
-import { useState } from "react";
 import {
   AppShell,
-  Navbar,
-  Header,
-  Text,
-  MediaQuery,
   Burger,
-  useMantineTheme,
   Flex,
-  Title,
+  Header,
+  MediaQuery,
   NavLink,
+  Navbar,
+  Title,
+  useMantineTheme,
 } from "@mantine/core";
+import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
+import { SpotifyWidget } from "./SpotifyWidget";
 
 interface NavItemProps {
   label: string;

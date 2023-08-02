@@ -1,16 +1,15 @@
 import {
+  Button,
+  Grid,
+  MultiSelect,
+  NumberInput,
+  Select,
   Stack,
   Title,
-  Button,
-  Select,
-  NumberInput,
-  MultiSelect,
-  Grid,
 } from "@mantine/core";
-import React from "react";
+import { Form } from "react-router-dom";
 import { CollapsibleSection } from "../../components";
 import { GenreAggregate, Profile } from "../../proto/lute_pb";
-import { Form } from "react-router-dom";
 
 export type RecommendationMethod = "quantile-ranking";
 

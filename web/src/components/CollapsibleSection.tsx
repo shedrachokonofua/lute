@@ -1,6 +1,6 @@
 import { Button, Collapse } from "@mantine/core";
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react";
-import React, { useState, ReactNode } from "react";
+import { ReactNode, useState } from "react";
 
 interface CollapsibleSectionProps {
   title: string;

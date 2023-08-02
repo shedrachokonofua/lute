@@ -1,6 +1,5 @@
-import React from "react";
-import { handleSpotifyAuthCode } from "../client";
 import { Async } from "react-async";
+import { handleSpotifyAuthCode } from "../client";
 
 const onLoad = async () => {
   const query = new URLSearchParams(window.location.search);

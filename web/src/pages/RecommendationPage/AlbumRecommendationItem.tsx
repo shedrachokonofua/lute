@@ -1,6 +1,5 @@
-import React from "react";
+import { Badge, Text, Title } from "@mantine/core";
 import { AlbumRecommendation } from "../../proto/lute_pb";
-import { Title, Badge, Text } from "@mantine/core";
 
 interface AlbumRecommendationItemProps {
   recommendation: AlbumRecommendation;

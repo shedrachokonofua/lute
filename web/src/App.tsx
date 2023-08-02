@@ -1,12 +1,11 @@
-import React from "react";
 import { MantineProvider } from "@mantine/core";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { Layout } from "./components";
 import {
   RecommendationPage,
-  SpotifyOAuthCallbackPage,
   recommendationPageLoader,
+  SpotifyOAuthCallbackPage,
 } from "./pages";
-import { Layout } from "./components";
 
 const router = createBrowserRouter([
   {

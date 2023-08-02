@@ -1,10 +1,11 @@
-import {
-  ProfileServiceClient,
-  SpotifyServiceClient,
-  AlbumServiceClient,
-  RecommendationServiceClient,
-} from "./proto/LuteServiceClientPb";
 import { Empty } from "google-protobuf/google/protobuf/empty_pb";
+import { RecommendationSettingsForm } from "./pages/RecommendationPage/RecommendationSettings";
+import {
+  AlbumServiceClient,
+  ProfileServiceClient,
+  RecommendationServiceClient,
+  SpotifyServiceClient,
+} from "./proto/LuteServiceClientPb";
 import {
   AlbumAssessmentSettings,
   AlbumRecommendation,
@@ -15,7 +16,6 @@ import {
   QuantileRankAlbumAssessmentSettings,
   RecommendAlbumsRequest,
 } from "./proto/lute_pb";
-import { RecommendationSettingsForm } from "./pages/RecommendationPage/RecommendationSettings";
 
 const coreUrl = "http://localhost:22000";
 const client = {

@@ -1,6 +1,5 @@
-import React from "react";
 import { Badge, Button } from "@mantine/core";
-import { useAsync, Async } from "react-async";
+import { Async, useAsync } from "react-async";
 import { getSpotifyAuthUrl, isSpotifyAuthorized } from "../client";
 
 const redirect = async () => {
