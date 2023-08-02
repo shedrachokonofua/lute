@@ -144,11 +144,7 @@ impl ProfileInteractor {
     let profile = self.profile_repository.get(id).await?;
     let albums = self
       .album_read_model_repository
-      .get_many(
-        profile
-          .albums.keys().cloned()
-          .collect(),
-      )
+      .get_many(profile.albums.keys().cloned().collect())
       .await?;
     Ok((profile.summarize(&albums), albums))
   }

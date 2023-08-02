@@ -9,7 +9,6 @@ where
   }
 
   let middle = count / 2;
-  
 
   if count % 2 == 0 {
     (f(&sorted_values[middle - 1]) + f(&sorted_values[middle])) / 2.0

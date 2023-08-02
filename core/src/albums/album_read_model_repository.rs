@@ -463,14 +463,12 @@ impl AlbumReadModelRepository {
         );
       }
     }
-    let mut genres = genres.into_values()
-      .collect::<Vec<GenreAggregate>>();
-    genres
-      .sort_by(|a, b| {
-        let a_total = a.primary_genre_count + a.secondary_genre_count;
-        let b_total = b.primary_genre_count + b.secondary_genre_count;
-        b_total.cmp(&a_total)
-      });
+    let mut genres = genres.into_values().collect::<Vec<GenreAggregate>>();
+    genres.sort_by(|a, b| {
+      let a_total = a.primary_genre_count + a.secondary_genre_count;
+      let b_total = b.primary_genre_count + b.secondary_genre_count;
+      b_total.cmp(&a_total)
+    });
     Ok(genres)
   }
 

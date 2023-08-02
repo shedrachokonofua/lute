@@ -20,8 +20,7 @@ impl From<AlbumSearchLookup> for proto::AlbumSearchLookup {
         .map(|file_name| file_name.to_string()),
       file_processing_correlation_id: Some(val.file_processing_correlation_id()),
       album_file_parse_error: val.album_file_parse_error(),
-      album_search_file_parse_error: val
-        .album_search_file_parse_error(),
+      album_search_file_parse_error: val.album_search_file_parse_error(),
       album_search_result: val.parsed_album_search_result().map(|result| {
         proto::AlbumSearchResult {
           album_name: result.name,
