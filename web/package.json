@@ -5,12 +5,14 @@
   "source": "src/index.html",
   "scripts": {
     "start": "parcel -p 22002",
-    "build": "parcel build"
+    "build": "parcel build",
+    "fmt": "prettier --write \"src/**/*.{js,jsx,ts,tsx,css,md}\""
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "parcel": "^2.8.3",
+    "prettier": "^3.0.0",
     "process": "^0.11.10"
   },
   "dependencies": {

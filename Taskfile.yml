@@ -29,6 +29,9 @@ tasks:
   
   "core:lint:fix":
     dir: core
+    env:
+      RUST_LOG: warn,core=debug
+      RUSTFLAGS: --cfg tokio_unstable
     cmds:
       - cargo clippy --fix --allow-dirty
 
@@ -56,6 +59,11 @@ tasks:
       - rm -rf ./dist
       - npm i
       - npm run build
+  
+  "web:fmt":
+    dir: web
+    cmds:
+      - npm run fmt
 
   "extension:proto":
     cmds:
@@ -85,6 +93,7 @@ tasks:
   "fmt":
     cmds:
       - task: "core:fmt"
+      - task: "web:fmt"
         
   "docker:dev":
     cmds:

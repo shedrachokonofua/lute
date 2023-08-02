@@ -52,7 +52,7 @@ export const getAggregatedGenres = async (): Promise<GenreAggregate[]> => {
 };
 
 export const settingsToRecommendationRequest = (
-  settings: RecommendationSettingsForm
+  settings: RecommendationSettingsForm,
 ): RecommendAlbumsRequest | null => {
   if (!settings.profileId) {
     return null;
@@ -65,22 +65,22 @@ export const settingsToRecommendationRequest = (
   }
   if (settings.recommendationSettings?.includePrimaryGenres) {
     recommedationSettings.setIncludePrimaryGenresList(
-      settings.recommendationSettings.includePrimaryGenres
+      settings.recommendationSettings.includePrimaryGenres,
     );
   }
   if (settings.recommendationSettings?.includeSecondaryGenres) {
     recommedationSettings.setIncludeSecondaryGenresList(
-      settings.recommendationSettings.includeSecondaryGenres
+      settings.recommendationSettings.includeSecondaryGenres,
     );
   }
   if (settings.recommendationSettings?.excludePrimaryGenres) {
     recommedationSettings.setExcludePrimaryGenresList(
-      settings.recommendationSettings.excludePrimaryGenres
+      settings.recommendationSettings.excludePrimaryGenres,
     );
   }
   if (settings.recommendationSettings?.excludeSecondaryGenres) {
     recommedationSettings.setExcludeSecondaryGenresList(
-      settings.recommendationSettings.excludeSecondaryGenres
+      settings.recommendationSettings.excludeSecondaryGenres,
     );
   }
   request.setRecommendationSettings(recommedationSettings);
@@ -118,7 +118,7 @@ export const settingsToRecommendationRequest = (
 };
 
 export const getAlbumRecommendations = async (
-  settings: RecommendationSettingsForm
+  settings: RecommendationSettingsForm,
 ): Promise<AlbumRecommendation[]> => {
   const request = settingsToRecommendationRequest(settings);
   if (!request) {
