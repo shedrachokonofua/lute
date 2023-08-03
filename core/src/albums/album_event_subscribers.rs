@@ -2,7 +2,10 @@ use super::album_read_model_repository::{
   AlbumReadModel, AlbumReadModelArtist, AlbumReadModelRepository, AlbumReadModelTrack,
 };
 use crate::{
-  crawler::{crawler_interactor::CrawlerInteractor, priority_queue::QueuePushParameters},
+  crawler::{
+    crawler_interactor::CrawlerInteractor,
+    priority_queue::{Priority, QueuePushParameters},
+  },
   events::{
     event::{Event, Stream},
     event_subscriber::{EventSubscriber, SubscriberContext},
@@ -82,6 +85,18 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
   Ok(())
 }
 
+fn get_crawl_priority(correlation_id: Option<String>) -> Priority {
+  correlation_id
+    .map(|cid| {
+      if cid.starts_with("crawl_similar_albums:") {
+        Priority::Low
+      } else {
+        Priority::Standard
+      }
+    })
+    .unwrap_or(Priority::Standard)
+}
+
 async fn crawl_chart_albums(
   context: SubscriberContext,
   crawler_interactor: Arc<CrawlerInteractor>,
@@ -92,10 +107,12 @@ async fn crawl_chart_albums(
     data: ParsedFileData::Chart(albums),
   } = context.payload.event
   {
+    let priority = get_crawl_priority(context.payload.correlation_id);
     for album in albums {
       crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
           file_name: album.file_name,
+          priority: Some(priority),
           ..Default::default()
         })
         .await?;
@@ -114,10 +131,12 @@ async fn crawl_artist_albums(
     data: ParsedFileData::Artist(parsed_artist),
   } = context.payload.event
   {
+    let priority = get_crawl_priority(context.payload.correlation_id);
     for album in parsed_artist.albums {
       crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
           file_name: album.file_name,
+          priority: Some(priority),
           ..Default::default()
         })
         .await?;
