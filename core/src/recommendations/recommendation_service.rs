@@ -82,6 +82,12 @@ impl TryFrom<proto::QuantileRankAlbumAssessmentSettings> for QuantileRankAlbumAs
         QuantileRankAlbumAssessmentSettings::default().rating_count_weight,
       ));
     }
+    if let Some(descriptor_count_weight) = value.descriptor_count_weight {
+      builder.descriptor_count_weight(default_if_zero(
+        descriptor_count_weight,
+        QuantileRankAlbumAssessmentSettings::default().descriptor_count_weight,
+      ));
+    }
     Ok(builder.build()?)
   }
 }

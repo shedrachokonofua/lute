@@ -108,6 +108,13 @@ export const recommendationPageLoader = async ({
                 ),
               ),
             ),
+            descriptorCountWeight: toNumber(
+              coerceToUndefined(
+                url.searchParams.get(
+                  RecommendationSettingsFormName.QuantileRankingDescriptorCountWeight,
+                ),
+              ),
+            ),
           },
         })
       : undefined;

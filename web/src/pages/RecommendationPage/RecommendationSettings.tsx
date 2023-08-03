@@ -31,6 +31,8 @@ export const RecommendationSettingsFormName = {
     "assessmentSettings.quantileRanking.ratingWeight",
   QuantileRankingRatingCountWeight:
     "assessmentSettings.quantileRanking.ratingCountWeight",
+  QuantileRankingDescriptorCountWeight:
+    "assessmentSettings.quantileRanking.descriptorCountWeight",
 };
 
 export interface RecommendationSettingsForm {
@@ -54,6 +56,7 @@ export interface RecommendationSettingsForm {
               descriptorWeight: number | undefined;
               ratingWeight: number | undefined;
               ratingCountWeight: number | undefined;
+              descriptorCountWeight: number | undefined;
             }
           | undefined;
       }
@@ -241,7 +244,22 @@ export const RecommendationSettings = ({
                       }
                     />
                   </Grid.Col>
-                  <Grid.Col md={6}></Grid.Col>
+                  <Grid.Col md={6}>
+                    <NumberInput
+                      label="Descriptor Count"
+                      placeholder="Descriptor Count"
+                      min={0}
+                      max={20}
+                      step={1}
+                      name={
+                        RecommendationSettingsFormName.QuantileRankingDescriptorCountWeight
+                      }
+                      defaultValue={
+                        settings?.assessmentSettings?.quantileRanking
+                          ?.descriptorCountWeight
+                      }
+                    />
+                  </Grid.Col>
                 </Grid>
               </Stack>
             </CollapsibleSection>

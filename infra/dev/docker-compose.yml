@@ -1,8 +1,8 @@
-version: '3.8'
+version: "3.8"
 
 services:
   redis:
-    image: 'redis/redis-stack:latest'
+    image: "redis/redis-stack:latest"
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
       - REDIS_ARGS=--appendonly yes

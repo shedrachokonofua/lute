@@ -27,6 +27,7 @@ pub struct QuantileRankAlbumAssessmentSettings {
   pub rating_weight: u32,
   pub rating_count_weight: u32,
   pub novelty_score: f64,
+  pub descriptor_count_weight: u32,
 }
 
 impl Default for QuantileRankAlbumAssessmentSettings {
@@ -38,6 +39,7 @@ impl Default for QuantileRankAlbumAssessmentSettings {
       rating_weight: 3,
       rating_count_weight: 1,
       novelty_score: 0.5,
+      descriptor_count_weight: 5,
     }
   }
 }
@@ -143,6 +145,14 @@ impl
     )
     .get_rank(&album_read_model.0.rating_count)
     .unwrap_or(settings.novelty_score);
+    let descriptor_count_rank = QuantileRanking::new(
+      &profile_albums
+        .iter()
+        .map(|album| album.descriptor_count)
+        .collect::<Vec<_>>(),
+    )
+    .get_rank(&album_read_model.0.descriptor_count)
+    .unwrap_or(settings.novelty_score);
 
     let mut ranks = vec![average_primary_genre_rank; settings.primary_genre_weight as usize];
     ranks.append(&mut vec![
@@ -157,6 +167,10 @@ impl
     ranks.append(&mut vec![
       rating_count_rank;
       settings.rating_count_weight as usize
+    ]);
+    ranks.append(&mut vec![
+      descriptor_count_rank;
+      settings.descriptor_count_weight as usize
     ]);
     let score = ranks.iter().sum::<f64>() / ranks.len() as f64;
 
@@ -205,6 +219,12 @@ impl
         .map(|album| album.rating_count)
         .collect::<Vec<_>>(),
     );
+    let descriptor_count_ranking = QuantileRanking::new(
+      &profile_albums
+        .iter()
+        .map(|album| album.descriptor_count)
+        .collect::<Vec<_>>(),
+    );
     let result_heap = Arc::new(Mutex::new(BoundedMinHeap::new(
       recommendation_settings.count as usize,
     )));
@@ -219,7 +239,6 @@ impl
           assessment_settings.novelty_score,
         )
         .unwrap();
-
         let average_secondary_genre_rank = calculate_average_rank(
           &secondary_genre_ranking,
           &profile_summary.secondary_genres,
@@ -240,6 +259,9 @@ impl
         let rating_count_rank = rating_count_ranking
           .get_rank(&album.rating_count)
           .unwrap_or(assessment_settings.novelty_score);
+        let descriptor_count_rank = descriptor_count_ranking
+          .get_rank(&album.descriptor_count)
+          .unwrap_or(assessment_settings.novelty_score);
 
         let mut ranks =
           vec![average_primary_genre_rank; assessment_settings.primary_genre_weight as usize];
@@ -258,6 +280,11 @@ impl
         ranks.append(&mut vec![
           rating_count_rank;
           assessment_settings.rating_count_weight as usize
+        ]);
+        ranks.append(&mut vec![
+          descriptor_count_rank;
+          assessment_settings.descriptor_count_weight
+            as usize
         ]);
         let score = ranks.iter().sum::<f64>() / ranks.len() as f64;
         if score.is_nan() {
