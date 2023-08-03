@@ -12,7 +12,7 @@
 - [x] Parser: Bulk retry queue, rpc method
 - [x] Recommendations(Quantile rank): Album recommendations, rpc method
 - [x] Web: Recommendation page
-- [ ] Recommendations(Quantile rank): Support searching full index
+- [x] Recommendations(Quantile rank): Support searching full index
 - [ ] Recommendations(Quantile rank): Descriptor count weight assessment setting to bias for well annotated albums, expose setting on proto
 - [ ] Recommendations(Quantile rank): Genre tokenization
 - [ ] Web(Recommendation page): Expose all quantile rank settings

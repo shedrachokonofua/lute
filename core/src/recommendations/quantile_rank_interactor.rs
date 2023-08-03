@@ -187,7 +187,7 @@ impl
       .build()?;
     let albums = self
       .album_read_model_repository
-      .search(&search_query, Some(0), Some(10000))
+      .search(&search_query)
       .await?;
 
     let primary_genre_ranking = QuantileRanking::new(&profile_summary.primary_genres);

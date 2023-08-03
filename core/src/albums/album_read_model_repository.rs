@@ -310,32 +310,34 @@ impl AlbumReadModelRepository {
   }
 
   #[instrument(skip(self))]
-  pub async fn search(
-    &self,
-    query: &AlbumSearchQuery,
-    offset: Option<usize>,
-    limit: Option<usize>,
-  ) -> Result<Vec<AlbumReadModel>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let result = connection
-      .ft_search(
-        INDEX_NAME,
-        query.to_ft_search_query(),
-        FtSearchOptions::default().limit(offset.unwrap_or(0), limit.unwrap_or(100)),
-      )
-      .await?;
-    let albums = result
-      .results
-      .iter()
-      .map(|row| AlbumReadModel::try_from(&row.values))
-      .filter_map(|r| match r {
-        Ok(album) => Some(album),
-        Err(e) => {
-          info!("Failed to parse album: {}", e);
-          None
-        }
-      })
-      .collect::<Vec<_>>();
+  pub async fn search(&self, query: &AlbumSearchQuery) -> Result<Vec<AlbumReadModel>> {
+    let page_size: usize = 10_000;
+    let mut albums: Vec<AlbumReadModel> = Vec::new();
+    let mut offset = 0;
+
+    loop {
+      let connection = self.redis_connection_pool.get().await?;
+      let result = connection
+        .ft_search(
+          INDEX_NAME,
+          query.to_ft_search_query(),
+          FtSearchOptions::default().limit(offset, page_size),
+        )
+        .await?;
+
+      albums.extend(
+        result
+          .results
+          .iter()
+          .filter_map(|row| AlbumReadModel::try_from(&row.values).ok()),
+      );
+
+      if result.results.len() < page_size {
+        break;
+      }
+      offset += page_size;
+    }
+
     Ok(albums)
   }
 
