@@ -15,6 +15,7 @@
 - [x] Recommendations(Quantile rank): Support searching full index
 - [x] Recommendations(Quantile rank): Descriptor count weight assessment setting to bias for well annotated albums, expose setting on proto
 - [x] Web(Recommendation page): Display recommendation score and metadata breakdown
+- [x] Recommendations(Quantile rank) + Web(Recommendation page): Support release year filtering
 - [ ] Web(Recommendation page): Expose all quantile rank settings
 - [ ] Web(Recommendation page): Settings presets
 - [ ] Parser: Extract album credits

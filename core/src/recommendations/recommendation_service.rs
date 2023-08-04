@@ -119,6 +119,8 @@ impl TryFrom<proto::AlbumRecommendationSettings> for AlbumRecommendationSettings
       include_secondary_genres: value.include_secondary_genres,
       exclude_primary_genres: value.exclude_primary_genres,
       exclude_secondary_genres: value.exclude_secondary_genres,
+      min_release_year: value.min_release_year,
+      max_release_year: value.max_release_year,
     })
   }
 }

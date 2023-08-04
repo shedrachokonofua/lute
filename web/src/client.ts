@@ -63,6 +63,16 @@ export const settingsToRecommendationRequest = (
   if (settings.recommendationSettings?.count) {
     recommedationSettings.setCount(settings.recommendationSettings.count);
   }
+  if (settings.recommendationSettings?.minReleaseYear) {
+    recommedationSettings.setMinReleaseYear(
+      settings.recommendationSettings.minReleaseYear,
+    );
+  }
+  if (settings.recommendationSettings?.maxReleaseYear) {
+    recommedationSettings.setMaxReleaseYear(
+      settings.recommendationSettings.maxReleaseYear,
+    );
+  }
   if (settings.recommendationSettings?.includePrimaryGenres) {
     recommedationSettings.setIncludePrimaryGenresList(
       settings.recommendationSettings.includePrimaryGenres,

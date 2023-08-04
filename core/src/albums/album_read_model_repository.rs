@@ -168,6 +168,8 @@ pub struct AlbumSearchQuery {
   min_primary_genre_count: Option<usize>,
   min_secondary_genre_count: Option<usize>,
   min_descriptor_count: Option<usize>,
+  min_release_year: Option<u32>,
+  max_release_year: Option<u32>,
 }
 
 impl AlbumSearchQuery {
@@ -184,6 +186,11 @@ impl AlbumSearchQuery {
     ft_search_query.push_str(&get_min_num_query(
       "@descriptor_count",
       self.min_descriptor_count,
+    ));
+    ft_search_query.push_str(&get_num_range_query(
+      "@release_year",
+      self.min_release_year,
+      self.max_release_year,
     ));
     ft_search_query.push_str(&get_tag_query("@artist_file_name", &self.include_artists));
     ft_search_query.push_str(&get_tag_query(
@@ -235,6 +242,16 @@ fn get_min_num_query(tag: &str, min: Option<usize>) -> String {
   } else {
     String::from("")
   }
+}
+
+fn get_num_range_query(tag: &str, min: Option<u32>, max: Option<u32>) -> String {
+  let v = match (min, max) {
+    (Some(min), Some(max)) => format!("{}:[{}, {}] ", tag, min, max),
+    (Some(min), None) => format!("{}:[{}, +inf] ", tag, min),
+    (None, Some(max)) => format!("{}:[-inf, {}] ", tag, max),
+    (None, None) => String::from(""),
+  };
+  v
 }
 
 const NAMESPACE: &str = "album";

@@ -20,6 +20,8 @@ export const RecommendationSettingsFormName = {
   ExcludePrimaryGenres: "recommendationSettings.excludePrimaryGenres",
   IncludeSecondaryGenres: "recommendationSettings.includeSecondaryGenres",
   ExcludeSecondaryGenres: "recommendationSettings.excludeSecondaryGenres",
+  MinReleaseYear: "recommendationSettings.minReleaseYear",
+  MaxReleaseYear: "recommendationSettings.maxReleaseYear",
   Method: "method",
   QuantileRankingPrimaryGenresWeight:
     "assessmentSettings.quantileRanking.primaryGenresWeight",
@@ -40,6 +42,8 @@ export interface RecommendationSettingsForm {
   recommendationSettings:
     | {
         count: number | undefined;
+        minReleaseYear: number | undefined;
+        maxReleaseYear: number | undefined;
         includePrimaryGenres: string[] | undefined;
         excludePrimaryGenres: string[] | undefined;
         includeSecondaryGenres: string[] | undefined;
@@ -109,6 +113,34 @@ export const RecommendationSettings = ({
           </Stack>
           <CollapsibleSection title="Filters">
             <Stack spacing="sm">
+              <Grid gutter="xs">
+                <Grid.Col md={6}>
+                  <NumberInput
+                    label="Min Release Year"
+                    placeholder="Year"
+                    min={1900}
+                    max={2023}
+                    step={1}
+                    name={RecommendationSettingsFormName.MinReleaseYear}
+                    defaultValue={
+                      settings?.recommendationSettings?.minReleaseYear
+                    }
+                  />
+                </Grid.Col>
+                <Grid.Col md={6}>
+                  <NumberInput
+                    label="Max Release Year"
+                    placeholder="Year"
+                    min={1900}
+                    max={2023}
+                    step={1}
+                    name={RecommendationSettingsFormName.MaxReleaseYear}
+                    defaultValue={
+                      settings?.recommendationSettings?.maxReleaseYear
+                    }
+                  />
+                </Grid.Col>
+              </Grid>
               <MultiSelect
                 label="Include Primary Genres"
                 data={primaryGenreOptions}

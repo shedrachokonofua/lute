@@ -202,6 +202,8 @@ impl
       .include_secondary_genres(recommendation_settings.include_secondary_genres)
       .exclude_primary_genres(recommendation_settings.exclude_primary_genres)
       .exclude_secondary_genres(recommendation_settings.exclude_secondary_genres)
+      .min_release_year(recommendation_settings.min_release_year)
+      .max_release_year(recommendation_settings.max_release_year)
       .min_primary_genre_count(1)
       .min_secondary_genre_count(1)
       .min_descriptor_count(5)

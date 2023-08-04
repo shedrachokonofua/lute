@@ -126,6 +126,20 @@ export const recommendationPageLoader = async ({
               url.searchParams.get(RecommendationSettingsFormName.Count),
             ),
           ),
+          minReleaseYear: toNumber(
+            coerceToUndefined(
+              url.searchParams.get(
+                RecommendationSettingsFormName.MinReleaseYear,
+              ),
+            ),
+          ),
+          maxReleaseYear: toNumber(
+            coerceToUndefined(
+              url.searchParams.get(
+                RecommendationSettingsFormName.MaxReleaseYear,
+              ),
+            ),
+          ),
           includePrimaryGenres: coerceToUndefined(
             url.searchParams.get(
               RecommendationSettingsFormName.IncludePrimaryGenres,

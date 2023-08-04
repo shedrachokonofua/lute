@@ -1,4 +1,4 @@
-import { Badge, Flex, Popover, Text, Title } from "@mantine/core";
+import { Anchor, Badge, Flex, Popover, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { AlbumAssessment, AlbumRecommendation } from "../../proto/lute_pb";
 
@@ -66,15 +66,23 @@ export const AlbumRecommendationItem = ({
   return (
     <div>
       <Flex justify="space-between">
-        <Title order={3}>
-          <a
-            href={`https://rateyourmusic.com/${album.getFileName()}`}
-            target="_blank"
-            style={{ textDecoration: "none" }}
+        <Flex align="center" gap="0.5rem">
+          <Title order={3}>
+            <Anchor
+              href={`https://rateyourmusic.com/${album.getFileName()}`}
+              target="_blank"
+              style={{ textDecoration: "none" }}
+            >
+              {album.getName()}
+            </Anchor>
+          </Title>
+          <Badge
+            variant="gradient"
+            gradient={{ from: "teal", to: "blue", deg: 60 }}
           >
-            {album.getName()}
-          </a>
-        </Title>
+            {album.getRating().toFixed(2)}/5
+          </Badge>
+        </Flex>
         <Assessment assessment={assessment} />
       </Flex>
       <Title order={5}>
@@ -84,12 +92,9 @@ export const AlbumRecommendationItem = ({
           .join(", ")}
       </Title>
       <div>
-        <Badge
-          variant="gradient"
-          gradient={{ from: "teal", to: "blue", deg: 60 }}
-        >
-          {album.getRating().toFixed(2)}/5
-        </Badge>
+        <Text size="sm" color="#333">
+          {album.getReleaseDate()}
+        </Text>
       </div>
       <Text weight="semi-bold">{album.getPrimaryGenresList().join(", ")}</Text>
       <Text size="md">{album.getSecondaryGenresList().join(", ")}</Text>

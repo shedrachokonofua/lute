@@ -522,6 +522,8 @@ message AlbumRecommendationSettings {
   repeated string include_secondary_genres = 3;
   repeated string exclude_primary_genres = 4;
   repeated string exclude_secondary_genres = 5;
+  optional uint32 min_release_year = 6;
+  optional uint32 max_release_year = 7;
 }
 
 message RecommendAlbumsRequest {
