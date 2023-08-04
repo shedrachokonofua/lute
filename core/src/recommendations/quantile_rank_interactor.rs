@@ -41,10 +41,10 @@ impl Default for QuantileRankAlbumAssessmentSettings {
       primary_genre_weight: 3,
       secondary_genre_weight: 1,
       descriptor_weight: 6,
-      rating_weight: 3,
+      rating_weight: 1,
       rating_count_weight: 1,
-      novelty_score: 0.25,
-      descriptor_count_weight: 3,
+      novelty_score: 0.5,
+      descriptor_count_weight: 1,
     }
   }
 }
