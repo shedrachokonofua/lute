@@ -33,13 +33,13 @@ pub struct QuantileRankAlbumAssessmentSettings {
 impl Default for QuantileRankAlbumAssessmentSettings {
   fn default() -> Self {
     Self {
-      primary_genre_weight: 5,
-      secondary_genre_weight: 3,
-      descriptor_weight: 15,
+      primary_genre_weight: 3,
+      secondary_genre_weight: 1,
+      descriptor_weight: 6,
       rating_weight: 3,
       rating_count_weight: 1,
-      novelty_score: 0.5,
-      descriptor_count_weight: 5,
+      novelty_score: 0.25,
+      descriptor_count_weight: 3,
     }
   }
 }
