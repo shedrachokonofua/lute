@@ -12,6 +12,7 @@ import {
   AlbumRecommendationSettings,
   GenreAggregate,
   HandleAuthorizationCodeRequest,
+  LanguageAggregate,
   Profile,
   QuantileRankAlbumAssessmentSettings,
   RecommendAlbumsRequest,
@@ -49,6 +50,13 @@ export const getAllProfiles = async (): Promise<Profile[]> => {
 export const getAggregatedGenres = async (): Promise<GenreAggregate[]> => {
   const response = await client.album.getAggregatedGenres(new Empty(), null);
   return response.getGenresList();
+};
+
+export const getAggregatedLanguages = async (): Promise<
+  LanguageAggregate[]
+> => {
+  const response = await client.album.getAggregatedLanguages(new Empty(), null);
+  return response.getLanguagesList();
 };
 
 export const settingsToRecommendationRequest = (
@@ -91,6 +99,16 @@ export const settingsToRecommendationRequest = (
   if (settings.recommendationSettings?.excludeSecondaryGenres) {
     recommedationSettings.setExcludeSecondaryGenresList(
       settings.recommendationSettings.excludeSecondaryGenres,
+    );
+  }
+  if (settings.recommendationSettings?.includeLanguages) {
+    recommedationSettings.setIncludeLanguagesList(
+      settings.recommendationSettings.includeLanguages,
+    );
+  }
+  if (settings.recommendationSettings?.excludeLanguages) {
+    recommedationSettings.setExcludeLanguagesList(
+      settings.recommendationSettings.excludeLanguages,
     );
   }
   request.setRecommendationSettings(recommedationSettings);

@@ -161,10 +161,20 @@ message GetAggregatedDescriptorsReply {
   repeated DescriptorAggregate descriptors = 1;
 }
 
+message LanguageAggregate {
+  string name = 1;
+  uint32 count = 2;
+}
+
+message GetAggregatedLanguagesReply {
+  repeated LanguageAggregate languages = 1;
+}
+
 service AlbumService {
   rpc GetAlbum (GetAlbumRequest) returns (GetAlbumReply) {}
   rpc GetAggregatedGenres (google.protobuf.Empty) returns (GetAggregatedGenresReply) {}
   rpc GetAggregatedDescriptors (google.protobuf.Empty) returns (GetAggregatedDescriptorsReply) {}
+  rpc GetAggregatedLanguages (google.protobuf.Empty) returns (GetAggregatedLanguagesReply) {}
 }
 
 message IsAuthorizedReply {
@@ -522,10 +532,12 @@ message AlbumRecommendationSettings {
   optional uint32 count = 1;
   repeated string include_primary_genres = 2;
   repeated string include_secondary_genres = 3;
-  repeated string exclude_primary_genres = 4;
-  repeated string exclude_secondary_genres = 5;
-  optional uint32 min_release_year = 6;
-  optional uint32 max_release_year = 7;
+  repeated string include_languages = 4;
+  repeated string exclude_primary_genres = 5;
+  repeated string exclude_secondary_genres = 6;
+  repeated string exclude_languages = 7;
+  optional uint32 min_release_year = 8;
+  optional uint32 max_release_year = 9;
 }
 
 message RecommendAlbumsRequest {

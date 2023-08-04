@@ -93,6 +93,8 @@ pub struct AlbumReadModel {
   pub release_year: Option<u32>,
   #[serde(default)]
   pub languages: Vec<String>,
+  #[serde(default)]
+  pub language_count: u32,
 }
 
 impl TryFrom<&Vec<(String, String)>> for AlbumReadModel {
@@ -157,6 +159,15 @@ impl From<&ItemAndCount> for proto::DescriptorAggregate {
   }
 }
 
+impl From<&ItemAndCount> for proto::LanguageAggregate {
+  fn from(val: &ItemAndCount) -> Self {
+    proto::LanguageAggregate {
+      name: val.name.clone(),
+      count: val.count,
+    }
+  }
+}
+
 #[derive(Default, Builder, Debug)]
 #[builder(setter(into), default)]
 pub struct AlbumSearchQuery {
@@ -167,6 +178,8 @@ pub struct AlbumSearchQuery {
   exclude_primary_genres: Vec<String>,
   include_secondary_genres: Vec<String>,
   exclude_secondary_genres: Vec<String>,
+  include_languages: Vec<String>,
+  exclude_languages: Vec<String>,
   include_descriptors: Vec<String>,
   min_primary_genre_count: Option<usize>,
   min_secondary_genre_count: Option<usize>,
@@ -204,6 +217,7 @@ impl AlbumSearchQuery {
       "@secondary_genre",
       &self.include_secondary_genres,
     ));
+    ft_search_query.push_str(&get_tag_query("@language", &self.include_languages));
     ft_search_query.push_str(&get_tag_query("@descriptor", &self.include_descriptors));
     ft_search_query.push_str(&get_tag_query("-@artist_file_name", &self.exclude_artists));
     ft_search_query.push_str(&get_tag_query("-@file_name", &self.exclude_file_names));
@@ -215,6 +229,7 @@ impl AlbumSearchQuery {
       "-@secondary_genre",
       &self.exclude_secondary_genres,
     ));
+    ft_search_query.push_str(&get_tag_query("-@language", &self.exclude_languages));
     return ft_search_query.trim().to_string();
   }
 }
@@ -413,6 +428,9 @@ impl AlbumReadModelRepository {
             FtFieldSchema::identifier("$.languages.*")
               .as_attribute("language")
               .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.language_count")
+              .as_attribute("language_count")
+              .field_type(FtFieldType::Numeric),
           ],
         )
         .await?;
@@ -519,5 +537,30 @@ impl AlbumReadModelRepository {
       .collect::<Vec<ItemAndCount>>();
     aggregated_descriptors.sort_by(|a, b| b.count.cmp(&a.count));
     Ok(aggregated_descriptors)
+  }
+
+  pub async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection
+      .ft_aggregate(
+        INDEX_NAME,
+        "@language_count:[1 +inf]",
+        FtAggregateOptions::default().groupby("@language", FtReducer::count().as_name("count")),
+      )
+      .await?;
+    let mut aggregated_languages = result
+      .results
+      .iter()
+      .map(ItemAndCount::try_from)
+      .filter_map(|r| match r {
+        Ok(item) => Some(item),
+        Err(e) => {
+          info!("Failed to parse language: {}", e);
+          None
+        }
+      })
+      .collect::<Vec<ItemAndCount>>();
+    aggregated_languages.sort_by(|a, b| b.count.cmp(&a.count));
+    Ok(aggregated_languages)
   }
 }

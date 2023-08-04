@@ -8,8 +8,10 @@ pub struct AlbumRecommendationSettings {
   pub count: u32,
   pub include_primary_genres: Vec<String>,
   pub include_secondary_genres: Vec<String>,
+  pub include_languages: Vec<String>,
   pub exclude_primary_genres: Vec<String>,
   pub exclude_secondary_genres: Vec<String>,
+  pub exclude_languages: Vec<String>,
   pub min_release_year: Option<u32>,
   pub max_release_year: Option<u32>,
 }
@@ -20,8 +22,10 @@ impl Default for AlbumRecommendationSettings {
       count: 10,
       include_primary_genres: vec![],
       include_secondary_genres: vec![],
+      include_languages: vec![],
       exclude_primary_genres: vec![],
       exclude_secondary_genres: vec![],
+      exclude_languages: vec![],
       min_release_year: None,
       max_release_year: None,
     }

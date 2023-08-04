@@ -8,12 +8,14 @@ import {
 } from "react-router-dom";
 import {
   getAggregatedGenres,
+  getAggregatedLanguages,
   getAlbumRecommendations,
   getAllProfiles,
 } from "../../client";
 import {
   AlbumRecommendation,
   GenreAggregate,
+  LanguageAggregate,
   Profile,
 } from "../../proto/lute_pb";
 import { AlbumRecommendationItem } from "./AlbumRecommendationItem";
@@ -51,6 +53,7 @@ const toNumber = (value: string | null | undefined) => {
 interface RecommendationSettingsLoaderData {
   profiles: Profile[];
   aggregatedGenres: GenreAggregate[];
+  aggregatedLanguages: LanguageAggregate[];
   settings: RecommendationSettingsForm | null;
   recommendations: AlbumRecommendation[] | null;
 }
@@ -160,6 +163,16 @@ export const recommendationPageLoader = async ({
               RecommendationSettingsFormName.ExcludeSecondaryGenres,
             ),
           )?.split(","),
+          includeLanguages: coerceToUndefined(
+            url.searchParams.get(
+              RecommendationSettingsFormName.IncludeLanguages,
+            ),
+          )?.split(","),
+          excludeLanguages: coerceToUndefined(
+            url.searchParams.get(
+              RecommendationSettingsFormName.ExcludeLanguages,
+            ),
+          )?.split(","),
         }),
         assessmentSettings,
       }
@@ -167,22 +180,29 @@ export const recommendationPageLoader = async ({
 
   const recommendations = settings ? getAlbumRecommendations(settings) : null;
 
-  const [profiles, aggregatedGenres] = await Promise.all([
+  const [profiles, aggregatedGenres, aggregatedLanguages] = await Promise.all([
     getAllProfiles(),
     getAggregatedGenres(),
+    getAggregatedLanguages(),
   ]);
 
   return defer({
     profiles,
     aggregatedGenres,
+    aggregatedLanguages,
     settings,
     recommendations,
   });
 };
 
 export const RecommendationPage = () => {
-  const { profiles, aggregatedGenres, settings, recommendations } =
-    useLoaderData() as RecommendationSettingsLoaderData;
+  const {
+    profiles,
+    aggregatedGenres,
+    aggregatedLanguages,
+    settings,
+    recommendations,
+  } = useLoaderData() as RecommendationSettingsLoaderData;
 
   return (
     <Grid>
@@ -205,6 +225,7 @@ export const RecommendationPage = () => {
         <RecommendationSettings
           profiles={profiles}
           aggregatedGenres={aggregatedGenres}
+          aggregatedLanguages={aggregatedLanguages}
           settings={settings}
         />
       </Grid.Col>

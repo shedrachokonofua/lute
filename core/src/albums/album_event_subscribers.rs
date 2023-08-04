@@ -66,6 +66,7 @@ impl AlbumReadModel {
       release_date: parsed_album.release_date,
       release_year: parsed_album.release_date.map(|date| date.year() as u32),
       languages: parsed_album.languages.clone(),
+      language_count: parsed_album.languages.len() as u32,
     }
   }
 }

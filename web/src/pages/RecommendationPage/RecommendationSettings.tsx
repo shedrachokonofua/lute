@@ -9,7 +9,11 @@ import {
 } from "@mantine/core";
 import { Form } from "react-router-dom";
 import { CollapsibleSection } from "../../components";
-import { GenreAggregate, Profile } from "../../proto/lute_pb";
+import {
+  GenreAggregate,
+  LanguageAggregate,
+  Profile,
+} from "../../proto/lute_pb";
 
 export type RecommendationMethod = "quantile-ranking";
 
@@ -20,6 +24,8 @@ export const RecommendationSettingsFormName = {
   ExcludePrimaryGenres: "recommendationSettings.excludePrimaryGenres",
   IncludeSecondaryGenres: "recommendationSettings.includeSecondaryGenres",
   ExcludeSecondaryGenres: "recommendationSettings.excludeSecondaryGenres",
+  IncludeLanguages: "recommendationSettings.includeLanguages",
+  ExcludeLanguages: "recommendationSettings.excludeLanguages",
   MinReleaseYear: "recommendationSettings.minReleaseYear",
   MaxReleaseYear: "recommendationSettings.maxReleaseYear",
   Method: "method",
@@ -48,6 +54,8 @@ export interface RecommendationSettingsForm {
         excludePrimaryGenres: string[] | undefined;
         includeSecondaryGenres: string[] | undefined;
         excludeSecondaryGenres: string[] | undefined;
+        includeLanguages: string[] | undefined;
+        excludeLanguages: string[] | undefined;
       }
     | undefined;
   method: RecommendationMethod | undefined;
@@ -70,10 +78,12 @@ export interface RecommendationSettingsForm {
 export const RecommendationSettings = ({
   profiles,
   aggregatedGenres,
+  aggregatedLanguages,
   settings,
 }: {
   profiles: Profile[];
   aggregatedGenres: GenreAggregate[];
+  aggregatedLanguages: LanguageAggregate[];
   settings: RecommendationSettingsForm | null;
 }) => {
   const profileOptions = profiles.map((profile) => ({
@@ -87,6 +97,10 @@ export const RecommendationSettings = ({
   const secondaryGenreOptions = aggregatedGenres.map((genre) => ({
     label: `${genre.getName()} (${genre.getSecondaryGenreCount()})`,
     value: genre.getName(),
+  }));
+  const languageOptions = aggregatedLanguages.map((language) => ({
+    label: `${language.getName()} (${language.getCount()})`,
+    value: language.getName(),
   }));
 
   return (
@@ -178,6 +192,26 @@ export const RecommendationSettings = ({
                 name={RecommendationSettingsFormName.ExcludeSecondaryGenres}
                 defaultValue={
                   settings?.recommendationSettings?.excludeSecondaryGenres
+                }
+                searchable
+              />
+              <MultiSelect
+                label="Include Languages"
+                data={languageOptions}
+                placeholder="Select Languages"
+                name={RecommendationSettingsFormName.IncludeLanguages}
+                defaultValue={
+                  settings?.recommendationSettings?.includeLanguages
+                }
+                searchable
+              />
+              <MultiSelect
+                label="Exclude Languages"
+                data={languageOptions}
+                placeholder="Select Languages"
+                name={RecommendationSettingsFormName.ExcludeLanguages}
+                defaultValue={
+                  settings?.recommendationSettings?.excludeLanguages
                 }
                 searchable
               />

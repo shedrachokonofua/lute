@@ -117,8 +117,10 @@ impl TryFrom<proto::AlbumRecommendationSettings> for AlbumRecommendationSettings
         .unwrap_or(default_count),
       include_primary_genres: value.include_primary_genres,
       include_secondary_genres: value.include_secondary_genres,
+      include_languages: value.include_languages,
       exclude_primary_genres: value.exclude_primary_genres,
       exclude_secondary_genres: value.exclude_secondary_genres,
+      exclude_languages: value.exclude_languages,
       min_release_year: value.min_release_year,
       max_release_year: value.max_release_year,
     })

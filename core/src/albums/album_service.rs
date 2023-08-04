@@ -70,4 +70,21 @@ impl proto::AlbumService for AlbumService {
     };
     Ok(Response::new(reply))
   }
+
+  async fn get_aggregated_languages(
+    &self,
+    _request: Request<()>,
+  ) -> Result<Response<proto::GetAggregatedLanguagesReply>, Status> {
+    let reply = proto::GetAggregatedLanguagesReply {
+      languages: self
+        .album_read_model_repository
+        .get_aggregated_languages()
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?
+        .iter()
+        .map(|i| i.into())
+        .collect(),
+    };
+    Ok(Response::new(reply))
+  }
 }
