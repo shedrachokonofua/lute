@@ -7,7 +7,7 @@ use super::{
 };
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::Result;
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 #[instrument(skip(file_content))]
 pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
@@ -104,6 +104,41 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     })
     .ok_or(anyhow::anyhow!("Failed to parse descriptors"))?;
 
+  let languages = query_select_first(dom.parser(), container, ".album_info")?
+    .query_selector(dom.parser(), "tr")
+    .map(|iter| {
+      iter
+        .filter_map(|node| {
+          let tag = node
+            .get(dom.parser())
+            .and_then(|node| node.as_tag())
+            .unwrap();
+
+          let row_key = get_tag_inner_text(dom.parser(), tag, "th").unwrap_or_else(|err| {
+            warn!("Failed to parse row key: {}", err);
+            "".to_string()
+          });
+          if row_key == "Language" {
+            let row_value = get_tag_inner_text(dom.parser(), tag, "td").unwrap();
+            Some(vec![row_value])
+          } else if row_key == "Languages" {
+            let row_value = get_tag_inner_text(dom.parser(), tag, "td").unwrap();
+            Some(
+              row_value
+                .replace(" ", "")
+                .split(",")
+                .map(|s| s.to_string())
+                .collect(),
+            )
+          } else {
+            None
+          }
+        })
+        .flatten()
+        .collect::<Vec<String>>()
+    })
+    .unwrap_or(vec![]);
+
   let tracks = query_select_first(dom.parser(), container, "#tracks")?
     .query_selector(dom.parser(), ".tracklist_line")
     .map(|iter| {
@@ -153,5 +188,6 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     secondary_genres,
     descriptors,
     tracks,
+    languages,
   })
 }

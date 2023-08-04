@@ -135,6 +135,7 @@ message Album {
   repeated string descriptors = 8;
   repeated Track tracks = 9;
   optional string release_date = 10;
+  repeated string languages = 11;
 }
 
 message GetAlbumReply {
@@ -285,6 +286,7 @@ message ParsedAlbum {
   repeated string descriptors = 7;
   repeated ParsedTrack tracks = 8;
   optional string release_date = 9;
+  repeated string languages = 10;
 }
 
 message ParsedArtistAlbum {

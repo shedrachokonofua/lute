@@ -61,6 +61,7 @@ impl From<AlbumReadModel> for proto::Album {
       descriptors: val.descriptors,
       tracks: val.tracks.into_iter().map(|track| track.into()).collect(),
       release_date: val.release_date.map(|date| date.to_string()),
+      languages: val.languages,
     }
   }
 }
@@ -90,6 +91,8 @@ pub struct AlbumReadModel {
   pub tracks: Vec<AlbumReadModelTrack>,
   pub release_date: Option<NaiveDate>,
   pub release_year: Option<u32>,
+  #[serde(default)]
+  pub languages: Vec<String>,
 }
 
 impl TryFrom<&Vec<(String, String)>> for AlbumReadModel {
@@ -407,6 +410,9 @@ impl AlbumReadModelRepository {
             FtFieldSchema::identifier("$.release_year")
               .as_attribute("release_year")
               .field_type(FtFieldType::Numeric),
+            FtFieldSchema::identifier("$.languages.*")
+              .as_attribute("language")
+              .field_type(FtFieldType::Tag),
           ],
         )
         .await?;

@@ -55,6 +55,7 @@ impl From<AlbumReadModel> for ParsedAlbum {
         })
         .collect::<Vec<ParsedTrack>>(),
       release_date: album.release_date,
+      languages: album.languages,
     }
   }
 }

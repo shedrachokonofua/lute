@@ -132,6 +132,7 @@ impl TryInto<proto::ParsedAlbum> for ParsedAlbum {
       descriptors,
       tracks: tracks?,
       release_date: self.release_date.map(|val| val.to_string()),
+      languages: self.languages,
     })
   }
 }

@@ -40,6 +40,7 @@ pub struct ParsedAlbum {
   pub descriptors: Vec<String>,
   pub tracks: Vec<ParsedTrack>,
   pub release_date: Option<NaiveDate>,
+  pub languages: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
