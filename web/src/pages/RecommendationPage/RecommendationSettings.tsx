@@ -265,7 +265,13 @@ export const RecommendationSettings = ({
             </CollapsibleSection>
           </Stack>
           <div>
-            <Button type="submit" fullWidth>
+            <Button
+              style={{
+                background: "#2D78A0",
+              }}
+              type="submit"
+              fullWidth
+            >
               Submit
             </Button>
           </div>

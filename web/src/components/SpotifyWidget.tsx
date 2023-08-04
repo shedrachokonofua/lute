@@ -30,7 +30,7 @@ export const SpotifyWidget = () => {
           isAuthenticated ? (
             <Badge
               variant="gradient"
-              gradient={{ from: "teal", to: "lime", deg: 105 }}
+              gradient={{ to: "teal", from: "lime", deg: 105 }}
             >
               Spotify Connected
             </Badge>
