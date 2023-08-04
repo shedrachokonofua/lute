@@ -28,7 +28,7 @@ const Assessment = ({ assessment }: { assessment: AlbumAssessment }) => {
 
   return hasMetadata ? (
     <Popover
-      width={200}
+      width={250}
       position="left-start"
       withArrow
       shadow="md"
@@ -37,14 +37,14 @@ const Assessment = ({ assessment }: { assessment: AlbumAssessment }) => {
       <Popover.Target>{score}</Popover.Target>
       <Popover.Dropdown sx={{ pointerEvents: "none" }}>
         <Text size="sm">
-          <b>Score</b>: {assessment.getScore() * 100}%
+          <b>Score</b>: {(assessment.getScore() * 100).toFixed(2)}%
         </Text>
         {assessment
           .getMetadataMap()
           .getEntryList()
           .map(([key, value]) => (
             <Text size="sm" key={key}>
-              <b>{key}</b>: {value}
+              <b>{key}</b>: {(Number(value) * 100).toFixed(2)}%
             </Text>
           ))}
       </Popover.Dropdown>
