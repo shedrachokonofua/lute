@@ -5,7 +5,9 @@ use crate::{
   albums::album_read_model_repository::{
     AlbumReadModel, AlbumReadModelRepository, AlbumSearchQueryBuilder,
   },
-  helpers::{bounded_min_heap::BoundedMinHeap, quantile_rank::QuantileRanking},
+  helpers::{
+    bounded_min_heap::BoundedMinHeap, math::default_if_zero, quantile_rank::QuantileRanking,
+  },
   profile::{profile::Profile, profile_summary::ItemWithFactor},
 };
 use anyhow::Result;
@@ -14,7 +16,10 @@ use derive_builder::Builder;
 use ordered_float::OrderedFloat;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rustis::{bb8::Pool, client::PooledClientManager};
-use std::sync::{Arc, Mutex};
+use std::{
+  collections::HashMap,
+  sync::{Arc, Mutex},
+};
 use tokio::sync::mpsc;
 use tracing::{instrument, warn};
 
@@ -83,14 +88,10 @@ fn calculate_average_rank(
     .iter()
     .map(|tag: &String| {
       let item = profile_tags.iter().find(|item| &item.item == tag);
-      let rank = match item {
-        Some(item) => ranking.get_rank(item),
-        None => {
-          warn!("Tag {} not found in profile", tag);
-          None
-        }
-      };
-      rank.unwrap_or(novelty_score)
+      match item {
+        Some(item) => default_if_zero(ranking.get_rank(item), novelty_score),
+        None => novelty_score,
+      }
     })
     .collect::<Vec<f64>>();
 
@@ -129,30 +130,36 @@ impl
       &album_read_model.0.descriptors,
       settings.novelty_score,
     )?;
-    let rating_rank = QuantileRanking::new(
-      &profile_albums
-        .iter()
-        .map(|album| OrderedFloat(album.rating))
-        .collect::<Vec<_>>(),
-    )
-    .get_rank(&OrderedFloat(album_read_model.0.rating))
-    .unwrap_or(settings.novelty_score);
-    let rating_count_rank = QuantileRanking::new(
-      &profile_albums
-        .iter()
-        .map(|album| album.rating_count)
-        .collect::<Vec<_>>(),
-    )
-    .get_rank(&album_read_model.0.rating_count)
-    .unwrap_or(settings.novelty_score);
-    let descriptor_count_rank = QuantileRanking::new(
-      &profile_albums
-        .iter()
-        .map(|album| album.descriptor_count)
-        .collect::<Vec<_>>(),
-    )
-    .get_rank(&album_read_model.0.descriptor_count)
-    .unwrap_or(settings.novelty_score);
+    let rating_rank = default_if_zero(
+      QuantileRanking::new(
+        &profile_albums
+          .iter()
+          .map(|album| OrderedFloat(album.rating))
+          .collect::<Vec<_>>(),
+      )
+      .get_rank(&OrderedFloat(album_read_model.0.rating)),
+      settings.novelty_score,
+    );
+    let rating_count_rank = default_if_zero(
+      QuantileRanking::new(
+        &profile_albums
+          .iter()
+          .map(|album| album.rating_count)
+          .collect::<Vec<_>>(),
+      )
+      .get_rank(&album_read_model.0.rating_count),
+      settings.novelty_score,
+    );
+    let descriptor_count_rank = default_if_zero(
+      QuantileRanking::new(
+        &profile_albums
+          .iter()
+          .map(|album| album.descriptor_count)
+          .collect::<Vec<_>>(),
+      )
+      .get_rank(&album_read_model.0.descriptor_count),
+      settings.novelty_score,
+    );
 
     let mut ranks = vec![average_primary_genre_rank; settings.primary_genre_weight as usize];
     ranks.append(&mut vec![
@@ -253,15 +260,18 @@ impl
           assessment_settings.novelty_score,
         )
         .unwrap();
-        let rating_rank = rating_ranking
-          .get_rank(&OrderedFloat(album.rating))
-          .unwrap_or(assessment_settings.novelty_score);
-        let rating_count_rank = rating_count_ranking
-          .get_rank(&album.rating_count)
-          .unwrap_or(assessment_settings.novelty_score);
-        let descriptor_count_rank = descriptor_count_ranking
-          .get_rank(&album.descriptor_count)
-          .unwrap_or(assessment_settings.novelty_score);
+        let rating_rank = default_if_zero(
+          rating_ranking.get_rank(&OrderedFloat(album.rating)),
+          assessment_settings.novelty_score,
+        );
+        let rating_count_rank = default_if_zero(
+          rating_count_ranking.get_rank(&album.rating_count),
+          assessment_settings.novelty_score,
+        );
+        let descriptor_count_rank = default_if_zero(
+          descriptor_count_ranking.get_rank(&album.descriptor_count),
+          assessment_settings.novelty_score,
+        );
 
         let mut ranks =
           vec![average_primary_genre_rank; assessment_settings.primary_genre_weight as usize];
@@ -286,6 +296,30 @@ impl
           assessment_settings.descriptor_count_weight
             as usize
         ]);
+
+        let mut metadata = HashMap::new();
+        metadata.insert(
+          "average_primary_genre_rank".to_string(),
+          average_primary_genre_rank.to_string(),
+        );
+        metadata.insert(
+          "average_secondary_genre_rank".to_string(),
+          average_secondary_genre_rank.to_string(),
+        );
+        metadata.insert(
+          "average_descriptor_rank".to_string(),
+          average_descriptor_rank.to_string(),
+        );
+        metadata.insert("rating_rank".to_string(), rating_rank.to_string());
+        metadata.insert(
+          "rating_count_rank".to_string(),
+          rating_count_rank.to_string(),
+        );
+        metadata.insert(
+          "descriptor_count_rank".to_string(),
+          descriptor_count_rank.to_string(),
+        );
+
         let score = ranks.iter().sum::<f64>() / ranks.len() as f64;
         if score.is_nan() {
           warn!("score is NaN");
@@ -294,7 +328,7 @@ impl
             album: album.clone(),
             assessment: AlbumAssessment {
               score: score as f32,
-              metadata: None,
+              metadata: Some(metadata),
             },
           };
 

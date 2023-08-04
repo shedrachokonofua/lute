@@ -1,3 +1,5 @@
+use num_traits::Num;
+
 pub fn median_by<T, F>(sorted_values: &mut Vec<T>, f: F) -> f32
 where
   F: Fn(&T) -> f32,
@@ -23,4 +25,12 @@ where
   T: Clone + Ord,
 {
   values.sort_by(|a, b| f(b).partial_cmp(&f(a)).unwrap());
+}
+
+pub fn default_if_zero<T: Num>(value: T, default: T) -> T {
+  if value.is_zero() {
+    default
+  } else {
+    value
+  }
 }

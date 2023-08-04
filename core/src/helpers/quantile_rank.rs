@@ -17,25 +17,19 @@ impl<T: Ord + Debug + Clone> QuantileRanking<T> {
     QuantileRanking { map, total }
   }
 
-  pub fn get_rank(&self, key: &T) -> Option<f64> {
+  pub fn get_rank(&self, key: &T) -> f64 {
     let mut rank_sum = 0;
     let mut count = 0;
 
-    for (item, &cnt) in self.map.iter() {
+    for (item, &cnt) in self.map.range(..=key) {
       if item < key {
         rank_sum += cnt;
       } else if item == key {
         count = cnt;
-      } else {
-        break;
       }
     }
 
-    if count > 0 {
-      let mid = (rank_sum as f64 + (rank_sum + count - 1) as f64) / 2.0;
-      return Some(mid / (self.total - 1) as f64);
-    }
-
-    None
+    let mid = (rank_sum as f64 + (rank_sum + count) as f64) / 2.0;
+    mid / self.total as f64
   }
 }

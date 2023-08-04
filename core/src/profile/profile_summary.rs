@@ -2,7 +2,7 @@ use super::profile::{Profile, ProfileId};
 use crate::{
   albums::album_read_model_repository::AlbumReadModel,
   files::file_metadata::file_name::FileName,
-  helpers::statistics::{desc_sort_by, median_by},
+  helpers::math::{desc_sort_by, median_by},
 };
 use chrono::Datelike;
 use rayon::prelude::*;
