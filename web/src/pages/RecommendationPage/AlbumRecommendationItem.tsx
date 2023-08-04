@@ -1,9 +1,58 @@
-import { Badge, Flex, Text, Title } from "@mantine/core";
-import { AlbumRecommendation } from "../../proto/lute_pb";
+import { Badge, Flex, Popover, Text, Title } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { AlbumAssessment, AlbumRecommendation } from "../../proto/lute_pb";
 
 interface AlbumRecommendationItemProps {
   recommendation: AlbumRecommendation;
 }
+
+const Assessment = ({ assessment }: { assessment: AlbumAssessment }) => {
+  const [opened, { close, open }] = useDisclosure(false);
+  const hasMetadata = assessment.getMetadataMap().getLength() > 0;
+
+  const score = (
+    <Title
+      order={4}
+      onMouseEnter={() => {
+        if (hasMetadata) {
+          open();
+        }
+      }}
+      onMouseLeave={() => {
+        close();
+      }}
+    >
+      {(assessment.getScore() * 100).toFixed(0)}%
+    </Title>
+  );
+
+  return hasMetadata ? (
+    <Popover
+      width={200}
+      position="left-start"
+      withArrow
+      shadow="md"
+      opened={opened}
+    >
+      <Popover.Target>{score}</Popover.Target>
+      <Popover.Dropdown sx={{ pointerEvents: "none" }}>
+        <Text size="sm">
+          <b>Score</b>: {assessment.getScore() * 100}%
+        </Text>
+        {assessment
+          .getMetadataMap()
+          .getEntryList()
+          .map(([key, value]) => (
+            <Text size="sm" key={key}>
+              <b>{key}</b>: {value}
+            </Text>
+          ))}
+      </Popover.Dropdown>
+    </Popover>
+  ) : (
+    score
+  );
+};
 
 export const AlbumRecommendationItem = ({
   recommendation,
@@ -23,7 +72,7 @@ export const AlbumRecommendationItem = ({
             {album.getName()}
           </a>
         </Title>
-        <Title order={4}>{(assessment.getScore() * 100).toFixed(0)}%</Title>
+        <Assessment assessment={assessment} />
       </Flex>
       <Title order={5}>
         {album
