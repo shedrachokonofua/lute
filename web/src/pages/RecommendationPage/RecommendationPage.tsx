@@ -179,8 +179,12 @@ export const RecommendationPage = () => {
           borderRight: "1px solid rgb(200, 225, 235)",
           boxShadow:
             "inset -4px 0 10px -5px rgba(0, 0, 0, 0.15), inset 4px 0 10px -5px rgba(0, 0, 0, 0.15)",
-          overflowY: "auto",
-          height: "calc(100vh - 55px)",
+        }}
+        sx={{
+          "@media (min-width: 1024px)": {
+            overflowY: "auto",
+            height: "calc(100vh - 55px)",
+          },
         }}
         px="md"
       >
@@ -192,9 +196,11 @@ export const RecommendationPage = () => {
       </Grid.Col>
       <Grid.Col
         md={9.25}
-        style={{
-          overflowY: "auto",
-          height: "calc(100vh - 55px)",
+        sx={{
+          "@media (min-width: 1024px)": {
+            overflowY: "auto",
+            height: "calc(100vh - 55px)",
+          },
         }}
         px="xs"
       >

@@ -21,6 +21,9 @@ const Assessment = ({ assessment }: { assessment: AlbumAssessment }) => {
       onMouseLeave={() => {
         close();
       }}
+      style={{
+        cursor: "pointer",
+      }}
     >
       {(assessment.getScore() * 100).toFixed(0)}%
     </Title>
