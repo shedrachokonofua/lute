@@ -245,13 +245,12 @@ fn get_min_num_query(tag: &str, min: Option<usize>) -> String {
 }
 
 fn get_num_range_query(tag: &str, min: Option<u32>, max: Option<u32>) -> String {
-  let v = match (min, max) {
+  match (min, max) {
     (Some(min), Some(max)) => format!("{}:[{}, {}] ", tag, min, max),
     (Some(min), None) => format!("{}:[{}, +inf] ", tag, min),
     (None, Some(max)) => format!("{}:[-inf, {}] ", tag, max),
     (None, None) => String::from(""),
-  };
-  v
+  }
 }
 
 const NAMESPACE: &str = "album";

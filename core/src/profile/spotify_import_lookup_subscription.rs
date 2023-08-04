@@ -27,7 +27,11 @@ pub fn build_spotify_import_lookup_subscriptions(
         track.artists.get(0).expect("artist not found").name.clone(),
       );
       let subscription = subscriptions.get(&query);
-      if subscription.is_none() {
+      if let Some(subscription) = subscription {
+        let mut subscription = subscription.clone();
+        subscription.factor += 1;
+        subscriptions.insert(query, subscription);
+      } else {
         subscriptions.insert(
           query.clone(),
           SpotifyImportLookupSubscription {
@@ -37,10 +41,6 @@ pub fn build_spotify_import_lookup_subscriptions(
             factor: 1,
           },
         );
-      } else {
-        let mut subscription = subscription.unwrap().clone();
-        subscription.factor += 1;
-        subscriptions.insert(query, subscription);
       }
     }
   }

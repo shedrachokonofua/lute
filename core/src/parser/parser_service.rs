@@ -95,7 +95,7 @@ impl TryInto<proto::ParsedTrack> for ParsedTrack {
   fn try_into(self) -> Result<proto::ParsedTrack> {
     Ok(proto::ParsedTrack {
       name: self.name,
-      duration_seconds: self.duration_seconds.try_into()?,
+      duration_seconds: self.duration_seconds,
       rating: self.rating,
       position: self.position,
     })

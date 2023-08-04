@@ -183,38 +183,38 @@ async fn handle_file_processing_event(
         .await?;
     }
   } else if let Event::FileParsed {
-    file_name, data, ..
+    file_name,
+    data: ParsedFileData::Album(album),
+    ..
   } = context.payload.event
   {
-    if let ParsedFileData::Album(album) = data {
-      let lookups = lookup_interactor
-        .find_many_album_search_lookups_by_album_file_name(&file_name)
-        .await?;
-      for lookup in lookups {
-        info!(
-          file_name = file_name.to_string(),
-          "Found album search lookup for album file name"
-        );
-        event_publisher
-          .publish(
-            Stream::Lookup,
-            EventPayload {
-              event: Event::LookupAlbumSearchUpdated {
-                lookup: AlbumSearchLookup::AlbumParsed {
-                  album_search_file_name: lookup.album_search_file_name().unwrap(),
-                  query: lookup.query().clone(),
-                  last_updated_at: chrono::Utc::now().naive_utc(),
-                  file_processing_correlation_id: lookup.file_processing_correlation_id().clone(),
-                  parsed_album_search_result: lookup.parsed_album_search_result().unwrap(),
-                  parsed_album: album.clone(),
-                },
+    let lookups = lookup_interactor
+      .find_many_album_search_lookups_by_album_file_name(&file_name)
+      .await?;
+    for lookup in lookups {
+      info!(
+        file_name = file_name.to_string(),
+        "Found album search lookup for album file name"
+      );
+      event_publisher
+        .publish(
+          Stream::Lookup,
+          EventPayload {
+            event: Event::LookupAlbumSearchUpdated {
+              lookup: AlbumSearchLookup::AlbumParsed {
+                album_search_file_name: lookup.album_search_file_name().unwrap(),
+                query: lookup.query().clone(),
+                last_updated_at: chrono::Utc::now().naive_utc(),
+                file_processing_correlation_id: lookup.file_processing_correlation_id().clone(),
+                parsed_album_search_result: lookup.parsed_album_search_result().unwrap(),
+                parsed_album: album.clone(),
               },
-              correlation_id: Some(lookup.file_processing_correlation_id().clone()),
-              metadata: None,
             },
-          )
-          .await?;
-      }
+            correlation_id: Some(lookup.file_processing_correlation_id().clone()),
+            metadata: None,
+          },
+        )
+        .await?;
     }
   }
   Ok(())

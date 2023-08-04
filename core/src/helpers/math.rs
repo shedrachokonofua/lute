@@ -19,7 +19,7 @@ where
   }
 }
 
-pub fn desc_sort_by<T, F>(values: &mut Vec<T>, f: F)
+pub fn desc_sort_by<T, F>(values: &mut [T], f: F)
 where
   F: Fn(&T) -> f32,
   T: Clone + Ord,

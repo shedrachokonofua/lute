@@ -304,15 +304,12 @@ impl SpotifyClient {
     drop(tx);
     let mut tracks = vec![];
     while let Some(playlist_item) = rx.recv().await {
-      if let Some(playable_item) = playlist_item.track {
-        match playable_item {
-          PlayableItem::Track(track) => match track.try_into() {
-            Ok(track) => tracks.push(track),
-            Err(err) => {
-              warn!("Failed to convert track: {}", err);
-            }
-          },
-          _ => {}
+      if let Some(PlayableItem::Track(track)) = playlist_item.track {
+        match track.try_into() {
+          Ok(track) => tracks.push(track),
+          Err(err) => {
+            warn!("Failed to convert track: {}", err);
+          }
         }
       }
     }

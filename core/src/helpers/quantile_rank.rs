@@ -1,4 +1,4 @@
-use std::cmp::Ord;
+use std::cmp::{Ord, Ordering};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
@@ -22,10 +22,10 @@ impl<T: Ord + Debug + Clone> QuantileRanking<T> {
     let mut count = 0;
 
     for (item, &cnt) in self.map.range(..=key) {
-      if item < key {
-        rank_sum += cnt;
-      } else if item == key {
-        count = cnt;
+      match item.cmp(key) {
+        Ordering::Less => rank_sum += cnt,
+        Ordering::Equal => count = cnt,
+        Ordering::Greater => break,
       }
     }
 

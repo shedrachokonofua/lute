@@ -80,8 +80,8 @@ impl TryFrom<AlbumReadModel> for QuantileRankAssessableAlbum {
 
 fn calculate_average_rank(
   ranking: &QuantileRanking<ItemWithFactor>,
-  profile_tags: &Vec<ItemWithFactor>,
-  album_tags: &Vec<String>,
+  profile_tags: &[ItemWithFactor],
+  album_tags: &[String],
   novelty_score: f64,
 ) -> Result<f64> {
   let ranks = album_tags
@@ -107,7 +107,7 @@ impl
   async fn assess_album(
     &self,
     profile: &Profile,
-    profile_albums: &Vec<AlbumReadModel>,
+    profile_albums: &[AlbumReadModel],
     album_read_model: &QuantileRankAssessableAlbum,
     settings: QuantileRankAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
@@ -191,7 +191,7 @@ impl
   async fn recommend_albums(
     &self,
     profile: &Profile,
-    profile_albums: &Vec<AlbumReadModel>,
+    profile_albums: &[AlbumReadModel],
     assessment_settings: QuantileRankAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {

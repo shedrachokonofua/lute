@@ -73,7 +73,7 @@ pub trait RecommendationMethodInteractor<
   async fn assess_album(
     &self,
     profile: &Profile,
-    profile_albums: &Vec<AlbumReadModel>,
+    profile_albums: &[AlbumReadModel],
     album: &TAssessableAlbum,
     settings: TAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment>;
@@ -81,7 +81,7 @@ pub trait RecommendationMethodInteractor<
   async fn recommend_albums(
     &self,
     profile: &Profile,
-    profile_albums: &Vec<AlbumReadModel>,
+    profile_albums: &[AlbumReadModel],
     assessment_settings: TAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>>;

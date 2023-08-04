@@ -33,7 +33,7 @@ impl PartialEq for ItemWithFactor {
   }
 }
 
-fn desc_sort_by_factor(values: &mut Vec<ItemWithFactor>) {
+fn desc_sort_by_factor(values: &mut [ItemWithFactor]) {
   desc_sort_by(values, |item| item.factor as f32);
 }
 
@@ -54,7 +54,7 @@ pub struct ProfileSummary {
 }
 
 impl Profile {
-  pub fn summarize(&self, album_read_models: &Vec<AlbumReadModel>) -> ProfileSummary {
+  pub fn summarize(&self, album_read_models: &[AlbumReadModel]) -> ProfileSummary {
     let album_read_models_map = album_read_models
       .into_par_iter()
       .map(|album_read_model| (album_read_model.file_name.clone(), album_read_model))
