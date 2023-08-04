@@ -1,4 +1,4 @@
-import { Badge, Text, Title } from "@mantine/core";
+import { Badge, Flex, Text, Title } from "@mantine/core";
 import { AlbumRecommendation } from "../../proto/lute_pb";
 
 interface AlbumRecommendationItemProps {
@@ -9,18 +9,22 @@ export const AlbumRecommendationItem = ({
   recommendation,
 }: AlbumRecommendationItemProps) => {
   const album = recommendation.getAlbum()!;
+  const assessment = recommendation.getAssessment()!;
 
   return (
     <div>
-      <Title order={3}>
-        <a
-          href={`https://rateyourmusic.com/${album.getFileName()}`}
-          target="_blank"
-          style={{ textDecoration: "none" }}
-        >
-          {album.getName()}
-        </a>
-      </Title>
+      <Flex justify="space-between">
+        <Title order={3}>
+          <a
+            href={`https://rateyourmusic.com/${album.getFileName()}`}
+            target="_blank"
+            style={{ textDecoration: "none" }}
+          >
+            {album.getName()}
+          </a>
+        </Title>
+        <Title order={4}>{(assessment.getScore() * 100).toFixed(0)}%</Title>
+      </Flex>
       <Title order={5}>
         {album
           .getArtistsList()
