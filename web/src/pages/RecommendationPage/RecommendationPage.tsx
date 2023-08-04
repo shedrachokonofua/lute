@@ -58,10 +58,6 @@ interface RecommendationSettingsLoaderData {
 export const recommendationPageLoader = async ({
   request,
 }: LoaderFunctionArgs) => {
-  const [profiles, aggregatedGenres] = await Promise.all([
-    getAllProfiles(),
-    getAggregatedGenres(),
-  ]);
   const url = new URL(request.url);
   const profileId = url.searchParams.get(
     RecommendationSettingsFormName.ProfileId,
@@ -156,6 +152,11 @@ export const recommendationPageLoader = async ({
     : null;
 
   const recommendations = settings ? getAlbumRecommendations(settings) : null;
+
+  const [profiles, aggregatedGenres] = await Promise.all([
+    getAllProfiles(),
+    getAggregatedGenres(),
+  ]);
 
   return defer({
     profiles,
