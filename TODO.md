@@ -13,12 +13,17 @@
 - [x] Recommendations(Quantile rank): Album recommendations, rpc method
 - [x] Web: Recommendation page
 - [x] Recommendations(Quantile rank): Support searching full index
-- [ ] Recommendations(Quantile rank): Descriptor count weight assessment setting to bias for well annotated albums, expose setting on proto
-- [ ] Recommendations(Quantile rank): Genre tokenization
+- [x] Recommendations(Quantile rank): Descriptor count weight assessment setting to bias for well annotated albums, expose setting on proto
+- [ ] Web(Recommendation page): Display recommendation score and metadata breakdown
 - [ ] Web(Recommendation page): Expose all quantile rank settings
-- [ ] Web(Recommendation page): Album context menu
 - [ ] Web(Recommendation page): Settings presets
+- [ ] Parser: Extract album credits
+- [ ] Parser: Extract album language
+- [ ] Parser: Extract album cover image
+- [ ] Parser: Extract album spotify link
+- [ ] Recommendations(Quantile rank): Genre tokenization
 - [ ] Web: Add to docker image
+- [ ] Web(Recommendation page): Album context menu
 - [ ] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
 - [ ] Recommendations(Vector similarity): Album recommendations, rpc method
 - [ ] Album read model repository stats, rpc method
@@ -32,7 +37,6 @@
 - [ ] Lookup: Chart
 - [ ] Lookup: Artist
 - [ ] Documentation: System diagram, how-tos
-- [ ] Parser: Extract album credits, language
 - [ ] Extension: Recommendation popup
 - [ ] Recommendations: Export to spotify playlist
 - [ ] Parser: Parser versioning, Target site change detection + playbook
