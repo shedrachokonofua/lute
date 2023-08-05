@@ -16,11 +16,12 @@
 - [x] Recommendations(Quantile rank): Descriptor count weight assessment setting to bias for well annotated albums, expose setting on proto
 - [x] Web(Recommendation page): Display recommendation score and metadata breakdown
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): Support release year filtering
-- [ ] Web(Recommendation page): Expose all quantile rank settings
-- [ ] Web(Recommendation page): Settings presets
+- [x] Parser: Extract album language
 - [ ] Parser: Extract album credits
-- [ ] Parser: Extract album language
 - [ ] Parser: Extract album cover image
+- [ ] Web(Recommendation page): Expose novelty score
+- [ ] Recommendations(Quantile rank) + Web(Recommendation page): Expose default settings for settings form
+- [ ] Web(Recommendation page): Settings presets
 - [ ] Parser: Extract album spotify link
 - [ ] Recommendations(Quantile rank): Genre tokenization
 - [ ] Web: Add to docker image
