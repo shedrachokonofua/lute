@@ -5,10 +5,12 @@ const isRymTab = (tab: chrome.tabs.Tab) => {
 };
 
 const getFileName = (url) =>
-  new URL(url).pathname
-    .split("/")
-    .filter((x) => x !== "")
-    .join("/");
+  decodeURI(
+    new URL(url).pathname
+      .split("/")
+      .filter((x) => x !== "")
+      .join("/")
+  );
 
 export const onRymPageLoaded = (
   callback: (fileName: string, content: string) => void
