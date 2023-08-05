@@ -67,15 +67,14 @@ export const AlbumRecommendationItem = ({
     <div>
       <Flex justify="space-between">
         <Flex align="center" gap="0.5rem">
-          <Title order={3}>
+          <Text weight="bold" size="1.25rem">
             <Anchor
               href={`https://rateyourmusic.com/${album.getFileName()}`}
               target="_blank"
-              style={{ textDecoration: "none" }}
             >
               {album.getName()}
             </Anchor>
-          </Title>
+          </Text>
           <Badge
             variant="gradient"
             gradient={{ from: "teal", to: "blue", deg: 60 }}
@@ -85,12 +84,12 @@ export const AlbumRecommendationItem = ({
         </Flex>
         <Assessment assessment={assessment} />
       </Flex>
-      <Title order={5}>
+      <Text weight="bold">
         {album
           .getArtistsList()
           .map((a) => a.getName())
           .join(", ")}
-      </Title>
+      </Text>
       <div>
         <Text size="sm" color="#333">
           {album.getReleaseDate()}
