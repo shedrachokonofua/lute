@@ -9,7 +9,7 @@ import {
   Title,
   useMantineTheme,
 } from "@mantine/core";
-import React, { useState } from "react";
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { SpotifyWidget } from "./SpotifyWidget";
 
@@ -36,7 +36,7 @@ const NavItem = ({ label, href, active }: NavItemProps) => (
   />
 );
 
-export const Layout = ({ children }: React.FC) => {
+export const Layout = () => {
   const theme = useMantineTheme();
   const [opened, setOpened] = useState(false);
   return (

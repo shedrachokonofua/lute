@@ -250,7 +250,10 @@ export const RecommendationPage = () => {
                   <div>Select a profile to get started</div>
                 ) : (
                   recommendations.map((r) => (
-                    <AlbumRecommendationItem recommendation={r} />
+                    <AlbumRecommendationItem
+                      key={r.getAlbum()!.getFileName()}
+                      recommendation={r}
+                    />
                   ))
                 )}
               </Stack>

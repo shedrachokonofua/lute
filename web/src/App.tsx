@@ -26,7 +26,7 @@ const router = createBrowserRouter([
 ]);
 
 export const App = () => (
-  <MantineProvider children={undefined}>
+  <MantineProvider>
     <RouterProvider router={router} />
   </MantineProvider>
 );
