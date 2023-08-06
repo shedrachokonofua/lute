@@ -264,18 +264,9 @@ impl
           assessment_settings.novelty_score,
         )
         .unwrap();
-        let rating_rank = default_if_zero(
-          rating_ranking.get_rank(&OrderedFloat(album.rating)),
-          assessment_settings.novelty_score,
-        );
-        let rating_count_rank = default_if_zero(
-          rating_count_ranking.get_rank(&album.rating_count),
-          assessment_settings.novelty_score,
-        );
-        let descriptor_count_rank = default_if_zero(
-          descriptor_count_ranking.get_rank(&album.descriptor_count),
-          assessment_settings.novelty_score,
-        );
+        let rating_rank = rating_ranking.get_rank(&OrderedFloat(album.rating));
+        let rating_count_rank = rating_count_ranking.get_rank(&album.rating_count);
+        let descriptor_count_rank = descriptor_count_ranking.get_rank(&album.descriptor_count);
 
         let mut ranks =
           vec![average_primary_genre_rank; assessment_settings.primary_genre_weight as usize];
