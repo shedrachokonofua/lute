@@ -510,7 +510,13 @@ message RecommendAlbumsReply {
   repeated AlbumRecommendation recommendations = 1;
 }
 
+message DefaultQuantileRankAlbumAssessmentSettingsReply {
+  QuantileRankAlbumAssessmentSettings settings = 1;
+}
+
 service RecommendationService {
   rpc AssessAlbum(AssessAlbumRequest) returns (AssessAlbumReply) {}
   rpc RecommendAlbums(RecommendAlbumsRequest) returns (RecommendAlbumsReply) {}
+  rpc DefaultQuantileRankAlbumAssessmentSettings(google.protobuf.Empty)
+      returns (DefaultQuantileRankAlbumAssessmentSettingsReply) {}
 }

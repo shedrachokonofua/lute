@@ -145,6 +145,21 @@ impl From<AlbumRecommendation> for proto::AlbumRecommendation {
   }
 }
 
+impl From<QuantileRankAlbumAssessmentSettings> for proto::QuantileRankAlbumAssessmentSettings {
+  fn from(value: QuantileRankAlbumAssessmentSettings) -> Self {
+    Self {
+      novelty_score: Some(value.novelty_score as f32),
+      primary_genre_weight: Some(value.primary_genre_weight),
+      secondary_genre_weight: Some(value.secondary_genre_weight),
+      descriptor_weight: Some(value.descriptor_weight),
+      rating_weight: Some(value.rating_weight),
+      rating_count_weight: Some(value.rating_count_weight),
+      descriptor_count_weight: Some(value.descriptor_count_weight),
+      credit_tag_weight: Some(value.credit_tag_weight),
+    }
+  }
+}
+
 #[async_trait]
 impl proto::RecommendationService for RecommendationService {
   async fn assess_album(
@@ -217,5 +232,15 @@ impl proto::RecommendationService for RecommendationService {
     Ok(Response::new(proto::RecommendAlbumsReply {
       recommendations: recommendations.into_iter().map(Into::into).collect(),
     }))
+  }
+  async fn default_quantile_rank_album_assessment_settings(
+    &self,
+    _request: Request<()>,
+  ) -> Result<Response<proto::DefaultQuantileRankAlbumAssessmentSettingsReply>, Status> {
+    Ok(Response::new(
+      proto::DefaultQuantileRankAlbumAssessmentSettingsReply {
+        settings: Some(QuantileRankAlbumAssessmentSettings::default().into()),
+      },
+    ))
   }
 }

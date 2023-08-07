@@ -11,6 +11,7 @@ import {
   getAggregatedLanguages,
   getAlbumRecommendations,
   getAllProfiles,
+  getDefaultQuantileRankAlbumAssessmentSettings,
 } from "../../client";
 import {
   AlbumRecommendation,
@@ -68,59 +69,68 @@ export const recommendationPageLoader = async ({
   const assessmentMethod = url.searchParams.get(
     RecommendationSettingsFormName.Method,
   );
+  const quantileRankDefaults =
+    await getDefaultQuantileRankAlbumAssessmentSettings();
   const assessmentSettings =
     assessmentMethod === "quantile-ranking"
       ? coerceToUndefined({
           quantileRanking: {
-            primaryGenresWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingPrimaryGenresWeight,
+            primaryGenresWeight:
+              toNumber(
+                coerceToUndefined(
+                  url.searchParams.get(
+                    RecommendationSettingsFormName.QuantileRankingPrimaryGenresWeight,
+                  ),
                 ),
-              ),
-            ),
-            secondaryGenresWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingSecondaryGenresWeight,
+              ) ?? quantileRankDefaults.getPrimaryGenreWeight(),
+            secondaryGenresWeight:
+              toNumber(
+                coerceToUndefined(
+                  url.searchParams.get(
+                    RecommendationSettingsFormName.QuantileRankingSecondaryGenresWeight,
+                  ),
                 ),
-              ),
-            ),
-            descriptorWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingDescriptorWeight,
+              ) ?? quantileRankDefaults.getSecondaryGenreWeight(),
+            descriptorWeight:
+              toNumber(
+                coerceToUndefined(
+                  url.searchParams.get(
+                    RecommendationSettingsFormName.QuantileRankingDescriptorWeight,
+                  ),
                 ),
-              ),
-            ),
-            ratingWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingRatingWeight,
+              ) ?? quantileRankDefaults.getDescriptorWeight(),
+            ratingWeight:
+              toNumber(
+                coerceToUndefined(
+                  url.searchParams.get(
+                    RecommendationSettingsFormName.QuantileRankingRatingWeight,
+                  ),
                 ),
-              ),
-            ),
-            ratingCountWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingRatingCountWeight,
+              ) ?? quantileRankDefaults.getRatingWeight(),
+            ratingCountWeight:
+              toNumber(
+                coerceToUndefined(
+                  url.searchParams.get(
+                    RecommendationSettingsFormName.QuantileRankingRatingCountWeight,
+                  ),
                 ),
-              ),
-            ),
-            descriptorCountWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingDescriptorCountWeight,
+              ) ?? quantileRankDefaults.getRatingCountWeight(),
+            descriptorCountWeight:
+              toNumber(
+                coerceToUndefined(
+                  url.searchParams.get(
+                    RecommendationSettingsFormName.QuantileRankingDescriptorCountWeight,
+                  ),
                 ),
-              ),
-            ),
-            creditTagWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingCreditTagWeight,
+              ) ?? quantileRankDefaults.getDescriptorCountWeight(),
+            creditTagWeight:
+              toNumber(
+                coerceToUndefined(
+                  url.searchParams.get(
+                    RecommendationSettingsFormName.QuantileRankingCreditTagWeight,
+                  ),
                 ),
-              ),
-            ),
+              ) ?? quantileRankDefaults.getCreditTagWeight(),
           },
         })
       : undefined;

@@ -163,3 +163,17 @@ export const getAlbumRecommendations = async (
   const response = await client.recommendation.recommendAlbums(request, null);
   return response.getRecommendationsList();
 };
+
+export const getDefaultQuantileRankAlbumAssessmentSettings =
+  async (): Promise<QuantileRankAlbumAssessmentSettings> => {
+    const response =
+      await client.recommendation.defaultQuantileRankAlbumAssessmentSettings(
+        new Empty(),
+        null,
+      );
+    const settings = response.getSettings();
+    if (!settings) {
+      throw new Error("No settings returned");
+    }
+    return settings;
+  };

@@ -19,7 +19,7 @@
 - [x] Parser: Extract album language
 - [x] Parser: Extract album credits
 - [x] Recommendations(Quantile rank): Credit tag parameter
-- [ ] Recommendations(Quantile rank) + Web(Recommendation page): Expose default settings values rpc for settings form
+- [x] Recommendations(Quantile rank) + Web(Recommendation page): Expose default settings values rpc for settings form
 - [ ] Recommendations(Quantile rank) + Web(Recommendation page): "Exclude known artists" setting
 - [ ] Recommendations(Quantile rank) + Web(Recommendation page): Setting parameter weight to 0 should exclude from calculation
 - [ ] Perf: Replace settings cloning with Arc
