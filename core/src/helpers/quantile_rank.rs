@@ -1,6 +1,7 @@
 use std::cmp::{Ord, Ordering};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use tracing::instrument;
 
 pub struct QuantileRanking<T: Ord + Debug + Clone> {
   map: BTreeMap<T, usize>,
@@ -8,6 +9,7 @@ pub struct QuantileRanking<T: Ord + Debug + Clone> {
 }
 
 impl<T: Ord + Debug + Clone> QuantileRanking<T> {
+  #[instrument(skip(data), name = "QuantileRanking::new")]
   pub fn new(data: &Vec<T>) -> Self {
     let mut map = BTreeMap::new();
     let total = data.len();
