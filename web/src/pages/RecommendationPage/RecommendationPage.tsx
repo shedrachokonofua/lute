@@ -18,6 +18,7 @@ import {
   GenreAggregate,
   LanguageAggregate,
   Profile,
+  QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
 import { AlbumRecommendationItem } from "./AlbumRecommendationItem";
 import {
@@ -57,6 +58,7 @@ interface RecommendationSettingsLoaderData {
   aggregatedLanguages: LanguageAggregate[];
   settings: RecommendationSettingsForm | null;
   recommendations: AlbumRecommendation[] | null;
+  defaultQuantileRankAlbumAssessmentSettings: QuantileRankAlbumAssessmentSettings;
 }
 
 export const recommendationPageLoader = async ({
@@ -69,68 +71,61 @@ export const recommendationPageLoader = async ({
   const assessmentMethod = url.searchParams.get(
     RecommendationSettingsFormName.Method,
   );
-  const quantileRankDefaults =
+  const defaultQuantileRankAlbumAssessmentSettings =
     await getDefaultQuantileRankAlbumAssessmentSettings();
   const assessmentSettings =
     assessmentMethod === "quantile-ranking"
       ? coerceToUndefined({
           quantileRanking: {
-            primaryGenresWeight:
-              toNumber(
-                coerceToUndefined(
-                  url.searchParams.get(
-                    RecommendationSettingsFormName.QuantileRankingPrimaryGenresWeight,
-                  ),
+            primaryGenresWeight: toNumber(
+              coerceToUndefined(
+                url.searchParams.get(
+                  RecommendationSettingsFormName.QuantileRankingPrimaryGenresWeight,
                 ),
-              ) ?? quantileRankDefaults.getPrimaryGenreWeight(),
-            secondaryGenresWeight:
-              toNumber(
-                coerceToUndefined(
-                  url.searchParams.get(
-                    RecommendationSettingsFormName.QuantileRankingSecondaryGenresWeight,
-                  ),
+              ),
+            ),
+            secondaryGenresWeight: toNumber(
+              coerceToUndefined(
+                url.searchParams.get(
+                  RecommendationSettingsFormName.QuantileRankingSecondaryGenresWeight,
                 ),
-              ) ?? quantileRankDefaults.getSecondaryGenreWeight(),
-            descriptorWeight:
-              toNumber(
-                coerceToUndefined(
-                  url.searchParams.get(
-                    RecommendationSettingsFormName.QuantileRankingDescriptorWeight,
-                  ),
+              ),
+            ),
+            descriptorWeight: toNumber(
+              coerceToUndefined(
+                url.searchParams.get(
+                  RecommendationSettingsFormName.QuantileRankingDescriptorWeight,
                 ),
-              ) ?? quantileRankDefaults.getDescriptorWeight(),
-            ratingWeight:
-              toNumber(
-                coerceToUndefined(
-                  url.searchParams.get(
-                    RecommendationSettingsFormName.QuantileRankingRatingWeight,
-                  ),
+              ),
+            ),
+            ratingWeight: toNumber(
+              coerceToUndefined(
+                url.searchParams.get(
+                  RecommendationSettingsFormName.QuantileRankingRatingWeight,
                 ),
-              ) ?? quantileRankDefaults.getRatingWeight(),
-            ratingCountWeight:
-              toNumber(
-                coerceToUndefined(
-                  url.searchParams.get(
-                    RecommendationSettingsFormName.QuantileRankingRatingCountWeight,
-                  ),
+              ),
+            ),
+            ratingCountWeight: toNumber(
+              coerceToUndefined(
+                url.searchParams.get(
+                  RecommendationSettingsFormName.QuantileRankingRatingCountWeight,
                 ),
-              ) ?? quantileRankDefaults.getRatingCountWeight(),
-            descriptorCountWeight:
-              toNumber(
-                coerceToUndefined(
-                  url.searchParams.get(
-                    RecommendationSettingsFormName.QuantileRankingDescriptorCountWeight,
-                  ),
+              ),
+            ),
+            descriptorCountWeight: toNumber(
+              coerceToUndefined(
+                url.searchParams.get(
+                  RecommendationSettingsFormName.QuantileRankingDescriptorCountWeight,
                 ),
-              ) ?? quantileRankDefaults.getDescriptorCountWeight(),
-            creditTagWeight:
-              toNumber(
-                coerceToUndefined(
-                  url.searchParams.get(
-                    RecommendationSettingsFormName.QuantileRankingCreditTagWeight,
-                  ),
+              ),
+            ),
+            creditTagWeight: toNumber(
+              coerceToUndefined(
+                url.searchParams.get(
+                  RecommendationSettingsFormName.QuantileRankingCreditTagWeight,
                 ),
-              ) ?? quantileRankDefaults.getCreditTagWeight(),
+              ),
+            ),
           },
         })
       : undefined;
@@ -217,6 +212,7 @@ export const recommendationPageLoader = async ({
     aggregatedLanguages,
     settings,
     recommendations,
+    defaultQuantileRankAlbumAssessmentSettings,
   });
 };
 
@@ -227,6 +223,7 @@ export const RecommendationPage = () => {
     aggregatedLanguages,
     settings,
     recommendations,
+    defaultQuantileRankAlbumAssessmentSettings,
   } = useLoaderData() as RecommendationSettingsLoaderData;
 
   return (
@@ -252,6 +249,9 @@ export const RecommendationPage = () => {
           aggregatedGenres={aggregatedGenres}
           aggregatedLanguages={aggregatedLanguages}
           settings={settings}
+          defaultQuantileRankAlbumAssessmentSettings={
+            defaultQuantileRankAlbumAssessmentSettings
+          }
         />
       </Grid.Col>
       <Grid.Col

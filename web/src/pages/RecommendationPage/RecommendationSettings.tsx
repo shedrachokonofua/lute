@@ -14,6 +14,7 @@ import {
   GenreAggregate,
   LanguageAggregate,
   Profile,
+  QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
 
 export type RecommendationMethod = "quantile-ranking";
@@ -86,11 +87,13 @@ export const RecommendationSettings = ({
   aggregatedGenres,
   aggregatedLanguages,
   settings,
+  defaultQuantileRankAlbumAssessmentSettings,
 }: {
   profiles: Profile[];
   aggregatedGenres: GenreAggregate[];
   aggregatedLanguages: LanguageAggregate[];
   settings: RecommendationSettingsForm | null;
+  defaultQuantileRankAlbumAssessmentSettings: QuantileRankAlbumAssessmentSettings;
 }) => {
   const profileOptions = profiles.map((profile) => ({
     label: profile.getName(),
@@ -256,7 +259,8 @@ export const RecommendationSettings = ({
                       }
                       defaultValue={
                         settings?.assessmentSettings?.quantileRanking
-                          ?.primaryGenresWeight
+                          ?.primaryGenresWeight ??
+                        defaultQuantileRankAlbumAssessmentSettings.getPrimaryGenreWeight()
                       }
                     />
                   </Grid.Col>
@@ -272,7 +276,8 @@ export const RecommendationSettings = ({
                       }
                       defaultValue={
                         settings?.assessmentSettings?.quantileRanking
-                          ?.secondaryGenresWeight
+                          ?.secondaryGenresWeight ??
+                        defaultQuantileRankAlbumAssessmentSettings.getSecondaryGenreWeight()
                       }
                     />
                   </Grid.Col>
@@ -288,7 +293,8 @@ export const RecommendationSettings = ({
                       }
                       defaultValue={
                         settings?.assessmentSettings?.quantileRanking
-                          ?.descriptorWeight
+                          ?.descriptorWeight ??
+                        defaultQuantileRankAlbumAssessmentSettings.getDescriptorWeight()
                       }
                     />
                   </Grid.Col>
@@ -304,7 +310,8 @@ export const RecommendationSettings = ({
                       }
                       defaultValue={
                         settings?.assessmentSettings?.quantileRanking
-                          ?.ratingWeight
+                          ?.ratingWeight ??
+                        defaultQuantileRankAlbumAssessmentSettings.getRatingWeight()
                       }
                     />
                   </Grid.Col>
@@ -320,7 +327,8 @@ export const RecommendationSettings = ({
                       }
                       defaultValue={
                         settings?.assessmentSettings?.quantileRanking
-                          ?.ratingCountWeight
+                          ?.ratingCountWeight ??
+                        defaultQuantileRankAlbumAssessmentSettings.getRatingCountWeight()
                       }
                     />
                   </Grid.Col>
@@ -336,7 +344,8 @@ export const RecommendationSettings = ({
                       }
                       defaultValue={
                         settings?.assessmentSettings?.quantileRanking
-                          ?.descriptorCountWeight
+                          ?.descriptorCountWeight ??
+                        defaultQuantileRankAlbumAssessmentSettings.getDescriptorCountWeight()
                       }
                     />
                   </Grid.Col>
@@ -352,7 +361,8 @@ export const RecommendationSettings = ({
                       }
                       defaultValue={
                         settings?.assessmentSettings?.quantileRanking
-                          ?.creditTagWeight
+                          ?.creditTagWeight ??
+                        defaultQuantileRankAlbumAssessmentSettings.getCreditTagWeight()
                       }
                     />
                   </Grid.Col>
