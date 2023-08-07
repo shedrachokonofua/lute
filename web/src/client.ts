@@ -123,6 +123,7 @@ export const settingsToRecommendationRequest = (
       ratingCountWeight,
       ratingWeight,
       descriptorCountWeight,
+      creditTagWeight,
     } = settings.assessmentSettings.quantileRanking;
     if (primaryGenresWeight) {
       quantileRankSettings.setPrimaryGenreWeight(primaryGenresWeight);
@@ -141,6 +142,9 @@ export const settingsToRecommendationRequest = (
     }
     if (descriptorCountWeight) {
       quantileRankSettings.setDescriptorCountWeight(descriptorCountWeight);
+    }
+    if (creditTagWeight) {
+      quantileRankSettings.setCreditTagWeight(creditTagWeight);
     }
     assessmentSettings.setQuantileRankSettings(quantileRankSettings);
   }

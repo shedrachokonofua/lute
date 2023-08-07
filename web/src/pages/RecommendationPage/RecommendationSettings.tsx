@@ -41,6 +41,8 @@ export const RecommendationSettingsFormName = {
     "assessmentSettings.quantileRanking.ratingCountWeight",
   QuantileRankingDescriptorCountWeight:
     "assessmentSettings.quantileRanking.descriptorCountWeight",
+  QuantileRankingCreditTagWeight:
+    "assessmentSettings.quantileRanking.creditTagWeight",
 };
 
 export interface RecommendationSettingsForm {
@@ -69,6 +71,7 @@ export interface RecommendationSettingsForm {
               ratingWeight: number | undefined;
               ratingCountWeight: number | undefined;
               descriptorCountWeight: number | undefined;
+              creditTagWeight: number | undefined;
             }
           | undefined;
       }
@@ -323,6 +326,22 @@ export const RecommendationSettings = ({
                       defaultValue={
                         settings?.assessmentSettings?.quantileRanking
                           ?.descriptorCountWeight
+                      }
+                    />
+                  </Grid.Col>
+                  <Grid.Col md={6}>
+                    <NumberInput
+                      label="Credits"
+                      placeholder="Credits"
+                      min={0}
+                      max={20}
+                      step={1}
+                      name={
+                        RecommendationSettingsFormName.QuantileRankingCreditTagWeight
+                      }
+                      defaultValue={
+                        settings?.assessmentSettings?.quantileRanking
+                          ?.creditTagWeight
                       }
                     />
                   </Grid.Col>

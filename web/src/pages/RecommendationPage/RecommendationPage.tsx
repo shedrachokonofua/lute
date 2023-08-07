@@ -114,6 +114,13 @@ export const recommendationPageLoader = async ({
                 ),
               ),
             ),
+            creditTagWeight: toNumber(
+              coerceToUndefined(
+                url.searchParams.get(
+                  RecommendationSettingsFormName.QuantileRankingCreditTagWeight,
+                ),
+              ),
+            ),
           },
         })
       : undefined;

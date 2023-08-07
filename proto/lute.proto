@@ -460,7 +460,8 @@ message QuantileRankAlbumAssessmentSettings {
   optional uint32 rating_weight = 4;
   optional uint32 rating_count_weight = 5;
   optional uint32 descriptor_count_weight = 6;
-  optional float novelty_score = 7;
+  optional uint32 credit_tag_weight = 7;
+  optional float novelty_score = 8;
 }
 
 message AlbumAssessment {

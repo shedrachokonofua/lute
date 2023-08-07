@@ -18,7 +18,7 @@
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): Support release year filtering
 - [x] Parser: Extract album language
 - [x] Parser: Extract album credits
-- [ ] Recommendations(Quantile rank): Credit tag parameter
+- [x] Recommendations(Quantile rank): Credit tag parameter
 - [ ] Web(Recommendation page): Expose novelty score setting
 - [ ] Parser: Extract album cover image
 - [ ] Extension: Album assessment popup

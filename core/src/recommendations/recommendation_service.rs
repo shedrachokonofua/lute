@@ -88,6 +88,12 @@ impl TryFrom<proto::QuantileRankAlbumAssessmentSettings> for QuantileRankAlbumAs
         QuantileRankAlbumAssessmentSettings::default().descriptor_count_weight,
       ));
     }
+    if let Some(credit_tag_weight) = value.credit_tag_weight {
+      builder.credit_tag_weight(default_if_zero(
+        credit_tag_weight,
+        QuantileRankAlbumAssessmentSettings::default().credit_tag_weight,
+      ));
+    }
     Ok(builder.build()?)
   }
 }
