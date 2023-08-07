@@ -259,7 +259,8 @@ impl
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
     let profile_summary = profile.summarize(profile_albums);
-    let search_query = AlbumSearchQueryBuilder::default()
+    let mut search_query_builder = AlbumSearchQueryBuilder::default();
+    search_query_builder
       .exclude_file_names(profile.albums.keys().cloned().collect::<Vec<_>>())
       .include_primary_genres(recommendation_settings.include_primary_genres)
       .include_secondary_genres(recommendation_settings.include_secondary_genres)
@@ -271,8 +272,22 @@ impl
       .max_release_year(recommendation_settings.max_release_year)
       .min_primary_genre_count(1)
       .min_secondary_genre_count(1)
-      .min_descriptor_count(5)
-      .build()?;
+      .min_descriptor_count(5);
+
+    if recommendation_settings
+      .exclude_known_artists
+      .unwrap_or(false)
+    {
+      search_query_builder.exclude_artists(
+        profile_albums
+          .iter()
+          .flat_map(|album| album.artists.clone())
+          .map(|artist| artist.file_name.to_string())
+          .collect::<Vec<_>>(),
+      );
+    }
+
+    let search_query = search_query_builder.build()?;
     let albums = self
       .album_read_model_repository
       .search(&search_query)

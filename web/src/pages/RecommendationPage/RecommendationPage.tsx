@@ -190,6 +190,13 @@ export const recommendationPageLoader = async ({
               RecommendationSettingsFormName.ExcludeLanguages,
             ),
           )?.split(","),
+          excludeKnownArtists: toNumber(
+            coerceToUndefined(
+              url.searchParams.get(
+                RecommendationSettingsFormName.ExcludeKnownArtists,
+              ),
+            ),
+          ),
         }),
         assessmentSettings,
       }

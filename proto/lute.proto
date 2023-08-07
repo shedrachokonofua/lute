@@ -493,6 +493,7 @@ message AlbumRecommendationSettings {
   repeated string exclude_languages = 7;
   optional uint32 min_release_year = 8;
   optional uint32 max_release_year = 9;
+  optional bool exclude_known_artists = 10;
 }
 
 message RecommendAlbumsRequest {

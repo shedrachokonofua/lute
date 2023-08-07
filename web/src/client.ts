@@ -111,6 +111,9 @@ export const settingsToRecommendationRequest = (
       settings.recommendationSettings.excludeLanguages,
     );
   }
+  if (settings.recommendationSettings?.excludeKnownArtists) {
+    recommedationSettings.setExcludeKnownArtists(true);
+  }
   request.setRecommendationSettings(recommedationSettings);
 
   const assessmentSettings = new AlbumAssessmentSettings();

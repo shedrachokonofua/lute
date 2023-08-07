@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   Grid,
   MultiSelect,
   NumberInput,
@@ -24,6 +25,7 @@ export const RecommendationSettingsFormName = {
   ExcludePrimaryGenres: "recommendationSettings.excludePrimaryGenres",
   IncludeSecondaryGenres: "recommendationSettings.includeSecondaryGenres",
   ExcludeSecondaryGenres: "recommendationSettings.excludeSecondaryGenres",
+  ExcludeKnownArtists: "recommendationSettings.excludeKnownArtists",
   IncludeLanguages: "recommendationSettings.includeLanguages",
   ExcludeLanguages: "recommendationSettings.excludeLanguages",
   MinReleaseYear: "recommendationSettings.minReleaseYear",
@@ -58,6 +60,7 @@ export interface RecommendationSettingsForm {
         excludeSecondaryGenres: string[] | undefined;
         includeLanguages: string[] | undefined;
         excludeLanguages: string[] | undefined;
+        excludeKnownArtists: number | undefined;
       }
     | undefined;
   method: RecommendationMethod | undefined;
@@ -217,6 +220,14 @@ export const RecommendationSettings = ({
                   settings?.recommendationSettings?.excludeLanguages
                 }
                 searchable
+              />
+              <Checkbox
+                label="Exclude artists already on profile"
+                name={RecommendationSettingsFormName.ExcludeKnownArtists}
+                defaultValue={
+                  settings?.recommendationSettings?.excludeKnownArtists
+                }
+                value={1}
               />
             </Stack>
           </CollapsibleSection>

@@ -129,6 +129,7 @@ impl TryFrom<proto::AlbumRecommendationSettings> for AlbumRecommendationSettings
       exclude_languages: value.exclude_languages,
       min_release_year: value.min_release_year,
       max_release_year: value.max_release_year,
+      exclude_known_artists: value.exclude_known_artists,
     })
   }
 }
