@@ -81,6 +81,7 @@ impl TryFrom<AlbumReadModel> for QuantileRankAssessableAlbum {
   }
 }
 
+#[instrument(skip(items))]
 fn create_item_with_factor_map(items: &[ItemWithFactor]) -> HashMap<String, ItemWithFactor> {
   items
     .iter()
