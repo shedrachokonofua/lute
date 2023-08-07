@@ -5,21 +5,17 @@ import "google/protobuf/empty.proto";
 package lute;
 
 service Lute {
-  rpc HealthCheck (google.protobuf.Empty) returns (HealthCheckReply) {}
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthCheckReply) {}
 }
 
-message HealthCheckReply {
-  bool ok = 1;
-}
+message HealthCheckReply { bool ok = 1; }
 
 message PutFileRequest {
   string name = 1;
   string content = 2;
 }
 
-message PutFileReply {
-  FileMetadata metadata = 1;
-}
+message PutFileReply { FileMetadata metadata = 1; }
 
 message FileMetadata {
   string id = 1;
@@ -28,22 +24,16 @@ message FileMetadata {
   string last_saved_at = 4;
 }
 
-message IsFileStaleRequest {
-  string name = 1;
-}
+message IsFileStaleRequest { string name = 1; }
 
-message IsFileStaleReply {
-  bool stale = 1;
-}
+message IsFileStaleReply { bool stale = 1; }
 
 service FileService {
-  rpc IsFileStale (IsFileStaleRequest) returns (IsFileStaleReply) {}
-  rpc PutFile (PutFileRequest) returns (PutFileReply) {}
+  rpc IsFileStale(IsFileStaleRequest) returns (IsFileStaleReply) {}
+  rpc PutFile(PutFileRequest) returns (PutFileReply) {}
 }
 
-message GetCrawlerMonitorReply {
-  CrawlerMonitor monitor = 1;
-}
+message GetCrawlerMonitorReply { CrawlerMonitor monitor = 1; }
 
 enum CrawlerStatus {
   Paused = 0;
@@ -83,13 +73,9 @@ message CrawlerMonitor {
   uint32 window_request_count = 6;
 }
 
-message SetStatusRequest {
-  CrawlerStatus status = 1;
-}
+message SetStatusRequest { CrawlerStatus status = 1; }
 
-message SetCrawlerStatusReply {
-  CrawlerStatus status = 1;
-}
+message SetCrawlerStatusReply { CrawlerStatus status = 1; }
 
 message EnqueueRequest {
   string file_name = 1;
@@ -100,17 +86,15 @@ message EnqueueRequest {
 }
 
 service CrawlerService {
-  rpc GetMonitor (google.protobuf.Empty) returns (GetCrawlerMonitorReply) {}
-  rpc SetStatus (SetStatusRequest) returns (SetCrawlerStatusReply) {}
-  rpc Enqueue (EnqueueRequest) returns (google.protobuf.Empty) {}
-  rpc Empty (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc GetMonitor(google.protobuf.Empty) returns (GetCrawlerMonitorReply) {}
+  rpc SetStatus(SetStatusRequest) returns (SetCrawlerStatusReply) {}
+  rpc Enqueue(EnqueueRequest) returns (google.protobuf.Empty) {}
+  rpc Empty(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc ResetLimiter(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc RemoveThrottle(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
-message GetAlbumRequest {
-  string file_name = 1;
-}
+message GetAlbumRequest { string file_name = 1; }
 
 message AlbumArtist {
   string name = 1;
@@ -138,9 +122,7 @@ message Album {
   repeated string languages = 11;
 }
 
-message GetAlbumReply {
-  Album album = 1;
-}
+message GetAlbumReply { Album album = 1; }
 
 message GenreAggregate {
   string name = 1;
@@ -148,9 +130,7 @@ message GenreAggregate {
   uint32 secondary_genre_count = 3;
 }
 
-message GetAggregatedGenresReply {
-  repeated GenreAggregate genres = 1;
-}
+message GetAggregatedGenresReply { repeated GenreAggregate genres = 1; }
 
 message DescriptorAggregate {
   string name = 1;
@@ -171,23 +151,20 @@ message GetAggregatedLanguagesReply {
 }
 
 service AlbumService {
-  rpc GetAlbum (GetAlbumRequest) returns (GetAlbumReply) {}
-  rpc GetAggregatedGenres (google.protobuf.Empty) returns (GetAggregatedGenresReply) {}
-  rpc GetAggregatedDescriptors (google.protobuf.Empty) returns (GetAggregatedDescriptorsReply) {}
-  rpc GetAggregatedLanguages (google.protobuf.Empty) returns (GetAggregatedLanguagesReply) {}
+  rpc GetAlbum(GetAlbumRequest) returns (GetAlbumReply) {}
+  rpc GetAggregatedGenres(google.protobuf.Empty)
+      returns (GetAggregatedGenresReply) {}
+  rpc GetAggregatedDescriptors(google.protobuf.Empty)
+      returns (GetAggregatedDescriptorsReply) {}
+  rpc GetAggregatedLanguages(google.protobuf.Empty)
+      returns (GetAggregatedLanguagesReply) {}
 }
 
-message IsAuthorizedReply {
-  bool authorized = 1;
-}
+message IsAuthorizedReply { bool authorized = 1; }
 
-message GetAuthorizationUrlReply {
-  string url = 1;
-}
+message GetAuthorizationUrlReply { string url = 1; }
 
-message HandleAuthorizationCodeRequest {
-  string code = 1;
-}
+message HandleAuthorizationCodeRequest { string code = 1; }
 
 message SpotifyArtistReference {
   string spotify_id = 1;
@@ -213,33 +190,29 @@ message SpotifyTrack {
   SpotifyAlbumReference album = 4;
 }
 
-message GetSavedTracksReply {
-  repeated SpotifyTrack tracks = 1;
-}
+message GetSavedTracksReply { repeated SpotifyTrack tracks = 1; }
 
-message GetPlaylistTracksRequest {
-  string playlist_id = 1;
-}
+message GetPlaylistTracksRequest { string playlist_id = 1; }
 
-message GetPlaylistTracksReply {
-  repeated SpotifyTrack tracks = 1;
-}
+message GetPlaylistTracksReply { repeated SpotifyTrack tracks = 1; }
 
 service SpotifyService {
-  rpc IsAuthorized (google.protobuf.Empty) returns (IsAuthorizedReply) {}
-  rpc GetAuthorizationUrl (google.protobuf.Empty) returns (GetAuthorizationUrlReply) {}
-  rpc HandleAuthorizationCode (HandleAuthorizationCodeRequest) returns (google.protobuf.Empty) {}
-  rpc GetSavedTracks (google.protobuf.Empty) returns (GetSavedTracksReply) {}
-  rpc GetPlaylistTracks (GetPlaylistTracksRequest) returns (GetPlaylistTracksReply) {}
+  rpc IsAuthorized(google.protobuf.Empty) returns (IsAuthorizedReply) {}
+  rpc GetAuthorizationUrl(google.protobuf.Empty)
+      returns (GetAuthorizationUrlReply) {}
+  rpc HandleAuthorizationCode(HandleAuthorizationCodeRequest)
+      returns (google.protobuf.Empty) {}
+  rpc GetSavedTracks(google.protobuf.Empty) returns (GetSavedTracksReply) {}
+  rpc GetPlaylistTracks(GetPlaylistTracksRequest)
+      returns (GetPlaylistTracksReply) {}
 }
 
-message ParseFileContentStoreReply {
-  uint32 count = 1;
-}
+message ParseFileContentStoreReply { uint32 count = 1; }
 
 service OperationsService {
-  rpc FlushRedis (google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  rpc ParseFileContentStore (google.protobuf.Empty) returns (ParseFileContentStoreReply) {}
+  rpc FlushRedis(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc ParseFileContentStore(google.protobuf.Empty)
+      returns (ParseFileContentStoreReply) {}
 }
 
 message AggregatedFailureError {
@@ -254,9 +227,7 @@ enum PageType {
   AlbumSearchResultPage = 3;
 }
 
-message GetAggregatedFailureErrorsRequest {
-  optional PageType page_type = 1;
-}
+message GetAggregatedFailureErrorsRequest { optional PageType page_type = 1; }
 
 message GetAggregatedFailureErrorsReply {
   repeated AggregatedFailureError errors = 1;
@@ -321,9 +292,7 @@ message ParsedAlbumSearchResult {
   repeated ParsedArtistReference artists = 3;
 }
 
-message ParsedChart {
-  repeated ParsedChartAlbum albums = 1;
-}
+message ParsedChart { repeated ParsedChartAlbum albums = 1; }
 
 message ParsedFileData {
   oneof data {
@@ -334,22 +303,18 @@ message ParsedFileData {
   }
 }
 
-message ParseFileOnContentStoreRequest {
-  string file_name = 1;
-}
+message ParseFileOnContentStoreRequest { string file_name = 1; }
 
-message ParseFileOnContentStoreReply {
-  ParsedFileData data = 1;
-}
+message ParseFileOnContentStoreReply { ParsedFileData data = 1; }
 
-message EnqueueRetriesRequest {
-  string error = 1;
-}
+message EnqueueRetriesRequest { string error = 1; }
 
 service ParserService {
-  rpc ParseFileOnContentStore (ParseFileOnContentStoreRequest) returns (ParseFileOnContentStoreReply) {}
-  rpc GetAggregatedFailureErrors (GetAggregatedFailureErrorsRequest) returns (GetAggregatedFailureErrorsReply) {}
-  rpc EnqueueRetries (EnqueueRetriesRequest) returns (google.protobuf.Empty) {}
+  rpc ParseFileOnContentStore(ParseFileOnContentStoreRequest)
+      returns (ParseFileOnContentStoreReply) {}
+  rpc GetAggregatedFailureErrors(GetAggregatedFailureErrorsRequest)
+      returns (GetAggregatedFailureErrorsReply) {}
+  rpc EnqueueRetries(EnqueueRetriesRequest) returns (google.protobuf.Empty) {}
 }
 
 message AlbumSearchLookupQuery {
@@ -357,9 +322,7 @@ message AlbumSearchLookupQuery {
   string album_name = 2;
 }
 
-message SearchAlbumRequest {
-  AlbumSearchLookupQuery query = 1;
-}
+message SearchAlbumRequest { AlbumSearchLookupQuery query = 1; }
 
 message AlbumSearchResult {
   string album_name = 1;
@@ -379,9 +342,7 @@ message AlbumSearchLookup {
   string status = 9;
 }
 
-message SearchAlbumReply {
-  AlbumSearchLookup lookup = 1;
-}
+message SearchAlbumReply { AlbumSearchLookup lookup = 1; }
 
 message AggregatedStatus {
   string status = 1;
@@ -393,8 +354,9 @@ message GetAggregatedAlbumSearchStatusesReply {
 }
 
 service LookupService {
-  rpc SearchAlbum (SearchAlbumRequest) returns (SearchAlbumReply) {}
-  rpc GetAggregatedAlbumSearchStatuses (google.protobuf.Empty) returns (GetAggregatedAlbumSearchStatusesReply) {}
+  rpc SearchAlbum(SearchAlbumRequest) returns (SearchAlbumReply) {}
+  rpc GetAggregatedAlbumSearchStatuses(google.protobuf.Empty)
+      returns (GetAggregatedAlbumSearchStatusesReply) {}
 }
 
 message Profile {
@@ -422,6 +384,7 @@ message ProfileSummary {
   repeated ItemWithFactor descriptors = 10;
   repeated ItemWithFactor years = 11;
   repeated ItemWithFactor decades = 12;
+  repeated ItemWithFactor credit_tags = 13;
 }
 
 message CreateProfileRequest {
@@ -429,25 +392,15 @@ message CreateProfileRequest {
   string name = 2;
 }
 
-message CreateProfileReply {
-  Profile profile = 1;
-}
+message CreateProfileReply { Profile profile = 1; }
 
-message GetProfileRequest {
-  string id = 1;
-}
+message GetProfileRequest { string id = 1; }
 
-message GetProfileReply {
-  Profile profile = 1;
-}
+message GetProfileReply { Profile profile = 1; }
 
-message GetProfileSummaryRequest {
-  string id = 1;
-}
+message GetProfileSummaryRequest { string id = 1; }
 
-message GetProfileSummaryReply {
-  ProfileSummary summary = 1;
-}
+message GetProfileSummaryReply { ProfileSummary summary = 1; }
 
 message FileNameWithFactor {
   string file_name = 1;
@@ -459,13 +412,9 @@ message AddManyAlbumsToProfileRequest {
   repeated FileNameWithFactor albums = 2;
 }
 
-message AddManyAlbumsToProfileReply {
-  Profile profile = 1;
-}
+message AddManyAlbumsToProfileReply { Profile profile = 1; }
 
-message ImportSavedSpotifyTracksRequest {
-  string profile_id = 1;
-}
+message ImportSavedSpotifyTracksRequest { string profile_id = 1; }
 
 message ImportSpotifyPlaylistTracksRequest {
   string profile_id = 1;
@@ -478,9 +427,7 @@ message PendingSpotifyImport {
   uint32 factor = 3;
 }
 
-message GetPendingSpotifyImportsRequest {
-  string profile_id = 1;
-}
+message GetPendingSpotifyImportsRequest { string profile_id = 1; }
 
 message GetPendingSpotifyImportsReply {
   uint32 count = 1;
@@ -488,19 +435,22 @@ message GetPendingSpotifyImportsReply {
   repeated PendingSpotifyImport pending_imports = 3;
 }
 
-message GetAllProfilesReply {
-  repeated Profile profiles = 1;
-}
+message GetAllProfilesReply { repeated Profile profiles = 1; }
 
 service ProfileService {
-  rpc CreateProfile (CreateProfileRequest) returns (CreateProfileReply) {}
-  rpc GetProfile (GetProfileRequest) returns (GetProfileReply) {}
-  rpc GetAllProfiles (google.protobuf.Empty) returns (GetAllProfilesReply) {}
-  rpc GetProfileSummary (GetProfileSummaryRequest) returns (GetProfileSummaryReply) {}
-  rpc AddManyAlbumsToProfile (AddManyAlbumsToProfileRequest) returns (AddManyAlbumsToProfileReply) {}
-  rpc ImportSavedSpotifyTracks (ImportSavedSpotifyTracksRequest) returns (google.protobuf.Empty) {}
-  rpc ImportSpotifyPlaylistTracks (ImportSpotifyPlaylistTracksRequest) returns (google.protobuf.Empty) {}
-  rpc GetPendingSpotifyImports (GetPendingSpotifyImportsRequest) returns (GetPendingSpotifyImportsReply) {}
+  rpc CreateProfile(CreateProfileRequest) returns (CreateProfileReply) {}
+  rpc GetProfile(GetProfileRequest) returns (GetProfileReply) {}
+  rpc GetAllProfiles(google.protobuf.Empty) returns (GetAllProfilesReply) {}
+  rpc GetProfileSummary(GetProfileSummaryRequest)
+      returns (GetProfileSummaryReply) {}
+  rpc AddManyAlbumsToProfile(AddManyAlbumsToProfileRequest)
+      returns (AddManyAlbumsToProfileReply) {}
+  rpc ImportSavedSpotifyTracks(ImportSavedSpotifyTracksRequest)
+      returns (google.protobuf.Empty) {}
+  rpc ImportSpotifyPlaylistTracks(ImportSpotifyPlaylistTracksRequest)
+      returns (google.protobuf.Empty) {}
+  rpc GetPendingSpotifyImports(GetPendingSpotifyImportsRequest)
+      returns (GetPendingSpotifyImportsReply) {}
 }
 
 message QuantileRankAlbumAssessmentSettings {
@@ -518,9 +468,7 @@ message AlbumAssessment {
   map<string, string> metadata = 2;
 }
 
-message AssessAlbumReply {
-  AlbumAssessment assessment = 1;
-}
+message AssessAlbumReply { AlbumAssessment assessment = 1; }
 
 message AlbumAssessmentSettings {
   oneof settings {
@@ -562,6 +510,6 @@ message RecommendAlbumsReply {
 }
 
 service RecommendationService {
-  rpc AssessAlbum (AssessAlbumRequest) returns (AssessAlbumReply) {}
-  rpc RecommendAlbums (RecommendAlbumsRequest) returns (RecommendAlbumsReply) {}
+  rpc AssessAlbum(AssessAlbumRequest) returns (AssessAlbumReply) {}
+  rpc RecommendAlbums(RecommendAlbumsRequest) returns (RecommendAlbumsReply) {}
 }
