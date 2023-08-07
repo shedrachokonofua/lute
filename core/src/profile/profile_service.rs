@@ -57,6 +57,7 @@ impl From<ProfileSummary> for proto::ProfileSummary {
       descriptors: val.descriptors.into_iter().map(Into::into).collect(),
       years: val.years.into_iter().map(Into::into).collect(),
       decades: val.decades.into_iter().map(Into::into).collect(),
+      credit_tags: val.credit_tags.into_iter().map(Into::into).collect(),
     }
   }
 }

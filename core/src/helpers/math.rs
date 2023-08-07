@@ -1,4 +1,4 @@
-use num_traits::Num;
+use num_traits::{float::FloatCore, Num};
 
 pub fn median_by<T, F>(sorted_values: &mut Vec<T>, f: F) -> f32
 where
@@ -27,8 +27,8 @@ where
   values.sort_by(|a, b| f(b).partial_cmp(&f(a)).unwrap());
 }
 
-pub fn default_if_zero<T: Num>(value: T, default: T) -> T {
-  if value.is_zero() {
+pub fn default_if_zero<T: Num + FloatCore>(value: T, default: T) -> T {
+  if value.is_zero() || value.is_nan() {
     default
   } else {
     value

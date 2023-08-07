@@ -33,18 +33,20 @@ pub struct QuantileRankAlbumAssessmentSettings {
   pub rating_count_weight: u32,
   pub novelty_score: f64,
   pub descriptor_count_weight: u32,
+  pub credit_tag_weight: u32,
 }
 
 impl Default for QuantileRankAlbumAssessmentSettings {
   fn default() -> Self {
     Self {
-      primary_genre_weight: 3,
-      secondary_genre_weight: 1,
-      descriptor_weight: 6,
-      rating_weight: 1,
+      primary_genre_weight: 4,
+      secondary_genre_weight: 2,
+      descriptor_weight: 7,
+      rating_weight: 2,
       rating_count_weight: 1,
       novelty_score: 0.5,
-      descriptor_count_weight: 1,
+      descriptor_count_weight: 2,
+      credit_tag_weight: 1,
     }
   }
 }
@@ -78,24 +80,38 @@ impl TryFrom<AlbumReadModel> for QuantileRankAssessableAlbum {
   }
 }
 
+fn create_item_with_factor_map(items: &[ItemWithFactor]) -> HashMap<String, ItemWithFactor> {
+  items
+    .iter()
+    .map(|item| (item.item.clone(), item.clone()))
+    .collect::<HashMap<String, ItemWithFactor>>()
+}
+
 fn calculate_average_rank(
   ranking: &QuantileRanking<ItemWithFactor>,
-  profile_tags: &[ItemWithFactor],
+  profile_tags_map: &HashMap<String, ItemWithFactor>,
   album_tags: &[String],
   novelty_score: f64,
 ) -> Result<f64> {
+  if album_tags.is_empty() {
+    return Ok(novelty_score);
+  }
+
   let ranks = album_tags
     .iter()
-    .map(|tag: &String| {
-      let item = profile_tags.iter().find(|item| &item.item == tag);
-      match item {
-        Some(item) => default_if_zero(ranking.get_rank(item), novelty_score),
-        None => novelty_score,
-      }
+    .map(|tag: &String| match profile_tags_map.get(tag) {
+      Some(item) => default_if_zero(ranking.get_rank(item), novelty_score),
+      None => novelty_score,
     })
     .collect::<Vec<f64>>();
 
-  Ok(ranks.iter().sum::<f64>() / ranks.len() as f64)
+  let rank = ranks.iter().sum::<f64>() / ranks.len() as f64;
+
+  if rank.is_nan() {
+    warn!("rank is NaN");
+  }
+
+  Ok(rank)
 }
 
 #[async_trait]
@@ -114,21 +130,27 @@ impl
     let profile_summary = profile.summarize(profile_albums);
     let average_primary_genre_rank = calculate_average_rank(
       &QuantileRanking::new(&profile_summary.primary_genres),
-      &profile_summary.primary_genres,
+      &create_item_with_factor_map(&profile_summary.primary_genres),
       &album_read_model.0.primary_genres,
       settings.novelty_score,
     )?;
     let average_secondary_genre_rank = calculate_average_rank(
       &QuantileRanking::new(&profile_summary.secondary_genres),
-      &profile_summary.secondary_genres,
+      &create_item_with_factor_map(&profile_summary.secondary_genres),
       &album_read_model.0.secondary_genres,
       settings.novelty_score,
     )?;
     let average_descriptor_rank = calculate_average_rank(
       &QuantileRanking::new(&profile_summary.descriptors),
-      &profile_summary.descriptors,
+      &create_item_with_factor_map(&profile_summary.descriptors),
       &album_read_model.0.descriptors,
       settings.novelty_score,
+    )?;
+    let average_credit_tag_rank = calculate_average_rank(
+      &QuantileRanking::new(&profile_summary.credit_tags),
+      &create_item_with_factor_map(&profile_summary.credit_tags),
+      &album_read_model.0.credit_tags,
+      0.1,
     )?;
     let rating_rank = default_if_zero(
       QuantileRanking::new(
@@ -160,6 +182,16 @@ impl
       .get_rank(&album_read_model.0.descriptor_count),
       settings.novelty_score,
     );
+    let credit_tag_rank = default_if_zero(
+      QuantileRanking::new(
+        &profile_albums
+          .iter()
+          .map(|album| album.credit_tag_count)
+          .collect::<Vec<_>>(),
+      )
+      .get_rank(&album_read_model.0.credit_tag_count),
+      0.1,
+    );
 
     let mut ranks = vec![average_primary_genre_rank; settings.primary_genre_weight as usize];
     ranks.append(&mut vec![
@@ -179,11 +211,42 @@ impl
       descriptor_count_rank;
       settings.descriptor_count_weight as usize
     ]);
+    ranks.append(&mut vec![
+      credit_tag_rank;
+      settings.credit_tag_weight as usize
+    ]);
     let score = ranks.iter().sum::<f64>() / ranks.len() as f64;
+
+    let mut metadata = HashMap::new();
+    metadata.insert(
+      "average_primary_genre_rank".to_string(),
+      average_primary_genre_rank.to_string(),
+    );
+    metadata.insert(
+      "average_secondary_genre_rank".to_string(),
+      average_secondary_genre_rank.to_string(),
+    );
+    metadata.insert(
+      "average_descriptor_rank".to_string(),
+      average_descriptor_rank.to_string(),
+    );
+    metadata.insert(
+      "average_credit_tag_rank".to_string(),
+      average_credit_tag_rank.to_string(),
+    );
+    metadata.insert("rating_rank".to_string(), rating_rank.to_string());
+    metadata.insert(
+      "rating_count_rank".to_string(),
+      rating_count_rank.to_string(),
+    );
+    metadata.insert(
+      "descriptor_count_rank".to_string(),
+      descriptor_count_rank.to_string(),
+    );
 
     Ok(AlbumAssessment {
       score: score as f32,
-      metadata: None,
+      metadata: Some(metadata),
     })
   }
 
@@ -236,32 +299,46 @@ impl
         .map(|album| album.descriptor_count)
         .collect::<Vec<_>>(),
     );
+    let credit_tag_ranking = QuantileRanking::new(&profile_summary.credit_tags);
     let result_heap = Arc::new(Mutex::new(BoundedMinHeap::new(
       recommendation_settings.count as usize,
     )));
+
+    let primary_genre_summary_map = create_item_with_factor_map(&profile_summary.primary_genres);
+    let secondary_genre_summary_map =
+      create_item_with_factor_map(&profile_summary.secondary_genres);
+    let descriptor_summary_map = create_item_with_factor_map(&profile_summary.descriptors);
+    let credit_tag_summary_map = create_item_with_factor_map(&profile_summary.credit_tags);
 
     let (recommendation_sender, mut recommendation_receiver) = mpsc::unbounded_channel();
     rayon::spawn(move || {
       albums.par_iter().for_each(|album| {
         let average_primary_genre_rank = calculate_average_rank(
           &primary_genre_ranking,
-          &profile_summary.primary_genres,
+          &primary_genre_summary_map,
           &album.primary_genres,
           assessment_settings.novelty_score,
         )
         .unwrap();
         let average_secondary_genre_rank = calculate_average_rank(
           &secondary_genre_ranking,
-          &profile_summary.secondary_genres,
+          &secondary_genre_summary_map,
           &album.secondary_genres,
           assessment_settings.novelty_score,
         )
         .unwrap();
         let average_descriptor_rank = calculate_average_rank(
           &descriptor_ranking,
-          &profile_summary.descriptors,
+          &descriptor_summary_map,
           &album.descriptors,
           assessment_settings.novelty_score,
+        )
+        .unwrap();
+        let average_credit_tag_rank = calculate_average_rank(
+          &credit_tag_ranking,
+          &credit_tag_summary_map,
+          &album.credit_tags,
+          0.1,
         )
         .unwrap();
         let rating_rank = rating_ranking.get_rank(&OrderedFloat(album.rating));
@@ -291,6 +368,10 @@ impl
           assessment_settings.descriptor_count_weight
             as usize
         ]);
+        ranks.append(&mut vec![
+          average_credit_tag_rank;
+          assessment_settings.credit_tag_weight as usize
+        ]);
 
         let mut metadata = HashMap::new();
         metadata.insert(
@@ -305,6 +386,10 @@ impl
           "average_descriptor_rank".to_string(),
           average_descriptor_rank.to_string(),
         );
+        metadata.insert(
+          "average_credit_tag_rank".to_string(),
+          average_credit_tag_rank.to_string(),
+        );
         metadata.insert("rating_rank".to_string(), rating_rank.to_string());
         metadata.insert(
           "rating_count_rank".to_string(),
@@ -317,7 +402,11 @@ impl
 
         let score = ranks.iter().sum::<f64>() / ranks.len() as f64;
         if score.is_nan() {
-          warn!("score is NaN");
+          warn!(
+            "score is NaN, {}, {}",
+            average_credit_tag_rank,
+            album.file_name.to_string()
+          );
         } else {
           let recommendation = AlbumRecommendation {
             album: album.clone(),

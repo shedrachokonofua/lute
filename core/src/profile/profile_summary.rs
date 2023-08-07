@@ -51,6 +51,7 @@ pub struct ProfileSummary {
   pub descriptors: Vec<ItemWithFactor>,
   pub years: Vec<ItemWithFactor>,
   pub decades: Vec<ItemWithFactor>,
+  pub credit_tags: Vec<ItemWithFactor>,
 }
 
 impl Profile {
@@ -65,6 +66,7 @@ impl Profile {
     let mut descriptors_map: HashMap<String, u32> = HashMap::new();
     let mut years_map: HashMap<u32, u32> = HashMap::new();
     let mut decades_map: HashMap<u32, u32> = HashMap::new();
+    let mut credit_tags_map: HashMap<String, u32> = HashMap::new();
     let mut ratings: Vec<f32> = Vec::new();
     let mut indexed_album_count = 0;
 
@@ -100,6 +102,13 @@ impl Profile {
       for descriptor in &album.descriptors {
         descriptors_map
           .entry(descriptor.clone())
+          .and_modify(|c| *c += factor)
+          .or_insert(*factor);
+      }
+
+      for tag in &album.credit_tags {
+        credit_tags_map
+          .entry(tag.clone())
           .and_modify(|c| *c += factor)
           .or_insert(*factor);
       }
@@ -171,6 +180,15 @@ impl Profile {
       .collect::<Vec<ItemWithFactor>>();
     desc_sort_by_factor(&mut descriptors);
 
+    let mut credit_tags = credit_tags_map
+      .iter()
+      .map(|(item, factor)| ItemWithFactor {
+        item: item.clone(),
+        factor: *factor,
+      })
+      .collect::<Vec<ItemWithFactor>>();
+    desc_sort_by_factor(&mut credit_tags);
+
     let mut decades = decades_map
       .iter()
       .map(|(item, factor)| ItemWithFactor {
@@ -191,6 +209,7 @@ impl Profile {
       primary_genres,
       secondary_genres,
       descriptors,
+      credit_tags,
       years,
       decades,
     }
