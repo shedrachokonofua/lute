@@ -2,7 +2,7 @@ use super::{
   failed_parse_files_repository::{AggregatedError, FailedParseFilesRepository},
   parsed_file_data::{
     ParsedAlbum, ParsedAlbumSearchResult, ParsedArtist, ParsedArtistAlbum, ParsedArtistReference,
-    ParsedChartAlbum, ParsedFileData, ParsedTrack,
+    ParsedChartAlbum, ParsedCredit, ParsedFileData, ParsedTrack,
   },
   parser::parse_file_on_store,
 };
@@ -21,7 +21,7 @@ use crate::{
   },
   settings::Settings,
 };
-use anyhow::{Error, Result};
+use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
@@ -50,167 +50,142 @@ impl TryFrom<i32> for PageType {
   }
 }
 
-impl TryInto<proto::ParsedArtistReference> for ParsedArtistReference {
-  type Error = Error;
-
-  fn try_into(self) -> Result<proto::ParsedArtistReference> {
-    Ok(proto::ParsedArtistReference {
+impl Into<proto::ParsedArtistReference> for ParsedArtistReference {
+  fn into(self) -> proto::ParsedArtistReference {
+    proto::ParsedArtistReference {
       name: self.name,
-      file_name: self.file_name.try_into()?,
-    })
+      file_name: self.file_name.to_string(),
+    }
   }
 }
-
-impl TryInto<proto::ParsedChartAlbum> for ParsedChartAlbum {
-  type Error = Error;
-
-  fn try_into(self) -> Result<proto::ParsedChartAlbum> {
-    let artists: Result<Vec<proto::ParsedArtistReference>> = self
+impl Into<proto::ParsedChartAlbum> for ParsedChartAlbum {
+  fn into(self) -> proto::ParsedChartAlbum {
+    let artists: Vec<proto::ParsedArtistReference> = self
       .artists
       .into_iter()
-      .map(|artist| artist.try_into())
+      .map(|artist| artist.into())
       .collect();
 
-    let primary_genres = self.primary_genres;
-    let secondary_genres = self.secondary_genres;
-    let descriptors = self.descriptors;
-
-    Ok(proto::ParsedChartAlbum {
-      file_name: self.file_name.try_into()?,
+    proto::ParsedChartAlbum {
+      file_name: self.file_name.into(),
       name: self.name,
       rating: self.rating,
       rating_count: self.rating_count,
-      artists: artists?,
-      primary_genres,
-      secondary_genres,
-      descriptors,
+      artists,
+      primary_genres: self.primary_genres,
+      secondary_genres: self.secondary_genres,
+      descriptors: self.descriptors,
       release_date: self.release_date.map(|val| val.to_string()),
-    })
+    }
   }
 }
 
-impl TryInto<proto::ParsedTrack> for ParsedTrack {
-  type Error = Error;
-
-  fn try_into(self) -> Result<proto::ParsedTrack> {
-    Ok(proto::ParsedTrack {
+impl Into<proto::ParsedTrack> for ParsedTrack {
+  fn into(self) -> proto::ParsedTrack {
+    proto::ParsedTrack {
       name: self.name,
       duration_seconds: self.duration_seconds,
       rating: self.rating,
       position: self.position,
-    })
+    }
   }
 }
 
-impl TryInto<proto::ParsedAlbum> for ParsedAlbum {
-  type Error = Error;
+impl Into<proto::ParsedCredit> for ParsedCredit {
+  fn into(self) -> proto::ParsedCredit {
+    proto::ParsedCredit {
+      artist: Some(self.artist.into()),
+      roles: self.roles,
+    }
+  }
+}
 
-  fn try_into(self) -> Result<proto::ParsedAlbum> {
-    let artists: Result<Vec<proto::ParsedArtistReference>> = self
-      .artists
-      .into_iter()
-      .map(|artist| artist.try_into())
-      .collect();
-
-    let primary_genres = self.primary_genres;
-    let secondary_genres = self.secondary_genres;
-    let descriptors = self.descriptors;
-
-    let tracks: Result<Vec<proto::ParsedTrack>> = self
-      .tracks
-      .into_iter()
-      .map(|track| track.try_into())
-      .collect();
-
-    Ok(proto::ParsedAlbum {
+impl Into<proto::ParsedAlbum> for ParsedAlbum {
+  fn into(self) -> proto::ParsedAlbum {
+    proto::ParsedAlbum {
       name: self.name,
       rating: self.rating,
       rating_count: self.rating_count,
-      artists: artists?,
-      primary_genres,
-      secondary_genres,
-      descriptors,
-      tracks: tracks?,
+      artists: self
+        .artists
+        .into_iter()
+        .map(|artist| artist.into())
+        .collect(),
+      primary_genres: self.primary_genres,
+      secondary_genres: self.secondary_genres,
+      descriptors: self.descriptors,
+      tracks: self.tracks.into_iter().map(|track| track.into()).collect(),
       release_date: self.release_date.map(|val| val.to_string()),
       languages: self.languages,
-    })
+      credits: self
+        .credits
+        .into_iter()
+        .map(|credit| credit.into())
+        .collect(),
+    }
   }
 }
 
-impl TryInto<proto::ParsedArtistAlbum> for ParsedArtistAlbum {
-  type Error = Error;
-
-  fn try_into(self) -> Result<proto::ParsedArtistAlbum> {
-    Ok(proto::ParsedArtistAlbum {
+impl Into<proto::ParsedArtistAlbum> for ParsedArtistAlbum {
+  fn into(self) -> proto::ParsedArtistAlbum {
+    proto::ParsedArtistAlbum {
       name: self.name,
-      file_name: self.file_name.try_into()?,
-    })
+      file_name: self.file_name.into(),
+    }
   }
 }
 
-impl TryInto<proto::ParsedArtist> for ParsedArtist {
-  type Error = Error;
+impl Into<proto::ParsedArtist> for ParsedArtist {
+  fn into(self) -> proto::ParsedArtist {
+    let albums: Vec<proto::ParsedArtistAlbum> =
+      self.albums.into_iter().map(|album| album.into()).collect();
 
-  fn try_into(self) -> Result<proto::ParsedArtist> {
-    let albums: Result<Vec<proto::ParsedArtistAlbum>> = self
-      .albums
-      .into_iter()
-      .map(|album| album.try_into())
-      .collect();
-
-    Ok(proto::ParsedArtist {
+    proto::ParsedArtist {
       name: self.name,
-      albums: albums?,
-    })
+      albums,
+    }
   }
 }
 
-impl TryInto<proto::ParsedAlbumSearchResult> for ParsedAlbumSearchResult {
-  type Error = Error;
-
-  fn try_into(self) -> Result<proto::ParsedAlbumSearchResult> {
-    let artists: Result<Vec<proto::ParsedArtistReference>> = self
+impl Into<proto::ParsedAlbumSearchResult> for ParsedAlbumSearchResult {
+  fn into(self) -> proto::ParsedAlbumSearchResult {
+    let artists: Vec<proto::ParsedArtistReference> = self
       .artists
       .into_iter()
-      .map(|artist| artist.try_into())
+      .map(|artist| artist.into())
       .collect();
 
-    Ok(proto::ParsedAlbumSearchResult {
+    proto::ParsedAlbumSearchResult {
       name: self.name,
-      file_name: self.file_name.try_into()?,
-      artists: artists?,
-    })
+      file_name: self.file_name.into(),
+      artists,
+    }
   }
 }
 
-impl TryInto<proto::ParsedFileData> for ParsedFileData {
-  type Error = Error;
-
-  fn try_into(self) -> Result<proto::ParsedFileData> {
+impl Into<proto::ParsedFileData> for ParsedFileData {
+  fn into(self) -> proto::ParsedFileData {
     match self {
       ParsedFileData::Chart(data) => {
-        let albums: Vec<proto::ParsedChartAlbum> = data
-          .into_iter()
-          .map(|album| album.try_into())
-          .filter_map(Result::ok)
-          .collect();
+        let albums: Vec<proto::ParsedChartAlbum> =
+          data.into_iter().map(|album| album.into()).collect();
         let chart = proto::ParsedChart { albums };
 
-        Ok(proto::ParsedFileData {
+        proto::ParsedFileData {
           data: Some(proto::parsed_file_data::Data::Chart(chart)),
-        })
+        }
       }
-      ParsedFileData::Album(data) => Ok(proto::ParsedFileData {
-        data: Some(proto::parsed_file_data::Data::Album(data.try_into()?)),
-      }),
-      ParsedFileData::Artist(data) => Ok(proto::ParsedFileData {
-        data: Some(proto::parsed_file_data::Data::Artist(data.try_into()?)),
-      }),
-      ParsedFileData::AlbumSearchResult(data) => Ok(proto::ParsedFileData {
+      ParsedFileData::Album(data) => proto::ParsedFileData {
+        data: Some(proto::parsed_file_data::Data::Album(data.into())),
+      },
+      ParsedFileData::Artist(data) => proto::ParsedFileData {
+        data: Some(proto::parsed_file_data::Data::Artist(data.into())),
+      },
+      ParsedFileData::AlbumSearchResult(data) => proto::ParsedFileData {
         data: Some(proto::parsed_file_data::Data::AlbumSearchResult(
-          data.try_into()?,
+          data.into(),
         )),
-      }),
+      },
     }
   }
 }
@@ -304,10 +279,7 @@ impl proto::ParserService for ParserService {
       error!(err = e.to_string(), "Failed to parse file");
       Status::internal(format!("Failed to parse file: {}", e))
     })?;
-    let result: proto::ParsedFileData = parsed_data.try_into().map_err(|e: Error| {
-      error!(err = e.to_string(), "Failed to convert parsed data");
-      Status::internal("Failed to convert parsed data")
-    })?;
+    let result: proto::ParsedFileData = parsed_data.into();
     Ok(Response::new(ParseFileOnContentStoreReply {
       data: Some(result),
     }))

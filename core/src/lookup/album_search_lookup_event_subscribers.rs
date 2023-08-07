@@ -17,7 +17,9 @@ use crate::{
     event_subscriber::{EventSubscriber, SubscriberContext},
   },
   files::file_metadata::page_type::PageType,
-  parser::parsed_file_data::{ParsedAlbum, ParsedArtistReference, ParsedFileData, ParsedTrack},
+  parser::parsed_file_data::{
+    ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack,
+  },
   settings::Settings,
 };
 use anyhow::Result;
@@ -56,6 +58,17 @@ impl From<AlbumReadModel> for ParsedAlbum {
         .collect::<Vec<ParsedTrack>>(),
       release_date: album.release_date,
       languages: album.languages,
+      credits: album
+        .credits
+        .iter()
+        .map(|credit| ParsedCredit {
+          artist: ParsedArtistReference {
+            name: credit.artist.name.clone(),
+            file_name: credit.artist.file_name.clone(),
+          },
+          roles: credit.roles.clone(),
+        })
+        .collect::<Vec<ParsedCredit>>(),
     }
   }
 }

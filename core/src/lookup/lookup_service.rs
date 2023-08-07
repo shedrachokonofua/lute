@@ -28,7 +28,7 @@ impl From<AlbumSearchLookup> for proto::AlbumSearchLookup {
           artists: result
             .artists
             .into_iter()
-            .map(|artist| AlbumReadModelArtist::from_parsed_artist(&artist).into())
+            .map(|artist| AlbumReadModelArtist::from(&artist).into())
             .collect(),
         }
       }),

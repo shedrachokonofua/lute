@@ -30,6 +30,12 @@ pub struct ParsedTrack {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ParsedCredit {
+  pub artist: ParsedArtistReference,
+  pub roles: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedAlbum {
   pub name: String,
   pub rating: f32,
@@ -42,6 +48,8 @@ pub struct ParsedAlbum {
   pub release_date: Option<NaiveDate>,
   #[serde(default)]
   pub languages: Vec<String>,
+  #[serde(default)]
+  pub credits: Vec<ParsedCredit>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

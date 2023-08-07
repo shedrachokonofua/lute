@@ -17,10 +17,12 @@
 - [x] Web(Recommendation page): Display recommendation score and metadata breakdown
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): Support release year filtering
 - [x] Parser: Extract album language
-- [ ] Parser: Extract album credits
+- [x] Parser: Extract album credits
+- [ ] Recommendations(Quantile rank): Credit tag parameter
+- [ ] Web(Recommendation page): Expose novelty score setting
 - [ ] Parser: Extract album cover image
-- [ ] Web(Recommendation page): Expose novelty score
-- [ ] Recommendations(Quantile rank) + Web(Recommendation page): Expose default settings for settings form
+- [ ] Extension: Album assessment popup
+- [ ] Recommendations(Quantile rank) + Web(Recommendation page): Expose default settings values rpc for settings form
 - [ ] Web(Recommendation page): Settings presets
 - [ ] Parser: Extract album spotify link
 - [ ] Recommendations(Quantile rank): Genre tokenization
@@ -39,7 +41,6 @@
 - [ ] Lookup: Chart
 - [ ] Lookup: Artist
 - [ ] Documentation: System diagram, how-tos
-- [ ] Extension: Recommendation popup
 - [ ] Recommendations: Export to spotify playlist
 - [ ] Parser: Parser versioning, Target site change detection + playbook
 - [ ] Recommendations: T-SNE Visualization export

@@ -75,6 +75,12 @@ pub struct AlbumReadModelTrack {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
+pub struct AlbumReadModelCredit {
+  pub artist: AlbumReadModelArtist,
+  pub roles: Vec<String>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModel {
   pub name: String,
   pub file_name: FileName,
@@ -95,6 +101,12 @@ pub struct AlbumReadModel {
   pub languages: Vec<String>,
   #[serde(default)]
   pub language_count: u32,
+  #[serde(default)]
+  pub credits: Vec<AlbumReadModelCredit>,
+  #[serde(default)]
+  pub credit_tags: Vec<String>,
+  #[serde(default)]
+  pub credit_tag_count: u32,
 }
 
 impl TryFrom<&Vec<(String, String)>> for AlbumReadModel {

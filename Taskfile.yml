@@ -12,7 +12,7 @@ tasks:
       RUST_LOG: warn,core=debug
       RUSTFLAGS: --cfg tokio_unstable
     cmds:
-      - cargo build --release
+      - cargo build
 
   "core:run":
     dir: core

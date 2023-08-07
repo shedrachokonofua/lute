@@ -2,11 +2,11 @@ use super::{
   dom::{
     get_link_tag_href, get_meta_value, get_node_inner_text, get_tag_inner_text, query_select_first,
   },
-  parsed_file_data::{ParsedAlbum, ParsedArtistReference, ParsedTrack},
+  parsed_file_data::{ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedTrack},
   util::{clean_artist_name, parse_release_date},
 };
 use crate::files::file_metadata::file_name::FileName;
-use anyhow::Result;
+use anyhow::{Error, Result};
 use tracing::{instrument, warn};
 
 #[instrument(skip(file_content))]
@@ -178,6 +178,64 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     })
     .ok_or(anyhow::anyhow!("Failed to parse tracks"))?;
 
+  let credits = match query_select_first(dom.parser(), container, "#credits_") {
+    Ok(tag) => tag
+      .query_selector(dom.parser(), "li")
+      .map(|iter| {
+        iter
+          .map(|node| {
+            let tag = node.get(dom.parser()).and_then(|node| node.as_tag());
+            if tag.is_none() {
+              return None;
+            }
+            let tag = tag.unwrap();
+
+            let artist = tag
+              .query_selector(dom.parser(), "a")
+              .and_then(|mut iter| iter.next())
+              .and_then(|node| node.get(dom.parser()))
+              .and_then(|node| node.as_tag())
+              .map(|tag| ParsedArtistReference {
+                name: clean_artist_name(tag.inner_text(dom.parser()).as_ref()).to_string(),
+                file_name: FileName::try_from(get_link_tag_href(tag).unwrap()).unwrap(),
+              });
+            if artist.is_none() {
+              return None;
+            }
+            let artist = artist.unwrap();
+
+            let roles = tag
+              .query_selector(dom.parser(), ".role_name")
+              .map(|iter| {
+                iter
+                  .map(|node| {
+                    let text = get_node_inner_text(dom.parser(), &node)?;
+                    let tag = node.get(dom.parser()).and_then(|node| node.as_tag());
+                    if tag.is_none() {
+                      return Ok::<String, Error>(text);
+                    }
+                    let tag = tag.unwrap();
+                    let role_tracks = get_tag_inner_text(dom.parser(), tag, ".role_tracks");
+                    if role_tracks.is_err() {
+                      return Ok(text);
+                    }
+                    let role_tracks = role_tracks.unwrap();
+                    Ok(text.replace(&role_tracks, ""))
+                  })
+                  .filter_map(|role: Result<String, _>| role.ok())
+                  .collect::<Vec<String>>()
+              })
+              .unwrap_or(vec![]);
+
+            Some(ParsedCredit { artist, roles })
+          })
+          .filter_map(|credit| credit)
+          .collect::<Vec<ParsedCredit>>()
+      })
+      .unwrap_or(vec![]),
+    Err(_) => vec![],
+  };
+
   Ok(ParsedAlbum {
     name,
     rating,
@@ -189,5 +247,6 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     descriptors,
     tracks,
     languages,
+    credits,
   })
 }

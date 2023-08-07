@@ -286,6 +286,11 @@ message ParsedTrack {
   optional string position = 4;
 }
 
+message ParsedCredit {
+  ParsedArtistReference artist = 1;
+  repeated string roles = 2;
+}
+
 message ParsedAlbum {
   string name = 1;
   float rating = 2;
@@ -297,6 +302,7 @@ message ParsedAlbum {
   repeated ParsedTrack tracks = 8;
   optional string release_date = 9;
   repeated string languages = 10;
+  repeated ParsedCredit credits = 11;
 }
 
 message ParsedArtistAlbum {

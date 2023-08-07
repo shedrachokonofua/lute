@@ -1,5 +1,6 @@
 use super::album_read_model_repository::{
-  AlbumReadModel, AlbumReadModelArtist, AlbumReadModelRepository, AlbumReadModelTrack,
+  AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelRepository,
+  AlbumReadModelTrack,
 };
 use crate::{
   crawler::{
@@ -11,7 +12,9 @@ use crate::{
     event_subscriber::{EventSubscriber, SubscriberContext},
   },
   files::file_metadata::file_name::FileName,
-  parser::parsed_file_data::{ParsedAlbum, ParsedArtistReference, ParsedFileData, ParsedTrack},
+  parser::parsed_file_data::{
+    ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack,
+  },
   settings::Settings,
 };
 use anyhow::Result;
@@ -19,8 +22,8 @@ use chrono::Datelike;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
-impl AlbumReadModelTrack {
-  pub fn from_parsed_track(parsed_track: &ParsedTrack) -> Self {
+impl From<&ParsedTrack> for AlbumReadModelTrack {
+  fn from(parsed_track: &ParsedTrack) -> Self {
     Self {
       name: parsed_track.name.clone(),
       duration_seconds: parsed_track.duration_seconds,
@@ -30,8 +33,8 @@ impl AlbumReadModelTrack {
   }
 }
 
-impl AlbumReadModelArtist {
-  pub fn from_parsed_artist(parsed_artist: &ParsedArtistReference) -> Self {
+impl From<&ParsedArtistReference> for AlbumReadModelArtist {
+  fn from(parsed_artist: &ParsedArtistReference) -> Self {
     Self {
       name: parsed_artist.name.clone(),
       file_name: parsed_artist.file_name.clone(),
@@ -39,8 +42,31 @@ impl AlbumReadModelArtist {
   }
 }
 
+impl From<&ParsedCredit> for AlbumReadModelCredit {
+  fn from(parsed_credit: &ParsedCredit) -> Self {
+    Self {
+      artist: (&parsed_credit.artist).into(),
+      roles: parsed_credit.roles.clone(),
+    }
+  }
+}
+
 impl AlbumReadModel {
   pub fn from_parsed_album(file_name: &FileName, parsed_album: ParsedAlbum) -> Self {
+    let credit_tags = &parsed_album
+      .credits
+      .iter()
+      .flat_map(|credit| {
+        credit.roles.iter().map(|role| {
+          format!(
+            "{}:{}",
+            credit.artist.file_name.to_string(),
+            role.to_lowercase().replace(" ", "_")
+          )
+        })
+      })
+      .collect::<Vec<String>>();
+
     Self {
       name: parsed_album.name.clone(),
       file_name: file_name.clone(),
@@ -49,7 +75,7 @@ impl AlbumReadModel {
       artists: parsed_album
         .artists
         .iter()
-        .map(AlbumReadModelArtist::from_parsed_artist)
+        .map(AlbumReadModelArtist::from)
         .collect::<Vec<AlbumReadModelArtist>>(),
       artist_count: parsed_album.artists.len() as u32,
       primary_genres: parsed_album.primary_genres.clone(),
@@ -61,12 +87,19 @@ impl AlbumReadModel {
       tracks: parsed_album
         .tracks
         .iter()
-        .map(AlbumReadModelTrack::from_parsed_track)
+        .map(AlbumReadModelTrack::from)
         .collect::<Vec<AlbumReadModelTrack>>(),
       release_date: parsed_album.release_date,
       release_year: parsed_album.release_date.map(|date| date.year() as u32),
       languages: parsed_album.languages.clone(),
       language_count: parsed_album.languages.len() as u32,
+      credits: parsed_album
+        .credits
+        .iter()
+        .map(AlbumReadModelCredit::from)
+        .collect::<Vec<AlbumReadModelCredit>>(),
+      credit_tag_count: credit_tags.len() as u32,
+      credit_tags: credit_tags.clone(),
     }
   }
 }
