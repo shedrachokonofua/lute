@@ -128,25 +128,25 @@ export const settingsToRecommendationRequest = (
       descriptorCountWeight,
       creditTagWeight,
     } = settings.assessmentSettings.quantileRanking;
-    if (primaryGenresWeight) {
+    if (primaryGenresWeight !== undefined) {
       quantileRankSettings.setPrimaryGenreWeight(primaryGenresWeight);
     }
-    if (secondaryGenresWeight) {
+    if (secondaryGenresWeight !== undefined) {
       quantileRankSettings.setSecondaryGenreWeight(secondaryGenresWeight);
     }
-    if (descriptorWeight) {
+    if (descriptorWeight !== undefined) {
       quantileRankSettings.setDescriptorWeight(descriptorWeight);
     }
-    if (ratingCountWeight) {
+    if (ratingCountWeight !== undefined) {
       quantileRankSettings.setRatingCountWeight(ratingCountWeight);
     }
-    if (ratingWeight) {
+    if (ratingWeight !== undefined) {
       quantileRankSettings.setRatingWeight(ratingWeight);
     }
-    if (descriptorCountWeight) {
+    if (descriptorCountWeight !== undefined) {
       quantileRankSettings.setDescriptorCountWeight(descriptorCountWeight);
     }
-    if (creditTagWeight) {
+    if (creditTagWeight !== undefined) {
       quantileRankSettings.setCreditTagWeight(creditTagWeight);
     }
     assessmentSettings.setQuantileRankSettings(quantileRankSettings);

@@ -134,6 +134,7 @@ export const recommendationPageLoader = async ({
           },
         })
       : undefined;
+
   const settings = profileId
     ? {
         profileId,

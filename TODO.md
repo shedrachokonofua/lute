@@ -21,7 +21,7 @@
 - [x] Recommendations(Quantile rank): Credit tag parameter
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): Expose default settings values rpc for settings form
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): "Exclude known artists" setting
-- [ ] Recommendations(Quantile rank) + Web(Recommendation page): Setting parameter weight to 0 should exclude from calculation
+- [x] Recommendations(Quantile rank) + Web(Recommendation page): Setting parameter weight to 0 should exclude from calculation
 - [ ] Perf: Replace settings cloning with Arc
 - [ ] Profile: Fix inconsistent saved spotify track import
 - [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile

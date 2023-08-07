@@ -47,52 +47,28 @@ impl TryFrom<proto::QuantileRankAlbumAssessmentSettings> for QuantileRankAlbumAs
   fn try_from(value: proto::QuantileRankAlbumAssessmentSettings) -> Result<Self, Self::Error> {
     let mut builder = QuantileRankAlbumAssessmentSettingsBuilder::default();
     if let Some(novelty_score) = value.novelty_score {
-      builder.novelty_score(default_if_zero(
-        novelty_score.into(),
-        QuantileRankAlbumAssessmentSettings::default().novelty_score,
-      ));
+      builder.novelty_score(novelty_score);
     }
     if let Some(primary_genre_weight) = value.primary_genre_weight {
-      builder.primary_genre_weight(default_if_zero(
-        primary_genre_weight,
-        QuantileRankAlbumAssessmentSettings::default().primary_genre_weight,
-      ));
+      builder.primary_genre_weight(primary_genre_weight);
     }
     if let Some(secondary_genre_weight) = value.secondary_genre_weight {
-      builder.secondary_genre_weight(default_if_zero(
-        secondary_genre_weight,
-        QuantileRankAlbumAssessmentSettings::default().secondary_genre_weight,
-      ));
+      builder.secondary_genre_weight(secondary_genre_weight);
     }
     if let Some(descriptor_weight) = value.descriptor_weight {
-      builder.descriptor_weight(default_if_zero(
-        descriptor_weight,
-        QuantileRankAlbumAssessmentSettings::default().descriptor_weight,
-      ));
+      builder.descriptor_weight(descriptor_weight);
     }
     if let Some(rating_weight) = value.rating_weight {
-      builder.rating_weight(default_if_zero(
-        rating_weight,
-        QuantileRankAlbumAssessmentSettings::default().rating_weight,
-      ));
+      builder.rating_weight(rating_weight);
     }
     if let Some(rating_count_weight) = value.rating_count_weight {
-      builder.rating_count_weight(default_if_zero(
-        rating_count_weight,
-        QuantileRankAlbumAssessmentSettings::default().rating_count_weight,
-      ));
+      builder.rating_count_weight(rating_count_weight);
     }
     if let Some(descriptor_count_weight) = value.descriptor_count_weight {
-      builder.descriptor_count_weight(default_if_zero(
-        descriptor_count_weight,
-        QuantileRankAlbumAssessmentSettings::default().descriptor_count_weight,
-      ));
+      builder.descriptor_count_weight(descriptor_count_weight);
     }
     if let Some(credit_tag_weight) = value.credit_tag_weight {
-      builder.credit_tag_weight(default_if_zero(
-        credit_tag_weight,
-        QuantileRankAlbumAssessmentSettings::default().credit_tag_weight,
-      ));
+      builder.credit_tag_weight(credit_tag_weight);
     }
     Ok(builder.build()?)
   }

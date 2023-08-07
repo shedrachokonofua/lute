@@ -13,6 +13,7 @@ use crate::{
 use anyhow::Result;
 use async_trait::async_trait;
 use derive_builder::Builder;
+use num_traits::Zero;
 use ordered_float::OrderedFloat;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -328,37 +329,81 @@ impl
     let (recommendation_sender, mut recommendation_receiver) = mpsc::unbounded_channel();
     rayon::spawn(move || {
       albums.par_iter().for_each(|album| {
-        let average_primary_genre_rank = calculate_average_rank(
-          &primary_genre_ranking,
-          &primary_genre_summary_map,
-          &album.primary_genres,
-          assessment_settings.novelty_score,
-        )
-        .unwrap();
-        let average_secondary_genre_rank = calculate_average_rank(
-          &secondary_genre_ranking,
-          &secondary_genre_summary_map,
-          &album.secondary_genres,
-          assessment_settings.novelty_score,
-        )
-        .unwrap();
-        let average_descriptor_rank = calculate_average_rank(
-          &descriptor_ranking,
-          &descriptor_summary_map,
-          &album.descriptors,
-          assessment_settings.novelty_score,
-        )
-        .unwrap();
-        let average_credit_tag_rank = calculate_average_rank(
-          &credit_tag_ranking,
-          &credit_tag_summary_map,
-          &album.credit_tags,
-          0.1,
-        )
-        .unwrap();
-        let rating_rank = rating_ranking.get_rank(&OrderedFloat(album.rating));
-        let rating_count_rank = rating_count_ranking.get_rank(&album.rating_count);
-        let descriptor_count_rank = descriptor_count_ranking.get_rank(&album.descriptor_count);
+        let average_primary_genre_rank = if !assessment_settings.primary_genre_weight.is_zero() {
+          calculate_average_rank(
+            &primary_genre_ranking,
+            &primary_genre_summary_map,
+            &album.primary_genres,
+            assessment_settings.novelty_score,
+          )
+          .unwrap()
+        } else {
+          0.0
+        };
+
+        let average_secondary_genre_rank = if !assessment_settings.secondary_genre_weight.is_zero()
+        {
+          calculate_average_rank(
+            &secondary_genre_ranking,
+            &secondary_genre_summary_map,
+            &album.secondary_genres,
+            assessment_settings.novelty_score,
+          )
+          .unwrap()
+        } else {
+          0.0
+        };
+
+        let average_descriptor_rank = if !assessment_settings.descriptor_weight.is_zero() {
+          calculate_average_rank(
+            &descriptor_ranking,
+            &descriptor_summary_map,
+            &album.descriptors,
+            assessment_settings.novelty_score,
+          )
+          .unwrap()
+        } else {
+          0.0
+        };
+
+        let average_credit_tag_rank = if !assessment_settings.credit_tag_weight.is_zero() {
+          calculate_average_rank(
+            &credit_tag_ranking,
+            &credit_tag_summary_map,
+            &album.credit_tags,
+            0.1,
+          )
+          .unwrap()
+        } else {
+          0.0
+        };
+
+        let rating_rank = if !assessment_settings.rating_weight.is_zero() {
+          default_if_zero(
+            rating_ranking.get_rank(&OrderedFloat(album.rating)),
+            assessment_settings.novelty_score,
+          )
+        } else {
+          0.0
+        };
+
+        let rating_count_rank = if !assessment_settings.rating_count_weight.is_zero() {
+          default_if_zero(
+            rating_count_ranking.get_rank(&album.rating_count),
+            assessment_settings.novelty_score,
+          )
+        } else {
+          0.0
+        };
+
+        let descriptor_count_rank = if !assessment_settings.descriptor_count_weight.is_zero() {
+          default_if_zero(
+            descriptor_count_ranking.get_rank(&album.descriptor_count),
+            assessment_settings.novelty_score,
+          )
+        } else {
+          0.0
+        };
 
         let mut ranks =
           vec![average_primary_genre_rank; assessment_settings.primary_genre_weight as usize];
