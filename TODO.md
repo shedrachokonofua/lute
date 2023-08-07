@@ -19,15 +19,22 @@
 - [x] Parser: Extract album language
 - [x] Parser: Extract album credits
 - [x] Recommendations(Quantile rank): Credit tag parameter
+- [ ] Recommendations(Quantile rank) + Web(Recommendation page): Expose default settings values rpc for settings form
+- [ ] Recommendations(Quantile rank) + Web(Recommendation page): "Exclude known artists" setting
+- [ ] Recommendations(Quantile rank) + Web(Recommendation page): Setting parameter weight to 0 should exclude from calculation
+- [ ] Perf: Replace settings cloning with Arc
+- [ ] Profile: Fix inconsistent saved spotify track import
+- [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile
+- [ ] Lookup: Chart
 - [ ] Web(Recommendation page): Expose novelty score setting
+- [ ] Web(Profile page): Bootstrap basic page for profile CRUD
+- [ ] Operations: Reset redisearch index rpc method
 - [ ] Parser: Extract album cover image
 - [ ] Extension: Album assessment popup
-- [ ] Recommendations(Quantile rank) + Web(Recommendation page): Expose default settings values rpc for settings form
 - [ ] Web(Recommendation page): Settings presets
 - [ ] Parser: Extract album spotify link
 - [ ] Recommendations(Quantile rank): Genre tokenization
 - [ ] Web: Add to docker image
-- [ ] Web(Recommendation page): Album context menu
 - [ ] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
 - [ ] Recommendations(Vector similarity): Album recommendations, rpc method
 - [ ] Album read model repository stats, rpc method
@@ -36,9 +43,7 @@
 - [ ] Profile: Import data from spotify most played tracks
 - [ ] Crawler: Fix file staleness check
 - [ ] Scheduled tasks
-- [ ] Perf: Replace settings cloning with Arc
 - [ ] Crawler: Automatic rate limit reset
-- [ ] Lookup: Chart
 - [ ] Lookup: Artist
 - [ ] Documentation: System diagram, how-tos
 - [ ] Recommendations: Export to spotify playlist
