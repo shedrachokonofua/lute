@@ -14,8 +14,11 @@ pub fn setup_tracing(tracing_settings: &TracingSettings) -> Result<()> {
     .with_endpoint(&tracing_settings.otel_collector_endpoint);
 
   let mut resource_labels = vec![
-    opentelemetry::KeyValue::new("service.namespace", tracing_settings.namespace.clone()),
-    opentelemetry::KeyValue::new("service.name", tracing_settings.name.clone()),
+    opentelemetry::KeyValue::new(
+      "service.namespace",
+      tracing_settings.service_namespace.clone(),
+    ),
+    opentelemetry::KeyValue::new("service.name", tracing_settings.service_name.clone()),
     opentelemetry::KeyValue::new("host.name", tracing_settings.host_name.clone()),
   ];
 
