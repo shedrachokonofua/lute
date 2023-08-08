@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::Duration;
 use serde_derive::Deserialize;
 
@@ -58,6 +60,9 @@ pub struct CrawlerSettings {
 pub struct TracingSettings {
   pub otel_collector_endpoint: String,
   pub host_name: String,
+  pub name: String,
+  pub namespace: String,
+  pub labels: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
@@ -109,6 +114,9 @@ impl Settings {
       .set_default("crawler.rate_limit.max_requests", 2000)?
       .set_default("parser.concurrency", 20)?
       .set_default("parser.retry_concurrency", 20)?
+      .set_default("tracing.name", "core")?
+      .set_default("tracing.namespace", "lute")?
+      .set_default("tracing.labels", HashMap::<String, String>::new())?
       .build()?
       .try_deserialize()
   }
