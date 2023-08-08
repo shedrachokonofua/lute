@@ -19,7 +19,7 @@ pub fn setup_tracing(tracing_settings: &TracingSettings) -> Result<()> {
     opentelemetry::KeyValue::new("host.name", tracing_settings.host_name.clone()),
   ];
 
-  match &tracing_settings.labels {
+  match &tracing_settings.resource_labels {
     Some(labels) => {
       for (key, value) in labels.iter() {
         resource_labels.push(opentelemetry::KeyValue::new(key.clone(), value.clone()));

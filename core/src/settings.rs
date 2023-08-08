@@ -62,7 +62,7 @@ pub struct TracingSettings {
   pub host_name: String,
   pub name: String,
   pub namespace: String,
-  pub labels: Option<HashMap<String, String>>,
+  pub resource_labels: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
