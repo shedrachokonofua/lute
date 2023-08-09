@@ -182,7 +182,7 @@ async fn crawl_artist_albums(
 
 pub fn build_album_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  settings: Settings,
+  settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Vec<EventSubscriber> {
   let album_crawler_interactor = Arc::clone(&crawler_interactor);
@@ -190,7 +190,7 @@ pub fn build_album_event_subscribers(
   vec![
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: settings.clone(),
+      settings: Arc::clone(&settings),
       id: "update_album_read_models".to_string(),
       concurrency: Some(250),
       stream: Stream::Parser,
@@ -198,7 +198,7 @@ pub fn build_album_event_subscribers(
     },
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: settings.clone(),
+      settings: Arc::clone(&settings),
       id: "crawl_chart_albums".to_string(),
       concurrency: Some(250),
       stream: Stream::Parser,
@@ -209,7 +209,7 @@ pub fn build_album_event_subscribers(
     },
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings,
+      settings: Arc::clone(&settings),
       id: "crawl_artist_albums".to_string(),
       concurrency: Some(250),
       stream: Stream::Parser,

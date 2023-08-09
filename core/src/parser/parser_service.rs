@@ -201,7 +201,7 @@ impl ParserService {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
       file_interactor: FileInteractor::new(
-        settings.file.clone(),
+        Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
       ),
       parser_retry_queue,
@@ -262,11 +262,10 @@ impl proto::ParserService for ParserService {
         error!(err = e.to_string(), "Failed to get file metadata");
         Status::internal("Failed to get file metadata")
       })?;
-    let content_store =
-      FileContentStore::new(self.settings.file.content_store.clone()).map_err(|e| {
-        error!(err = e.to_string(), "Failed to create content store");
-        Status::internal("Failed to create content store")
-      })?;
+    let content_store = FileContentStore::new(&self.settings.file.content_store).map_err(|e| {
+      error!(err = e.to_string(), "Failed to create content store");
+      Status::internal("Failed to create content store")
+    })?;
     let parsed_data = parse_file_on_store(
       content_store,
       EventPublisher::new(Arc::clone(&self.redis_connection_pool)),

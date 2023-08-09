@@ -106,7 +106,7 @@ async fn crawl_similar_albums(
 
 pub fn build_recommendation_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  settings: Settings,
+  settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Vec<EventSubscriber> {
   vec![EventSubscriber {

@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 async fn parse_saved_file(context: SubscriberContext) -> Result<()> {
   if let Event::FileSaved { file_id, file_name } = context.payload.event {
-    let file_content_store = FileContentStore::new(context.settings.file.content_store.clone())?;
+    let file_content_store = FileContentStore::new(&context.settings.file.content_store)?;
     let event_publisher = EventPublisher::new(Arc::clone(&context.redis_connection_pool));
     parse_file_on_store(
       file_content_store,
@@ -64,12 +64,12 @@ async fn populate_failed_parse_files_repository(context: SubscriberContext) -> R
 
 pub fn build_parser_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  settings: Settings,
+  settings: Arc<Settings>,
 ) -> Vec<EventSubscriber> {
   vec![
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: settings.clone(),
+      settings: Arc::clone(&settings),
       id: "parse_saved_file".to_string(),
       concurrency: Some(settings.parser.concurrency as usize),
       stream: Stream::File,
@@ -77,7 +77,7 @@ pub fn build_parser_event_subscribers(
     },
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings,
+      settings: Arc::clone(&settings),
       id: "populate_failed_parse_files_repository".to_string(),
       concurrency: Some(1),
       stream: Stream::Parser,

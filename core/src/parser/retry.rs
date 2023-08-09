@@ -20,10 +20,10 @@ pub fn start_parser_retry_consumer(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Arc<Settings>,
 ) -> Result<()> {
-  let file_content_store = FileContentStore::new(settings.file.content_store.clone())?;
+  let file_content_store = FileContentStore::new(&settings.file.content_store)?;
   let event_publisher = EventPublisher::new(Arc::clone(&redis_connection_pool));
   let file_interactor =
-    FileInteractor::new(settings.file.clone(), Arc::clone(&redis_connection_pool));
+    FileInteractor::new(Arc::clone(&settings), Arc::clone(&redis_connection_pool));
 
   spawn(async move {
     loop {

@@ -331,7 +331,7 @@ async fn handle_lookup_event(
 
 pub fn build_album_search_lookup_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  settings: Settings,
+  settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Vec<EventSubscriber> {
   let file_processing_handler: Arc<
@@ -347,7 +347,7 @@ pub fn build_album_search_lookup_event_subscribers(
   vec![
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: settings.clone(),
+      settings: Arc::clone(&settings),
       id: "lookup".to_string(),
       concurrency: Some(250),
       stream: Stream::Lookup,
@@ -372,7 +372,7 @@ pub fn build_album_search_lookup_event_subscribers(
     },
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: settings.clone(),
+      settings: Arc::clone(&settings),
       id: "lookup".to_string(),
       concurrency: Some(1),
       stream: Stream::File,
@@ -380,7 +380,7 @@ pub fn build_album_search_lookup_event_subscribers(
     },
     EventSubscriber {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings,
+      settings: Arc::clone(&settings),
       id: "lookup".to_string(),
       concurrency: Some(1),
       stream: Stream::Parser,

@@ -10,8 +10,8 @@ pub struct FileContentStore {
 }
 
 impl FileContentStore {
-  pub fn new(settings: ContentStoreSettings) -> Result<Self> {
-    let credentials = match (settings.key, settings.secret) {
+  pub fn new(settings: &ContentStoreSettings) -> Result<Self> {
+    let credentials = match (&settings.key, &settings.secret) {
       (Some(key), Some(secret)) => {
         Credentials::new(Some(key.as_str()), Some(secret.as_str()), None, None, None)
       }
@@ -21,8 +21,8 @@ impl FileContentStore {
       bucket: Bucket::new(
         &settings.bucket,
         s3::Region::Custom {
-          region: settings.region,
-          endpoint: settings.endpoint,
+          region: settings.region.clone(),
+          endpoint: settings.endpoint.clone(),
         },
         credentials,
       )?

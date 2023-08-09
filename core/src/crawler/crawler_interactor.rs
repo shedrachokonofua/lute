@@ -2,7 +2,7 @@ use super::{
   crawler_state_repository::{CrawlerStateRepository, CrawlerStatus},
   priority_queue::{ClaimedQueueItem, ItemKey, PriorityQueue, QueueItem, QueuePushParameters},
 };
-use crate::{files::file_interactor::FileInteractor, settings::CrawlerSettings};
+use crate::{files::file_interactor::FileInteractor, settings::Settings};
 use anyhow::{bail, Result};
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
@@ -20,7 +20,7 @@ pub struct CrawlerMonitor {
 
 #[derive(Debug)]
 pub struct CrawlerInteractor {
-  settings: CrawlerSettings,
+  settings: Arc<Settings>,
   file_interactor: FileInteractor,
   crawler_state_repository: CrawlerStateRepository,
   priority_queue: Arc<PriorityQueue>,
@@ -29,7 +29,7 @@ pub struct CrawlerInteractor {
 
 impl CrawlerInteractor {
   pub fn new(
-    settings: CrawlerSettings,
+    settings: Arc<Settings>,
     file_interactor: FileInteractor,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     priority_queue: Arc<PriorityQueue>,
@@ -95,6 +95,7 @@ impl CrawlerInteractor {
     Ok(
       self
         .settings
+        .crawler
         .rate_limit
         .max_requests
         .saturating_sub(self.get_window_request_count().await?),
@@ -122,7 +123,7 @@ impl CrawlerInteractor {
     }
     let total =
       self.get_window_request_count().await? + self.priority_queue.get_claimed_item_count().await?;
-    Ok(total >= self.settings.rate_limit.max_requests)
+    Ok(total >= self.settings.crawler.rate_limit.max_requests)
   }
 
   #[instrument(skip(self))]

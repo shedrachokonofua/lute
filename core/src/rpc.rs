@@ -34,7 +34,7 @@ impl Lute for LuteService {
 }
 
 pub struct RpcServer {
-  settings: Settings,
+  settings: Arc<Settings>,
   file_service: Arc<FileService>,
   crawler_service: Arc<CrawlerService>,
   album_service: Arc<AlbumService>,
@@ -48,17 +48,16 @@ pub struct RpcServer {
 
 impl RpcServer {
   pub fn new(
-    settings: Settings,
+    settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     crawler: Arc<Crawler>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
   ) -> Self {
-    let settings_arc = Arc::new(settings.clone());
     Self {
-      settings: settings.clone(),
+      settings: Arc::clone(&settings),
       file_service: Arc::new(FileService {
         file_interactor: FileInteractor::new(
-          settings.file.clone(),
+          Arc::clone(&settings),
           Arc::clone(&redis_connection_pool),
         ),
       }),
@@ -68,21 +67,21 @@ impl RpcServer {
         spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
       }),
       operations_service: Arc::new(OperationsService::new(
-        &settings,
+        Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
       )),
       parser_service: Arc::new(ParserService::new(
-        Arc::clone(&settings_arc),
+        Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
         Arc::clone(&parser_retry_queue),
       )),
       profile_service: Arc::new(ProfileService::new(
-        Arc::clone(&settings_arc),
+        Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
       )),
       lookup_service: Arc::new(LookupService::new(Arc::clone(&redis_connection_pool))),
       recommendation_service: Arc::new(RecommendationService::new(
-        Arc::clone(&settings_arc),
+        Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
       )),
     }

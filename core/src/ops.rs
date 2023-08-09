@@ -18,10 +18,13 @@ pub struct OperationsService {
 }
 
 impl OperationsService {
-  pub fn new(settings: &Settings, redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+  pub fn new(
+    settings: Arc<Settings>,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  ) -> Self {
     Self {
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      file_interactor: FileInteractor::new(settings.file.clone(), redis_connection_pool),
+      file_interactor: FileInteractor::new(settings, redis_connection_pool),
     }
   }
 }

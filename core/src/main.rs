@@ -27,7 +27,7 @@ use tokio::task;
 static GLOBAL: Jemalloc = Jemalloc;
 
 fn run_rpc_server(
-  settings: Settings,
+  settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   crawler: Arc<Crawler>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
@@ -40,7 +40,7 @@ fn run_rpc_server(
 }
 
 fn start_event_subscribers(
-  settings: Settings,
+  settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   crawler: Arc<Crawler>,
 ) {
@@ -76,7 +76,7 @@ fn start_event_subscribers(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   dotenv().ok();
-  let settings: Settings = Settings::new()?;
+  let settings = Arc::new(Settings::new()?);
   setup_tracing(&settings.tracing)?;
 
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
@@ -89,23 +89,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   start_parser_retry_consumer(
     Arc::clone(&parser_retry_queue),
     Arc::clone(&redis_connection_pool),
-    Arc::new(settings.clone()),
+    Arc::clone(&settings),
   )?;
 
   let crawler = Arc::new(Crawler::new(
-    settings.clone(),
+    Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
   )?);
   crawler.run()?;
 
   start_event_subscribers(
-    settings.clone(),
+    Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
     Arc::clone(&crawler),
   );
 
   run_rpc_server(
-    settings,
+    Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
     Arc::clone(&crawler),
     Arc::clone(&parser_retry_queue),

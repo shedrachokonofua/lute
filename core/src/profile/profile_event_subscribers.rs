@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 pub fn build_profile_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  settings: Settings,
+  settings: Arc<Settings>,
 ) -> Vec<EventSubscriber> {
   let mut subscribers = vec![];
   subscribers.extend(build_spotify_import_event_subscribers(

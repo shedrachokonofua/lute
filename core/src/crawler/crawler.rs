@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tokio::task;
 
 pub struct Crawler {
-  settings: Settings,
+  settings: Arc<Settings>,
   client: ClientWithMiddleware,
   pub crawler_interactor: Arc<CrawlerInteractor>,
   pub file_interactor: Arc<FileInteractor>,
@@ -20,7 +20,7 @@ pub struct Crawler {
 
 impl Crawler {
   pub fn new(
-    settings: Settings,
+    settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
   ) -> Result<Self> {
     let priority_queue = Arc::new(PriorityQueue::new(
@@ -29,15 +29,15 @@ impl Crawler {
       settings.crawler.claim_ttl_seconds,
     ));
     let file_interactor =
-      FileInteractor::new(settings.file.clone(), Arc::clone(&redis_connection_pool));
+      FileInteractor::new(Arc::clone(&settings), Arc::clone(&redis_connection_pool));
     let crawler_interactor = Arc::new(CrawlerInteractor::new(
-      settings.crawler.clone(),
+      Arc::clone(&settings),
       file_interactor,
       Arc::clone(&redis_connection_pool),
       priority_queue,
     ));
     let file_interactor = Arc::new(FileInteractor::new(
-      settings.file.clone(),
+      Arc::clone(&settings),
       Arc::clone(&redis_connection_pool),
     ));
 

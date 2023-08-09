@@ -15,14 +15,14 @@ use tracing::{debug, error};
 pub struct SubscriberContext {
   pub entry_id: String,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  pub settings: Settings,
+  pub settings: Arc<Settings>,
   pub payload: EventPayload,
 }
 
 pub struct EventSubscriber {
   pub concurrency: Option<usize>,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  pub settings: Settings,
+  pub settings: Arc<Settings>,
   pub id: String,
   pub stream: Stream,
   pub handle: Arc<dyn Fn(SubscriberContext) -> BoxFuture<'static, Result<()>> + Send + Sync>,
@@ -93,7 +93,7 @@ impl EventSubscriber {
       let entry_id = entry.stream_id.clone();
       let payload = EventPayload::try_from(&entry.items).unwrap();
       let pool = Arc::clone(&self.redis_connection_pool);
-      let settings = self.settings.clone();
+      let settings = Arc::clone(&self.settings);
       let handle = self.handle.clone();
       let subscriber_id = self.id.clone();
       let stream_tag = self.stream.tag();
