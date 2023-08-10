@@ -22,13 +22,12 @@ pub fn setup_tracing(tracing_settings: &TracingSettings) -> Result<()> {
     opentelemetry::KeyValue::new("host.name", tracing_settings.host_name.clone()),
   ];
 
-  match &tracing_settings.resource_labels {
-    Some(labels) => {
-      for (key, value) in labels.iter() {
-        resource_labels.push(opentelemetry::KeyValue::new(key.clone(), value.clone()));
-      }
-    }
-    None => {}
+  if let Some(labels) = &tracing_settings.resource_labels {
+    resource_labels.extend(
+      labels
+        .iter()
+        .map(|(key, value)| opentelemetry::KeyValue::new(key.clone(), value.clone())),
+    )
   }
 
   let trace_config = trace::Config::default().with_resource(Resource::new(resource_labels));
