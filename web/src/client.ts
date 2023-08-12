@@ -18,7 +18,7 @@ import {
   RecommendAlbumsRequest,
 } from "./proto/lute_pb";
 
-const coreUrl = "http://localhost:22000";
+const coreUrl = "http://0.0.0.0:22000";
 const client = {
   spotify: new SpotifyServiceClient(coreUrl),
   profile: new ProfileServiceClient(coreUrl),
