@@ -47,6 +47,20 @@ fn calculate_average_rank(
   Ok(rank)
 }
 
+fn compute_ranks<F>(weight: u32, compute_fn: F) -> Result<(f64, Vec<f64>)>
+where
+  F: FnOnce() -> Result<f64>,
+{
+  if weight.is_zero() {
+    return Ok((0.0, vec![]));
+  }
+
+  match compute_fn() {
+    Ok(rank) => Ok((rank, vec![rank; weight as usize])),
+    Err(err) => Err(err),
+  }
+}
+
 pub struct QuantileRankAlbumAssessmentContext {
   primary_genre_ranking: QuantileRanking<ItemWithFactor>,
   secondary_genre_ranking: QuantileRanking<ItemWithFactor>,
@@ -102,101 +116,66 @@ impl QuantileRankAlbumAssessmentContext {
   }
 
   pub fn assess(&self, album: &AlbumReadModel) -> Result<AlbumAssessment> {
-    let average_primary_genre_rank = if !self.settings.primary_genre_weight.is_zero() {
-      calculate_average_rank(
-        &self.primary_genre_ranking,
-        &self.primary_genre_summary_map,
-        &album.primary_genres,
-        self.settings.novelty_score,
-      )?
-    } else {
-      0.0
-    };
+    let (average_primary_genre_rank, mut primary_genre_ranks) =
+      compute_ranks(self.settings.primary_genre_weight, || {
+        calculate_average_rank(
+          &self.primary_genre_ranking,
+          &self.primary_genre_summary_map,
+          &album.primary_genres,
+          self.settings.novelty_score,
+        )
+      })?;
+    let (average_secondary_genre_rank, mut secondary_genre_ranks) =
+      compute_ranks(self.settings.secondary_genre_weight, || {
+        calculate_average_rank(
+          &self.secondary_genre_ranking,
+          &self.secondary_genre_summary_map,
+          &album.secondary_genres,
+          self.settings.novelty_score,
+        )
+      })?;
+    let (average_descriptor_rank, mut descriptor_ranks) =
+      compute_ranks(self.settings.descriptor_weight, || {
+        calculate_average_rank(
+          &self.descriptor_ranking,
+          &self.descriptor_summary_map,
+          &album.descriptors,
+          self.settings.novelty_score,
+        )
+      })?;
+    let (average_credit_tag_rank, mut credit_tag_ranks) =
+      compute_ranks(self.settings.credit_tag_weight, || {
+        calculate_average_rank(
+          &self.credit_tag_ranking,
+          &self.credit_tag_summary_map,
+          &album.credit_tags,
+          0.1,
+        )
+      })?;
+    let (rating_rank, mut rating_ranks) = compute_ranks(self.settings.rating_weight, || {
+      Ok(self.rating_ranking.get_rank(&OrderedFloat(album.rating)))
+    })?;
+    let (rating_count_rank, mut rating_count_ranks) =
+      compute_ranks(self.settings.rating_count_weight, || {
+        Ok(self.rating_count_ranking.get_rank(&album.rating_count))
+      })?;
+    let (descriptor_count_rank, mut descriptor_count_ranks) =
+      compute_ranks(self.settings.descriptor_count_weight, || {
+        Ok(
+          self
+            .descriptor_count_ranking
+            .get_rank(&album.descriptor_count),
+        )
+      })?;
 
-    let average_secondary_genre_rank = if !self.settings.secondary_genre_weight.is_zero() {
-      calculate_average_rank(
-        &self.secondary_genre_ranking,
-        &self.secondary_genre_summary_map,
-        &album.secondary_genres,
-        self.settings.novelty_score,
-      )?
-    } else {
-      0.0
-    };
-
-    let average_descriptor_rank = if !self.settings.descriptor_weight.is_zero() {
-      calculate_average_rank(
-        &self.descriptor_ranking,
-        &self.descriptor_summary_map,
-        &album.descriptors,
-        self.settings.novelty_score,
-      )?
-    } else {
-      0.0
-    };
-
-    let average_credit_tag_rank = if !self.settings.credit_tag_weight.is_zero() {
-      calculate_average_rank(
-        &self.credit_tag_ranking,
-        &self.credit_tag_summary_map,
-        &album.credit_tags,
-        0.1,
-      )?
-    } else {
-      0.0
-    };
-
-    let rating_rank = if !self.settings.rating_weight.is_zero() {
-      default_if_zero(
-        self.rating_ranking.get_rank(&OrderedFloat(album.rating)),
-        self.settings.novelty_score,
-      )
-    } else {
-      0.0
-    };
-
-    let rating_count_rank = if !self.settings.rating_count_weight.is_zero() {
-      default_if_zero(
-        self.rating_count_ranking.get_rank(&album.rating_count),
-        self.settings.novelty_score,
-      )
-    } else {
-      0.0
-    };
-
-    let descriptor_count_rank = if !self.settings.descriptor_count_weight.is_zero() {
-      default_if_zero(
-        self
-          .descriptor_count_ranking
-          .get_rank(&album.descriptor_count),
-        self.settings.novelty_score,
-      )
-    } else {
-      0.0
-    };
-
-    let mut ranks = vec![average_primary_genre_rank; self.settings.primary_genre_weight as usize];
-    ranks.append(&mut vec![
-      average_secondary_genre_rank;
-      self.settings.secondary_genre_weight as usize
-    ]);
-    ranks.append(&mut vec![
-      average_descriptor_rank;
-      self.settings.descriptor_weight as usize
-    ]);
-    ranks.append(&mut vec![rating_rank; self.settings.rating_weight as usize]);
-    ranks.append(&mut vec![
-      rating_count_rank;
-      self.settings.rating_count_weight as usize
-    ]);
-    ranks.append(&mut vec![
-      descriptor_count_rank;
-      self.settings.descriptor_count_weight as usize
-    ]);
-    ranks.append(&mut vec![
-      average_credit_tag_rank;
-      self.settings.credit_tag_weight as usize
-    ]);
+    let mut ranks = vec![];
+    ranks.append(&mut primary_genre_ranks);
+    ranks.append(&mut secondary_genre_ranks);
+    ranks.append(&mut descriptor_ranks);
+    ranks.append(&mut credit_tag_ranks);
+    ranks.append(&mut rating_ranks);
+    ranks.append(&mut rating_count_ranks);
+    ranks.append(&mut descriptor_count_ranks);
 
     let mut metadata = HashMap::new();
     metadata.insert(

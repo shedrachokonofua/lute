@@ -91,8 +91,8 @@ impl
     album_read_model: &QuantileRankAssessableAlbum,
     settings: QuantileRankAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
-    let context = QuantileRankAlbumAssessmentContext::new(profile, profile_albums, settings);
-    context.assess(&album_read_model.0)
+    QuantileRankAlbumAssessmentContext::new(profile, profile_albums, settings)
+      .assess(&album_read_model.0)
   }
 
   #[instrument(name = "QuantileRankInteractor::recommend_albums", skip(self))]
