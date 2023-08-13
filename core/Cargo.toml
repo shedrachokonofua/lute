@@ -16,8 +16,8 @@ futures = "0.3.28"
 htmlescape = "0.3.1"
 lazy_static = "1.4.0"
 num-traits = "0.2.16"
-opentelemetry = { version = "0.19.0" }
-opentelemetry-otlp = { version = "0.12.0" }
+opentelemetry = { version = "0.20.0" }
+opentelemetry-otlp = { version = "0.13.0" }
 ordered-float = "3.7.0"
 prost = "0.11.9"
 prost-build = "0.11.9"
@@ -28,23 +28,37 @@ reqwest-middleware = "0.2.2"
 reqwest-tracing = "0.4.5"
 rspotify = "0.11.7"
 rust-s3 = "0.33.0"
-rustis = { git = "https://github.com/shedrachokonofua/rustis.git", branch = "main", features = ["pool", "redis-json", "redis-search"] }
+rustis = { git = "https://github.com/shedrachokonofua/rustis.git", branch = "main", features = [
+  "pool",
+  "redis-json",
+  "redis-search",
+] }
 serde = "1.0.163"
 serde_derive = "1.0.163"
 serde_json = "1.0.96"
 serde_urlencoded = "0.7.1"
 tl = "0.7.7"
-tokio = { version = "1.28.1", features = ["rt-multi-thread", "macros", "tracing"] }
+tokio = { version = "1.28.1", features = [
+  "rt-multi-thread",
+  "macros",
+  "tracing",
+] }
 tokio-retry = "0.3.0"
 tonic = "0.9.2"
 tonic-reflection = "0.9.2"
 tonic-web = "0.9.2"
 tracing = "0.1.37"
-tracing-opentelemetry = "0.19.0"
-tracing-subscriber = { version = "0.3.17", features = ["fmt", "json", "env-filter"] }
+tracing-opentelemetry = "0.20.0"
+tracing-subscriber = { version = "0.3.17", features = [
+  "fmt",
+  "json",
+  "env-filter",
+] }
 ulid = { version = "1.0.0", features = ["serde"] }
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = { version = "0.5.0", features = ['unprefixed_malloc_on_supported_platforms'] }
+tikv-jemallocator = { version = "0.5.0", features = [
+  'unprefixed_malloc_on_supported_platforms',
+] }
 
 [build-dependencies]
 tonic-build = "0.9.2"
