@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use derive_builder::Builder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rustis::{bb8::Pool, client::PooledClientManager};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::{instrument, warn};
 
@@ -103,9 +103,6 @@ impl
     assessment_settings: QuantileRankAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
-    let context =
-      QuantileRankAlbumAssessmentContext::new(profile, profile_albums, assessment_settings);
-
     let mut search_query_builder = AlbumSearchQueryBuilder::default();
     search_query_builder
       .exclude_file_names(profile.albums.keys().cloned().collect::<Vec<_>>())
@@ -137,11 +134,9 @@ impl
       .album_read_model_repository
       .search(&search_query)
       .await?;
-
-    let result_heap = Arc::new(Mutex::new(BoundedMinHeap::new(
-      recommendation_settings.count as usize,
-    )));
-
+    let context =
+      QuantileRankAlbumAssessmentContext::new(profile, profile_albums, assessment_settings);
+    let mut result_heap = BoundedMinHeap::new(recommendation_settings.count as usize);
     let (recommendation_sender, mut recommendation_receiver) = mpsc::unbounded_channel();
     rayon::spawn(move || {
       albums
@@ -160,9 +155,9 @@ impl
         });
     });
     while let Some(recommendation) = recommendation_receiver.recv().await {
-      result_heap.lock().unwrap().push(recommendation);
+      result_heap.push(recommendation);
     }
-    let recommendations = (*result_heap.lock().unwrap()).drain_sorted_desc();
+    let recommendations = result_heap.drain_sorted_desc();
     Ok(recommendations)
   }
 }
