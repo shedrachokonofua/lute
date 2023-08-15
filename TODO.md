@@ -24,11 +24,15 @@
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): Setting parameter weight to 0 should exclude from calculation
 - [x] Perf: Replace settings cloning with Arc
 - [x] Profile: Fix inconsistent saved spotify track import
+- [ ] Event RPC: External subscriber support with bi-directional streaming and managed iterator.
+- [ ] Lute connector plugin[proof-of-concept]: Postgres
+- [ ] Event RPC: Subscriber monitor(Iterator age, status, etc)
+- [ ] Event RPC: Subscriber statuses, iterator reset
 - [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile
 - [ ] Lookup: Chart
 - [ ] Web(Recommendation page): Expose novelty score setting
 - [ ] Web(Profile page): Bootstrap basic page for profile CRUD
-- [ ] Operations: Reset redisearch index rpc method
+- [ ] Flag to rebuild redisearch indexes on startup
 - [ ] Parser: Extract album cover image
 - [ ] Extension: Album assessment popup
 - [ ] Web(Recommendation page): Settings presets
@@ -39,7 +43,6 @@
 - [ ] Recommendations(Vector similarity): Album recommendations, rpc method
 - [ ] Album read model repository stats, rpc method
 - [ ] Parser: Retry queue monitor, rpc method
-- [ ] Event bus: Subscriber statuses, iterator age, rpc service
 - [ ] Profile: Import data from spotify most played tracks
 - [ ] Crawler: Fix file staleness check
 - [ ] Scheduled tasks
