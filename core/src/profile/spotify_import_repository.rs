@@ -2,7 +2,8 @@ use super::{
   profile::ProfileId, spotify_import_lookup_subscription::SpotifyImportLookupSubscription,
 };
 use crate::{
-  helpers::redisearch::does_ft_index_exist, lookup::album_search_lookup::AlbumSearchLookupQuery,
+  helpers::redisearch::{does_ft_index_exist, escape_tag_value},
+  lookup::album_search_lookup::AlbumSearchLookupQuery,
 };
 use anyhow::{anyhow, Error, Result};
 use rustis::{
@@ -84,7 +85,7 @@ impl SpotifyImportRepository {
     let search_result = connection
       .ft_search(
         INDEX_NAME,
-        format!("@{}:{{ {} }}", key, value),
+        format!("@{}:{{ {} }}", key, escape_tag_value(&value)),
         FtSearchOptions::default().limit(0, 10000),
       )
       .await?;

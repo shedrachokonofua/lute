@@ -23,7 +23,7 @@
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): "Exclude known artists" setting
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): Setting parameter weight to 0 should exclude from calculation
 - [x] Perf: Replace settings cloning with Arc
-- [ ] Profile: Fix inconsistent saved spotify track import
+- [x] Profile: Fix inconsistent saved spotify track import
 - [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile
 - [ ] Lookup: Chart
 - [ ] Web(Recommendation page): Expose novelty score setting
