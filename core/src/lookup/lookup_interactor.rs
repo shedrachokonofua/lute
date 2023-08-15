@@ -58,8 +58,7 @@ impl LookupInteractor {
     let query = AlbumSearchLookupQuery::new(album_name, artist_name);
     let lookup = self.album_search_lookup_repository.find(&query).await?;
     match lookup {
-      Some(lookup) => Ok(lookup),
-      None => {
+      Some(AlbumSearchLookup::Started { .. }) | None => {
         let lookup = AlbumSearchLookup::new(query);
         self.put_album_search_lookup(&lookup).await?;
         self
@@ -77,6 +76,7 @@ impl LookupInteractor {
           .await?;
         Ok(lookup)
       }
+      Some(lookup) => Ok(lookup),
     }
   }
 
