@@ -24,11 +24,17 @@
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): Setting parameter weight to 0 should exclude from calculation
 - [x] Perf: Replace settings cloning with Arc
 - [x] Profile: Fix inconsistent saved spotify track import
-- [x] Event RPC: External subscriber support with bi-directional streaming and managed iterator.
-- [x] Event: Implement optional replication stream
-- [ ] Lute connector plugin[proof-of-concept]: Postgres
-- [ ] Event RPC: Subscriber monitor(Iterator age, status, etc)
-- [ ] Event RPC: Subscriber statuses, iterator reset
+- [x] Events: External subscriber support with bi-directional streaming and managed iterator.
+- [x] Events: Implement optional replication stream.
+- [ ] Connector: Postgres
+- [ ] Connector: Memgraph
+- [ ] Event Bus: Implement master event log, all event stream items are just pointers to master event log. Replace replication stream.
+- [ ] Files: File content download stream rpc method
+- [ ] Files: File content not found event. Should trigger crawling.
+- [ ] Files: Delete file rpc method
+- [ ] Recommendation: Recommendation generated event
+- [ ] Events: Subscriber monitor(Iterator age, status, etc)
+- [ ] Events: Subscriber statuses, iterator reset
 - [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile
 - [ ] Lookup: Chart
 - [ ] Web(Recommendation page): Expose novelty score setting
