@@ -521,3 +521,68 @@ service RecommendationService {
   rpc DefaultQuantileRankAlbumAssessmentSettings(google.protobuf.Empty)
       returns (DefaultQuantileRankAlbumAssessmentSettingsReply) {}
 }
+
+message FileSavedEvent {
+  string file_id = 1;
+  string file_name = 2;
+}
+
+message FileParsedEvent {
+  string file_id = 1;
+  string file_name = 2;
+  ParsedFileData data = 3;
+}
+
+message FileParseFailedEvent {
+  string file_id = 1;
+  string file_name = 2;
+  string error = 3;
+}
+
+message ProfileAlbumAddedEvent {
+  string profile_id = 1;
+  string file_name = 2;
+  uint32 factor = 3;
+}
+
+message LookupAlbumSearchUpdatedEvent {
+  AlbumSearchLookup lookup = 1;
+}
+
+message Event {
+  oneof event {
+    FileSavedEvent file_saved = 1;
+    FileParsedEvent file_parsed = 2;
+    FileParseFailedEvent file_parse_failed = 3;
+    ProfileAlbumAddedEvent profile_album_added = 4;
+    LookupAlbumSearchUpdatedEvent lookup_album_search_updated = 5;
+  }
+}
+
+message EventPayload {
+  Event event = 1;
+  map<string, string> metadata = 2;
+  optional string correlation_id = 3;
+}
+
+message EventStreamItem {
+  string entry_id = 1;
+  EventPayload payload = 2;
+  string stream_id = 3;
+}
+
+message EventStreamReply {
+  repeated EventStreamItem items = 1;
+  string cursor = 2;
+}
+
+message EventStreamRequest {
+  string stream_id = 1; 
+  string subscriber_id = 2;
+  optional uint32 max_batch_size = 3;
+  optional string cursor = 4;
+}
+
+service EventService {
+  rpc Stream(stream EventStreamRequest) returns (stream EventStreamReply) {}
+}

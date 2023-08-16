@@ -1,3 +1,4 @@
+use anyhow::Result;
 use core::{
   albums::album_event_subscribers::build_album_event_subscribers,
   crawler::crawler::Crawler,
@@ -43,34 +44,35 @@ fn start_event_subscribers(
   settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   crawler: Arc<Crawler>,
-) {
+) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
   event_subscribers.extend(build_album_event_subscribers(
     Arc::clone(&redis_connection_pool),
     settings.clone(),
     Arc::clone(&crawler.crawler_interactor),
-  ));
+  )?);
   event_subscribers.extend(build_parser_event_subscribers(
     Arc::clone(&redis_connection_pool),
     settings.clone(),
-  ));
+  )?);
   event_subscribers.extend(build_lookup_event_subscribers(
     Arc::clone(&redis_connection_pool),
     settings.clone(),
     Arc::clone(&crawler.crawler_interactor),
-  ));
+  )?);
   event_subscribers.extend(build_profile_event_subscribers(
     Arc::clone(&redis_connection_pool),
     settings.clone(),
-  ));
+  )?);
   event_subscribers.extend(build_recommendation_event_subscribers(
     Arc::clone(&redis_connection_pool),
     settings,
     Arc::clone(&crawler.crawler_interactor),
-  ));
+  )?);
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });
   });
+  Ok(())
 }
 
 #[tokio::main]
@@ -102,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
     Arc::clone(&crawler),
-  );
+  )?;
 
   run_rpc_server(
     Arc::clone(&settings),

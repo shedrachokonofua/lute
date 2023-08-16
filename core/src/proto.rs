@@ -2,6 +2,7 @@ tonic::include_proto!("lute");
 
 pub use album_service_server::{AlbumService, AlbumServiceServer};
 pub use crawler_service_server::{CrawlerService, CrawlerServiceServer};
+pub use event_service_server::{EventService, EventServiceServer};
 pub use file_service_server::{FileService, FileServiceServer};
 pub use lookup_service_server::{LookupService, LookupServiceServer};
 pub use lute_server::{Lute, LuteServer};

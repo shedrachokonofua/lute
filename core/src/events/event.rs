@@ -2,7 +2,9 @@ use crate::files::file_metadata::file_name::FileName;
 use crate::lookup::album_search_lookup::AlbumSearchLookup;
 use crate::parser::parsed_file_data::ParsedFileData;
 use crate::profile::profile::ProfileId;
+use crate::proto;
 use anyhow::{anyhow, Result};
+use kinded::Kinded;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ulid::serde::ulid_as_u128;
@@ -38,11 +40,68 @@ pub enum Event {
   },
 }
 
+impl Into<proto::Event> for Event {
+  fn into(self) -> proto::Event {
+    proto::Event {
+      event: Some(match self {
+        Event::FileSaved { file_id, file_name } => {
+          proto::event::Event::FileSaved(proto::FileSavedEvent {
+            file_id: file_id.to_string(),
+            file_name: file_name.to_string(),
+          })
+        }
+        Event::FileParsed {
+          file_id,
+          file_name,
+          data,
+        } => proto::event::Event::FileParsed(proto::FileParsedEvent {
+          file_id: file_id.to_string(),
+          file_name: file_name.to_string(),
+          data: Some(data.into()),
+        }),
+        Event::FileParseFailed {
+          file_id,
+          file_name,
+          error,
+        } => proto::event::Event::FileParseFailed(proto::FileParseFailedEvent {
+          file_id: file_id.to_string(),
+          file_name: file_name.to_string(),
+          error,
+        }),
+        Event::ProfileAlbumAdded {
+          profile_id,
+          file_name,
+          factor,
+        } => proto::event::Event::ProfileAlbumAdded(proto::ProfileAlbumAddedEvent {
+          profile_id: profile_id.to_string(),
+          file_name: file_name.to_string(),
+          factor,
+        }),
+        Event::LookupAlbumSearchUpdated { lookup } => {
+          proto::event::Event::LookupAlbumSearchUpdated(proto::LookupAlbumSearchUpdatedEvent {
+            lookup: Some(lookup.into()),
+          })
+        }
+      }),
+    }
+  }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct EventPayload {
   pub event: Event,
   pub correlation_id: Option<String>,
   pub metadata: Option<HashMap<String, String>>,
+}
+
+impl Into<proto::EventPayload> for EventPayload {
+  fn into(self) -> proto::EventPayload {
+    proto::EventPayload {
+      event: Some(self.event.into()),
+      correlation_id: self.correlation_id,
+      metadata: self.metadata.unwrap_or(HashMap::new()),
+    }
+  }
 }
 
 impl EventPayload {
@@ -94,6 +153,8 @@ impl TryFrom<&HashMap<String, String>> for EventPayload {
   }
 }
 
+#[derive(Clone, Kinded)]
+#[kinded(display = "kebab-case")]
 pub enum Stream {
   File,
   Parser,
@@ -103,12 +164,7 @@ pub enum Stream {
 
 impl Stream {
   pub fn tag(&self) -> String {
-    match &self {
-      Stream::File => "file".to_string(),
-      Stream::Profile => "profile".to_string(),
-      Stream::Parser => "parser".to_string(),
-      Stream::Lookup => "lookup".to_string(),
-    }
+    self.kind().to_string()
   }
 
   pub fn redis_key(&self) -> String {
@@ -117,5 +173,19 @@ impl Stream {
 
   pub fn redis_cursor_key(&self, subscriber_id: &str) -> String {
     format!("event:stream:{}:cursor:{}", &self.tag(), subscriber_id)
+  }
+}
+
+impl TryFrom<String> for Stream {
+  type Error = anyhow::Error;
+
+  fn try_from(value: String) -> Result<Self> {
+    let kind = value.parse::<StreamKind>()?;
+    match kind {
+      StreamKind::File => Ok(Stream::File),
+      StreamKind::Parser => Ok(Stream::Parser),
+      StreamKind::Profile => Ok(Stream::Profile),
+      StreamKind::Lookup => Ok(Stream::Lookup),
+    }
   }
 }

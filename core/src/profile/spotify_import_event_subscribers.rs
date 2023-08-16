@@ -1,7 +1,7 @@
 use crate::{
   events::{
     event::{Event, Stream},
-    event_subscriber::{EventSubscriber, SubscriberContext},
+    event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
   lookup::album_search_lookup::AlbumSearchLookup,
   settings::Settings,
@@ -47,19 +47,19 @@ pub async fn process_lookup_subscriptions(
 pub fn build_spotify_import_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Arc<Settings>,
-) -> Vec<EventSubscriber> {
-  vec![EventSubscriber {
-    redis_connection_pool,
-    settings,
-    id: "profile_spotify_import".to_string(),
-    concurrency: Some(250),
-    stream: Stream::Lookup,
-    handle: Arc::new(move |context| {
+) -> Result<Vec<EventSubscriber>> {
+  Ok(vec![EventSubscriberBuilder::default()
+    .id("profile_spotify_import".to_string())
+    .stream(Stream::Lookup)
+    .concurrency(Some(250))
+    .redis_connection_pool(Arc::clone(&redis_connection_pool))
+    .settings(Arc::clone(&settings))
+    .handle(Arc::new(|context| {
       let profile_interactor = ProfileInteractor::new(
         Arc::clone(&context.settings),
         Arc::clone(&context.redis_connection_pool),
       );
       Box::pin(async move { process_lookup_subscriptions(context, profile_interactor).await })
-    }),
-  }]
+    }))
+    .build()?])
 }

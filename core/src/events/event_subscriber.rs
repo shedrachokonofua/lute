@@ -1,13 +1,13 @@
 use crate::settings::Settings;
 
-use super::event::{EventPayload, Stream};
-use anyhow::Result;
-use futures::future::{join_all, BoxFuture};
-use rustis::{
-  bb8::Pool,
-  client::PooledClientManager,
-  commands::{GenericCommands, StreamCommands, StreamEntry, StringCommands, XReadOptions},
+use super::{
+  event::{EventPayload, Stream},
+  event_subscriber_repository::EventSubscriberRepository,
 };
+use anyhow::Result;
+use derive_builder::Builder;
+use futures::future::{join_all, BoxFuture};
+use rustis::{bb8::Pool, client::PooledClientManager};
 use std::thread;
 use std::{sync::Arc, time::Duration};
 use tracing::{debug, error};
@@ -19,6 +19,7 @@ pub struct SubscriberContext {
   pub payload: EventPayload,
 }
 
+#[derive(Builder)]
 pub struct EventSubscriber {
   pub concurrency: Option<usize>,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
@@ -26,72 +27,66 @@ pub struct EventSubscriber {
   pub id: String,
   pub stream: Stream,
   pub handle: Arc<dyn Fn(SubscriberContext) -> BoxFuture<'static, Result<()>> + Send + Sync>,
+  #[builder(
+    setter(skip),
+    default = "self.get_default_event_subscriber_repository()?"
+  )]
+  event_subscriber_repository: EventSubscriberRepository,
+}
+
+impl EventSubscriberBuilder {
+  pub fn get_default_event_subscriber_repository(
+    &self,
+  ) -> Result<EventSubscriberRepository, String> {
+    match &self.redis_connection_pool {
+      Some(redis_connection_pool) => Ok(EventSubscriberRepository::new(Arc::clone(
+        redis_connection_pool,
+      ))),
+      None => Err("Redis connection pool is required".to_string()),
+    }
+  }
 }
 
 impl EventSubscriber {
-  pub fn get_cursor_key(&self) -> String {
-    self.stream.redis_cursor_key(&self.id)
-  }
-
   pub async fn get_cursor(&self) -> Result<String> {
-    let cursor: Option<String> = self
-      .redis_connection_pool
-      .get()
-      .await?
-      .get(self.get_cursor_key())
-      .await?;
-    Ok(cursor.unwrap_or("0".to_string()))
+    self
+      .event_subscriber_repository
+      .get_cursor(&self.stream, &self.id)
+      .await
   }
 
   pub async fn set_cursor(&self, cursor: &str) -> Result<()> {
     self
-      .redis_connection_pool
-      .get()
-      .await?
-      .set(self.get_cursor_key(), cursor)
-      .await?;
-    Ok(())
+      .event_subscriber_repository
+      .set_cursor(&self.stream, &self.id, cursor)
+      .await
   }
 
   pub async fn delete_cursor(&self) -> Result<()> {
     self
-      .redis_connection_pool
-      .get()
-      .await?
-      .del(self.get_cursor_key())
-      .await?;
-    Ok(())
+      .event_subscriber_repository
+      .delete_cursor(&self.stream, &self.id)
+      .await
   }
 
-  pub async fn poll_stream(&self) -> Result<()> {
-    let cursor = self.get_cursor().await?;
-    let results: Vec<(String, Vec<StreamEntry<String>>)> = self
-      .redis_connection_pool
-      .get()
-      .await?
-      .xread(
-        XReadOptions::default()
-          .count(self.concurrency.unwrap_or(10))
-          .block(2500),
-        [&self.stream.redis_key()],
-        &cursor,
+  pub async fn poll_stream(&self) -> Result<Option<String>> {
+    let event_list = self
+      .event_subscriber_repository
+      .get_events_after_cursor(
+        &self.stream,
+        &self.id,
+        self.concurrency.unwrap_or(10),
+        Some(10000),
       )
       .await?;
     debug!(
       stream = self.stream.tag(),
       subscriber_id = self.id,
-      count = results.len(),
+      count = &event_list.events.len(),
       "Polled stream"
     );
-    let stream_items = results.first().map(|(_, items)| items.clone());
-    if stream_items.is_none() {
-      return Ok(());
-    }
-    let stream_items = stream_items.unwrap();
-
-    let futures = stream_items.iter().map(|entry| {
-      let entry_id = entry.stream_id.clone();
-      let payload = EventPayload::try_from(&entry.items).unwrap();
+    let tail_cursor = event_list.tail_cursor();
+    let futures = event_list.events.into_iter().map(|(event_id, payload)| {
       let pool = Arc::clone(&self.redis_connection_pool);
       let settings = Arc::clone(&self.settings);
       let handle = self.handle.clone();
@@ -101,23 +96,23 @@ impl EventSubscriber {
       debug!(
         stream = stream_tag,
         subscriber_id,
-        entry_id = entry_id,
+        event_id = event_id,
         "Handling event"
       );
 
       tokio::spawn(async move {
         handle(SubscriberContext {
           redis_connection_pool: pool,
-          entry_id: entry_id.clone(),
+          entry_id: event_id.clone(),
           settings,
-          payload,
+          payload: payload.clone(),
         })
         .await
         .map_err(|err| {
           error!(
             stream = stream_tag,
             subscriber_id,
-            entry_id = entry_id,
+            event_id = event_id,
             error = err.to_string(),
             "Error handling event"
           );
@@ -126,20 +121,21 @@ impl EventSubscriber {
       })
     });
     join_all(futures).await;
-    let tail = stream_items.last().unwrap().stream_id.clone();
-    self.set_cursor(&tail).await?;
 
-    Ok(())
+    Ok(tail_cursor)
   }
 
   pub fn sleep(&self) {
     thread::sleep(Duration::from_secs(5));
   }
 
-  pub async fn run(&self) {
+  pub async fn run(&self) -> Result<()> {
     loop {
       match self.poll_stream().await {
-        Ok(_) => {}
+        Ok(Some(tail_cursor)) => {
+          self.set_cursor(&tail_cursor).await?;
+        }
+        Ok(None) => {}
         Err(error) => {
           error!("Error polling stream: {}", error);
           thread::sleep(std::time::Duration::from_secs(1));

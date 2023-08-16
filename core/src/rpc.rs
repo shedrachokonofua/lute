@@ -1,6 +1,7 @@
 use crate::{
   albums::album_service::AlbumService,
   crawler::{crawler::Crawler, crawler_service::CrawlerService},
+  events::event_service::EventService,
   files::{
     file_interactor::FileInteractor, file_metadata::file_name::FileName, file_service::FileService,
   },
@@ -10,9 +11,10 @@ use crate::{
   parser::parser_service::ParserService,
   profile::profile_service::ProfileService,
   proto::{
-    AlbumServiceServer, CrawlerServiceServer, FileServiceServer, HealthCheckReply,
-    LookupServiceServer, Lute, LuteServer, OperationsServiceServer, ParserServiceServer,
-    ProfileServiceServer, RecommendationServiceServer, SpotifyServiceServer, FILE_DESCRIPTOR_SET,
+    AlbumServiceServer, CrawlerServiceServer, EventServiceServer, FileServiceServer,
+    HealthCheckReply, LookupServiceServer, Lute, LuteServer, OperationsServiceServer,
+    ParserServiceServer, ProfileServiceServer, RecommendationServiceServer, SpotifyServiceServer,
+    FILE_DESCRIPTOR_SET,
   },
   recommendations::recommendation_service::RecommendationService,
   settings::Settings,
@@ -44,6 +46,7 @@ pub struct RpcServer {
   profile_service: Arc<ProfileService>,
   lookup_service: Arc<LookupService>,
   recommendation_service: Arc<RecommendationService>,
+  event_service: Arc<EventService>,
 }
 
 impl RpcServer {
@@ -84,6 +87,7 @@ impl RpcServer {
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
       )),
+      event_service: Arc::new(EventService::new(Arc::clone(&redis_connection_pool))),
     }
   }
 
@@ -101,6 +105,7 @@ impl RpcServer {
     info!(address = addr.to_string(), "Starting RPC server");
 
     Server::builder()
+      .trace_fn(|_| tracing::info_span!("core::rpc"))
       .accept_http1(true)
       .add_service(reflection_service)
       .add_service(tonic_web::enable(LuteServer::new(lute_service)))
@@ -131,6 +136,9 @@ impl RpcServer {
       .add_service(tonic_web::enable(RecommendationServiceServer::from_arc(
         Arc::clone(&self.recommendation_service),
       )))
+      .add_service(tonic_web::enable(EventServiceServer::from_arc(Arc::clone(
+        &self.event_service,
+      ))))
       .serve(addr)
       .await?;
 

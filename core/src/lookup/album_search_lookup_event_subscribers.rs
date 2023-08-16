@@ -14,7 +14,7 @@ use crate::{
   events::{
     event::{Event, EventPayload, Stream},
     event_publisher::EventPublisher,
-    event_subscriber::{EventSubscriber, SubscriberContext},
+    event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
   files::file_metadata::page_type::PageType,
   parser::parsed_file_data::{
@@ -333,7 +333,7 @@ pub fn build_album_search_lookup_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
-) -> Vec<EventSubscriber> {
+) -> Result<Vec<EventSubscriber>> {
   let file_processing_handler: Arc<
     dyn Fn(SubscriberContext) -> BoxFuture<'static, Result<()>> + Send + Sync,
   > = Arc::new(move |context| {
@@ -344,14 +344,14 @@ pub fn build_album_search_lookup_event_subscribers(
     })
   });
 
-  vec![
-    EventSubscriber {
-      redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: Arc::clone(&settings),
-      id: "lookup".to_string(),
-      concurrency: Some(250),
-      stream: Stream::Lookup,
-      handle: Arc::new(move |context| {
+  Ok(vec![
+    EventSubscriberBuilder::default()
+      .id("lookup".to_string())
+      .stream(Stream::Lookup)
+      .concurrency(Some(250))
+      .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .settings(Arc::clone(&settings))
+      .handle(Arc::new(move |context| {
         let crawler_interactor = Arc::clone(&crawler_interactor);
         let lookup_interactor = LookupInteractor::new(Arc::clone(&context.redis_connection_pool));
         let album_read_model_repository = AlbumReadModelRepository {
@@ -368,23 +368,23 @@ pub fn build_album_search_lookup_event_subscribers(
           )
           .await
         })
-      }),
-    },
-    EventSubscriber {
-      redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: Arc::clone(&settings),
-      id: "lookup".to_string(),
-      concurrency: Some(1),
-      stream: Stream::File,
-      handle: Arc::clone(&file_processing_handler),
-    },
-    EventSubscriber {
-      redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: Arc::clone(&settings),
-      id: "lookup".to_string(),
-      concurrency: Some(1),
-      stream: Stream::Parser,
-      handle: Arc::clone(&file_processing_handler),
-    },
-  ]
+      }))
+      .build()?,
+    EventSubscriberBuilder::default()
+      .id("lookup".to_string())
+      .stream(Stream::File)
+      .concurrency(Some(1))
+      .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .settings(Arc::clone(&settings))
+      .handle(Arc::clone(&file_processing_handler))
+      .build()?,
+    EventSubscriberBuilder::default()
+      .id("lookup".to_string())
+      .stream(Stream::Parser)
+      .concurrency(Some(1))
+      .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .settings(Arc::clone(&settings))
+      .handle(Arc::clone(&file_processing_handler))
+      .build()?,
+  ])
 }

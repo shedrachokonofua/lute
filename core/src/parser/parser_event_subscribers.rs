@@ -6,7 +6,7 @@ use crate::{
   events::{
     event::{Event, Stream},
     event_publisher::EventPublisher,
-    event_subscriber::{EventSubscriber, SubscriberContext},
+    event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
   files::file_content_store::FileContentStore,
   settings::Settings,
@@ -65,25 +65,27 @@ async fn populate_failed_parse_files_repository(context: SubscriberContext) -> R
 pub fn build_parser_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Arc<Settings>,
-) -> Vec<EventSubscriber> {
-  vec![
-    EventSubscriber {
-      redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: Arc::clone(&settings),
-      id: "parse_saved_file".to_string(),
-      concurrency: Some(settings.parser.concurrency as usize),
-      stream: Stream::File,
-      handle: Arc::new(|context| Box::pin(async move { parse_saved_file(context).await })),
-    },
-    EventSubscriber {
-      redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: Arc::clone(&settings),
-      id: "populate_failed_parse_files_repository".to_string(),
-      concurrency: Some(1),
-      stream: Stream::Parser,
-      handle: Arc::new(|context| {
+) -> Result<Vec<EventSubscriber>> {
+  Ok(vec![
+    EventSubscriberBuilder::default()
+      .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .settings(Arc::clone(&settings))
+      .id("parse_saved_file".to_string())
+      .concurrency(Some(settings.parser.concurrency as usize))
+      .stream(Stream::File)
+      .handle(Arc::new(|context| {
+        Box::pin(async move { parse_saved_file(context).await })
+      }))
+      .build()?,
+    EventSubscriberBuilder::default()
+      .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .settings(Arc::clone(&settings))
+      .id("populate_failed_parse_files_repository".to_string())
+      .concurrency(Some(1))
+      .stream(Stream::Parser)
+      .handle(Arc::new(|context| {
         Box::pin(async move { populate_failed_parse_files_repository(context).await })
-      }),
-    },
-  ]
+      }))
+      .build()?,
+  ])
 }

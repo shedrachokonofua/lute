@@ -9,7 +9,7 @@ use crate::{
   },
   events::{
     event::{Event, Stream},
-    event_subscriber::{EventSubscriber, SubscriberContext},
+    event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
   files::file_metadata::file_name::FileName,
   parser::parsed_file_data::{
@@ -184,39 +184,41 @@ pub fn build_album_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
-) -> Vec<EventSubscriber> {
+) -> Result<Vec<EventSubscriber>> {
   let album_crawler_interactor = Arc::clone(&crawler_interactor);
   let artist_crawler_interactor = Arc::clone(&crawler_interactor);
-  vec![
-    EventSubscriber {
-      redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: Arc::clone(&settings),
-      id: "update_album_read_models".to_string(),
-      concurrency: Some(250),
-      stream: Stream::Parser,
-      handle: Arc::new(|context| Box::pin(async move { update_album_read_models(context).await })),
-    },
-    EventSubscriber {
-      redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: Arc::clone(&settings),
-      id: "crawl_chart_albums".to_string(),
-      concurrency: Some(250),
-      stream: Stream::Parser,
-      handle: Arc::new(move |context| {
+  Ok(vec![
+    EventSubscriberBuilder::default()
+      .id("update_album_read_models".to_string())
+      .stream(Stream::Parser)
+      .concurrency(Some(250))
+      .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .settings(Arc::clone(&settings))
+      .handle(Arc::new(|context| {
+        Box::pin(async move { update_album_read_models(context).await })
+      }))
+      .build()?,
+    EventSubscriberBuilder::default()
+      .id("crawl_chart_albums".to_string())
+      .stream(Stream::Parser)
+      .concurrency(Some(250))
+      .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .settings(Arc::clone(&settings))
+      .handle(Arc::new(move |context| {
         let crawler_interactor = Arc::clone(&artist_crawler_interactor);
         Box::pin(async move { crawl_chart_albums(context, crawler_interactor).await })
-      }),
-    },
-    EventSubscriber {
-      redis_connection_pool: Arc::clone(&redis_connection_pool),
-      settings: Arc::clone(&settings),
-      id: "crawl_artist_albums".to_string(),
-      concurrency: Some(250),
-      stream: Stream::Parser,
-      handle: Arc::new(move |context| {
+      }))
+      .build()?,
+    EventSubscriberBuilder::default()
+      .id("crawl_artist_albums".to_string())
+      .stream(Stream::Parser)
+      .concurrency(Some(250))
+      .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .settings(Arc::clone(&settings))
+      .handle(Arc::new(move |context| {
         let crawler_interactor = Arc::clone(&album_crawler_interactor);
         Box::pin(async move { crawl_artist_albums(context, crawler_interactor).await })
-      }),
-    },
-  ]
+      }))
+      .build()?,
+  ])
 }

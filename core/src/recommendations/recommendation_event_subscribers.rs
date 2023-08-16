@@ -6,7 +6,7 @@ use crate::{
   },
   events::{
     event::{Event, Stream},
-    event_subscriber::{EventSubscriber, SubscriberContext},
+    event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
   files::file_metadata::file_name::ChartParameters,
   settings::Settings,
@@ -108,14 +108,14 @@ pub fn build_recommendation_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
-) -> Vec<EventSubscriber> {
-  vec![EventSubscriber {
-    redis_connection_pool: Arc::clone(&redis_connection_pool),
-    settings,
-    id: "crawl_similar_albums".to_string(),
-    concurrency: Some(250),
-    stream: Stream::Profile,
-    handle: Arc::new(move |context| {
+) -> Result<Vec<EventSubscriber>> {
+  Ok(vec![EventSubscriberBuilder::default()
+    .id("crawl_similar_albums".to_string())
+    .stream(Stream::Profile)
+    .concurrency(Some(250))
+    .redis_connection_pool(Arc::clone(&redis_connection_pool))
+    .settings(Arc::clone(&settings))
+    .handle(Arc::new(move |context| {
       let crawler_interactor = Arc::clone(&crawler_interactor);
       let album_read_model_repository = AlbumReadModelRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
@@ -128,6 +128,6 @@ pub fn build_recommendation_event_subscribers(
         )
         .await
       })
-    }),
-  }]
+    }))
+    .build()?])
 }
