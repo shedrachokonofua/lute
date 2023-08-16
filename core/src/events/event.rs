@@ -160,6 +160,7 @@ pub enum Stream {
   Parser,
   Profile,
   Lookup,
+  Replication,
 }
 
 impl Stream {
@@ -186,6 +187,7 @@ impl TryFrom<String> for Stream {
       StreamKind::Parser => Ok(Stream::Parser),
       StreamKind::Profile => Ok(Stream::Profile),
       StreamKind::Lookup => Ok(Stream::Lookup),
+      StreamKind::Replication => Ok(Stream::Replication),
     }
   }
 }

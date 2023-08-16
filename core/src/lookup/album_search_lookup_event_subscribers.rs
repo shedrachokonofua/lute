@@ -337,8 +337,14 @@ pub fn build_album_search_lookup_event_subscribers(
   let file_processing_handler: Arc<
     dyn Fn(SubscriberContext) -> BoxFuture<'static, Result<()>> + Send + Sync,
   > = Arc::new(move |context| {
-    let lookup_interactor = LookupInteractor::new(Arc::clone(&context.redis_connection_pool));
-    let event_publisher = EventPublisher::new(Arc::clone(&context.redis_connection_pool));
+    let lookup_interactor = LookupInteractor::new(
+      Arc::clone(&context.settings),
+      Arc::clone(&context.redis_connection_pool),
+    );
+    let event_publisher = EventPublisher::new(
+      Arc::clone(&context.settings),
+      Arc::clone(&context.redis_connection_pool),
+    );
     Box::pin(async move {
       handle_file_processing_event(context, lookup_interactor, event_publisher).await
     })
@@ -353,11 +359,17 @@ pub fn build_album_search_lookup_event_subscribers(
       .settings(Arc::clone(&settings))
       .handle(Arc::new(move |context| {
         let crawler_interactor = Arc::clone(&crawler_interactor);
-        let lookup_interactor = LookupInteractor::new(Arc::clone(&context.redis_connection_pool));
+        let lookup_interactor = LookupInteractor::new(
+          Arc::clone(&context.settings),
+          Arc::clone(&context.redis_connection_pool),
+        );
         let album_read_model_repository = AlbumReadModelRepository {
           redis_connection_pool: Arc::clone(&context.redis_connection_pool),
         };
-        let event_publisher = EventPublisher::new(Arc::clone(&context.redis_connection_pool));
+        let event_publisher = EventPublisher::new(
+          Arc::clone(&context.settings),
+          Arc::clone(&context.redis_connection_pool),
+        );
         Box::pin(async move {
           handle_lookup_event(
             context,

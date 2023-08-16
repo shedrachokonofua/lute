@@ -87,6 +87,7 @@ pub struct Settings {
   pub spotify: SpotifySettings,
   pub tracing: TracingSettings,
   pub parser: ParserSettings,
+  pub enable_replication_stream: bool,
 }
 
 impl Settings {
@@ -117,6 +118,7 @@ impl Settings {
       .set_default("tracing.service_name", "core")?
       .set_default("tracing.service_namespace", "lute")?
       .set_default("tracing.resource_labels", HashMap::<String, String>::new())?
+      .set_default("enable_replication_stream", false)?
       .build()?
       .try_deserialize()
   }

@@ -54,9 +54,15 @@ impl ProfileInteractor {
       album_read_model_repository: AlbumReadModelRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
-      event_publisher: EventPublisher::new(Arc::clone(&redis_connection_pool)),
+      event_publisher: EventPublisher::new(
+        Arc::clone(&settings),
+        Arc::clone(&redis_connection_pool),
+      ),
       spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
-      lookup_interactor: LookupInteractor::new(Arc::clone(&redis_connection_pool)),
+      lookup_interactor: LookupInteractor::new(
+        Arc::clone(&settings),
+        Arc::clone(&redis_connection_pool),
+      ),
       spotify_import_repository: SpotifyImportRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },

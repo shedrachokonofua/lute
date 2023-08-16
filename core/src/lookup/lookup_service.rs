@@ -2,6 +2,7 @@ use super::{album_search_lookup::AlbumSearchLookup, lookup_interactor::LookupInt
 use crate::{
   albums::album_read_model_repository::{AlbumReadModel, AlbumReadModelArtist},
   proto::{self},
+  settings::Settings,
 };
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
@@ -49,9 +50,12 @@ pub struct LookupService {
 }
 
 impl LookupService {
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+  pub fn new(
+    settings: Arc<Settings>,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  ) -> Self {
     Self {
-      lookup_interactor: LookupInteractor::new(redis_connection_pool),
+      lookup_interactor: LookupInteractor::new(settings, redis_connection_pool),
     }
   }
 }

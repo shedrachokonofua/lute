@@ -24,7 +24,8 @@
 - [x] Recommendations(Quantile rank) + Web(Recommendation page): Setting parameter weight to 0 should exclude from calculation
 - [x] Perf: Replace settings cloning with Arc
 - [x] Profile: Fix inconsistent saved spotify track import
-- [ ] Event RPC: External subscriber support with bi-directional streaming and managed iterator.
+- [x] Event RPC: External subscriber support with bi-directional streaming and managed iterator.
+- [x] Event: Implement optional replication stream
 - [ ] Lute connector plugin[proof-of-concept]: Postgres
 - [ ] Event RPC: Subscriber monitor(Iterator age, status, etc)
 - [ ] Event RPC: Subscriber statuses, iterator reset

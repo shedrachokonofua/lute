@@ -10,6 +10,7 @@ use crate::{
     event_publisher::EventPublisher,
   },
   files::file_metadata::file_name::FileName,
+  settings::Settings,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -21,12 +22,16 @@ pub struct LookupInteractor {
 }
 
 impl LookupInteractor {
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+  pub fn new(
+    settings: Arc<Settings>,
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  ) -> Self {
     Self {
       album_search_lookup_repository: AlbumSearchLookupRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
       event_publisher: EventPublisher {
+        settings,
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
     }

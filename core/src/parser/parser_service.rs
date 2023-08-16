@@ -268,7 +268,10 @@ impl proto::ParserService for ParserService {
     })?;
     let parsed_data = parse_file_on_store(
       content_store,
-      EventPublisher::new(Arc::clone(&self.redis_connection_pool)),
+      EventPublisher::new(
+        Arc::clone(&self.settings),
+        Arc::clone(&self.redis_connection_pool),
+      ),
       file_metadata.id,
       file_name,
       Some(format!("rpc:{}", Ulid::new().to_string())),

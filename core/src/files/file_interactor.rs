@@ -37,7 +37,7 @@ impl FileInteractor {
       file_metadata_repository: FileMetadataRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
-      event_publisher: EventPublisher::new(redis_connection_pool),
+      event_publisher: EventPublisher::new(Arc::clone(&settings), redis_connection_pool),
     }
   }
 
