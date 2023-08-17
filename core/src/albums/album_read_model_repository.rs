@@ -357,7 +357,7 @@ impl AlbumReadModelRepository {
 
   #[instrument(skip(self))]
   pub async fn search(&self, query: &AlbumSearchQuery) -> Result<Vec<AlbumReadModel>> {
-    let page_size: usize = 10_000;
+    let page_size: usize = 100_000;
     let mut albums: Vec<AlbumReadModel> = Vec::new();
     let mut offset = 0;
 

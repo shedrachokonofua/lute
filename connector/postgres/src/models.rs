@@ -22,3 +22,20 @@ pub struct NewLuteEvent {
   pub payload: Value,
   pub event_timestamp: i64,
 }
+
+#[derive(Queryable, Selectable, Debug)]
+#[diesel(table_name = crate::schema::lute_artists)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct LuteArtist {
+  pub id: i32,
+  pub file_name: String,
+  pub name: String,
+}
+
+#[derive(Insertable, Debug)]
+#[diesel(table_name = crate::schema::lute_artists)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct NewLuteArtist {
+  pub file_name: String,
+  pub name: String,
+}
