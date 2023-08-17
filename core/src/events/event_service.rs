@@ -60,6 +60,10 @@ impl proto::EventService for EventService {
                   entry_id: id.clone(),
                   payload: Some(payload.into()),
                   stream_id: stream_id.tag(),
+                  timestamp: id.clone().split('-').next()
+                    .expect("Invalid event stream item ID")
+                    .parse::<u64>()
+                    .expect("Invalid event stream item ID")
                 }
               }).collect(),
               cursor: tail_cursor.clone(),

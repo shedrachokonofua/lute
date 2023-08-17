@@ -9,16 +9,14 @@ tasks:
   "core:build":
     dir: core
     env:
-      RUST_LOG: warn,core=debug
-      RUSTFLAGS: --cfg tokio_unstable
+      RUST_LOG: warn,core=debug,lute-postgres-connector=debug
     cmds:
       - cargo build
 
   "core:run":
     dir: core
     env:
-      RUST_LOG: warn,core=debug
-      RUSTFLAGS: --cfg tokio_unstable
+      RUST_LOG: warn,core=debug,lute-postgres-connector=debug
     cmds:
       - cargo run
 
@@ -30,8 +28,7 @@ tasks:
   "core:lint:fix":
     dir: core
     env:
-      RUST_LOG: warn,core=debug
-      RUSTFLAGS: --cfg tokio_unstable
+      RUST_LOG: warn,core=debug,lute-postgres-connector=debug
     cmds:
       - cargo clippy --fix --allow-dirty
 
@@ -95,9 +92,9 @@ tasks:
       - task: "core:fmt"
       - task: "web:fmt"
         
-  "docker:dev":
+  "redis:up":
     cmds:
-      - docker-compose -f ./infra/dev/docker-compose.yml up -d
+      - docker-compose -f ./infra/dev/redis.docker-compose.yml up -d
   
   "openobserve:up":
     cmds:
@@ -109,10 +106,24 @@ tasks:
 
   "core:up:openobserve":
     cmds:
-      - docker-compose -f ./infra/dev/docker-compose.yml -f ./infra/dev/openobserve/docker-compose.yml up -d
+      - docker-compose -f ./infra/dev/redis.docker-compose.yml -f ./infra/dev/openobserve/docker-compose.yml up -d
       - task: "core:run"
   
   "core:up":
     cmds:
-      - docker-compose -f ./infra/dev/docker-compose.yml up -d
-      - task: "core:run"
+      - task: "redis:up"
+      - task: "core:run" 
+
+  "postgres:up":
+    cmds:
+      - docker-compose -f ./infra/dev/postgres.docker-compose.yml up -d
+  
+  "pg-connector:run":
+    dir: connector/postgres
+    cmds:
+      - cargo run -- --postgres-url postgres://lute:password@localhost:25432/lute --subscriber-id dev-connector
+  
+  "pg-connector:up":
+    cmds:
+      - task: "postgres:up"
+      - task: "pg-connector:run"

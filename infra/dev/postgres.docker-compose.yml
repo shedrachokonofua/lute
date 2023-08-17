@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: lute
+      POSTGRES_PASSWORD: password
+    ports:
+      - 25432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 28080:8080
+
+volumes:
+  postgres_data:

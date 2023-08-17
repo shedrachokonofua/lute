@@ -1,16 +1,10 @@
 /**/*.env
 
-# Core
-core/target
+# Rust
+/**/target
 
-# Web
-web/.parcel-cache
-web/dist
-web/node_modules
-web/src/proto
-
-# Extension
-extension/.parcel-cache
-extension/dist
-extension/node_modules
-extension/src/proto
+# Node
+/**/.parcel-cache
+/**/dist
+/**/node_modules
+/**/src/proto

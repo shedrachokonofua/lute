@@ -569,6 +569,7 @@ message EventStreamItem {
   string entry_id = 1;
   EventPayload payload = 2;
   string stream_id = 3;
+  uint64 timestamp = 4;
 }
 
 message EventStreamReply {
