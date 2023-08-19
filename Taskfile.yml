@@ -121,7 +121,7 @@ tasks:
   "pg-connector:run":
     dir: connector/postgres
     cmds:
-      - cargo run -- --postgres-url postgres://lute:password@localhost:25432/lute --subscriber-id dev-connector
+      - cargo run -- --postgres-url postgres://lute:password@localhost:25432/lute --subscriber-id dev-connector --stream-id parser
   
   "pg-connector:up":
     cmds:

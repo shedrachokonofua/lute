@@ -9,19 +9,6 @@ pub struct ParsedArtistReference {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ParsedChartAlbum {
-  pub file_name: FileName,
-  pub name: String,
-  pub rating: f32,
-  pub rating_count: u32,
-  pub artists: Vec<ParsedArtistReference>,
-  pub primary_genres: Vec<String>,
-  pub secondary_genres: Vec<String>,
-  pub descriptors: Vec<String>,
-  pub release_date: Option<NaiveDate>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedTrack {
   pub name: String,
   pub duration_seconds: Option<u32>,
@@ -50,6 +37,19 @@ pub struct ParsedAlbum {
   pub languages: Vec<String>,
   #[serde(default)]
   pub credits: Vec<ParsedCredit>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ParsedChartAlbum {
+  pub file_name: FileName,
+  pub name: String,
+  pub rating: f32,
+  pub rating_count: u32,
+  pub artists: Vec<ParsedArtistReference>,
+  pub primary_genres: Vec<String>,
+  pub secondary_genres: Vec<String>,
+  pub descriptors: Vec<String>,
+  pub release_date: Option<NaiveDate>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

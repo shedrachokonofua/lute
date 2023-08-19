@@ -26,11 +26,13 @@
 - [x] Profile: Fix inconsistent saved spotify track import
 - [x] Events: External subscriber support with bi-directional streaming and managed iterator.
 - [x] Events: Implement optional replication stream.
-- [ ] Connector: Postgres
+- [x] Connector: Postgres
 - [ ] Connector: Memgraph
 - [ ] Event Bus: Implement master event log, all event stream items are just pointers to master event log. Replace replication stream.
 - [ ] Files: File content download stream rpc method
 - [ ] Files: File content not found event. Should trigger crawling.
+- [ ] Connector: P2P
+- [ ] Documentation: System diagram, how-tos
 - [ ] Files: Delete file rpc method
 - [ ] Recommendation: Recommendation generated event
 - [ ] Events: Subscriber monitor(Iterator age, status, etc)
@@ -55,7 +57,6 @@
 - [ ] Scheduled tasks
 - [ ] Crawler: Automatic rate limit reset
 - [ ] Lookup: Artist
-- [ ] Documentation: System diagram, how-tos
 - [ ] Recommendations: Export to spotify playlist
 - [ ] Parser: Parser versioning, Target site change detection + playbook
 - [ ] Recommendations: T-SNE Visualization export
