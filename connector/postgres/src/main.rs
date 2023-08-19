@@ -1,9 +1,7 @@
 use anyhow::Result;
 use chrono::NaiveDate;
 use clap::{arg, Parser};
-use diesel::{
-  upsert::excluded, Connection, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl,
-};
+use diesel::{upsert::excluded, Connection, ExpressionMethods, PgConnection, RunQueryDsl};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use lute_postgres_connector::{
   client::lute::{
