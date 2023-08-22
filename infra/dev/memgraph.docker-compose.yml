@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  memgraph:
+    image: memgraph/memgraph-platform
+    ports:
+      - "7687:7687"
+      - "23000:3000"
+      - "7444:7444"
+    volumes:
+      - mg_lib:/var/lib/memgraph
+      - mg_log:/var/log/memgraph
+      - mg_etc:/etc/memgraph
+    environment:
+      - MEMGRAPH="--log-level=TRACE"
+    entrypoint: ["/usr/bin/supervisord"]
+volumes:
+  mg_lib:
+  mg_log:
+  mg_etc:
