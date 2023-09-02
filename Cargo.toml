@@ -1,2 +1,2 @@
 [workspace]
-members = ["core", "connector/postgres", "connector/memgraph"]
+members = ["core", "connector/postgres", "connector/bolt"]

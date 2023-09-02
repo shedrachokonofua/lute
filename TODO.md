@@ -27,7 +27,7 @@
 - [x] Events: External subscriber support with bi-directional streaming and managed iterator.
 - [x] Events: Implement optional replication stream.
 - [x] Connector: Postgres
-- [ ] Connector: Bolt
+- [x] Connector: Bolt
 - [ ] Extension: Album assessment popup
 - [ ] Events: Full correlation id and causation id support
 - [ ] Event Bus: Implement master event log, all event stream items are just pointers to master event log. Replace replication stream.

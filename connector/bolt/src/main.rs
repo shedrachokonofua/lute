@@ -2,7 +2,7 @@ use anyhow::Result;
 use chrono::NaiveDate;
 use clap::{arg, Parser};
 use futures::future::join_all;
-use lute_memgraph_connector::client::lute::{
+use lute_bolt_connector::client::lute::{
   event::Event, event_service_client::EventServiceClient, parsed_file_data::Data, EventStreamItem,
   EventStreamRequest, ParsedAlbum,
 };

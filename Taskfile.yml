@@ -132,12 +132,12 @@ tasks:
     cmds:
       - docker-compose -f ./infra/dev/memgraph.docker-compose.yml up -d
   
-  "mg-connector:run":
-    dir: connector/memgraph
+  "bolt-connector:run":
+    dir: connector/bolt
     cmds:
       - cargo run -- --subscriber-id dev-mg-connector --stream-id parser --db-name memgraph
   
-  "mg-connector:up":
+  "bolt-connector:up":
     cmds:
       - task: "memgraph:up"
-      - task: "mg-connector:run"
+      - task: "bolt-connector:run"
