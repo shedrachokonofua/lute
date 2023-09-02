@@ -27,13 +27,17 @@
 - [x] Events: External subscriber support with bi-directional streaming and managed iterator.
 - [x] Events: Implement optional replication stream.
 - [x] Connector: Postgres
-- [ ] Connector: Memgraph
+- [ ] Connector: Bolt
+- [ ] Extension: Album assessment popup
+- [ ] Events: Full correlation id and causation id support
 - [ ] Event Bus: Implement master event log, all event stream items are just pointers to master event log. Replace replication stream.
 - [ ] Files: File content download stream rpc method
 - [ ] Files: File content not found event. Should trigger crawling.
 - [ ] Connector: P2P
-- [ ] Documentation: System diagram, how-tos
+- [ ] Productionize: Docker images, versioning, tags, documentation, how-tos
 - [ ] Files: Delete file rpc method
+- [ ] SSL support
+- [ ] Files: Support local disk file content storage
 - [ ] Recommendation: Recommendation generated event
 - [ ] Events: Subscriber monitor(Iterator age, status, etc)
 - [ ] Events: Subscriber statuses, iterator reset
@@ -43,7 +47,6 @@
 - [ ] Web(Profile page): Bootstrap basic page for profile CRUD
 - [ ] Flag to rebuild redisearch indexes on startup
 - [ ] Parser: Extract album cover image
-- [ ] Extension: Album assessment popup
 - [ ] Web(Recommendation page): Settings presets
 - [ ] Parser: Extract album spotify link
 - [ ] Recommendations(Quantile rank): Genre tokenization

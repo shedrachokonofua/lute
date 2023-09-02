@@ -50,7 +50,7 @@ impl proto::EventService for EventService {
             Some(10000)
           )
           .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+          .map_err(|err| Status::internal(err.to_string()))?;
 
           let tail_cursor = event_list.tail_cursor().clone();
           if let Some(tail_cursor) = tail_cursor {

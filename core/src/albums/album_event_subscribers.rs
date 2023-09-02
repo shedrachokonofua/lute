@@ -138,7 +138,7 @@ async fn crawl_chart_albums(
 ) -> Result<()> {
   if let Event::FileParsed {
     file_id: _,
-    file_name: _,
+    file_name,
     data: ParsedFileData::Chart(albums),
   } = context.payload.event
   {
@@ -148,6 +148,7 @@ async fn crawl_chart_albums(
         .enqueue_if_stale(QueuePushParameters {
           file_name: album.file_name,
           priority: Some(priority),
+          correlation_id: Some(format!("crawl_chart_albums:{}", file_name.to_string())),
           ..Default::default()
         })
         .await?;
@@ -162,7 +163,7 @@ async fn crawl_artist_albums(
 ) -> Result<()> {
   if let Event::FileParsed {
     file_id: _,
-    file_name: _,
+    file_name,
     data: ParsedFileData::Artist(parsed_artist),
   } = context.payload.event
   {
@@ -172,6 +173,7 @@ async fn crawl_artist_albums(
         .enqueue_if_stale(QueuePushParameters {
           file_name: album.file_name,
           priority: Some(priority),
+          correlation_id: Some(format!("crawl_artist_albums:{}", file_name.to_string())),
           ..Default::default()
         })
         .await?;
