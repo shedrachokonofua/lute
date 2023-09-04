@@ -74,7 +74,7 @@ pub fn build_parser_event_subscribers(
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .settings(Arc::clone(&settings))
       .id("parse_saved_file".to_string())
-      .concurrency(Some(settings.parser.concurrency as usize))
+      .batch_size(settings.parser.concurrency as usize)
       .stream(Stream::File)
       .handle(Arc::new(|context| {
         Box::pin(async move { parse_saved_file(context).await })
@@ -84,7 +84,7 @@ pub fn build_parser_event_subscribers(
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .settings(Arc::clone(&settings))
       .id("populate_failed_parse_files_repository".to_string())
-      .concurrency(Some(1))
+      .batch_size(1)
       .stream(Stream::Parser)
       .handle(Arc::new(|context| {
         Box::pin(async move { populate_failed_parse_files_repository(context).await })

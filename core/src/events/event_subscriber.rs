@@ -21,7 +21,8 @@ pub struct SubscriberContext {
 
 #[derive(Builder)]
 pub struct EventSubscriber {
-  pub concurrency: Option<usize>,
+  #[builder(default = "10")]
+  pub batch_size: usize,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub settings: Arc<Settings>,
   pub id: String,
@@ -72,12 +73,7 @@ impl EventSubscriber {
   pub async fn poll_stream(&self) -> Result<Option<String>> {
     let event_list = self
       .event_subscriber_repository
-      .get_events_after_cursor(
-        &self.stream,
-        &self.id,
-        self.concurrency.unwrap_or(10),
-        Some(10000),
-      )
+      .get_events_after_cursor(&self.stream, &self.id, self.batch_size, Some(10000))
       .await?;
     debug!(
       stream = self.stream.tag(),

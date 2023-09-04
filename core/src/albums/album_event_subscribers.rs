@@ -193,7 +193,7 @@ pub fn build_album_event_subscribers(
     EventSubscriberBuilder::default()
       .id("update_album_read_models".to_string())
       .stream(Stream::Parser)
-      .concurrency(Some(250))
+      .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .settings(Arc::clone(&settings))
       .handle(Arc::new(|context| {
@@ -203,7 +203,7 @@ pub fn build_album_event_subscribers(
     EventSubscriberBuilder::default()
       .id("crawl_chart_albums".to_string())
       .stream(Stream::Parser)
-      .concurrency(Some(250))
+      .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .settings(Arc::clone(&settings))
       .handle(Arc::new(move |context| {
@@ -214,7 +214,7 @@ pub fn build_album_event_subscribers(
     EventSubscriberBuilder::default()
       .id("crawl_artist_albums".to_string())
       .stream(Stream::Parser)
-      .concurrency(Some(250))
+      .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .settings(Arc::clone(&settings))
       .handle(Arc::new(move |context| {

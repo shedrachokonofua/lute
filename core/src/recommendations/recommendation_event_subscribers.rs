@@ -112,7 +112,7 @@ pub fn build_recommendation_event_subscribers(
   Ok(vec![EventSubscriberBuilder::default()
     .id("crawl_similar_albums".to_string())
     .stream(Stream::Profile)
-    .concurrency(Some(250))
+    .batch_size(250)
     .redis_connection_pool(Arc::clone(&redis_connection_pool))
     .settings(Arc::clone(&settings))
     .handle(Arc::new(move |context| {

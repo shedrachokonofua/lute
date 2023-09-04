@@ -51,7 +51,7 @@ pub fn build_spotify_import_event_subscribers(
   Ok(vec![EventSubscriberBuilder::default()
     .id("profile_spotify_import".to_string())
     .stream(Stream::Lookup)
-    .concurrency(Some(250))
+    .batch_size(250)
     .redis_connection_pool(Arc::clone(&redis_connection_pool))
     .settings(Arc::clone(&settings))
     .handle(Arc::new(|context| {
