@@ -28,13 +28,14 @@
 - [x] Events: Implement optional replication stream.
 - [x] Connector: Postgres
 - [x] Connector: Bolt
+- [ ] Productionize: Docker images, versioning, tags, documentation, how-tos
+- [ ] Album read model deduplication
 - [ ] Extension: Album assessment popup
 - [ ] Events: Full correlation id and causation id support
 - [ ] Event Bus: Implement master event log, all event stream items are just pointers to master event log. Replace replication stream.
 - [ ] Files: File content download stream rpc method
 - [ ] Files: File content not found event. Should trigger crawling.
 - [ ] Connector: P2P
-- [ ] Productionize: Docker images, versioning, tags, documentation, how-tos
 - [ ] Files: Delete file rpc method
 - [ ] SSL support
 - [ ] Files: Support local disk file content storage
