@@ -14,19 +14,24 @@
     - Files:
       - [ ] Fix staleness check
       - [ ] Support local disk file content storage
+      - [ ] Deletion + RPC method
     - Web:
       - [ ] Add to docker image
     - Crawler:
       - [ ] Automatic rate limit reset
       - [ ] Make crawler proxy optional
+    - Events:
+      - [ ] Migrate to SQLite
+    - Album read model:
+      - [ ] Duplicate album detection
+      - [ ] Migrate to SQLite
 
 - Backlog:
-
-  - [ ] Album read model deduplication
-  - [ ] Files: Delete file, rpc method
+  - [ ] Recommendations(Quantile rank): Genre tokenization
+  - [ ] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
+  - [ ] Recommendations(Vector similarity): Album recommendations, rpc method
   - [ ] Extension: Album assessment popup
   - [ ] Events: Full correlation id and causation id support
-  - [ ] Event Bus: Implement master event log, all event stream items are just pointers to master event log. Replace replication stream.
   - [ ] Files: File content download stream rpc method
   - [ ] Files: File content not found event. Should trigger crawling.
   - [ ] Connector: P2P
@@ -42,9 +47,6 @@
   - [ ] Parser: Extract album cover image
   - [ ] Web(Recommendation page): Settings presets
   - [ ] Parser: Extract album spotify link
-  - [ ] Recommendations(Quantile rank): Genre tokenization
-  - [ ] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
-  - [ ] Recommendations(Vector similarity): Album recommendations, rpc method
   - [ ] Album read model repository stats, rpc method
   - [ ] Parser: Retry queue monitor, rpc method
   - [ ] Profile: Import data from spotify most played tracks
