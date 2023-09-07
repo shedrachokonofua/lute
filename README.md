@@ -1,6 +1,6 @@
 # Lute
 
-**Lute** is a [RateYourMusic](rateyourmusic.com) album scraper and recommendation engine. It is a power-tool for music discovery that allows you to curate a self-hosted music database and generate personalized recommendations.
+**Lute** is a [RateYourMusic](https://www.rateyourmusic.com) album scraper and recommendation engine. It is a power-tool for music discovery that allows you to curate a self-hosted music database and generate personalized recommendations.
 
 ## Features
 
@@ -14,7 +14,16 @@
 - **Browser Extension**: Parse and index albums from RYM in real-time while browsing the site.
 - **Proxy Support**: Bring your own crawler proxy for uninterrupted scraping.
 - **Interfaces**: GRPC API and Web-based UI.
-- **Data Export**: Export to Postgres and Bolt-compatible graph databases using connectors.
+- **Data Export**: Export to Postgres and Bolt-compatible graph databases(Neo4j, Memgraph) using connectors. Build your own connectors using the event-stream GRPC API.
 - **Monitoring**: OpenTelemetry support for diagnostics.
 
 **Disclaimer**: This project is for educational purposes only. Excessive scraping of RateYourMusic may result in your IP being banned.
+
+## Getting Started
+
+### Requirements
+
+- Redis
+- S3-compatible object storage
+
+Work in progress

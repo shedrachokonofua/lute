@@ -1,69 +1,56 @@
 # Todo
 
-- [x] Lookup: Album
-- [x] Lookup: Aggregated statuses rpc service
-- [x] Lookup: Check album read model store before crawling
-- [x] Profile: Import data from spotify saved tracks
-- [x] Profile: Import data from spotify playlists
-- [x] Profile: Pending import statuses rpc method
-- [x] Parser: Parse file from store rpc method
-- [x] Parser: Support missing secondary genres
-- [x] Lookup: Refresh album search lookup value with non-lookup related file events
-- [x] Parser: Bulk retry queue, rpc method
-- [x] Recommendations(Quantile rank): Album recommendations, rpc method
-- [x] Web: Recommendation page
-- [x] Recommendations(Quantile rank): Support searching full index
-- [x] Recommendations(Quantile rank): Descriptor count weight assessment setting to bias for well annotated albums, expose setting on proto
-- [x] Web(Recommendation page): Display recommendation score and metadata breakdown
-- [x] Recommendations(Quantile rank) + Web(Recommendation page): Support release year filtering
-- [x] Parser: Extract album language
-- [x] Parser: Extract album credits
-- [x] Recommendations(Quantile rank): Credit tag parameter
-- [x] Recommendations(Quantile rank) + Web(Recommendation page): Expose default settings values rpc for settings form
-- [x] Recommendations(Quantile rank) + Web(Recommendation page): "Exclude known artists" setting
-- [x] Recommendations(Quantile rank) + Web(Recommendation page): Setting parameter weight to 0 should exclude from calculation
-- [x] Perf: Replace settings cloning with Arc
-- [x] Profile: Fix inconsistent saved spotify track import
-- [x] Events: External subscriber support with bi-directional streaming and managed iterator.
-- [x] Events: Implement optional replication stream.
-- [x] Connector: Postgres
-- [x] Connector: Bolt
-- [ ] Productionize: Docker images, versioning, tags, documentation, how-tos
-- [ ] Album read model deduplication
-- [ ] Extension: Album assessment popup
-- [ ] Events: Full correlation id and causation id support
-- [ ] Event Bus: Implement master event log, all event stream items are just pointers to master event log. Replace replication stream.
-- [ ] Files: File content download stream rpc method
-- [ ] Files: File content not found event. Should trigger crawling.
-- [ ] Connector: P2P
-- [ ] Files: Delete file rpc method
-- [ ] SSL support
-- [ ] Files: Support local disk file content storage
-- [ ] Recommendation: Recommendation generated event
-- [ ] Events: Subscriber monitor(Iterator age, status, etc)
-- [ ] Events: Subscriber statuses, iterator reset
-- [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile
-- [ ] Lookup: Chart
-- [ ] Web(Recommendation page): Expose novelty score setting
-- [ ] Web(Profile page): Bootstrap basic page for profile CRUD
-- [ ] Flag to rebuild redisearch indexes on startup
-- [ ] Parser: Extract album cover image
-- [ ] Web(Recommendation page): Settings presets
-- [ ] Parser: Extract album spotify link
-- [ ] Recommendations(Quantile rank): Genre tokenization
-- [ ] Web: Add to docker image
-- [ ] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
-- [ ] Recommendations(Vector similarity): Album recommendations, rpc method
-- [ ] Album read model repository stats, rpc method
-- [ ] Parser: Retry queue monitor, rpc method
-- [ ] Profile: Import data from spotify most played tracks
-- [ ] Crawler: Fix file staleness check
-- [ ] Scheduled tasks
-- [ ] Crawler: Automatic rate limit reset
-- [ ] Lookup: Artist
-- [ ] Recommendations: Export to spotify playlist
-- [ ] Parser: Parser versioning, Target site change detection + playbook
-- [ ] Recommendations: T-SNE Visualization export
-- [ ] RYM Reviews: Crawl, parse, store, generate embeddings
-- [ ] Telemetry: Export logs to otel collector(Blocked, crate support currently WIP)
-- [ ] Make telemetry optional
+- V1:
+
+  - [ ] Docker images
+  - [ ] Versioning
+  - [ ] Release tagging
+  - Readme:
+    - [ ] Example docker compose file, simple setup
+  - Features:
+    - Misc:
+      - [ ] Scheduled tasks
+      - [ ] Make telemetry optional
+    - Files:
+      - [ ] Fix staleness check
+      - [ ] Support local disk file content storage
+    - Web:
+      - [ ] Add to docker image
+    - Crawler:
+      - [ ] Automatic rate limit reset
+      - [ ] Make crawler proxy optional
+
+- Backlog:
+
+  - [ ] Album read model deduplication
+  - [ ] Files: Delete file, rpc method
+  - [ ] Extension: Album assessment popup
+  - [ ] Events: Full correlation id and causation id support
+  - [ ] Event Bus: Implement master event log, all event stream items are just pointers to master event log. Replace replication stream.
+  - [ ] Files: File content download stream rpc method
+  - [ ] Files: File content not found event. Should trigger crawling.
+  - [ ] Connector: P2P
+  - [ ] SSL support
+  - [ ] Recommendation: Recommendation generated event
+  - [ ] Events: Subscriber monitor(Iterator age, status, etc)
+  - [ ] Events: Subscriber statuses, iterator reset
+  - [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile
+  - [ ] Lookup: Chart
+  - [ ] Web(Recommendation page): Expose novelty score setting
+  - [ ] Web(Profile page): Bootstrap basic page for profile CRUD
+  - [ ] Flag to rebuild redisearch indexes on startup
+  - [ ] Parser: Extract album cover image
+  - [ ] Web(Recommendation page): Settings presets
+  - [ ] Parser: Extract album spotify link
+  - [ ] Recommendations(Quantile rank): Genre tokenization
+  - [ ] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
+  - [ ] Recommendations(Vector similarity): Album recommendations, rpc method
+  - [ ] Album read model repository stats, rpc method
+  - [ ] Parser: Retry queue monitor, rpc method
+  - [ ] Profile: Import data from spotify most played tracks
+  - [ ] Lookup: Artist
+  - [ ] Recommendations: Export to spotify playlist
+  - [ ] Parser: Parser versioning, Target site change detection + playbook
+  - [ ] Recommendations: T-SNE Visualization export
+  - [ ] RYM Reviews: Crawl, parse, store, generate embeddings
+  - [ ] Telemetry: Export logs to otel collector(Blocked, crate support currently WIP)
