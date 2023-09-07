@@ -1,27 +1,20 @@
-# Lute V4
+# Lute
 
-## Design Principles
+**Lute** is a [RateYourMusic](rateyourmusic.com) album scraper and recommendation engine. It is a power-tool for music discovery that allows you to curate a self-hosted music database and generate personalized recommendations.
 
-- Event Sourced: The system's state is persisted as an event stream. All materialized indexes
-  can be reconstructed to any point in time by replaying the event stream.
-- Portable: The core component of the system is a monolith packaged as a single executable that
-  can be run on any platform.
-- Controllable: The system offers a rich set of control interfaces and configuration options.
-- Malleable: The system is designed to be extended and modified.
-- Polite: The crawler imposes minimal load on the target site.
+## Features
 
-## Building from Source
+- **Efficient Scraping**: Crawl and index albums from RateYourMusic.
+- **Polite**: Fully configurable crawler concurrency, rate-limiting, backoff, max queue size, and data staleness checks. Remember we love RYM and don't want to get banned.
+- **Personalized Collections**: Curate albums into "Profiles" for tailored recommendations.
+- **Spotify Integration**: Import albums from your Spotify catalogue into profiles.
+- **Advanced Recommendation Methods**:
+  - Quantile Ranking
+  - [Coming Soon] Vector Similarity Search: Using OpenAI's API for album embeddings.
+- **Browser Extension**: Parse and index albums from RYM in real-time while browsing the site.
+- **Proxy Support**: Bring your own crawler proxy for uninterrupted scraping.
+- **Interfaces**: GRPC API and Web-based UI.
+- **Data Export**: Export to Postgres and Bolt-compatible graph databases using connectors.
+- **Monitoring**: OpenTelemetry support for diagnostics.
 
-### Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/)
-- [Task](https://taskfile.dev/installation/)
-- [Rust(v1.69 or later)](https://www.rust-lang.org/tools/install)
-- [Node.js(v16.18 or later)](https://nodejs.org/en/download/package-manager)
-- [Protobuf Compiler(v3.18 or later)](https://grpc.io/docs/protoc-installation/)
-
-### Build
-
-```bash
-task build
-```
+**Disclaimer**: This project is for educational purposes only. Excessive scraping of RateYourMusic may result in your IP being banned.
