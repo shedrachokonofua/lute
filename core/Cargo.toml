@@ -23,12 +23,16 @@ opentelemetry-otlp = { version = "0.13.0" }
 ordered-float = "3.7.0"
 prost = "0.12.0"
 prost-build = "0.12.0"
+r2d2 = "0.8.10"
+r2d2_sqlite = "0.22.0"
 rayon = "1.7.0"
 regex = "1.8.3"
 reqwest = "0.11.18"
 reqwest-middleware = "0.2.2"
 reqwest-tracing = "0.4.5"
 rspotify = "0.12.0"
+rusqlite = { version = "0.29.0", features = ["bundled"] }
+rusqlite_migration = "1.0.2"
 rust-s3 = "0.33.0"
 rustis = { version = "0.12.0", features = [
   "pool",
