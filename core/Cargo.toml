@@ -30,7 +30,7 @@ reqwest-middleware = "0.2.2"
 reqwest-tracing = "0.4.5"
 rspotify = "0.12.0"
 rust-s3 = "0.33.0"
-rustis = { git = "https://github.com/shedrachokonofua/rustis.git", branch = "main", features = [
+rustis = { version = "0.12.0", features = [
   "pool",
   "redis-json",
   "redis-search",

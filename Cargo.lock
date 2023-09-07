@@ -2402,8 +2402,9 @@ checksum = "d626bb9dae77e28219937af045c257c28bfd3f69333c512553507f5f9798cb76"
 
 [[package]]
 name = "rustis"
-version = "0.1.0"
-source = "git+https://github.com/shedrachokonofua/rustis.git?branch=main#2bb3e2296cadacad036e7884ab7bf6446052fcbd"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00f9fd795f5459a681b631284cd2ef839fc263583c2783324b1944a3ccccdf5e"
 dependencies = [
  "atoi",
  "bb8",
