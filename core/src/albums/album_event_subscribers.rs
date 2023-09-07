@@ -120,6 +120,16 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
   Ok(())
 }
 
+async fn delete_album_read_models(context: SubscriberContext) -> Result<()> {
+  if let Event::FileDeleted { file_name, .. } = context.payload.event {
+    let album_read_model_repository = AlbumReadModelRepository {
+      redis_connection_pool: Arc::clone(&context.redis_connection_pool),
+    };
+    album_read_model_repository.delete(&file_name).await?;
+  }
+  Ok(())
+}
+
 fn get_crawl_priority(correlation_id: Option<String>) -> Priority {
   correlation_id
     .map(|cid| {
@@ -198,6 +208,16 @@ pub fn build_album_event_subscribers(
       .settings(Arc::clone(&settings))
       .handle(Arc::new(|context| {
         Box::pin(async move { update_album_read_models(context).await })
+      }))
+      .build()?,
+    EventSubscriberBuilder::default()
+      .id("delete_album_read_models".to_string())
+      .stream(Stream::File)
+      .batch_size(250)
+      .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .settings(Arc::clone(&settings))
+      .handle(Arc::new(|context| {
+        Box::pin(async move { delete_album_read_models(context).await })
       }))
       .build()?,
     EventSubscriberBuilder::default()

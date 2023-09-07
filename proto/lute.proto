@@ -28,9 +28,12 @@ message IsFileStaleRequest { string name = 1; }
 
 message IsFileStaleReply { bool stale = 1; }
 
+message DeleteFileRequest { string name = 1; }
+
 service FileService {
   rpc IsFileStale(IsFileStaleRequest) returns (IsFileStaleReply) {}
   rpc PutFile(PutFileRequest) returns (PutFileReply) {}
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
 }
 
 message GetCrawlerMonitorReply { CrawlerMonitor monitor = 1; }
@@ -527,6 +530,11 @@ message FileSavedEvent {
   string file_name = 2;
 }
 
+message FileDeletedEvent {
+  string file_id = 1;
+  string file_name = 2;
+}
+
 message FileParsedEvent {
   string file_id = 1;
   string file_name = 2;
@@ -545,9 +553,7 @@ message ProfileAlbumAddedEvent {
   uint32 factor = 3;
 }
 
-message LookupAlbumSearchUpdatedEvent {
-  AlbumSearchLookup lookup = 1;
-}
+message LookupAlbumSearchUpdatedEvent { AlbumSearchLookup lookup = 1; }
 
 message Event {
   oneof event {
@@ -556,6 +562,7 @@ message Event {
     FileParseFailedEvent file_parse_failed = 3;
     ProfileAlbumAddedEvent profile_album_added = 4;
     LookupAlbumSearchUpdatedEvent lookup_album_search_updated = 5;
+    FileDeletedEvent file_deleted = 6;
   }
 }
 
@@ -578,7 +585,7 @@ message EventStreamReply {
 }
 
 message EventStreamRequest {
-  string stream_id = 1; 
+  string stream_id = 1;
   string subscriber_id = 2;
   optional uint32 max_batch_size = 3;
   optional string cursor = 4;

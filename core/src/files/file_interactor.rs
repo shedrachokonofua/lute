@@ -109,4 +109,25 @@ impl FileInteractor {
         )
       })
   }
+
+  pub async fn delete_file(&self, file_name: &FileName) -> Result<()> {
+    let file_metadata = self.get_file_metadata(file_name).await?;
+    self.file_metadata_repository.delete(file_name).await?;
+    self.file_content_store.delete(file_name).await?;
+    self
+      .event_publisher
+      .publish(
+        Stream::File,
+        EventPayload {
+          event: Event::FileDeleted {
+            file_id: file_metadata.id,
+            file_name: file_metadata.name.clone(),
+          },
+          correlation_id: None,
+          metadata: None,
+        },
+      )
+      .await?;
+    Ok(())
+  }
 }

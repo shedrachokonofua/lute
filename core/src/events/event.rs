@@ -18,6 +18,11 @@ pub enum Event {
     file_id: Ulid,
     file_name: FileName,
   },
+  FileDeleted {
+    #[serde(with = "ulid_as_u128")]
+    file_id: Ulid,
+    file_name: FileName,
+  },
   FileParsed {
     #[serde(with = "ulid_as_u128")]
     file_id: Ulid,
@@ -46,6 +51,12 @@ impl Into<proto::Event> for Event {
       event: Some(match self {
         Event::FileSaved { file_id, file_name } => {
           proto::event::Event::FileSaved(proto::FileSavedEvent {
+            file_id: file_id.to_string(),
+            file_name: file_name.to_string(),
+          })
+        }
+        Event::FileDeleted { file_id, file_name } => {
+          proto::event::Event::FileDeleted(proto::FileDeletedEvent {
             file_id: file_id.to_string(),
             file_name: file_name.to_string(),
           })

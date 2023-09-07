@@ -14,7 +14,7 @@
     - Files:
       - [ ] Fix staleness check
       - [ ] Support local disk file content storage
-      - [ ] Deletion + RPC method
+      - [x] Deletion + RPC method
     - Web:
       - [ ] Add to docker image
     - Crawler:

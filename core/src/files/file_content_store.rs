@@ -66,6 +66,16 @@ impl FileContentStore {
   }
 
   #[instrument(skip(self))]
+  pub async fn delete(&self, file_name: &FileName) -> Result<()> {
+    self.bucket.delete_object(file_name.to_string()).await?;
+    info!(
+      file_name = file_name.to_string().as_str(),
+      "File deleted from content store"
+    );
+    Ok(())
+  }
+
+  #[instrument(skip(self))]
   pub async fn list_files(&self) -> Result<Vec<FileName>> {
     let mut objects = self.bucket.list("release/".to_string(), None).await?;
     objects.append(&mut self.bucket.list("charts/".to_string(), None).await?);

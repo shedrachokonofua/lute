@@ -310,6 +310,12 @@ impl AlbumReadModelRepository {
     Ok(())
   }
 
+  pub async fn delete(&self, file_name: &FileName) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    connection.del(self.key(file_name)).await?;
+    Ok(())
+  }
+
   pub async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>> {
     let connection = self.redis_connection_pool.get().await?;
     let result: Option<String> = connection

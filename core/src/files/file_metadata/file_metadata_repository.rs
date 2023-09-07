@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use rustis::{
   bb8::Pool,
   client::{BatchPreparedCommand, PooledClientManager},
-  commands::{HashCommands, StringCommands},
+  commands::{GenericCommands, HashCommands, StringCommands},
 };
 use std::{collections::HashMap, sync::Arc};
 use ulid::Ulid;
@@ -160,5 +160,16 @@ impl FileMetadataRepository {
       }
       None => self.insert(name).await,
     }
+  }
+
+  pub async fn delete(&self, name: &FileName) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    connection.del(get_name_index_key(name.to_string())).await?;
+    let id: Option<String> = connection.get(get_name_index_key(name.to_string())).await?;
+    if let Some(id) = id {
+      connection.del(get_key(id)).await?;
+    }
+
+    Ok(())
   }
 }

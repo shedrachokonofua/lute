@@ -49,4 +49,23 @@ impl proto::FileService for FileService {
     };
     Ok(Response::new(reply))
   }
+
+  async fn delete_file(
+    &self,
+    request: Request<proto::DeleteFileRequest>,
+  ) -> Result<Response<()>, Status> {
+    let name = request.into_inner().name;
+    let file_name =
+      FileName::try_from(name.clone()).map_err(|e| Status::invalid_argument(e.to_string()))?;
+    self
+      .file_interactor
+      .delete_file(&file_name)
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Failed to delete file")
+      })?;
+
+    Ok(Response::new(()))
+  }
 }
