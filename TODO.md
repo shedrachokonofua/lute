@@ -22,6 +22,7 @@
       - [ ] Make crawler proxy optional
     - Events:
       - [ ] Migrate to SQLite
+      - [ ] Support ordered processing groups
     - Album read model:
       - [ ] Duplicate album detection
       - [ ] Migrate to SQLite
