@@ -21,7 +21,7 @@ async fn parse_saved_file(context: SubscriberContext) -> Result<()> {
     let file_content_store = FileContentStore::new(&context.settings.file.content_store)?;
     let event_publisher = EventPublisher::new(
       Arc::clone(&context.settings),
-      Arc::clone(&context.redis_connection_pool),
+      Arc::clone(&context.sqlite_connection),
     );
     parse_file_on_store(
       file_content_store,
@@ -67,11 +67,13 @@ async fn populate_failed_parse_files_repository(context: SubscriberContext) -> R
 
 pub fn build_parser_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
 ) -> Result<Vec<EventSubscriber>> {
   Ok(vec![
     EventSubscriberBuilder::default()
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .id("parse_saved_file".to_string())
       .batch_size(settings.parser.concurrency as usize)
@@ -82,6 +84,7 @@ pub fn build_parser_event_subscribers(
       .build()?,
     EventSubscriberBuilder::default()
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .id("populate_failed_parse_files_repository".to_string())
       .batch_size(1)

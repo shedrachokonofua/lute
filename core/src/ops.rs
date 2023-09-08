@@ -4,7 +4,7 @@ use crate::{
   settings::Settings,
   sqlite::{migrate_to_latest, migrate_to_version},
 };
-use r2d2_sqlite::SqliteConnectionManager;
+
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
@@ -15,8 +15,8 @@ use tonic::{Request, Response, Status};
 use tracing::error;
 
 pub struct OperationsService {
+  settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection_pool: Arc<r2d2::Pool<SqliteConnectionManager>>,
   file_interactor: FileInteractor,
 }
 
@@ -24,12 +24,12 @@ impl OperationsService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection_pool: Arc<r2d2::Pool<SqliteConnectionManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
   ) -> Self {
     Self {
+      settings: Arc::clone(&settings),
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      sqlite_connection_pool: Arc::clone(&sqlite_connection_pool),
-      file_interactor: FileInteractor::new(settings, redis_connection_pool),
+      file_interactor: FileInteractor::new(settings, redis_connection_pool, sqlite_connection),
     }
   }
 }
@@ -74,10 +74,12 @@ impl proto::OperationsService for OperationsService {
   }
 
   async fn migrate_sqlite_to_latest(&self, _: Request<()>) -> Result<Response<()>, Status> {
-    migrate_to_latest(Arc::clone(&self.sqlite_connection_pool)).map_err(|e| {
-      error!("Error: {:?}", e);
-      Status::internal("Failed to migrate sqlite to latest")
-    })?;
+    migrate_to_latest(Arc::clone(&self.settings))
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Failed to migrate sqlite to latest")
+      })?;
     Ok(Response::new(()))
   }
 
@@ -86,10 +88,12 @@ impl proto::OperationsService for OperationsService {
     request: Request<proto::MigrateSqliteRequest>,
   ) -> Result<Response<()>, Status> {
     let version = request.into_inner().version;
-    migrate_to_version(Arc::clone(&self.sqlite_connection_pool), version).map_err(|e| {
-      error!("Error: {:?}", e);
-      Status::internal("Failed to migrate sqlite to version")
-    })?;
+    migrate_to_version(Arc::clone(&self.settings), version)
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Failed to migrate sqlite to version")
+      })?;
     Ok(Response::new(()))
   }
 }

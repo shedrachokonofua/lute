@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
   events::{
-    event::{Event, EventPayload, Stream},
+    event::{Event, EventPayloadBuilder, Stream},
     event_publisher::EventPublisher,
   },
   files::file_metadata::file_name::FileName,
@@ -25,6 +25,7 @@ impl LookupInteractor {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
   ) -> Self {
     Self {
       album_search_lookup_repository: AlbumSearchLookupRepository {
@@ -32,7 +33,7 @@ impl LookupInteractor {
       },
       event_publisher: EventPublisher {
         settings,
-        redis_connection_pool: Arc::clone(&redis_connection_pool),
+        sqlite_connection,
       },
     }
   }
@@ -70,13 +71,12 @@ impl LookupInteractor {
           .event_publisher
           .publish(
             Stream::Lookup,
-            EventPayload {
-              event: Event::LookupAlbumSearchUpdated {
+            EventPayloadBuilder::default()
+              .event(Event::LookupAlbumSearchUpdated {
                 lookup: lookup.clone(),
-              },
-              correlation_id: Some(get_album_search_correlation_id(lookup.query())),
-              metadata: None,
-            },
+              })
+              .correlation_id(get_album_search_correlation_id(lookup.query()))
+              .build()?,
           )
           .await?;
         Ok(lookup)

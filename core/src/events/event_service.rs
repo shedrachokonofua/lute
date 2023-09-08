@@ -1,4 +1,7 @@
-use super::event_subscriber_repository::EventSubscriberRepository;
+use super::{
+  event_subscriber_repository::EventSubscriberRepository,
+  redis_event_subscriber_repository::RedisEventSubscriberRepository,
+};
 use crate::proto;
 use futures::Stream;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -28,7 +31,7 @@ impl proto::EventService for EventService {
   ) -> Result<Response<Self::StreamStream>, Status> {
     let mut input_stream: Streaming<proto::EventStreamRequest> = request.into_inner();
     let event_subscriber_repository =
-      EventSubscriberRepository::new(Arc::clone(&self.redis_connection_pool));
+      RedisEventSubscriberRepository::new(Arc::clone(&self.redis_connection_pool));
     let output_stream = async_stream::try_stream! {
       while let Ok(Some(event_stream_request)) = input_stream.message().await {
         loop {

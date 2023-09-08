@@ -522,6 +522,7 @@ dependencies = [
  "tl",
  "tokio",
  "tokio-retry",
+ "tokio-rusqlite",
  "tonic 0.10.0",
  "tonic-build",
  "tonic-reflection",
@@ -2457,6 +2458,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "549b9d036d571d42e6e85d1c1425e2ac83491075078ca9a15be021c56b1641f2"
 dependencies = [
  "bitflags 2.4.0",
+ "chrono",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
@@ -2472,6 +2474,8 @@ dependencies = [
  "include_dir",
  "log",
  "rusqlite",
+ "tokio",
+ "tokio-rusqlite",
 ]
 
 [[package]]
@@ -3075,6 +3079,17 @@ checksum = "7f57eb36ecbe0fc510036adff84824dd3c24bb781e21bfa67b69d556aa85214f"
 dependencies = [
  "pin-project",
  "rand",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-rusqlite"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7aa66395f5ff117faee90c9458232c936405f9227ad902038000b74b3bc1feac"
+dependencies = [
+ "crossbeam-channel",
+ "rusqlite",
  "tokio",
 ]
 

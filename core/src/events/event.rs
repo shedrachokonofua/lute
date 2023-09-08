@@ -4,6 +4,7 @@ use crate::parser::parsed_file_data::ParsedFileData;
 use crate::profile::profile::ProfileId;
 use crate::proto;
 use anyhow::{anyhow, Result};
+use derive_builder::Builder;
 use kinded::Kinded;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -45,10 +46,10 @@ pub enum Event {
   },
 }
 
-impl Into<proto::Event> for Event {
-  fn into(self) -> proto::Event {
+impl From<Event> for proto::Event {
+  fn from(val: Event) -> Self {
     proto::Event {
-      event: Some(match self {
+      event: Some(match val {
         Event::FileSaved { file_id, file_name } => {
           proto::event::Event::FileSaved(proto::FileSavedEvent {
             file_id: file_id.to_string(),
@@ -98,30 +99,30 @@ impl Into<proto::Event> for Event {
   }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Builder)]
 pub struct EventPayload {
   pub event: Event,
+  #[builder(setter(into), default)]
   pub correlation_id: Option<String>,
+  #[builder(setter(into), default)]
+  pub causation_id: Option<String>,
+  #[builder(setter(into), default)]
   pub metadata: Option<HashMap<String, String>>,
 }
 
-impl Into<proto::EventPayload> for EventPayload {
-  fn into(self) -> proto::EventPayload {
+impl From<EventPayload> for proto::EventPayload {
+  fn from(val: EventPayload) -> Self {
     proto::EventPayload {
-      event: Some(self.event.into()),
-      correlation_id: self.correlation_id,
-      metadata: self.metadata.unwrap_or(HashMap::new()),
+      event: Some(val.event.into()),
+      correlation_id: val.correlation_id,
+      metadata: val.metadata.unwrap_or(HashMap::new()),
     }
   }
 }
 
 impl EventPayload {
   pub fn from_event(event: Event) -> Self {
-    EventPayload {
-      event,
-      correlation_id: None,
-      metadata: None,
-    }
+    EventPayloadBuilder::default().event(event).build().unwrap()
   }
 }
 
@@ -153,18 +154,23 @@ impl TryFrom<&HashMap<String, String>> for EventPayload {
         .ok_or(anyhow!("event not found in payload"))?,
     )?;
     let correlation_id = value.get("correlation_id").map(|value| value.to_string());
+    let causation_id = value.get("causation_id").map(|value| value.to_string());
     let metadata = value
       .get("metadata")
       .map(|value| serde_json::from_str::<HashMap<String, String>>(value).unwrap());
-    Ok(EventPayload {
-      event,
-      correlation_id,
-      metadata,
-    })
+
+    Ok(
+      EventPayloadBuilder::default()
+        .event(event)
+        .correlation_id(correlation_id)
+        .causation_id(causation_id)
+        .metadata(metadata)
+        .build()?,
+    )
   }
 }
 
-#[derive(Clone, Kinded)]
+#[derive(Clone, Kinded, Debug)]
 #[kinded(display = "kebab-case")]
 pub enum Stream {
   File,

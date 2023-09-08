@@ -31,13 +31,18 @@ impl RecommendationInteractor {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
   ) -> Self {
     Self {
       quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(&redis_connection_pool)),
       album_read_model_repository: AlbumReadModelRepository::new(Arc::clone(
         &redis_connection_pool,
       )),
-      profile_interactor: ProfileInteractor::new(settings, redis_connection_pool),
+      profile_interactor: ProfileInteractor::new(
+        settings,
+        redis_connection_pool,
+        sqlite_connection,
+      ),
     }
   }
 

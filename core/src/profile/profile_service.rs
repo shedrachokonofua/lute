@@ -70,9 +70,14 @@ impl ProfileService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
   ) -> Self {
     Self {
-      profile_interactor: ProfileInteractor::new(settings, redis_connection_pool),
+      profile_interactor: ProfileInteractor::new(
+        settings,
+        redis_connection_pool,
+        sqlite_connection,
+      ),
     }
   }
 }

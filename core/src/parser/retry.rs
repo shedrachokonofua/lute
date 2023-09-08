@@ -18,13 +18,16 @@ use ulid::Ulid;
 pub fn start_parser_retry_consumer(
   queue: Arc<FifoQueue<FileName>>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
 ) -> Result<()> {
   let file_content_store = FileContentStore::new(&settings.file.content_store)?;
-  let event_publisher =
-    EventPublisher::new(Arc::clone(&settings), Arc::clone(&redis_connection_pool));
-  let file_interactor =
-    FileInteractor::new(Arc::clone(&settings), Arc::clone(&redis_connection_pool));
+  let event_publisher = EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection));
+  let file_interactor = FileInteractor::new(
+    Arc::clone(&settings),
+    Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
+  );
 
   spawn(async move {
     loop {

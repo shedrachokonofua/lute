@@ -61,7 +61,7 @@ impl AlbumReadModel {
           format!(
             "{}:{}",
             credit.artist.file_name.to_string(),
-            role.to_lowercase().replace(" ", "_")
+            role.to_lowercase().replace(' ', "_")
           )
         })
       })
@@ -194,6 +194,7 @@ async fn crawl_artist_albums(
 
 pub fn build_album_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Result<Vec<EventSubscriber>> {
@@ -205,6 +206,7 @@ pub fn build_album_event_subscribers(
       .stream(Stream::Parser)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .handle(Arc::new(|context| {
         Box::pin(async move { update_album_read_models(context).await })
@@ -215,6 +217,7 @@ pub fn build_album_event_subscribers(
       .stream(Stream::File)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .handle(Arc::new(|context| {
         Box::pin(async move { delete_album_read_models(context).await })
@@ -225,6 +228,7 @@ pub fn build_album_event_subscribers(
       .stream(Stream::Parser)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .handle(Arc::new(move |context| {
         let crawler_interactor = Arc::clone(&artist_crawler_interactor);
@@ -236,6 +240,7 @@ pub fn build_album_event_subscribers(
       .stream(Stream::Parser)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .handle(Arc::new(move |context| {
         let crawler_interactor = Arc::clone(&album_crawler_interactor);

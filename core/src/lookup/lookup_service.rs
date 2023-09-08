@@ -53,9 +53,10 @@ impl LookupService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
   ) -> Self {
     Self {
-      lookup_interactor: LookupInteractor::new(settings, redis_connection_pool),
+      lookup_interactor: LookupInteractor::new(settings, redis_connection_pool, sqlite_connection),
     }
   }
 }

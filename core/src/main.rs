@@ -18,7 +18,6 @@ use core::{
   tracing::setup_tracing,
 };
 use dotenv::dotenv;
-use r2d2_sqlite::SqliteConnectionManager;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 #[cfg(not(target_env = "msvc"))]
@@ -32,14 +31,14 @@ static GLOBAL: Jemalloc = Jemalloc;
 fn run_rpc_server(
   settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection_pool: Arc<r2d2::Pool<SqliteConnectionManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
   crawler: Arc<Crawler>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
 ) -> task::JoinHandle<()> {
   let rpc_server = RpcServer::new(
     settings,
     redis_connection_pool,
-    sqlite_connection_pool,
+    sqlite_connection,
     crawler,
     parser_retry_queue,
   );
@@ -52,29 +51,35 @@ fn run_rpc_server(
 fn start_event_subscribers(
   settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
   crawler: Arc<Crawler>,
 ) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
   event_subscribers.extend(build_album_event_subscribers(
     Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
     settings.clone(),
     Arc::clone(&crawler.crawler_interactor),
   )?);
   event_subscribers.extend(build_parser_event_subscribers(
     Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
     settings.clone(),
   )?);
   event_subscribers.extend(build_lookup_event_subscribers(
     Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
     settings.clone(),
     Arc::clone(&crawler.crawler_interactor),
   )?);
   event_subscribers.extend(build_profile_event_subscribers(
     Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
     settings.clone(),
   )?);
   event_subscribers.extend(build_recommendation_event_subscribers(
     Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
     settings,
     Arc::clone(&crawler.crawler_interactor),
   )?);
@@ -90,7 +95,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let settings = Arc::new(Settings::new()?);
   setup_tracing(&settings.tracing)?;
 
-  let sqlite_connection_pool = Arc::new(connect_to_sqlite(Arc::clone(&settings)).await?);
+  let sqlite_connection = Arc::new(connect_to_sqlite(Arc::clone(&settings)).await?);
 
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
   setup_redis_indexes(redis_connection_pool.clone()).await?;
@@ -102,25 +107,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   start_parser_retry_consumer(
     Arc::clone(&parser_retry_queue),
     Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
     Arc::clone(&settings),
   )?;
 
   let crawler = Arc::new(Crawler::new(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
   )?);
   crawler.run()?;
 
   start_event_subscribers(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
     Arc::clone(&crawler),
   )?;
 
   run_rpc_server(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection_pool),
+    Arc::clone(&sqlite_connection),
     Arc::clone(&crawler),
     Arc::clone(&parser_retry_queue),
   )

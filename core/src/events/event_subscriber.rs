@@ -3,6 +3,7 @@ use crate::settings::Settings;
 use super::{
   event::{EventPayload, Stream},
   event_subscriber_repository::EventSubscriberRepository,
+  sqlite_event_subscriber_repository::SqliteEventSubscriberRepository,
 };
 use anyhow::Result;
 use derive_builder::Builder;
@@ -15,6 +16,7 @@ use tracing::{debug, error};
 pub struct SubscriberContext {
   pub entry_id: String,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  pub sqlite_connection: Arc<tokio_rusqlite::Connection>,
   pub settings: Arc<Settings>,
   pub payload: EventPayload,
 }
@@ -24,6 +26,7 @@ pub struct EventSubscriber {
   #[builder(default = "10")]
   pub batch_size: usize,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  pub sqlite_connection: Arc<tokio_rusqlite::Connection>,
   pub settings: Arc<Settings>,
   pub id: String,
   pub stream: Stream,
@@ -32,18 +35,18 @@ pub struct EventSubscriber {
     setter(skip),
     default = "self.get_default_event_subscriber_repository()?"
   )]
-  event_subscriber_repository: EventSubscriberRepository,
+  event_subscriber_repository: SqliteEventSubscriberRepository,
 }
 
 impl EventSubscriberBuilder {
   pub fn get_default_event_subscriber_repository(
     &self,
-  ) -> Result<EventSubscriberRepository, String> {
-    match &self.redis_connection_pool {
-      Some(redis_connection_pool) => Ok(EventSubscriberRepository::new(Arc::clone(
-        redis_connection_pool,
+  ) -> Result<SqliteEventSubscriberRepository, String> {
+    match &self.sqlite_connection {
+      Some(sqlite_connection) => Ok(SqliteEventSubscriberRepository::new(Arc::clone(
+        sqlite_connection,
       ))),
-      None => Err("Redis connection pool is required".to_string()),
+      None => Err("SQLite connection pool is required".to_string()),
     }
   }
 }
@@ -83,7 +86,8 @@ impl EventSubscriber {
     );
     let tail_cursor = event_list.tail_cursor();
     let futures = event_list.events.into_iter().map(|(event_id, payload)| {
-      let pool = Arc::clone(&self.redis_connection_pool);
+      let redis_pool = Arc::clone(&self.redis_connection_pool);
+      let sqlite_pool = Arc::clone(&self.sqlite_connection);
       let settings = Arc::clone(&self.settings);
       let handle = self.handle.clone();
       let subscriber_id = self.id.clone();
@@ -98,7 +102,8 @@ impl EventSubscriber {
 
       tokio::spawn(async move {
         handle(SubscriberContext {
-          redis_connection_pool: pool,
+          redis_connection_pool: redis_pool,
+          sqlite_connection: sqlite_pool,
           entry_id: event_id.clone(),
           settings,
           payload: payload.clone(),
@@ -122,7 +127,7 @@ impl EventSubscriber {
   }
 
   pub fn sleep(&self) {
-    thread::sleep(Duration::from_secs(5));
+    thread::sleep(Duration::from_secs(1));
   }
 
   pub async fn run(&self) -> Result<()> {
@@ -131,10 +136,12 @@ impl EventSubscriber {
         Ok(Some(tail_cursor)) => {
           self.set_cursor(&tail_cursor).await?;
         }
-        Ok(None) => {}
+        Ok(None) => {
+          self.sleep();
+        }
         Err(error) => {
           error!("Error polling stream: {}", error);
-          thread::sleep(std::time::Duration::from_secs(1));
+          self.sleep();
         }
       }
     }

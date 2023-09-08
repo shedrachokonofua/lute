@@ -30,6 +30,7 @@ use ulid::Ulid;
 
 pub struct ParserService {
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
   failed_parse_files_repository: FailedParseFilesRepository,
   file_interactor: FileInteractor,
   settings: Arc<Settings>,
@@ -50,11 +51,11 @@ impl TryFrom<i32> for PageType {
   }
 }
 
-impl Into<proto::ParsedArtistReference> for ParsedArtistReference {
-  fn into(self) -> proto::ParsedArtistReference {
+impl From<ParsedArtistReference> for proto::ParsedArtistReference {
+  fn from(val: ParsedArtistReference) -> Self {
     proto::ParsedArtistReference {
-      name: self.name,
-      file_name: self.file_name.to_string(),
+      name: val.name,
+      file_name: val.file_name.to_string(),
     }
   }
 }
@@ -80,22 +81,22 @@ impl Into<proto::ParsedChartAlbum> for ParsedChartAlbum {
   }
 }
 
-impl Into<proto::ParsedTrack> for ParsedTrack {
-  fn into(self) -> proto::ParsedTrack {
+impl From<ParsedTrack> for proto::ParsedTrack {
+  fn from(val: ParsedTrack) -> Self {
     proto::ParsedTrack {
-      name: self.name,
-      duration_seconds: self.duration_seconds,
-      rating: self.rating,
-      position: self.position,
+      name: val.name,
+      duration_seconds: val.duration_seconds,
+      rating: val.rating,
+      position: val.position,
     }
   }
 }
 
-impl Into<proto::ParsedCredit> for ParsedCredit {
-  fn into(self) -> proto::ParsedCredit {
+impl From<ParsedCredit> for proto::ParsedCredit {
+  fn from(val: ParsedCredit) -> Self {
     proto::ParsedCredit {
-      artist: Some(self.artist.into()),
-      roles: self.roles,
+      artist: Some(val.artist.into()),
+      roles: val.roles,
     }
   }
 }
@@ -126,46 +127,46 @@ impl Into<proto::ParsedAlbum> for ParsedAlbum {
   }
 }
 
-impl Into<proto::ParsedArtistAlbum> for ParsedArtistAlbum {
-  fn into(self) -> proto::ParsedArtistAlbum {
+impl From<ParsedArtistAlbum> for proto::ParsedArtistAlbum {
+  fn from(val: ParsedArtistAlbum) -> Self {
     proto::ParsedArtistAlbum {
-      name: self.name,
-      file_name: self.file_name.into(),
+      name: val.name,
+      file_name: val.file_name.into(),
     }
   }
 }
 
-impl Into<proto::ParsedArtist> for ParsedArtist {
-  fn into(self) -> proto::ParsedArtist {
+impl From<ParsedArtist> for proto::ParsedArtist {
+  fn from(val: ParsedArtist) -> Self {
     let albums: Vec<proto::ParsedArtistAlbum> =
-      self.albums.into_iter().map(|album| album.into()).collect();
+      val.albums.into_iter().map(|album| album.into()).collect();
 
     proto::ParsedArtist {
-      name: self.name,
+      name: val.name,
       albums,
     }
   }
 }
 
-impl Into<proto::ParsedAlbumSearchResult> for ParsedAlbumSearchResult {
-  fn into(self) -> proto::ParsedAlbumSearchResult {
-    let artists: Vec<proto::ParsedArtistReference> = self
+impl From<ParsedAlbumSearchResult> for proto::ParsedAlbumSearchResult {
+  fn from(val: ParsedAlbumSearchResult) -> Self {
+    let artists: Vec<proto::ParsedArtistReference> = val
       .artists
       .into_iter()
       .map(|artist| artist.into())
       .collect();
 
     proto::ParsedAlbumSearchResult {
-      name: self.name,
-      file_name: self.file_name.into(),
+      name: val.name,
+      file_name: val.file_name.into(),
       artists,
     }
   }
 }
 
-impl Into<proto::ParsedFileData> for ParsedFileData {
-  fn into(self) -> proto::ParsedFileData {
-    match self {
+impl From<ParsedFileData> for proto::ParsedFileData {
+  fn from(val: ParsedFileData) -> Self {
+    match val {
       ParsedFileData::Chart(data) => {
         let albums: Vec<proto::ParsedChartAlbum> =
           data.into_iter().map(|album| album.into()).collect();
@@ -194,6 +195,7 @@ impl ParserService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
   ) -> Self {
     Self {
@@ -203,9 +205,11 @@ impl ParserService {
       file_interactor: FileInteractor::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
+        Arc::clone(&sqlite_connection),
       ),
       parser_retry_queue,
       redis_connection_pool,
+      sqlite_connection,
       settings,
     }
   }
@@ -270,7 +274,7 @@ impl proto::ParserService for ParserService {
       content_store,
       EventPublisher::new(
         Arc::clone(&self.settings),
-        Arc::clone(&self.redis_connection_pool),
+        Arc::clone(&self.sqlite_connection),
       ),
       file_metadata.id,
       file_name,

@@ -21,7 +21,6 @@ use crate::{
   spotify::{spotify_client::SpotifyClient, spotify_service::SpotifyService},
 };
 use anyhow::Result;
-use r2d2_sqlite::SqliteConnectionManager;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{net::SocketAddr, sync::Arc};
 use tonic::{transport::Server, Request, Response, Status};
@@ -54,7 +53,7 @@ impl RpcServer {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection_pool: Arc<r2d2::Pool<SqliteConnectionManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
     crawler: Arc<Crawler>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
   ) -> Self {
@@ -64,6 +63,7 @@ impl RpcServer {
         file_interactor: FileInteractor::new(
           Arc::clone(&settings),
           Arc::clone(&redis_connection_pool),
+          Arc::clone(&sqlite_connection),
         ),
       }),
       crawler_service: Arc::new(CrawlerService { crawler }),
@@ -74,24 +74,28 @@ impl RpcServer {
       operations_service: Arc::new(OperationsService::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
-        Arc::clone(&sqlite_connection_pool),
+        Arc::clone(&sqlite_connection),
       )),
       parser_service: Arc::new(ParserService::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
+        Arc::clone(&sqlite_connection),
         Arc::clone(&parser_retry_queue),
       )),
       profile_service: Arc::new(ProfileService::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
+        Arc::clone(&sqlite_connection),
       )),
       lookup_service: Arc::new(LookupService::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
+        Arc::clone(&sqlite_connection),
       )),
       recommendation_service: Arc::new(RecommendationService::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
+        Arc::clone(&sqlite_connection),
       )),
       event_service: Arc::new(EventService::new(Arc::clone(&redis_connection_pool))),
     }

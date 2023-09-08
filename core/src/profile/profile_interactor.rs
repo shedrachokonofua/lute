@@ -46,6 +46,7 @@ impl ProfileInteractor {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
   ) -> Self {
     Self {
       profile_repository: ProfileRepository {
@@ -54,14 +55,12 @@ impl ProfileInteractor {
       album_read_model_repository: AlbumReadModelRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
-      event_publisher: EventPublisher::new(
-        Arc::clone(&settings),
-        Arc::clone(&redis_connection_pool),
-      ),
+      event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
       spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
       lookup_interactor: LookupInteractor::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
+        Arc::clone(&sqlite_connection),
       ),
       spotify_import_repository: SpotifyImportRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),

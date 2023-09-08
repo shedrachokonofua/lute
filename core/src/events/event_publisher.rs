@@ -1,53 +1,38 @@
 use super::event::{EventPayload, Stream};
 use crate::settings::Settings;
 use anyhow::Result;
-use rustis::{
-  bb8::Pool,
-  client::PooledClientManager,
-  commands::{StreamCommands, XAddOptions},
-};
-use std::{collections::HashMap, sync::Arc};
-use tracing::error;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct EventPublisher {
   pub settings: Arc<Settings>,
-  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  pub sqlite_connection: Arc<tokio_rusqlite::Connection>,
 }
 
 impl EventPublisher {
-  pub fn new(
-    settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  ) -> Self {
+  pub fn new(settings: Arc<Settings>, sqlite_connection: Arc<tokio_rusqlite::Connection>) -> Self {
     Self {
       settings,
-      redis_connection_pool,
+      sqlite_connection,
     }
-  }
-
-  async fn inner_publish(&self, stream: Stream, payload: EventPayload) -> Result<()> {
-    let value: HashMap<String, String> = payload.into();
-    let _: String = self
-      .redis_connection_pool
-      .get()
-      .await?
-      .xadd(&stream.redis_key(), "*", value, XAddOptions::default())
-      .await?;
-    Ok(())
   }
 
   pub async fn publish(&self, stream: Stream, payload: EventPayload) -> Result<()> {
-    self.inner_publish(stream, payload.clone()).await?;
-    if self.settings.enable_replication_stream {
-      self
-        .inner_publish(Stream::Replication, payload)
-        .await
-        .map_err(|err| {
-          error!("Failed to publish to replication stream: {}", err);
-          err
-        })?;
-    }
+    self.sqlite_connection.call(move |conn| {
+      conn.execute(
+        "INSERT INTO events (correlation_id, causation_id, event, metadata, stream) VALUES (?1, ?2, ?3, ?4, ?5)",
+        (
+          &payload.correlation_id,
+          &payload.causation_id,
+          serde_json::to_string(&payload.event)
+              .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+          serde_json::to_string(&payload.metadata)
+              .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+          &stream.tag(),
+        ),
+      )?;
+      Ok(())
+    }).await?;
     Ok(())
   }
 }

@@ -22,14 +22,18 @@ impl Crawler {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
   ) -> Result<Self> {
     let priority_queue = Arc::new(PriorityQueue::new(
       Arc::clone(&redis_connection_pool),
       settings.crawler.max_queue_size,
       settings.crawler.claim_ttl_seconds,
     ));
-    let file_interactor =
-      FileInteractor::new(Arc::clone(&settings), Arc::clone(&redis_connection_pool));
+    let file_interactor = FileInteractor::new(
+      Arc::clone(&settings),
+      Arc::clone(&redis_connection_pool),
+      Arc::clone(&sqlite_connection),
+    );
     let crawler_interactor = Arc::new(CrawlerInteractor::new(
       Arc::clone(&settings),
       file_interactor,
@@ -39,6 +43,7 @@ impl Crawler {
     let file_interactor = Arc::new(FileInteractor::new(
       Arc::clone(&settings),
       Arc::clone(&redis_connection_pool),
+      Arc::clone(&sqlite_connection),
     ));
 
     let proxy_settings = &settings.crawler.proxy;

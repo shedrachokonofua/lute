@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{
   events::{
-    event::{Event, EventPayload, Stream},
+    event::{Event, EventPayloadBuilder, Stream},
     event_publisher::EventPublisher,
   },
   settings::Settings,
@@ -30,6 +30,7 @@ impl FileInteractor {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
   ) -> Self {
     Self {
       settings: Arc::clone(&settings),
@@ -37,7 +38,7 @@ impl FileInteractor {
       file_metadata_repository: FileMetadataRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
-      event_publisher: EventPublisher::new(Arc::clone(&settings), redis_connection_pool),
+      event_publisher: EventPublisher::new(Arc::clone(&settings), sqlite_connection),
     }
   }
 
@@ -70,14 +71,13 @@ impl FileInteractor {
       .event_publisher
       .publish(
         Stream::File,
-        EventPayload {
-          event: Event::FileSaved {
+        EventPayloadBuilder::default()
+          .event(Event::FileSaved {
             file_id: file_metadata.id,
             file_name: file_metadata.name.clone(),
-          },
-          correlation_id,
-          metadata: None,
-        },
+          })
+          .correlation_id(correlation_id)
+          .build()?,
       )
       .await?;
     Ok(file_metadata)
@@ -118,14 +118,12 @@ impl FileInteractor {
       .event_publisher
       .publish(
         Stream::File,
-        EventPayload {
-          event: Event::FileDeleted {
+        EventPayloadBuilder::default()
+          .event(Event::FileDeleted {
             file_id: file_metadata.id,
             file_name: file_metadata.name.clone(),
-          },
-          correlation_id: None,
-          metadata: None,
-        },
+          })
+          .build()?,
       )
       .await?;
     Ok(())

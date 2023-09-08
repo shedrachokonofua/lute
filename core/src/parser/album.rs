@@ -125,8 +125,8 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
             let row_value = get_tag_inner_text(dom.parser(), tag, "td").unwrap();
             Some(
               row_value
-                .replace(" ", "")
-                .split(",")
+                .replace(' ', "")
+                .split(',')
                 .map(|s| s.to_string())
                 .collect(),
             )
@@ -183,11 +183,9 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
       .query_selector(dom.parser(), "li")
       .map(|iter| {
         iter
-          .map(|node| {
+          .filter_map(|node| {
             let tag = node.get(dom.parser()).and_then(|node| node.as_tag());
-            if tag.is_none() {
-              return None;
-            }
+            tag?;
             let tag = tag.unwrap();
 
             let artist = tag
@@ -199,9 +197,7 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
                 name: clean_artist_name(tag.inner_text(dom.parser()).as_ref()).to_string(),
                 file_name: FileName::try_from(get_link_tag_href(tag).unwrap()).unwrap(),
               });
-            if artist.is_none() {
-              return None;
-            }
+            artist.as_ref()?;
             let artist = artist.unwrap();
 
             let roles = tag
@@ -229,7 +225,6 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
 
             Some(ParsedCredit { artist, roles })
           })
-          .filter_map(|credit| credit)
           .collect::<Vec<ParsedCredit>>()
       })
       .unwrap_or(vec![]),

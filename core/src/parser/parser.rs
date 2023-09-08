@@ -1,7 +1,7 @@
 use super::parsed_file_data::ParsedFileData;
 use crate::{
   events::{
-    event::{Event, EventPayload, Stream},
+    event::{Event, EventPayloadBuilder, Stream},
     event_publisher::EventPublisher,
   },
   files::{
@@ -71,11 +71,10 @@ pub async fn parse_file_on_store(
   event_publisher
     .publish(
       Stream::Parser,
-      EventPayload {
-        event,
-        correlation_id,
-        metadata: None,
-      },
+      EventPayloadBuilder::default()
+        .event(event)
+        .correlation_id(correlation_id)
+        .build()?,
     )
     .await?;
 

@@ -46,6 +46,7 @@ pub async fn process_lookup_subscriptions(
 
 pub fn build_spotify_import_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
 ) -> Result<Vec<EventSubscriber>> {
   Ok(vec![EventSubscriberBuilder::default()
@@ -53,11 +54,13 @@ pub fn build_spotify_import_event_subscribers(
     .stream(Stream::Lookup)
     .batch_size(250)
     .redis_connection_pool(Arc::clone(&redis_connection_pool))
+    .sqlite_connection(Arc::clone(&sqlite_connection))
     .settings(Arc::clone(&settings))
     .handle(Arc::new(|context| {
       let profile_interactor = ProfileInteractor::new(
         Arc::clone(&context.settings),
         Arc::clone(&context.redis_connection_pool),
+        Arc::clone(&context.sqlite_connection),
       );
       Box::pin(async move { process_lookup_subscriptions(context, profile_interactor).await })
     }))

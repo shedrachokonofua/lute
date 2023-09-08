@@ -26,9 +26,14 @@ impl RecommendationService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection: Arc<tokio_rusqlite::Connection>,
   ) -> Self {
     Self {
-      recommendation_interactor: RecommendationInteractor::new(settings, redis_connection_pool),
+      recommendation_interactor: RecommendationInteractor::new(
+        settings,
+        redis_connection_pool,
+        sqlite_connection,
+      ),
     }
   }
 }

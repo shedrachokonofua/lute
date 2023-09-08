@@ -12,7 +12,7 @@ use crate::{
     priority_queue::{Priority, QueuePushParameters},
   },
   events::{
-    event::{Event, EventPayload, Stream},
+    event::{Event, EventPayloadBuilder, Stream},
     event_publisher::EventPublisher,
     event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
@@ -186,13 +186,12 @@ async fn handle_file_processing_event(
       event_publisher
         .publish(
           Stream::Lookup,
-          EventPayload {
-            event: Event::LookupAlbumSearchUpdated {
+          EventPayloadBuilder::default()
+            .event(Event::LookupAlbumSearchUpdated {
               lookup: next_lookup.clone(),
-            },
-            correlation_id: Some(correlation_id),
-            metadata: None,
-          },
+            })
+            .correlation_id(correlation_id)
+            .build()?,
         )
         .await?;
     }
@@ -213,8 +212,8 @@ async fn handle_file_processing_event(
       event_publisher
         .publish(
           Stream::Lookup,
-          EventPayload {
-            event: Event::LookupAlbumSearchUpdated {
+          EventPayloadBuilder::default()
+            .event(Event::LookupAlbumSearchUpdated {
               lookup: AlbumSearchLookup::AlbumParsed {
                 album_search_file_name: lookup.album_search_file_name().unwrap(),
                 query: lookup.query().clone(),
@@ -223,10 +222,9 @@ async fn handle_file_processing_event(
                 parsed_album_search_result: lookup.parsed_album_search_result().unwrap(),
                 parsed_album: album.clone(),
               },
-            },
-            correlation_id: Some(lookup.file_processing_correlation_id().clone()),
-            metadata: None,
-          },
+            })
+            .correlation_id(lookup.file_processing_correlation_id().clone())
+            .build()?,
         )
         .await?;
     }
@@ -286,8 +284,8 @@ async fn handle_lookup_event(
           event_publisher
             .publish(
               Stream::Lookup,
-              EventPayload {
-                event: Event::LookupAlbumSearchUpdated {
+              EventPayloadBuilder::default()
+                .event(Event::LookupAlbumSearchUpdated {
                   lookup: AlbumSearchLookup::AlbumParsed {
                     query,
                     last_updated_at: Utc::now().naive_utc(),
@@ -296,10 +294,9 @@ async fn handle_lookup_event(
                     parsed_album_search_result,
                     parsed_album: album.into(),
                   },
-                },
-                correlation_id: Some(correlation_id.clone()),
-                metadata: None,
-              },
+                })
+                .correlation_id(correlation_id.clone())
+                .build()?,
             )
             .await?;
         }
@@ -331,6 +328,7 @@ async fn handle_lookup_event(
 
 pub fn build_album_search_lookup_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Result<Vec<EventSubscriber>> {
@@ -340,10 +338,11 @@ pub fn build_album_search_lookup_event_subscribers(
     let lookup_interactor = LookupInteractor::new(
       Arc::clone(&context.settings),
       Arc::clone(&context.redis_connection_pool),
+      Arc::clone(&context.sqlite_connection),
     );
     let event_publisher = EventPublisher::new(
       Arc::clone(&context.settings),
-      Arc::clone(&context.redis_connection_pool),
+      Arc::clone(&context.sqlite_connection),
     );
     Box::pin(async move {
       handle_file_processing_event(context, lookup_interactor, event_publisher).await
@@ -356,19 +355,21 @@ pub fn build_album_search_lookup_event_subscribers(
       .stream(Stream::Lookup)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .handle(Arc::new(move |context| {
         let crawler_interactor = Arc::clone(&crawler_interactor);
         let lookup_interactor = LookupInteractor::new(
           Arc::clone(&context.settings),
           Arc::clone(&context.redis_connection_pool),
+          Arc::clone(&context.sqlite_connection),
         );
         let album_read_model_repository = AlbumReadModelRepository {
           redis_connection_pool: Arc::clone(&context.redis_connection_pool),
         };
         let event_publisher = EventPublisher::new(
           Arc::clone(&context.settings),
-          Arc::clone(&context.redis_connection_pool),
+          Arc::clone(&context.sqlite_connection),
         );
         Box::pin(async move {
           handle_lookup_event(
@@ -387,6 +388,7 @@ pub fn build_album_search_lookup_event_subscribers(
       .stream(Stream::File)
       .batch_size(1)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .handle(Arc::clone(&file_processing_handler))
       .build()?,
@@ -395,6 +397,7 @@ pub fn build_album_search_lookup_event_subscribers(
       .stream(Stream::Parser)
       .batch_size(1)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
+      .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .handle(Arc::clone(&file_processing_handler))
       .build()?,

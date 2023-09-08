@@ -106,6 +106,7 @@ async fn crawl_similar_albums(
 
 pub fn build_recommendation_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Result<Vec<EventSubscriber>> {
@@ -114,6 +115,7 @@ pub fn build_recommendation_event_subscribers(
     .stream(Stream::Profile)
     .batch_size(250)
     .redis_connection_pool(Arc::clone(&redis_connection_pool))
+    .sqlite_connection(Arc::clone(&sqlite_connection))
     .settings(Arc::clone(&settings))
     .handle(Arc::new(move |context| {
       let crawler_interactor = Arc::clone(&crawler_interactor);
