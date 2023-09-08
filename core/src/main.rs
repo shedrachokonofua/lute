@@ -2,7 +2,6 @@ use anyhow::Result;
 use core::{
   albums::album_event_subscribers::build_album_event_subscribers,
   crawler::crawler::Crawler,
-  db::{build_redis_connection_pool, setup_redis_indexes},
   events::event_subscriber::EventSubscriber,
   files::file_metadata::file_name::FileName,
   helpers::fifo_queue::FifoQueue,
@@ -12,11 +11,14 @@ use core::{
   },
   profile::profile_event_subscribers::build_profile_event_subscribers,
   recommendations::recommendation_event_subscribers::build_recommendation_event_subscribers,
+  redis::{build_redis_connection_pool, setup_redis_indexes},
   rpc::RpcServer,
   settings::Settings,
+  sqlite::connect_to_sqlite,
   tracing::setup_tracing,
 };
 use dotenv::dotenv;
+use r2d2_sqlite::SqliteConnectionManager;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 #[cfg(not(target_env = "msvc"))]
@@ -30,10 +32,17 @@ static GLOBAL: Jemalloc = Jemalloc;
 fn run_rpc_server(
   settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection_pool: Arc<r2d2::Pool<SqliteConnectionManager>>,
   crawler: Arc<Crawler>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
 ) -> task::JoinHandle<()> {
-  let rpc_server = RpcServer::new(settings, redis_connection_pool, crawler, parser_retry_queue);
+  let rpc_server = RpcServer::new(
+    settings,
+    redis_connection_pool,
+    sqlite_connection_pool,
+    crawler,
+    parser_retry_queue,
+  );
 
   task::spawn(async move {
     rpc_server.run().await.unwrap();
@@ -81,6 +90,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let settings = Arc::new(Settings::new()?);
   setup_tracing(&settings.tracing)?;
 
+  let sqlite_connection_pool = Arc::new(connect_to_sqlite(Arc::clone(&settings)).await?);
+
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
   setup_redis_indexes(redis_connection_pool.clone()).await?;
 
@@ -109,6 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   run_rpc_server(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection_pool),
     Arc::clone(&crawler),
     Arc::clone(&parser_retry_queue),
   )

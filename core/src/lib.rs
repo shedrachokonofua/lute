@@ -1,6 +1,5 @@
 pub mod albums;
 pub mod crawler;
-pub mod db;
 pub mod events;
 pub mod files;
 pub mod helpers;
@@ -10,7 +9,9 @@ pub mod parser;
 pub mod profile;
 pub mod proto;
 pub mod recommendations;
+pub mod redis;
 pub mod rpc;
 pub mod settings;
 pub mod spotify;
+pub mod sqlite;
 pub mod tracing;

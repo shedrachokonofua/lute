@@ -21,6 +21,7 @@ use crate::{
   spotify::{spotify_client::SpotifyClient, spotify_service::SpotifyService},
 };
 use anyhow::Result;
+use r2d2_sqlite::SqliteConnectionManager;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{net::SocketAddr, sync::Arc};
 use tonic::{transport::Server, Request, Response, Status};
@@ -53,6 +54,7 @@ impl RpcServer {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    sqlite_connection_pool: Arc<r2d2::Pool<SqliteConnectionManager>>,
     crawler: Arc<Crawler>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
   ) -> Self {
@@ -72,6 +74,7 @@ impl RpcServer {
       operations_service: Arc::new(OperationsService::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
+        Arc::clone(&sqlite_connection_pool),
       )),
       parser_service: Arc::new(ParserService::new(
         Arc::clone(&settings),

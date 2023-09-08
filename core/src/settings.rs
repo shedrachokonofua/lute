@@ -10,6 +10,11 @@ pub struct RedisSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct SqliteSettings {
+  pub dir: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct FileTtlDaysSettings {
   pub artist: u32,
   pub album: u32,
@@ -84,6 +89,7 @@ pub struct Settings {
   pub file: FileSettings,
   pub port: u32,
   pub redis: RedisSettings,
+  pub sqlite: SqliteSettings,
   pub spotify: SpotifySettings,
   pub tracing: TracingSettings,
   pub parser: ParserSettings,
@@ -119,6 +125,7 @@ impl Settings {
       .set_default("tracing.service_namespace", "lute")?
       .set_default("tracing.resource_labels", HashMap::<String, String>::new())?
       .set_default("enable_replication_stream", false)?
+      .set_default("sqlite.dir", env!("CARGO_MANIFEST_DIR"))?
       .build()?
       .try_deserialize()
   }

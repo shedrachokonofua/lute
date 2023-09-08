@@ -8,3 +8,8 @@
 /**/dist
 /**/node_modules
 /**/src/proto
+
+# SQLite
+/**/*.db
+/**/*.db-shm
+/**/*.db-wal

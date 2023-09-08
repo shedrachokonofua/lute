@@ -212,10 +212,17 @@ service SpotifyService {
 
 message ParseFileContentStoreReply { uint32 count = 1; }
 
+message MigrateSqliteRequest {
+  uint32 version = 1;
+}
+
 service OperationsService {
   rpc FlushRedis(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc ParseFileContentStore(google.protobuf.Empty)
       returns (ParseFileContentStoreReply) {}
+  rpc MigrateSqliteToLatest(google.protobuf.Empty)
+      returns (google.protobuf.Empty) {}
+  rpc MigrateSqlite(MigrateSqliteRequest) returns (google.protobuf.Empty) {}
 }
 
 message AggregatedFailureError {
