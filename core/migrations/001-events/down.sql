@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS events;
+DROP INDEX IF EXISTS idx_stream_id;
