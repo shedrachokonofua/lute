@@ -29,7 +29,6 @@ use tracing::error;
 use ulid::Ulid;
 
 pub struct ParserService {
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
   failed_parse_files_repository: FailedParseFilesRepository,
   file_interactor: FileInteractor,
@@ -208,7 +207,6 @@ impl ParserService {
         Arc::clone(&sqlite_connection),
       ),
       parser_retry_queue,
-      redis_connection_pool,
       sqlite_connection,
       settings,
     }

@@ -1,10 +1,8 @@
-use super::{
-  event_subscriber_repository::EventSubscriberRepository,
-  sqlite_event_subscriber_repository::SqliteEventSubscriberRepository,
-};
+use super::event_subscriber_repository::EventSubscriberRepository;
 use crate::proto;
 use futures::Stream;
-use std::{pin::Pin, sync::Arc};
+use std::{pin::Pin, sync::Arc, time::Duration};
+use tokio::time::sleep;
 use tonic::{Request, Response, Status, Streaming};
 
 pub struct EventService {
@@ -28,7 +26,7 @@ impl proto::EventService for EventService {
   ) -> Result<Response<Self::StreamStream>, Status> {
     let mut input_stream: Streaming<proto::EventStreamRequest> = request.into_inner();
     let event_subscriber_repository =
-      SqliteEventSubscriberRepository::new(Arc::clone(&self.sqlite_connection));
+      EventSubscriberRepository::new(Arc::clone(&self.sqlite_connection));
     let output_stream = async_stream::try_stream! {
       while let Ok(Some(event_stream_request)) = input_stream.message().await {
         loop {
@@ -47,7 +45,6 @@ impl proto::EventService for EventService {
             &stream_id,
             &event_stream_request.subscriber_id,
             event_stream_request.max_batch_size.unwrap_or(10) as usize,
-            Some(10000)
           )
           .await
           .map_err(|err| Status::internal(err.to_string()))?;
@@ -70,6 +67,7 @@ impl proto::EventService for EventService {
             };
             break;
           }
+          sleep(Duration::from_secs(2)).await;
         }
       }
     };

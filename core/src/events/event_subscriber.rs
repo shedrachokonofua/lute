@@ -1,16 +1,13 @@
 use crate::settings::Settings;
 
-use super::{
-  event::{EventPayload, Stream},
-  event_subscriber_repository::EventSubscriberRepository,
-  sqlite_event_subscriber_repository::SqliteEventSubscriberRepository,
-};
+use super::event::{EventPayload, Stream};
+use super::event_subscriber_repository::EventSubscriberRepository;
 use anyhow::Result;
 use derive_builder::Builder;
 use futures::future::{join_all, BoxFuture};
 use rustis::{bb8::Pool, client::PooledClientManager};
-use std::thread;
 use std::{sync::Arc, time::Duration};
+use tokio::time::sleep;
 use tracing::{debug, error};
 
 pub struct SubscriberContext {
@@ -35,15 +32,15 @@ pub struct EventSubscriber {
     setter(skip),
     default = "self.get_default_event_subscriber_repository()?"
   )]
-  event_subscriber_repository: SqliteEventSubscriberRepository,
+  event_subscriber_repository: EventSubscriberRepository,
 }
 
 impl EventSubscriberBuilder {
   pub fn get_default_event_subscriber_repository(
     &self,
-  ) -> Result<SqliteEventSubscriberRepository, String> {
+  ) -> Result<EventSubscriberRepository, String> {
     match &self.sqlite_connection {
-      Some(sqlite_connection) => Ok(SqliteEventSubscriberRepository::new(Arc::clone(
+      Some(sqlite_connection) => Ok(EventSubscriberRepository::new(Arc::clone(
         sqlite_connection,
       ))),
       None => Err("SQLite connection pool is required".to_string()),
@@ -76,7 +73,7 @@ impl EventSubscriber {
   pub async fn poll_stream(&self) -> Result<Option<String>> {
     let event_list = self
       .event_subscriber_repository
-      .get_events_after_cursor(&self.stream, &self.id, self.batch_size, Some(10000))
+      .get_events_after_cursor(&self.stream, &self.id, self.batch_size)
       .await?;
     debug!(
       stream = self.stream.tag(),
@@ -126,8 +123,8 @@ impl EventSubscriber {
     Ok(tail_cursor)
   }
 
-  pub fn sleep(&self) {
-    thread::sleep(Duration::from_secs(1));
+  pub async fn sleep(&self) {
+    sleep(Duration::from_secs(1)).await;
   }
 
   pub async fn run(&self) -> Result<()> {
@@ -137,11 +134,11 @@ impl EventSubscriber {
           self.set_cursor(&tail_cursor).await?;
         }
         Ok(None) => {
-          self.sleep();
+          self.sleep().await;
         }
         Err(error) => {
           error!("Error polling stream: {}", error);
-          self.sleep();
+          self.sleep().await;
         }
       }
     }

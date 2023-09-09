@@ -97,7 +97,7 @@ impl RpcServer {
         Arc::clone(&redis_connection_pool),
         Arc::clone(&sqlite_connection),
       )),
-      event_service: Arc::new(EventService::new(Arc::clone(&redis_connection_pool))),
+      event_service: Arc::new(EventService::new(Arc::clone(&sqlite_connection))),
     }
   }
 
