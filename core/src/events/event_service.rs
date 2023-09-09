@@ -1,22 +1,19 @@
 use super::{
   event_subscriber_repository::EventSubscriberRepository,
-  redis_event_subscriber_repository::RedisEventSubscriberRepository,
+  sqlite_event_subscriber_repository::SqliteEventSubscriberRepository,
 };
 use crate::proto;
 use futures::Stream;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{pin::Pin, sync::Arc};
 use tonic::{Request, Response, Status, Streaming};
 
 pub struct EventService {
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
 }
 
 impl EventService {
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
-    Self {
-      redis_connection_pool,
-    }
+  pub fn new(sqlite_connection: Arc<tokio_rusqlite::Connection>) -> Self {
+    Self { sqlite_connection }
   }
 }
 
@@ -31,7 +28,7 @@ impl proto::EventService for EventService {
   ) -> Result<Response<Self::StreamStream>, Status> {
     let mut input_stream: Streaming<proto::EventStreamRequest> = request.into_inner();
     let event_subscriber_repository =
-      RedisEventSubscriberRepository::new(Arc::clone(&self.redis_connection_pool));
+      SqliteEventSubscriberRepository::new(Arc::clone(&self.sqlite_connection));
     let output_stream = async_stream::try_stream! {
       while let Ok(Some(event_stream_request)) = input_stream.message().await {
         loop {
