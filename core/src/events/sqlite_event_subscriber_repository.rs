@@ -112,31 +112,47 @@ impl EventSubscriberRepository for SqliteEventSubscriberRepository {
     self
       .sqlite_connection
       .call(move |conn| {
-        let mut statement = conn.prepare(
-          "
-          SELECT id, correlation_id, causation_id, stream, event, created_at, metadata
-          FROM events
-          WHERE stream = ? AND id > ?
-          ORDER BY id ASC
-          LIMIT ?
-          ",
-        )?;
-        let mut rows =
-          statement.query_map([&stream.tag(), &cursor, &count.to_string()], |row| {
-            Ok(EventRow {
-              id: row.get(0)?,
-              correlation_id: row.get(1)?,
-              causation_id: row.get(2)?,
-              stream: Stream::try_from(row.get::<_, String>(3)?)
-                .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?,
-              event: serde_json::from_str(&row.get::<_, String>(4)?)
-                .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?,
-              created_at: row.get(5)?,
-              metadata: row
-                .get::<_, Option<String>>(6)?
-                .map(|metadata: String| serde_json::from_str(&metadata).unwrap_or(HashMap::new())),
-            })
-          })?;
+        let sql = match stream {
+          Stream::Global => {
+            "
+            SELECT id, correlation_id, causation_id, stream, event, created_at, metadata
+            FROM events
+            WHERE id > ?
+            ORDER BY id ASC
+            LIMIT ?
+            "
+          }
+          _ => {
+            "
+            SELECT id, correlation_id, causation_id, stream, event, created_at, metadata
+            FROM events
+            WHERE stream = ? AND id > ?
+            ORDER BY id ASC
+            LIMIT ?
+            "
+          }
+        };
+        let params = match stream {
+          Stream::Global => (cursor.clone(), count.to_string(), "".to_string()),
+          _ => (stream.tag(), cursor.clone(), count.to_string()),
+        };
+
+        let mut statement = conn.prepare(sql)?;
+        let mut rows = statement.query_map(params, |row| {
+          Ok(EventRow {
+            id: row.get(0)?,
+            correlation_id: row.get(1)?,
+            causation_id: row.get(2)?,
+            stream: Stream::try_from(row.get::<_, String>(3)?)
+              .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?,
+            event: serde_json::from_str(&row.get::<_, String>(4)?)
+              .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?,
+            created_at: row.get(5)?,
+            metadata: row
+              .get::<_, Option<String>>(6)?
+              .map(|metadata: String| serde_json::from_str(&metadata).unwrap_or(HashMap::new())),
+          })
+        })?;
         let mut events = vec![];
         while let Some(row) = rows.next().transpose()? {
           events.push((
