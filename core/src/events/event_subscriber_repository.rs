@@ -114,29 +114,27 @@ impl EventSubscriberRepository {
     self
       .sqlite_connection
       .call(move |conn| {
-        let sql = match stream {
-          Stream::Global => {
+        let (sql, params) = match stream {
+          Stream::Global => (
             "
             SELECT id, correlation_id, causation_id, stream, event, created_at, metadata
             FROM events
             WHERE id > ?
             ORDER BY id ASC
             LIMIT ?
-            "
-          }
-          _ => {
+            ",
+            (cursor.clone(), count.to_string(), None),
+          ),
+          _ => (
             "
             SELECT id, correlation_id, causation_id, stream, event, created_at, metadata
             FROM events
             WHERE stream = ? AND id > ?
             ORDER BY id ASC
             LIMIT ?
-            "
-          }
-        };
-        let params = match stream {
-          Stream::Global => (cursor.clone(), count.to_string(), "".to_string()),
-          _ => (stream.tag(), cursor.clone(), count.to_string()),
+            ",
+            (stream.tag(), cursor.clone(), Some(count.to_string())),
+          ),
         };
 
         let mut statement = conn.prepare(sql)?;

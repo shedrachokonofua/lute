@@ -5,6 +5,7 @@ use super::event_subscriber_repository::EventSubscriberRepository;
 use anyhow::Result;
 use derive_builder::Builder;
 use futures::future::{join_all, BoxFuture};
+use iter_tools::Itertools;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -33,6 +34,9 @@ pub struct EventSubscriber {
     default = "self.get_default_event_subscriber_repository()?"
   )]
   event_subscriber_repository: EventSubscriberRepository,
+  #[builder(default = "self.generate_default_ordered_processing_group_id()")]
+  generate_ordered_processing_group_id:
+    Option<Arc<dyn Fn((&String, &EventPayload)) -> String + Send + Sync>>,
 }
 
 impl EventSubscriberBuilder {
@@ -45,6 +49,12 @@ impl EventSubscriberBuilder {
       ))),
       None => Err("SQLite connection pool is required".to_string()),
     }
+  }
+
+  pub fn generate_default_ordered_processing_group_id(
+    &self,
+  ) -> Option<Arc<dyn Fn((&String, &EventPayload)) -> String + Send + Sync>> {
+    None
   }
 }
 
@@ -82,42 +92,70 @@ impl EventSubscriber {
       "Polled stream"
     );
     let tail_cursor = event_list.tail_cursor();
-    let futures = event_list.events.into_iter().map(|(event_id, payload)| {
-      let redis_pool = Arc::clone(&self.redis_connection_pool);
-      let sqlite_pool = Arc::clone(&self.sqlite_connection);
-      let settings = Arc::clone(&self.settings);
-      let handle = self.handle.clone();
-      let subscriber_id = self.id.clone();
-      let stream_tag = self.stream.tag();
 
-      debug!(
-        stream = stream_tag,
-        subscriber_id,
-        event_id = event_id,
-        "Handling event"
-      );
+    let mut ordered_processing_groups = vec![];
+    for (key, group) in &event_list
+      .events
+      .into_iter()
+      .group_by(
+        |(id, event_payload)| match &self.generate_ordered_processing_group_id {
+          Some(generate_ordered_processing_group_id) => {
+            generate_ordered_processing_group_id((id, event_payload))
+          }
+          None => id.clone(),
+        },
+      )
+    {
+      ordered_processing_groups.push((key, group.collect::<Vec<_>>()));
+    }
 
-      tokio::spawn(async move {
-        handle(SubscriberContext {
-          redis_connection_pool: redis_pool,
-          sqlite_connection: sqlite_pool,
-          entry_id: event_id.clone(),
-          settings,
-          payload: payload.clone(),
+    let futures = ordered_processing_groups
+      .into_iter()
+      .map(|(group_id, items)| {
+        let redis_pool = Arc::clone(&self.redis_connection_pool);
+        let sqlite_pool = Arc::clone(&self.sqlite_connection);
+        let settings = Arc::clone(&self.settings);
+        let handle = self.handle.clone();
+        let subscriber_id = self.id.clone();
+        let stream_tag = self.stream.tag();
+        debug!(
+          stream = stream_tag,
+          subscriber_id,
+          group_id = group_id,
+          count = items.len(),
+          "Processing group"
+        );
+
+        tokio::spawn(async move {
+          for (entry_id, payload) in items {
+            debug!(
+              stream = stream_tag,
+              subscriber_id,
+              entry_id = entry_id,
+              "Processing event"
+            );
+            handle(SubscriberContext {
+              redis_connection_pool: Arc::clone(&redis_pool),
+              sqlite_connection: Arc::clone(&sqlite_pool),
+              entry_id: entry_id.clone(),
+              settings: Arc::clone(&settings),
+              payload: payload.clone(),
+            })
+            .await
+            .map_err(|err| {
+              error!(
+                stream = stream_tag,
+                subscriber_id,
+                entry_id = entry_id,
+                error = err.to_string(),
+                "Error handling event"
+              );
+              err
+            })?;
+          }
+          Ok::<(), anyhow::Error>(())
         })
-        .await
-        .map_err(|err| {
-          error!(
-            stream = stream_tag,
-            subscriber_id,
-            event_id = event_id,
-            error = err.to_string(),
-            "Error handling event"
-          );
-          err
-        })
-      })
-    });
+      });
     join_all(futures).await;
 
     Ok(tail_cursor)

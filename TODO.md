@@ -21,8 +21,8 @@
       - [ ] Automatic rate limit reset
       - [ ] Make crawler proxy optional
     - Events:
-      - [ ] Migrate to SQLite
-      - [ ] Support ordered processing groups
+      - [x] Migrate to SQLite
+      - [x] Support ordered processing groups
     - Album read model:
       - [ ] Duplicate album detection
       - [ ] Migrate to SQLite
