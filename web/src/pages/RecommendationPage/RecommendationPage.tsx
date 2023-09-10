@@ -231,7 +231,6 @@ export const RecommendationPage = () => {
       <Grid.Col
         md={2.75}
         style={{
-          background: "#FAFDFF",
           borderRight: "1px solid rgb(200, 225, 235)",
           boxShadow:
             "inset -4px 0 10px -5px rgba(0, 0, 0, 0.15), inset 4px 0 10px -5px rgba(0, 0, 0, 0.15)",
