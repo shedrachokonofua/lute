@@ -89,7 +89,6 @@ impl AlbumReadModel {
         .map(AlbumReadModelTrack::from)
         .collect::<Vec<AlbumReadModelTrack>>(),
       release_date: parsed_album.release_date,
-      release_year: parsed_album.release_date.map(|date| date.year() as u32),
       languages: parsed_album.languages.clone(),
       credits: parsed_album
         .credits

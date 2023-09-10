@@ -78,7 +78,6 @@ pub struct AlbumReadModel {
   pub descriptors: Vec<String>,
   pub tracks: Vec<AlbumReadModelTrack>,
   pub release_date: Option<NaiveDate>,
-  pub release_year: Option<u32>,
   #[serde(default)]
   pub languages: Vec<String>,
   #[serde(default)]

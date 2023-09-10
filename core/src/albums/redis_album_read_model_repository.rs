@@ -8,7 +8,7 @@ use crate::{
 };
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
@@ -63,7 +63,6 @@ impl Into<AlbumReadModel> for RedisAlbumReadModel {
       descriptors: self.descriptors,
       tracks: self.tracks,
       release_date: self.release_date,
-      release_year: self.release_year,
       languages: self.languages,
       credits: self.credits,
       credit_tags: self.credit_tags,
@@ -79,6 +78,7 @@ impl Into<RedisAlbumReadModel> for AlbumReadModel {
     let descriptor_count = self.descriptors.len() as u32;
     let language_count = self.languages.len() as u32;
     let credit_tag_count = self.credit_tags.len() as u32;
+    let release_year = self.release_date.map(|d| d.year() as u32);
 
     RedisAlbumReadModel {
       name: self.name,
@@ -95,7 +95,7 @@ impl Into<RedisAlbumReadModel> for AlbumReadModel {
       descriptor_count,
       tracks: self.tracks,
       release_date: self.release_date,
-      release_year: self.release_year,
+      release_year,
       languages: self.languages,
       language_count,
       credits: self.credits,
