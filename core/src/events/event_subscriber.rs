@@ -36,7 +36,7 @@ pub struct EventSubscriber {
   event_subscriber_repository: EventSubscriberRepository,
   #[builder(default = "self.generate_default_ordered_processing_group_id()")]
   generate_ordered_processing_group_id:
-    Option<Arc<dyn Fn((&String, &EventPayload)) -> String + Send + Sync>>,
+    Option<Arc<dyn Fn((&String, &EventPayload)) -> Option<String> + Send + Sync>>,
 }
 
 impl EventSubscriberBuilder {
@@ -47,13 +47,13 @@ impl EventSubscriberBuilder {
       Some(sqlite_connection) => Ok(EventSubscriberRepository::new(Arc::clone(
         sqlite_connection,
       ))),
-      None => Err("SQLite connection pool is required".to_string()),
+      None => Err("SQLite connection is required".to_string()),
     }
   }
 
   pub fn generate_default_ordered_processing_group_id(
     &self,
-  ) -> Option<Arc<dyn Fn((&String, &EventPayload)) -> String + Send + Sync>> {
+  ) -> Option<Arc<dyn Fn((&String, &EventPayload)) -> Option<String> + Send + Sync>> {
     None
   }
 }
@@ -97,66 +97,66 @@ impl EventSubscriber {
     for (key, group) in &event_list
       .events
       .into_iter()
-      .group_by(
-        |(id, event_payload)| match &self.generate_ordered_processing_group_id {
-          Some(generate_ordered_processing_group_id) => {
-            generate_ordered_processing_group_id((id, event_payload))
-          }
-          None => id.clone(),
-        },
-      )
+      .group_by(|(id, event_payload)| {
+        self
+          .generate_ordered_processing_group_id
+          .as_ref()
+          .and_then(|f| f((id, event_payload)))
+          .unwrap_or(id.clone())
+      })
     {
       ordered_processing_groups.push((key, group.collect::<Vec<_>>()));
     }
 
-    let futures = ordered_processing_groups
-      .into_iter()
-      .map(|(group_id, items)| {
-        let redis_pool = Arc::clone(&self.redis_connection_pool);
-        let sqlite_pool = Arc::clone(&self.sqlite_connection);
-        let settings = Arc::clone(&self.settings);
-        let handle = self.handle.clone();
-        let subscriber_id = self.id.clone();
-        let stream_tag = self.stream.tag();
-        debug!(
-          stream = stream_tag,
-          subscriber_id,
-          group_id = group_id,
-          count = items.len(),
-          "Processing group"
-        );
-
-        tokio::spawn(async move {
-          for (entry_id, payload) in items {
-            debug!(
-              stream = stream_tag,
-              subscriber_id,
-              entry_id = entry_id,
-              "Processing event"
-            );
-            handle(SubscriberContext {
-              redis_connection_pool: Arc::clone(&redis_pool),
-              sqlite_connection: Arc::clone(&sqlite_pool),
-              entry_id: entry_id.clone(),
-              settings: Arc::clone(&settings),
-              payload: payload.clone(),
-            })
-            .await
-            .map_err(|err| {
-              error!(
+    join_all(
+      ordered_processing_groups
+        .into_iter()
+        .map(|(group_id, group)| {
+          let redis_pool = Arc::clone(&self.redis_connection_pool);
+          let sqlite_pool = Arc::clone(&self.sqlite_connection);
+          let settings = Arc::clone(&self.settings);
+          let handle = self.handle.clone();
+          let subscriber_id = self.id.clone();
+          let stream_tag = self.stream.tag();
+          debug!(
+            stream = stream_tag,
+            subscriber_id,
+            group_id = group_id,
+            count = group.len(),
+            "Processing group"
+          );
+          tokio::spawn(async move {
+            for (entry_id, payload) in group {
+              debug!(
                 stream = stream_tag,
                 subscriber_id,
                 entry_id = entry_id,
-                error = err.to_string(),
-                "Error handling event"
+                "Processing event"
               );
-              err
-            })?;
-          }
-          Ok::<(), anyhow::Error>(())
-        })
-      });
-    join_all(futures).await;
+              handle(SubscriberContext {
+                redis_connection_pool: Arc::clone(&redis_pool),
+                sqlite_connection: Arc::clone(&sqlite_pool),
+                settings: Arc::clone(&settings),
+                entry_id: entry_id.clone(),
+                payload: payload.clone(),
+              })
+              .await
+              .map_err(|err| {
+                error!(
+                  stream = stream_tag,
+                  subscriber_id,
+                  entry_id = entry_id,
+                  error = err.to_string(),
+                  "Error handling event"
+                );
+                err
+              })?;
+            }
+            Ok::<(), anyhow::Error>(())
+          })
+        }),
+    )
+    .await;
 
     Ok(tail_cursor)
   }

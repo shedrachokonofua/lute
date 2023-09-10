@@ -11,7 +11,7 @@ use crate::{
     event::{Event, Stream},
     event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
-  files::file_metadata::file_name::FileName,
+  files::file_metadata::{file_name::FileName, page_type::PageType},
   parser::parsed_file_data::{
     ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack,
   },
@@ -208,6 +208,13 @@ pub fn build_album_event_subscribers(
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
+      .generate_ordered_processing_group_id(Some(Arc::new(|(_, payload)| match &payload.event {
+        Event::FileParsed {
+          data: ParsedFileData::Album(ParsedAlbum { name, .. }),
+          ..
+        } => Some(name.clone()), // Ensure potential duplicates are processed sequentially
+        _ => None,
+      })))
       .handle(Arc::new(|context| {
         Box::pin(async move { update_album_read_models(context).await })
       }))
@@ -219,6 +226,15 @@ pub fn build_album_event_subscribers(
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
+      .generate_ordered_processing_group_id(Some(Arc::new(|(_, payload)| match &payload.event {
+        Event::FileDeleted { file_name, .. } => {
+          match file_name.page_type() {
+            PageType::Album => Some(file_name.to_string()), // Ensure potential duplicates are processed sequentially
+            _ => None,
+          }
+        }
+        _ => None,
+      })))
       .handle(Arc::new(|context| {
         Box::pin(async move { delete_album_read_models(context).await })
       }))
