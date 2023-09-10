@@ -49,12 +49,14 @@ impl Default for QuantileRankAlbumAssessmentSettings {
   }
 }
 
-pub struct QuantileRankInteractor<R: AlbumReadModelRepository + Send + Sync + 'static> {
-  album_read_model_repository: Arc<R>,
+pub struct QuantileRankInteractor {
+  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
 }
 
-impl<R: AlbumReadModelRepository + Send + Sync + 'static> QuantileRankInteractor<R> {
-  pub fn new(album_read_model_repository: Arc<R>) -> Self {
+impl QuantileRankInteractor {
+  pub fn new(
+    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+  ) -> Self {
     Self {
       album_read_model_repository: album_read_model_repository,
     }
@@ -77,9 +79,9 @@ impl TryFrom<AlbumReadModel> for QuantileRankAssessableAlbum {
 }
 
 #[async_trait]
-impl<R: AlbumReadModelRepository + Send + Sync + 'static>
+impl
   RecommendationMethodInteractor<QuantileRankAssessableAlbum, QuantileRankAlbumAssessmentSettings>
-  for QuantileRankInteractor<R>
+  for QuantileRankInteractor
 {
   #[instrument(name = "QuantileRankInteractor::assess_album", skip(self))]
   async fn assess_album(

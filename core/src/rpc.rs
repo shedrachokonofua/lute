@@ -35,28 +35,28 @@ impl Lute for LuteService {
   }
 }
 
-pub struct RpcServer<R: AlbumReadModelRepository + Send + Sync + 'static> {
+pub struct RpcServer {
   settings: Arc<Settings>,
   file_service: Arc<FileService>,
   crawler_service: Arc<CrawlerService>,
-  album_service: Arc<AlbumService<R>>,
+  album_service: Arc<AlbumService>,
   spotify_service: Arc<SpotifyService>,
   operations_service: Arc<OperationsService>,
   parser_service: Arc<ParserService>,
-  profile_service: Arc<ProfileService<R>>,
+  profile_service: Arc<ProfileService>,
   lookup_service: Arc<LookupService>,
-  recommendation_service: Arc<RecommendationService<R>>,
+  recommendation_service: Arc<RecommendationService>,
   event_service: Arc<EventService>,
 }
 
-impl<R: AlbumReadModelRepository + Send + Sync + 'static> RpcServer<R> {
+impl RpcServer {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
     crawler: Arc<Crawler>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
-    album_read_model_repository: Arc<R>,
+    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       settings: Arc::clone(&settings),

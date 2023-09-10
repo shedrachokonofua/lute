@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 use super::profile_interactor::ProfileInteractor;
 
-pub async fn process_lookup_subscriptions<R: AlbumReadModelRepository>(
+pub async fn process_lookup_subscriptions(
   context: SubscriberContext,
-  profile_interactor: ProfileInteractor<R>,
+  profile_interactor: ProfileInteractor,
 ) -> Result<()> {
   if let Event::LookupAlbumSearchUpdated {
     lookup:
@@ -45,13 +45,11 @@ pub async fn process_lookup_subscriptions<R: AlbumReadModelRepository>(
   Ok(())
 }
 
-pub fn build_spotify_import_event_subscribers<
-  R: AlbumReadModelRepository + Send + Sync + 'static,
->(
+pub fn build_spotify_import_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
-  album_read_model_repository: Arc<R>,
+  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
 ) -> Result<Vec<EventSubscriber>> {
   let album_read_model_repository = Arc::clone(&album_read_model_repository);
   Ok(vec![EventSubscriberBuilder::default()

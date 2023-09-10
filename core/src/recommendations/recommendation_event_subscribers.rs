@@ -20,10 +20,10 @@ use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::warn;
 
-async fn crawl_similar_albums<R: AlbumReadModelRepository + Send + Sync + 'static>(
+async fn crawl_similar_albums(
   context: SubscriberContext,
   crawler_interactor: Arc<CrawlerInteractor>,
-  album_read_model_repository: Arc<R>,
+  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
 ) -> Result<()> {
   if let Event::ProfileAlbumAdded { file_name, .. } = context.payload.event {
     let album = album_read_model_repository.get(&file_name).await?;

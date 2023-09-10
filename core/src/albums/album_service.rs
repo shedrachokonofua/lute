@@ -4,12 +4,14 @@ use super::album_read_model_repository::AlbumReadModelRepository;
 use crate::{files::file_metadata::file_name::FileName, proto};
 use tonic::{async_trait, Request, Response, Status};
 
-pub struct AlbumService<R: AlbumReadModelRepository + Send + Sync> {
-  album_read_model_repository: Arc<R>,
+pub struct AlbumService {
+  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
 }
 
-impl<R: AlbumReadModelRepository + Send + Sync> AlbumService<R> {
-  pub fn new(album_read_model_repository: Arc<R>) -> Self {
+impl AlbumService {
+  pub fn new(
+    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+  ) -> Self {
     Self {
       album_read_model_repository,
     }
@@ -17,7 +19,7 @@ impl<R: AlbumReadModelRepository + Send + Sync> AlbumService<R> {
 }
 
 #[async_trait]
-impl<R: AlbumReadModelRepository + Send + Sync + 'static> proto::AlbumService for AlbumService<R> {
+impl proto::AlbumService for AlbumService {
   async fn get_album(
     &self,
     request: Request<proto::GetAlbumRequest>,

@@ -63,16 +63,16 @@ impl From<ProfileSummary> for proto::ProfileSummary {
   }
 }
 
-pub struct ProfileService<R: AlbumReadModelRepository> {
-  profile_interactor: ProfileInteractor<R>,
+pub struct ProfileService {
+  profile_interactor: ProfileInteractor,
 }
 
-impl<R: AlbumReadModelRepository> ProfileService<R> {
+impl ProfileService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    album_read_model_repository: Arc<R>,
+    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       profile_interactor: ProfileInteractor::new(
@@ -86,9 +86,7 @@ impl<R: AlbumReadModelRepository> ProfileService<R> {
 }
 
 #[tonic::async_trait]
-impl<R: AlbumReadModelRepository + Send + Sync + 'static> proto::ProfileService
-  for ProfileService<R>
-{
+impl proto::ProfileService for ProfileService {
   async fn create_profile(
     &self,
     request: Request<CreateProfileRequest>,

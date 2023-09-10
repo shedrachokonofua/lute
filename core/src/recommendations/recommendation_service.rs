@@ -19,16 +19,16 @@ use std::{collections::HashMap, sync::Arc};
 use tonic::{async_trait, Request, Response, Status};
 use tracing::error;
 
-pub struct RecommendationService<R: AlbumReadModelRepository + Send + Sync + 'static> {
-  recommendation_interactor: RecommendationInteractor<R>,
+pub struct RecommendationService {
+  recommendation_interactor: RecommendationInteractor,
 }
 
-impl<R: AlbumReadModelRepository + Send + Sync + 'static> RecommendationService<R> {
+impl RecommendationService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    album_read_model_repository: Arc<R>,
+    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       recommendation_interactor: RecommendationInteractor::new(
@@ -146,9 +146,7 @@ impl From<QuantileRankAlbumAssessmentSettings> for proto::QuantileRankAlbumAsses
 }
 
 #[async_trait]
-impl<R: AlbumReadModelRepository + Send + Sync + 'static> proto::RecommendationService
-  for RecommendationService<R>
-{
+impl proto::RecommendationService for RecommendationService {
   async fn assess_album(
     &self,
     request: Request<proto::AssessAlbumRequest>,
