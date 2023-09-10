@@ -78,12 +78,26 @@ pub struct AlbumReadModel {
   pub descriptors: Vec<String>,
   pub tracks: Vec<AlbumReadModelTrack>,
   pub release_date: Option<NaiveDate>,
-  #[serde(default)]
   pub languages: Vec<String>,
-  #[serde(default)]
   pub credits: Vec<AlbumReadModelCredit>,
-  #[serde(default)]
-  pub credit_tags: Vec<String>,
+}
+
+impl AlbumReadModel {
+  pub fn credit_tags(&self) -> Vec<String> {
+    self
+      .credits
+      .iter()
+      .flat_map(|credit| {
+        credit.roles.iter().map(|role| {
+          format!(
+            "{}:{}",
+            credit.artist.file_name.to_string(),
+            role.to_lowercase().replace(' ', "_")
+          )
+        })
+      })
+      .collect::<Vec<String>>()
+  }
 }
 
 pub struct GenreAggregate {

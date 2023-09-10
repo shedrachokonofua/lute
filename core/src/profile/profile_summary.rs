@@ -106,7 +106,7 @@ impl Profile {
           .or_insert(*factor);
       }
 
-      for tag in &album.credit_tags {
+      for tag in &album.credit_tags() {
         credit_tags_map
           .entry(tag.clone())
           .and_modify(|c| *c += factor)

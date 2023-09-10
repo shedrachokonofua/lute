@@ -148,7 +148,7 @@ impl QuantileRankAlbumAssessmentContext {
         calculate_average_rank(
           &self.credit_tag_ranking,
           &self.credit_tag_summary_map,
-          &album.credit_tags,
+          &album.credit_tags(),
           0.1,
         )
       })?;

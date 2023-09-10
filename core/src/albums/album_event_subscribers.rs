@@ -21,7 +21,6 @@ use crate::{
   settings::Settings,
 };
 use anyhow::Result;
-use chrono::Datelike;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
@@ -56,20 +55,6 @@ impl From<&ParsedCredit> for AlbumReadModelCredit {
 
 impl AlbumReadModel {
   pub fn from_parsed_album(file_name: &FileName, parsed_album: ParsedAlbum) -> Self {
-    let credit_tags = &parsed_album
-      .credits
-      .iter()
-      .flat_map(|credit| {
-        credit.roles.iter().map(|role| {
-          format!(
-            "{}:{}",
-            credit.artist.file_name.to_string(),
-            role.to_lowercase().replace(' ', "_")
-          )
-        })
-      })
-      .collect::<Vec<String>>();
-
     Self {
       name: parsed_album.name.clone(),
       file_name: file_name.clone(),
@@ -95,7 +80,6 @@ impl AlbumReadModel {
         .iter()
         .map(AlbumReadModelCredit::from)
         .collect::<Vec<AlbumReadModelCredit>>(),
-      credit_tags: credit_tags.clone(),
     }
   }
 }

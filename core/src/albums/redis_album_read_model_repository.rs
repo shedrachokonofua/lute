@@ -65,7 +65,6 @@ impl Into<AlbumReadModel> for RedisAlbumReadModel {
       release_date: self.release_date,
       languages: self.languages,
       credits: self.credits,
-      credit_tags: self.credit_tags,
     }
   }
 }
@@ -77,7 +76,8 @@ impl Into<RedisAlbumReadModel> for AlbumReadModel {
     let secondary_genre_count = self.secondary_genres.len() as u32;
     let descriptor_count = self.descriptors.len() as u32;
     let language_count = self.languages.len() as u32;
-    let credit_tag_count = self.credit_tags.len() as u32;
+    let credit_tags = self.credit_tags();
+    let credit_tag_count = credit_tags.len() as u32;
     let release_year = self.release_date.map(|d| d.year() as u32);
 
     RedisAlbumReadModel {
@@ -99,7 +99,7 @@ impl Into<RedisAlbumReadModel> for AlbumReadModel {
       languages: self.languages,
       language_count,
       credits: self.credits,
-      credit_tags: self.credit_tags,
+      credit_tags,
       credit_tag_count,
     }
   }
