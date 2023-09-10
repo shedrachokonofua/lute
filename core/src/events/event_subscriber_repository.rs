@@ -1,8 +1,7 @@
 use super::event::{Event, EventPayload, EventPayloadBuilder, Stream};
 use anyhow::Result;
-use chrono::NaiveDateTime;
 use std::{collections::HashMap, sync::Arc};
-use tracing::instrument;
+use tracing::{error, instrument};
 
 pub struct EventSubscriberRepository {
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
@@ -16,16 +15,6 @@ impl EventList {
   pub fn tail_cursor(&self) -> Option<String> {
     self.events.last().map(|(id, _)| id.to_string())
   }
-}
-
-struct EventRow {
-  id: i32,
-  correlation_id: Option<String>,
-  causation_id: Option<String>,
-  stream: Stream,
-  event: Event,
-  created_at: NaiveDateTime,
-  metadata: Option<HashMap<String, String>>,
 }
 
 impl EventSubscriberRepository {
@@ -117,7 +106,7 @@ impl EventSubscriberRepository {
         let (sql, params) = match stream {
           Stream::Global => (
             "
-            SELECT id, correlation_id, causation_id, stream, event, created_at, metadata
+            SELECT id, correlation_id, causation_id, event, metadata
             FROM events
             WHERE id > ?
             ORDER BY id ASC
@@ -127,7 +116,7 @@ impl EventSubscriberRepository {
           ),
           _ => (
             "
-            SELECT id, correlation_id, causation_id, stream, event, created_at, metadata
+            SELECT id, correlation_id, causation_id, event, metadata
             FROM events
             WHERE stream = ? AND id > ?
             ORDER BY id ASC
@@ -138,34 +127,34 @@ impl EventSubscriberRepository {
         };
 
         let mut statement = conn.prepare(sql)?;
-        let mut rows = statement.query_map(params, |row| {
-          Ok(EventRow {
-            id: row.get(0)?,
-            correlation_id: row.get(1)?,
-            causation_id: row.get(2)?,
-            stream: Stream::try_from(row.get::<_, String>(3)?)
-              .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?,
-            event: serde_json::from_str(&row.get::<_, String>(4)?)
-              .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?,
-            created_at: row.get(5)?,
-            metadata: row
-              .get::<_, Option<String>>(6)?
-              .map(|metadata: String| serde_json::from_str(&metadata).unwrap_or(HashMap::new())),
-          })
-        })?;
-        let mut events = vec![];
-        while let Some(row) = rows.next().transpose()? {
-          events.push((
-            row.id.to_string(),
-            EventPayloadBuilder::default()
-              .correlation_id(row.correlation_id)
-              .causation_id(row.causation_id)
-              .event(row.event)
-              .metadata(row.metadata)
-              .build()
-              .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?,
-          ));
-        }
+        let events = statement
+          .query_map(params, |row| {
+            Ok((
+              row.get::<_, i32>(0)?.to_string(),
+              EventPayloadBuilder::default()
+                .correlation_id(row.get::<_, Option<String>>(1)?)
+                .causation_id(row.get::<_, Option<String>>(2)?)
+                .event(
+                  serde_json::from_str::<Event>(&row.get::<_, String>(3)?).map_err(|err| {
+                    error!(message = err.to_string(), "Failed to deserialize event");
+                    rusqlite::Error::ExecuteReturnedResults
+                  })?,
+                )
+                .metadata(row.get::<_, Option<String>>(4)?.map(|metadata: String| {
+                  serde_json::from_str(&metadata).unwrap_or(HashMap::new())
+                }))
+                .build()
+                .map_err(|err| {
+                  error!(message = err.to_string(), "Failed to build event payload");
+                  rusqlite::Error::ExecuteReturnedResults
+                })?,
+            ))
+          })?
+          .collect::<Result<Vec<_>, _>>()
+          .map_err(|err| {
+            error!(message = err.to_string(), "Failed to get events");
+            rusqlite::Error::ExecuteReturnedResults
+          })?;
         Ok(EventList { events })
       })
       .await
