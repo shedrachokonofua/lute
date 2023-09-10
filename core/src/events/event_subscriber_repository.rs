@@ -150,11 +150,7 @@ impl EventSubscriberRepository {
                 })?,
             ))
           })?
-          .collect::<Result<Vec<_>, _>>()
-          .map_err(|err| {
-            error!(message = err.to_string(), "Failed to get events");
-            rusqlite::Error::ExecuteReturnedResults
-          })?;
+          .collect::<Result<Vec<_>, _>>()?;
         Ok(EventList { events })
       })
       .await
