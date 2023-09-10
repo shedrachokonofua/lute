@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::{
   quantile_rank_assessment::QuantileRankAlbumAssessmentContext,
   types::{
@@ -16,8 +18,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use derive_builder::Builder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use rustis::{bb8::Pool, client::PooledClientManager};
-use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::{instrument, warn};
 
@@ -49,16 +49,14 @@ impl Default for QuantileRankAlbumAssessmentSettings {
   }
 }
 
-pub struct QuantileRankInteractor {
-  album_read_model_repository: AlbumReadModelRepository,
+pub struct QuantileRankInteractor<R: AlbumReadModelRepository + Send + Sync + 'static> {
+  album_read_model_repository: Arc<R>,
 }
 
-impl QuantileRankInteractor {
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+impl<R: AlbumReadModelRepository + Send + Sync + 'static> QuantileRankInteractor<R> {
+  pub fn new(album_read_model_repository: Arc<R>) -> Self {
     Self {
-      album_read_model_repository: AlbumReadModelRepository::new(Arc::clone(
-        &redis_connection_pool,
-      )),
+      album_read_model_repository: album_read_model_repository,
     }
   }
 }
@@ -79,9 +77,9 @@ impl TryFrom<AlbumReadModel> for QuantileRankAssessableAlbum {
 }
 
 #[async_trait]
-impl
+impl<R: AlbumReadModelRepository + Send + Sync + 'static>
   RecommendationMethodInteractor<QuantileRankAssessableAlbum, QuantileRankAlbumAssessmentSettings>
-  for QuantileRankInteractor
+  for QuantileRankInteractor<R>
 {
   #[instrument(name = "QuantileRankInteractor::assess_album", skip(self))]
   async fn assess_album(

@@ -1,25 +1,23 @@
+use std::sync::Arc;
+
 use super::album_read_model_repository::AlbumReadModelRepository;
 use crate::{files::file_metadata::file_name::FileName, proto};
-use rustis::{bb8::Pool, client::PooledClientManager};
-use std::sync::Arc;
 use tonic::{async_trait, Request, Response, Status};
 
-pub struct AlbumService {
-  album_read_model_repository: AlbumReadModelRepository,
+pub struct AlbumService<R: AlbumReadModelRepository + Send + Sync> {
+  album_read_model_repository: Arc<R>,
 }
 
-impl AlbumService {
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+impl<R: AlbumReadModelRepository + Send + Sync> AlbumService<R> {
+  pub fn new(album_read_model_repository: Arc<R>) -> Self {
     Self {
-      album_read_model_repository: AlbumReadModelRepository {
-        redis_connection_pool,
-      },
+      album_read_model_repository,
     }
   }
 }
 
 #[async_trait]
-impl proto::AlbumService for AlbumService {
+impl<R: AlbumReadModelRepository + Send + Sync + 'static> proto::AlbumService for AlbumService<R> {
   async fn get_album(
     &self,
     request: Request<proto::GetAlbumRequest>,

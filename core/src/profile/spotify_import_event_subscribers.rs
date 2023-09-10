@@ -1,4 +1,5 @@
 use crate::{
+  albums::album_read_model_repository::AlbumReadModelRepository,
   events::{
     event::{Event, Stream},
     event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
@@ -12,9 +13,9 @@ use std::sync::Arc;
 
 use super::profile_interactor::ProfileInteractor;
 
-pub async fn process_lookup_subscriptions(
+pub async fn process_lookup_subscriptions<R: AlbumReadModelRepository>(
   context: SubscriberContext,
-  profile_interactor: ProfileInteractor,
+  profile_interactor: ProfileInteractor<R>,
 ) -> Result<()> {
   if let Event::LookupAlbumSearchUpdated {
     lookup:
@@ -44,11 +45,15 @@ pub async fn process_lookup_subscriptions(
   Ok(())
 }
 
-pub fn build_spotify_import_event_subscribers(
+pub fn build_spotify_import_event_subscribers<
+  R: AlbumReadModelRepository + Send + Sync + 'static,
+>(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
+  album_read_model_repository: Arc<R>,
 ) -> Result<Vec<EventSubscriber>> {
+  let album_read_model_repository = Arc::clone(&album_read_model_repository);
   Ok(vec![EventSubscriberBuilder::default()
     .id("profile_spotify_import".to_string())
     .stream(Stream::Lookup)
@@ -56,11 +61,12 @@ pub fn build_spotify_import_event_subscribers(
     .redis_connection_pool(Arc::clone(&redis_connection_pool))
     .sqlite_connection(Arc::clone(&sqlite_connection))
     .settings(Arc::clone(&settings))
-    .handle(Arc::new(|context| {
+    .handle(Arc::new(move |context| {
       let profile_interactor = ProfileInteractor::new(
         Arc::clone(&context.settings),
         Arc::clone(&context.redis_connection_pool),
         Arc::clone(&context.sqlite_connection),
+        Arc::clone(&album_read_model_repository),
       );
       Box::pin(async move { process_lookup_subscriptions(context, profile_interactor).await })
     }))

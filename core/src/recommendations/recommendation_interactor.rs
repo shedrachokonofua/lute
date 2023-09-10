@@ -21,27 +21,29 @@ pub enum AlbumAssessmentSettings {
   QuantileRank(QuantileRankAlbumAssessmentSettings),
 }
 
-pub struct RecommendationInteractor {
-  quantile_rank_interactor: QuantileRankInteractor,
-  album_read_model_repository: AlbumReadModelRepository,
-  profile_interactor: ProfileInteractor,
+pub struct RecommendationInteractor<R: AlbumReadModelRepository + Send + Sync + 'static> {
+  quantile_rank_interactor: QuantileRankInteractor<R>,
+  album_read_model_repository: Arc<R>,
+  profile_interactor: ProfileInteractor<R>,
 }
 
-impl RecommendationInteractor {
+impl<R: AlbumReadModelRepository + Send + Sync + 'static> RecommendationInteractor<R> {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    album_read_model_repository: Arc<R>,
   ) -> Self {
     Self {
-      quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(&redis_connection_pool)),
-      album_read_model_repository: AlbumReadModelRepository::new(Arc::clone(
-        &redis_connection_pool,
+      quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(
+        &album_read_model_repository,
       )),
+      album_read_model_repository: Arc::clone(&album_read_model_repository),
       profile_interactor: ProfileInteractor::new(
         settings,
         redis_connection_pool,
         sqlite_connection,
+        Arc::clone(&album_read_model_repository),
       ),
     }
   }

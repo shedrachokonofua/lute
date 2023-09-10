@@ -1,5 +1,8 @@
 use crate::{
-  albums::album_read_model_repository::AlbumReadModelRepository,
+  albums::{
+    album_read_model_repository::AlbumReadModelRepository,
+    redis_album_read_model_repository::RedisAlbumReadModelRepository,
+  },
   crawler::{
     crawler_interactor::CrawlerInteractor,
     priority_queue::{Priority, QueuePushParameters},
@@ -17,10 +20,10 @@ use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::warn;
 
-async fn crawl_similar_albums(
+async fn crawl_similar_albums<R: AlbumReadModelRepository + Send + Sync + 'static>(
   context: SubscriberContext,
   crawler_interactor: Arc<CrawlerInteractor>,
-  album_read_model_repository: AlbumReadModelRepository,
+  album_read_model_repository: Arc<R>,
 ) -> Result<()> {
   if let Event::ProfileAlbumAdded { file_name, .. } = context.payload.event {
     let album = album_read_model_repository.get(&file_name).await?;
@@ -119,14 +122,13 @@ pub fn build_recommendation_event_subscribers(
     .settings(Arc::clone(&settings))
     .handle(Arc::new(move |context| {
       let crawler_interactor = Arc::clone(&crawler_interactor);
-      let album_read_model_repository = AlbumReadModelRepository {
-        redis_connection_pool: Arc::clone(&redis_connection_pool),
-      };
+      let album_read_model_repository =
+        RedisAlbumReadModelRepository::new(Arc::clone(&context.redis_connection_pool));
       Box::pin(async move {
         crawl_similar_albums(
           context,
           Arc::clone(&crawler_interactor),
-          album_read_model_repository,
+          Arc::new(album_read_model_repository),
         )
         .await
       })

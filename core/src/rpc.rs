@@ -1,5 +1,5 @@
 use crate::{
-  albums::album_service::AlbumService,
+  albums::{album_read_model_repository::AlbumReadModelRepository, album_service::AlbumService},
   crawler::{crawler::Crawler, crawler_service::CrawlerService},
   events::event_service::EventService,
   files::{
@@ -35,27 +35,28 @@ impl Lute for LuteService {
   }
 }
 
-pub struct RpcServer {
+pub struct RpcServer<R: AlbumReadModelRepository + Send + Sync + 'static> {
   settings: Arc<Settings>,
   file_service: Arc<FileService>,
   crawler_service: Arc<CrawlerService>,
-  album_service: Arc<AlbumService>,
+  album_service: Arc<AlbumService<R>>,
   spotify_service: Arc<SpotifyService>,
   operations_service: Arc<OperationsService>,
   parser_service: Arc<ParserService>,
-  profile_service: Arc<ProfileService>,
+  profile_service: Arc<ProfileService<R>>,
   lookup_service: Arc<LookupService>,
-  recommendation_service: Arc<RecommendationService>,
+  recommendation_service: Arc<RecommendationService<R>>,
   event_service: Arc<EventService>,
 }
 
-impl RpcServer {
+impl<R: AlbumReadModelRepository + Send + Sync + 'static> RpcServer<R> {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
     crawler: Arc<Crawler>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
+    album_read_model_repository: Arc<R>,
   ) -> Self {
     Self {
       settings: Arc::clone(&settings),
@@ -67,7 +68,7 @@ impl RpcServer {
         ),
       }),
       crawler_service: Arc::new(CrawlerService { crawler }),
-      album_service: Arc::new(AlbumService::new(Arc::clone(&redis_connection_pool))),
+      album_service: Arc::new(AlbumService::new(Arc::clone(&album_read_model_repository))),
       spotify_service: Arc::new(SpotifyService {
         spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
       }),
@@ -86,6 +87,7 @@ impl RpcServer {
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
         Arc::clone(&sqlite_connection),
+        Arc::clone(&album_read_model_repository),
       )),
       lookup_service: Arc::new(LookupService::new(
         Arc::clone(&settings),
@@ -96,6 +98,7 @@ impl RpcServer {
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
         Arc::clone(&sqlite_connection),
+        Arc::clone(&album_read_model_repository),
       )),
       event_service: Arc::new(EventService::new(Arc::clone(&sqlite_connection))),
     }

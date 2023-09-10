@@ -6,6 +6,7 @@ use super::{
   types::{AlbumRecommendation, AlbumRecommendationSettings},
 };
 use crate::{
+  albums::album_read_model_repository::AlbumReadModelRepository,
   files::file_metadata::file_name::FileName,
   profile::profile::ProfileId,
   proto::{self},
@@ -18,21 +19,23 @@ use std::{collections::HashMap, sync::Arc};
 use tonic::{async_trait, Request, Response, Status};
 use tracing::error;
 
-pub struct RecommendationService {
-  recommendation_interactor: RecommendationInteractor,
+pub struct RecommendationService<R: AlbumReadModelRepository + Send + Sync + 'static> {
+  recommendation_interactor: RecommendationInteractor<R>,
 }
 
-impl RecommendationService {
+impl<R: AlbumReadModelRepository + Send + Sync + 'static> RecommendationService<R> {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    album_read_model_repository: Arc<R>,
   ) -> Self {
     Self {
       recommendation_interactor: RecommendationInteractor::new(
         settings,
         redis_connection_pool,
         sqlite_connection,
+        album_read_model_repository,
       ),
     }
   }
@@ -143,7 +146,9 @@ impl From<QuantileRankAlbumAssessmentSettings> for proto::QuantileRankAlbumAsses
 }
 
 #[async_trait]
-impl proto::RecommendationService for RecommendationService {
+impl<R: AlbumReadModelRepository + Send + Sync + 'static> proto::RecommendationService
+  for RecommendationService<R>
+{
   async fn assess_album(
     &self,
     request: Request<proto::AssessAlbumRequest>,

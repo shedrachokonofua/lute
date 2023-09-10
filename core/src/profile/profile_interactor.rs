@@ -33,28 +33,27 @@ pub struct PendingSpotifyImport {
   pub album_search_lookup: AlbumSearchLookup,
 }
 
-pub struct ProfileInteractor {
+pub struct ProfileInteractor<R: AlbumReadModelRepository> {
   profile_repository: ProfileRepository,
-  album_read_model_repository: AlbumReadModelRepository,
+  album_read_model_repository: Arc<R>,
   event_publisher: EventPublisher,
   spotify_client: SpotifyClient,
   lookup_interactor: LookupInteractor,
   spotify_import_repository: SpotifyImportRepository,
 }
 
-impl ProfileInteractor {
+impl<R: AlbumReadModelRepository> ProfileInteractor<R> {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    album_read_model_repository: Arc<R>,
   ) -> Self {
     Self {
       profile_repository: ProfileRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
-      album_read_model_repository: AlbumReadModelRepository {
-        redis_connection_pool: Arc::clone(&redis_connection_pool),
-      },
+      album_read_model_repository: Arc::clone(&album_read_model_repository),
       event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
       spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
       lookup_interactor: LookupInteractor::new(

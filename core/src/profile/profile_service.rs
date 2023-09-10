@@ -4,6 +4,7 @@ use super::{
   profile_summary::{ItemWithFactor, ProfileSummary},
 };
 use crate::{
+  albums::album_read_model_repository::AlbumReadModelRepository,
   files::file_metadata::file_name::FileName,
   proto::{
     self, AddManyAlbumsToProfileReply, AddManyAlbumsToProfileRequest, CreateProfileReply,
@@ -62,28 +63,32 @@ impl From<ProfileSummary> for proto::ProfileSummary {
   }
 }
 
-pub struct ProfileService {
-  profile_interactor: ProfileInteractor,
+pub struct ProfileService<R: AlbumReadModelRepository> {
+  profile_interactor: ProfileInteractor<R>,
 }
 
-impl ProfileService {
+impl<R: AlbumReadModelRepository> ProfileService<R> {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    album_read_model_repository: Arc<R>,
   ) -> Self {
     Self {
       profile_interactor: ProfileInteractor::new(
         settings,
         redis_connection_pool,
         sqlite_connection,
+        album_read_model_repository,
       ),
     }
   }
 }
 
 #[tonic::async_trait]
-impl proto::ProfileService for ProfileService {
+impl<R: AlbumReadModelRepository + Send + Sync + 'static> proto::ProfileService
+  for ProfileService<R>
+{
   async fn create_profile(
     &self,
     request: Request<CreateProfileRequest>,

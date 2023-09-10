@@ -1,6 +1,9 @@
-use super::album_read_model_repository::{
-  AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelRepository,
-  AlbumReadModelTrack,
+use super::{
+  album_read_model_repository::{
+    AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelRepository,
+    AlbumReadModelTrack,
+  },
+  redis_album_read_model_repository::RedisAlbumReadModelRepository,
 };
 use crate::{
   crawler::{
@@ -77,13 +80,9 @@ impl AlbumReadModel {
         .iter()
         .map(AlbumReadModelArtist::from)
         .collect::<Vec<AlbumReadModelArtist>>(),
-      artist_count: parsed_album.artists.len() as u32,
       primary_genres: parsed_album.primary_genres.clone(),
-      primary_genre_count: parsed_album.primary_genres.len() as u32,
       secondary_genres: parsed_album.secondary_genres.clone(),
-      secondary_genre_count: parsed_album.secondary_genres.len() as u32,
       descriptors: parsed_album.descriptors.clone(),
-      descriptor_count: parsed_album.descriptors.len() as u32,
       tracks: parsed_album
         .tracks
         .iter()
@@ -92,13 +91,11 @@ impl AlbumReadModel {
       release_date: parsed_album.release_date,
       release_year: parsed_album.release_date.map(|date| date.year() as u32),
       languages: parsed_album.languages.clone(),
-      language_count: parsed_album.languages.len() as u32,
       credits: parsed_album
         .credits
         .iter()
         .map(AlbumReadModelCredit::from)
         .collect::<Vec<AlbumReadModelCredit>>(),
-      credit_tag_count: credit_tags.len() as u32,
       credit_tags: credit_tags.clone(),
     }
   }
@@ -111,9 +108,8 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
     data: ParsedFileData::Album(parsed_album),
   } = context.payload.event
   {
-    let album_read_model_repository = AlbumReadModelRepository {
-      redis_connection_pool: Arc::clone(&context.redis_connection_pool),
-    };
+    let album_read_model_repository =
+      RedisAlbumReadModelRepository::new(Arc::clone(&context.redis_connection_pool));
     let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
     album_read_model_repository.put(album_read_model).await?;
   }
@@ -122,9 +118,8 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
 
 async fn delete_album_read_models(context: SubscriberContext) -> Result<()> {
   if let Event::FileDeleted { file_name, .. } = context.payload.event {
-    let album_read_model_repository = AlbumReadModelRepository {
-      redis_connection_pool: Arc::clone(&context.redis_connection_pool),
-    };
+    let album_read_model_repository =
+      RedisAlbumReadModelRepository::new(Arc::clone(&context.redis_connection_pool));
     album_read_model_repository.delete(&file_name).await?;
   }
   Ok(())

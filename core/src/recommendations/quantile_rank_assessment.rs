@@ -104,7 +104,7 @@ impl QuantileRankAlbumAssessmentContext {
       descriptor_count_ranking: QuantileRanking::new(
         &profile_albums
           .iter()
-          .map(|album| album.descriptor_count)
+          .map(|album| album.descriptors.len() as u32)
           .collect::<Vec<_>>(),
       ),
       credit_tag_ranking: QuantileRanking::new(&profile_summary.credit_tags),
@@ -164,7 +164,7 @@ impl QuantileRankAlbumAssessmentContext {
         Ok(
           self
             .descriptor_count_ranking
-            .get_rank(&album.descriptor_count),
+            .get_rank(&(album.descriptors.len() as u32)),
         )
       })?;
 

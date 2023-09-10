@@ -6,7 +6,10 @@ use super::{
   lookup_interactor::LookupInteractor,
 };
 use crate::{
-  albums::album_read_model_repository::{AlbumReadModel, AlbumReadModelRepository},
+  albums::{
+    album_read_model_repository::{AlbumReadModel, AlbumReadModelRepository},
+    redis_album_read_model_repository::RedisAlbumReadModelRepository,
+  },
   crawler::{
     crawler_interactor::CrawlerInteractor,
     priority_queue::{Priority, QueuePushParameters},
@@ -237,7 +240,7 @@ async fn handle_lookup_event(
   crawler_interactor: Arc<CrawlerInteractor>,
   lookup_interactor: LookupInteractor,
   event_publisher: EventPublisher,
-  album_read_model_repository: AlbumReadModelRepository,
+  album_read_model_repository: &impl AlbumReadModelRepository,
 ) -> Result<()> {
   if context.payload.correlation_id.is_none() {
     return Ok(());
@@ -364,9 +367,8 @@ pub fn build_album_search_lookup_event_subscribers(
           Arc::clone(&context.redis_connection_pool),
           Arc::clone(&context.sqlite_connection),
         );
-        let album_read_model_repository = AlbumReadModelRepository {
-          redis_connection_pool: Arc::clone(&context.redis_connection_pool),
-        };
+        let album_read_model_repository =
+          RedisAlbumReadModelRepository::new(Arc::clone(&context.redis_connection_pool));
         let event_publisher = EventPublisher::new(
           Arc::clone(&context.settings),
           Arc::clone(&context.sqlite_connection),
@@ -377,7 +379,7 @@ pub fn build_album_search_lookup_event_subscribers(
             crawler_interactor,
             lookup_interactor,
             event_publisher,
-            album_read_model_repository,
+            &album_read_model_repository,
           )
           .await
         })

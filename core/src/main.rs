@@ -1,6 +1,9 @@
 use anyhow::Result;
 use core::{
-  albums::album_event_subscribers::build_album_event_subscribers,
+  albums::{
+    album_event_subscribers::build_album_event_subscribers,
+    redis_album_read_model_repository::RedisAlbumReadModelRepository,
+  },
   crawler::crawler::Crawler,
   events::event_subscriber::EventSubscriber,
   files::file_metadata::file_name::FileName,
@@ -34,6 +37,7 @@ fn run_rpc_server(
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
   crawler: Arc<Crawler>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
+  album_read_model_repository: Arc<RedisAlbumReadModelRepository>,
 ) -> task::JoinHandle<()> {
   let rpc_server = RpcServer::new(
     settings,
@@ -41,6 +45,7 @@ fn run_rpc_server(
     sqlite_connection,
     crawler,
     parser_retry_queue,
+    album_read_model_repository,
   );
 
   task::spawn(async move {
@@ -118,6 +123,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   )?);
   crawler.run()?;
 
+  let album_read_model_repository = Arc::new(RedisAlbumReadModelRepository::new(Arc::clone(
+    &redis_connection_pool,
+  )));
+
   start_event_subscribers(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
@@ -131,6 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Arc::clone(&sqlite_connection),
     Arc::clone(&crawler),
     Arc::clone(&parser_retry_queue),
+    Arc::clone(&album_read_model_repository),
   )
   .await?;
 
