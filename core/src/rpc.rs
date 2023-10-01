@@ -1,5 +1,5 @@
 use crate::{
-  albums::{album_read_model_repository::AlbumReadModelRepository, album_service::AlbumService},
+  albums::{album_repository::AlbumRepository, album_service::AlbumService},
   crawler::{crawler::Crawler, crawler_service::CrawlerService},
   events::event_service::EventService,
   files::{
@@ -56,7 +56,7 @@ impl RpcServer {
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
     crawler: Arc<Crawler>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
-    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       settings: Arc::clone(&settings),

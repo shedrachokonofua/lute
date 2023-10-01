@@ -1,7 +1,6 @@
 use crate::{
   albums::{
-    album_read_model_repository::AlbumReadModelRepository,
-    redis_album_read_model_repository::RedisAlbumReadModelRepository,
+    album_repository::AlbumRepository, redis_album_repository::RedisAlbumReadModelRepository,
   },
   crawler::{
     crawler_interactor::CrawlerInteractor,
@@ -23,7 +22,7 @@ use tracing::warn;
 async fn crawl_similar_albums(
   context: SubscriberContext,
   crawler_interactor: Arc<CrawlerInteractor>,
-  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
 ) -> Result<()> {
   if let Event::ProfileAlbumAdded { file_name, .. } = context.payload.event {
     let album = album_read_model_repository.get(&file_name).await?;

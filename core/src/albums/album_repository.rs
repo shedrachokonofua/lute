@@ -160,7 +160,7 @@ pub struct AlbumSearchQuery {
 }
 
 #[async_trait]
-pub trait AlbumReadModelRepository {
+pub trait AlbumRepository {
   async fn put(&self, album: AlbumReadModel) -> Result<()>;
   async fn delete(&self, file_name: &FileName) -> Result<()>;
   async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>>;

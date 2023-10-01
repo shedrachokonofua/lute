@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use super::album_read_model_repository::AlbumReadModelRepository;
+use super::album_repository::AlbumRepository;
 use crate::{files::file_metadata::file_name::FileName, proto};
 use tonic::{async_trait, Request, Response, Status};
 
 pub struct AlbumService {
-  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
 }
 
 impl AlbumService {
   pub fn new(
-    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       album_read_model_repository,

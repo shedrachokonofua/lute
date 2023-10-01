@@ -8,7 +8,7 @@ use super::{
   spotify_import_repository::SpotifyImportRepository,
 };
 use crate::{
-  albums::album_read_model_repository::{AlbumReadModel, AlbumReadModelRepository},
+  albums::album_repository::{AlbumReadModel, AlbumRepository},
   events::{
     event::{Event, EventPayload, Stream},
     event_publisher::EventPublisher,
@@ -35,7 +35,7 @@ pub struct PendingSpotifyImport {
 
 pub struct ProfileInteractor {
   profile_repository: ProfileRepository,
-  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   event_publisher: EventPublisher,
   spotify_client: SpotifyClient,
   lookup_interactor: LookupInteractor,
@@ -47,7 +47,7 @@ impl ProfileInteractor {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       profile_repository: ProfileRepository {

@@ -1,4 +1,4 @@
-use crate::{albums::album_read_model_repository::AlbumReadModel, profile::profile::Profile};
+use crate::{albums::album_repository::AlbumReadModel, profile::profile::Profile};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::{cmp::Ordering, collections::HashMap};

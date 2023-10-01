@@ -1,6 +1,6 @@
 use super::profile::{Profile, ProfileId};
 use crate::{
-  albums::album_read_model_repository::AlbumReadModel,
+  albums::album_repository::AlbumReadModel,
   files::file_metadata::file_name::FileName,
   helpers::math::{desc_sort_by, median_by},
 };

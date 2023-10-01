@@ -8,7 +8,7 @@ use super::{
   },
 };
 use crate::{
-  albums::album_read_model_repository::AlbumReadModelRepository,
+  albums::album_repository::AlbumRepository,
   files::file_metadata::file_name::FileName,
   profile::{profile::ProfileId, profile_interactor::ProfileInteractor},
   settings::Settings,
@@ -23,7 +23,7 @@ pub enum AlbumAssessmentSettings {
 
 pub struct RecommendationInteractor {
   quantile_rank_interactor: QuantileRankInteractor,
-  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   profile_interactor: ProfileInteractor,
 }
 
@@ -32,7 +32,7 @@ impl RecommendationInteractor {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(

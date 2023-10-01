@@ -2,7 +2,7 @@ use super::{
   quantile_rank_interactor::QuantileRankAlbumAssessmentSettings, types::AlbumAssessment,
 };
 use crate::{
-  albums::album_read_model_repository::AlbumReadModel,
+  albums::album_repository::AlbumReadModel,
   helpers::{math::default_if_zero, quantile_rank::QuantileRanking},
   profile::{profile::Profile, profile_summary::ItemWithFactor},
 };

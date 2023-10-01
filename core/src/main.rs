@@ -2,7 +2,7 @@ use anyhow::Result;
 use core::{
   albums::{
     album_event_subscribers::build_album_event_subscribers,
-    redis_album_read_model_repository::RedisAlbumReadModelRepository,
+    redis_album_repository::RedisAlbumReadModelRepository,
   },
   crawler::crawler::Crawler,
   events::event_subscriber::EventSubscriber,

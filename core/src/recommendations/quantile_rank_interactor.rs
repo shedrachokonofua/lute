@@ -8,9 +8,7 @@ use super::{
   },
 };
 use crate::{
-  albums::album_read_model_repository::{
-    AlbumReadModel, AlbumReadModelRepository, AlbumSearchQueryBuilder,
-  },
+  albums::album_repository::{AlbumReadModel, AlbumRepository, AlbumSearchQueryBuilder},
   helpers::bounded_min_heap::BoundedMinHeap,
   profile::profile::Profile,
 };
@@ -50,12 +48,12 @@ impl Default for QuantileRankAlbumAssessmentSettings {
 }
 
 pub struct QuantileRankInteractor {
-  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
 }
 
 impl QuantileRankInteractor {
   pub fn new(
-    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       album_read_model_repository: album_read_model_repository,

@@ -4,7 +4,7 @@ use super::{
   profile_summary::{ItemWithFactor, ProfileSummary},
 };
 use crate::{
-  albums::album_read_model_repository::AlbumReadModelRepository,
+  albums::album_repository::AlbumRepository,
   files::file_metadata::file_name::FileName,
   proto::{
     self, AddManyAlbumsToProfileReply, AddManyAlbumsToProfileRequest, CreateProfileReply,
@@ -72,7 +72,7 @@ impl ProfileService {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       profile_interactor: ProfileInteractor::new(

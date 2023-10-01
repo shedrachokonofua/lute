@@ -1,6 +1,6 @@
-use super::album_read_model_repository::{
-  AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelRepository,
-  AlbumReadModelTrack, AlbumSearchQuery, GenreAggregate, ItemAndCount,
+use super::album_repository::{
+  AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack, AlbumRepository,
+  AlbumSearchQuery, GenreAggregate, ItemAndCount,
 };
 use crate::{
   files::file_metadata::file_name::FileName,
@@ -299,7 +299,7 @@ impl RedisAlbumReadModelRepository {
 }
 
 #[async_trait]
-impl AlbumReadModelRepository for RedisAlbumReadModelRepository {
+impl AlbumRepository for RedisAlbumReadModelRepository {
   async fn put(&self, album: AlbumReadModel) -> Result<()> {
     let connection = self.redis_connection_pool.get().await?;
     connection

@@ -6,7 +6,7 @@ use super::{
   types::{AlbumRecommendation, AlbumRecommendationSettings},
 };
 use crate::{
-  albums::album_read_model_repository::AlbumReadModelRepository,
+  albums::album_repository::AlbumRepository,
   files::file_metadata::file_name::FileName,
   profile::profile::ProfileId,
   proto::{self},
@@ -28,7 +28,7 @@ impl RecommendationService {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       recommendation_interactor: RecommendationInteractor::new(

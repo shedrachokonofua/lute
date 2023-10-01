@@ -1,6 +1,6 @@
 use super::spotify_import_event_subscribers::build_spotify_import_event_subscribers;
 use crate::{
-  albums::redis_album_read_model_repository::RedisAlbumReadModelRepository,
+  albums::redis_album_repository::RedisAlbumReadModelRepository,
   events::event_subscriber::EventSubscriber, settings::Settings,
 };
 use anyhow::Result;

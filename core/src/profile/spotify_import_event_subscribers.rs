@@ -1,5 +1,5 @@
 use crate::{
-  albums::album_read_model_repository::AlbumReadModelRepository,
+  albums::album_repository::AlbumRepository,
   events::{
     event::{Event, Stream},
     event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
@@ -49,7 +49,7 @@ pub fn build_spotify_import_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
-  album_read_model_repository: Arc<dyn AlbumReadModelRepository + Send + Sync + 'static>,
+  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
 ) -> Result<Vec<EventSubscriber>> {
   let album_read_model_repository = Arc::clone(&album_read_model_repository);
   Ok(vec![EventSubscriberBuilder::default()

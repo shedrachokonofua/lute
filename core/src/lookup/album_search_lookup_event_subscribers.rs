@@ -7,8 +7,8 @@ use super::{
 };
 use crate::{
   albums::{
-    album_read_model_repository::{AlbumReadModel, AlbumReadModelRepository},
-    redis_album_read_model_repository::RedisAlbumReadModelRepository,
+    album_repository::{AlbumReadModel, AlbumRepository},
+    redis_album_repository::RedisAlbumReadModelRepository,
   },
   crawler::{
     crawler_interactor::CrawlerInteractor,
@@ -240,7 +240,7 @@ async fn handle_lookup_event(
   crawler_interactor: Arc<CrawlerInteractor>,
   lookup_interactor: LookupInteractor,
   event_publisher: EventPublisher,
-  album_read_model_repository: &impl AlbumReadModelRepository,
+  album_read_model_repository: &impl AlbumRepository,
 ) -> Result<()> {
   if context.payload.correlation_id.is_none() {
     return Ok(());

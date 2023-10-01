@@ -1,9 +1,9 @@
 use super::{
-  album_read_model_repository::{
-    AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelRepository,
-    AlbumReadModelTrack,
+  album_repository::{
+    AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack,
+    AlbumRepository,
   },
-  redis_album_read_model_repository::RedisAlbumReadModelRepository,
+  redis_album_repository::RedisAlbumReadModelRepository,
 };
 use crate::{
   crawler::{
