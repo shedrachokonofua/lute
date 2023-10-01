@@ -183,7 +183,7 @@ impl AlbumSearchQuery {
   }
 }
 
-pub struct RedisAlbumReadModelRepository {
+pub struct RedisAlbumRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
 
@@ -223,7 +223,7 @@ fn get_num_range_query(tag: &str, min: Option<u32>, max: Option<u32>) -> String 
 const NAMESPACE: &str = "album";
 const INDEX_NAME: &str = "album_idx";
 
-impl RedisAlbumReadModelRepository {
+impl RedisAlbumRepository {
   pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
     Self {
       redis_connection_pool,
@@ -299,7 +299,7 @@ impl RedisAlbumReadModelRepository {
 }
 
 #[async_trait]
-impl AlbumRepository for RedisAlbumReadModelRepository {
+impl AlbumRepository for RedisAlbumRepository {
   async fn put(&self, album: AlbumReadModel) -> Result<()> {
     let connection = self.redis_connection_pool.get().await?;
     connection

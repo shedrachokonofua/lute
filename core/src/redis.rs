@@ -1,5 +1,5 @@
 use crate::{
-  albums::redis_album_repository::RedisAlbumReadModelRepository,
+  albums::redis_album_repository::RedisAlbumRepository,
   lookup::album_search_lookup_repository::AlbumSearchLookupRepository,
   parser::failed_parse_files_repository::FailedParseFilesRepository,
   profile::spotify_import_repository::SpotifyImportRepository, settings::RedisSettings,
@@ -41,7 +41,7 @@ pub async fn setup_redis_indexes(
   .setup_index()
   .await?;
 
-  RedisAlbumReadModelRepository::new(Arc::clone(&redis_connection_pool))
+  RedisAlbumRepository::new(Arc::clone(&redis_connection_pool))
     .setup_index()
     .await?;
 

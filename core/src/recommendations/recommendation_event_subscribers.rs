@@ -1,7 +1,5 @@
 use crate::{
-  albums::{
-    album_repository::AlbumRepository, redis_album_repository::RedisAlbumReadModelRepository,
-  },
+  albums::{album_repository::AlbumRepository, redis_album_repository::RedisAlbumRepository},
   crawler::{
     crawler_interactor::CrawlerInteractor,
     priority_queue::{Priority, QueuePushParameters},
@@ -122,7 +120,7 @@ pub fn build_recommendation_event_subscribers(
     .handle(Arc::new(move |context| {
       let crawler_interactor = Arc::clone(&crawler_interactor);
       let album_read_model_repository =
-        RedisAlbumReadModelRepository::new(Arc::clone(&context.redis_connection_pool));
+        RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
       Box::pin(async move {
         crawl_similar_albums(
           context,

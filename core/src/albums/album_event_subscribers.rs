@@ -3,7 +3,7 @@ use super::{
     AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack,
     AlbumRepository,
   },
-  redis_album_repository::RedisAlbumReadModelRepository,
+  redis_album_repository::RedisAlbumRepository,
 };
 use crate::{
   crawler::{
@@ -92,7 +92,7 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
   } = context.payload.event
   {
     let album_read_model_repository =
-      RedisAlbumReadModelRepository::new(Arc::clone(&context.redis_connection_pool));
+      RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
     let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
     album_read_model_repository.put(album_read_model).await?;
   }
@@ -102,7 +102,7 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
 async fn delete_album_read_models(context: SubscriberContext) -> Result<()> {
   if let Event::FileDeleted { file_name, .. } = context.payload.event {
     let album_read_model_repository =
-      RedisAlbumReadModelRepository::new(Arc::clone(&context.redis_connection_pool));
+      RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
     album_read_model_repository.delete(&file_name).await?;
   }
   Ok(())
