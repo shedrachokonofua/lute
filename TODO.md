@@ -14,6 +14,7 @@
     - Files:
       - [ ] Fix staleness check
       - [ ] Support local disk file content storage
+      - [ ] Migrate to SQLite
       - [x] Deletion + RPC method
     - Web:
       - [ ] Add to docker image
@@ -25,7 +26,6 @@
       - [x] Support ordered processing groups
     - Album read model:
       - [ ] Duplicate album detection
-      - [ ] Migrate to SQLite
 
 - Backlog:
   - [ ] Recommendations(Quantile rank): Genre tokenization
