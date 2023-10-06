@@ -1,10 +1,11 @@
 use super::{
-  quantile_rank_interactor::QuantileRankAlbumAssessmentSettings, types::AlbumAssessment,
+  quantile_rank::QuantileRanking, quantile_rank_interactor::QuantileRankAlbumAssessmentSettings,
 };
 use crate::{
   albums::album_repository::AlbumReadModel,
-  helpers::{math::default_if_zero, quantile_rank::QuantileRanking},
+  helpers::math::default_if_zero,
   profile::{profile::Profile, profile_summary::ItemWithFactor},
+  recommendations::types::AlbumAssessment,
 };
 use anyhow::{anyhow, Result};
 use num_traits::Zero;

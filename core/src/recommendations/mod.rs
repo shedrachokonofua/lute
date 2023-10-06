@@ -1,5 +1,4 @@
-mod quantile_rank_assessment;
-mod quantile_rank_interactor;
+mod quantile_ranking;
 pub mod recommendation_event_subscribers;
 mod recommendation_interactor;
 pub mod recommendation_service;

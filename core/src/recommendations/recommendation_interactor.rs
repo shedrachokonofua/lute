@@ -1,5 +1,5 @@
 use super::{
-  quantile_rank_interactor::{
+  quantile_ranking::quantile_rank_interactor::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAssessableAlbum, QuantileRankInteractor,
   },
   types::{

@@ -1,21 +1,19 @@
-use std::sync::Arc;
-
 use super::{
-  quantile_rank_assessment::QuantileRankAlbumAssessmentContext,
-  types::{
-    AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
-    RecommendationMethodInteractor,
-  },
+  bounded_min_heap::BoundedMinHeap, quantile_rank_assessment::QuantileRankAlbumAssessmentContext,
 };
 use crate::{
   albums::album_repository::{AlbumReadModel, AlbumRepository, AlbumSearchQueryBuilder},
-  helpers::bounded_min_heap::BoundedMinHeap,
   profile::profile::Profile,
+  recommendations::types::{
+    AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
+    RecommendationMethodInteractor,
+  },
 };
 use anyhow::Result;
 use async_trait::async_trait;
 use derive_builder::Builder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::{instrument, warn};
 
