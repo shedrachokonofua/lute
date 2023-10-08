@@ -16,7 +16,7 @@ tasks:
   "core:run":
     dir: core
     env:
-      RUST_LOG: warn,core=debug,lute-postgres-connector=debug
+      RUST_LOG: warn,core=info,lute-postgres-connector=debug
     cmds:
       - cargo run
 

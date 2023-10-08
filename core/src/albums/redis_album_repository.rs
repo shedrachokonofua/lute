@@ -17,6 +17,7 @@ use rustis::{
     FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtFlatVectorFieldAttributes,
     FtIndexDataType, FtReducer, FtSearchOptions, FtVectorDistanceMetric, FtVectorFieldAlgorithm,
     FtVectorType, GenericCommands, JsonCommands, JsonGetOptions, SearchCommands, SetCondition,
+    SortOrder,
   },
 };
 use serde_derive::{Deserialize, Serialize};
@@ -666,7 +667,9 @@ impl AlbumRepository for RedisAlbumRepository {
         query.to_ft_search_query(),
         FtSearchOptions::default()
           .params(("BLOB", embedding_to_bytes(&query.embedding)))
-          .dialect(2),
+          .dialect(2)
+          .limit(0, query.limit)
+          .sortby("distance", SortOrder::Asc),
       )
       .await?;
     let albums = result

@@ -5,6 +5,7 @@ import {
   LoaderFunctionArgs,
   defer,
   useLoaderData,
+  useRouteError,
 } from "react-router-dom";
 import {
   getAggregatedGenres,
@@ -12,6 +13,7 @@ import {
   getAlbumRecommendations,
   getAllProfiles,
   getDefaultQuantileRankAlbumAssessmentSettings,
+  getEmbeddingKeys,
 } from "../../client";
 import {
   AlbumRecommendation,
@@ -21,18 +23,25 @@ import {
   QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
 import { AlbumRecommendationItem } from "./AlbumRecommendationItem";
+import { RecommendationSettings } from "./RecommendationSettings";
 import {
   RecommendationMethod,
-  RecommendationSettings,
   RecommendationSettingsForm,
   RecommendationSettingsFormName,
-} from "./RecommendationSettings";
+} from "./types";
+
+function ErrorBoundary() {
+  let error = useRouteError();
+  console.error(error);
+  // Uncaught ReferenceError: path is not defined
+  return <div>Dang! Something went wrong.</div>;
+}
 
 const coerceToUndefined = <
   T extends string | Record<string, unknown> | null | undefined,
 >(
   value: T,
-): T | undefined => {
+): NonNullable<T> | undefined => {
   if (value === null || value === undefined) {
     return undefined;
   }
@@ -56,6 +65,7 @@ interface RecommendationSettingsLoaderData {
   profiles: Profile[];
   aggregatedGenres: GenreAggregate[];
   aggregatedLanguages: LanguageAggregate[];
+  embeddingKeys: string[];
   settings: RecommendationSettingsForm | null;
   recommendations: AlbumRecommendation[] | null;
   defaultQuantileRankAlbumAssessmentSettings: QuantileRankAlbumAssessmentSettings;
@@ -124,6 +134,18 @@ export const recommendationPageLoader = async ({
                 url.searchParams.get(
                   RecommendationSettingsFormName.QuantileRankingCreditTagWeight,
                 ),
+              ),
+            ),
+          },
+          embeddingSimilarity: undefined,
+        })
+      : assessmentMethod === "embedding-similarity"
+      ? coerceToUndefined({
+          quantileRanking: undefined,
+          embeddingSimilarity: {
+            embeddingKey: coerceToUndefined(
+              url.searchParams.get(
+                RecommendationSettingsFormName.EmbeddingSimilarityEmbeddingKey,
               ),
             ),
           },
@@ -200,16 +222,19 @@ export const recommendationPageLoader = async ({
 
   const recommendations = settings ? getAlbumRecommendations(settings) : null;
 
-  const [profiles, aggregatedGenres, aggregatedLanguages] = await Promise.all([
-    getAllProfiles(),
-    getAggregatedGenres(),
-    getAggregatedLanguages(),
-  ]);
+  const [profiles, aggregatedGenres, aggregatedLanguages, embeddingKeys] =
+    await Promise.all([
+      getAllProfiles(),
+      getAggregatedGenres(),
+      getAggregatedLanguages(),
+      getEmbeddingKeys(),
+    ]);
 
   return defer({
     profiles,
     aggregatedGenres,
     aggregatedLanguages,
+    embeddingKeys,
     settings,
     recommendations,
     defaultQuantileRankAlbumAssessmentSettings,
@@ -221,6 +246,7 @@ export const RecommendationPage = () => {
     profiles,
     aggregatedGenres,
     aggregatedLanguages,
+    embeddingKeys,
     settings,
     recommendations,
     defaultQuantileRankAlbumAssessmentSettings,
@@ -247,6 +273,7 @@ export const RecommendationPage = () => {
           profiles={profiles}
           aggregatedGenres={aggregatedGenres}
           aggregatedLanguages={aggregatedLanguages}
+          embeddingKeys={embeddingKeys}
           settings={settings}
           defaultQuantileRankAlbumAssessmentSettings={
             defaultQuantileRankAlbumAssessmentSettings
@@ -264,10 +291,7 @@ export const RecommendationPage = () => {
         px="xs"
       >
         <React.Suspense fallback={<p>Loading recommendations...</p>}>
-          <Await
-            resolve={recommendations}
-            errorElement={<p>Error loading recommendations!</p>}
-          >
+          <Await resolve={recommendations} errorElement={<ErrorBoundary />}>
             {(recommendations: AlbumRecommendation[] | null) => (
               <Stack spacing="xl">
                 {recommendations === null ? (

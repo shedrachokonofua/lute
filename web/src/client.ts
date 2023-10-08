@@ -1,5 +1,5 @@
 import { Empty } from "google-protobuf/google/protobuf/empty_pb";
-import { RecommendationSettingsForm } from "./pages/RecommendationPage/RecommendationSettings";
+import { RecommendationSettingsForm } from "./pages/RecommendationPage/types";
 import {
   AlbumServiceClient,
   ProfileServiceClient,
@@ -10,6 +10,7 @@ import {
   AlbumAssessmentSettings,
   AlbumRecommendation,
   AlbumRecommendationSettings,
+  EmbeddingSimilarityAlbumAssessmentSettings,
   GenreAggregate,
   HandleAuthorizationCodeRequest,
   LanguageAggregate,
@@ -57,6 +58,11 @@ export const getAggregatedLanguages = async (): Promise<
 > => {
   const response = await client.album.getAggregatedLanguages(new Empty(), null);
   return response.getLanguagesList();
+};
+
+export const getEmbeddingKeys = async (): Promise<string[]> => {
+  const response = await client.album.getEmbeddingKeys(new Empty(), null);
+  return response.getKeysList();
 };
 
 export const settingsToRecommendationRequest = (
@@ -150,6 +156,17 @@ export const settingsToRecommendationRequest = (
       quantileRankSettings.setCreditTagWeight(creditTagWeight);
     }
     assessmentSettings.setQuantileRankSettings(quantileRankSettings);
+  }
+  if (settings.assessmentSettings?.embeddingSimilarity) {
+    const embeddingSimilaritySettings =
+      new EmbeddingSimilarityAlbumAssessmentSettings();
+    const { embeddingKey } = settings.assessmentSettings.embeddingSimilarity;
+    if (embeddingKey !== undefined) {
+      embeddingSimilaritySettings.setEmbeddingKey(embeddingKey);
+    }
+    assessmentSettings.setEmbeddingSimilaritySettings(
+      embeddingSimilaritySettings,
+    );
   }
   request.setAssessmentSettings(assessmentSettings);
 

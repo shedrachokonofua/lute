@@ -8,6 +8,7 @@ import {
   Stack,
   Title,
 } from "@mantine/core";
+import { useState } from "react";
 import { Form } from "react-router-dom";
 import { CollapsibleSection } from "../../components";
 import {
@@ -16,85 +17,31 @@ import {
   Profile,
   QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
-
-export type RecommendationMethod = "quantile-ranking";
-
-export const RecommendationSettingsFormName = {
-  ProfileId: "profileId",
-  Count: "recommendationSettings.count",
-  IncludePrimaryGenres: "recommendationSettings.includePrimaryGenres",
-  ExcludePrimaryGenres: "recommendationSettings.excludePrimaryGenres",
-  IncludeSecondaryGenres: "recommendationSettings.includeSecondaryGenres",
-  ExcludeSecondaryGenres: "recommendationSettings.excludeSecondaryGenres",
-  ExcludeKnownArtists: "recommendationSettings.excludeKnownArtists",
-  IncludeLanguages: "recommendationSettings.includeLanguages",
-  ExcludeLanguages: "recommendationSettings.excludeLanguages",
-  MinReleaseYear: "recommendationSettings.minReleaseYear",
-  MaxReleaseYear: "recommendationSettings.maxReleaseYear",
-  Method: "method",
-  QuantileRankingPrimaryGenresWeight:
-    "assessmentSettings.quantileRanking.primaryGenresWeight",
-  QuantileRankingSecondaryGenresWeight:
-    "assessmentSettings.quantileRanking.secondaryGenresWeight",
-  QuantileRankingDescriptorWeight:
-    "assessmentSettings.quantileRanking.descriptorWeight",
-  QuantileRankingRatingWeight:
-    "assessmentSettings.quantileRanking.ratingWeight",
-  QuantileRankingRatingCountWeight:
-    "assessmentSettings.quantileRanking.ratingCountWeight",
-  QuantileRankingDescriptorCountWeight:
-    "assessmentSettings.quantileRanking.descriptorCountWeight",
-  QuantileRankingCreditTagWeight:
-    "assessmentSettings.quantileRanking.creditTagWeight",
-};
-
-export interface RecommendationSettingsForm {
-  profileId: string | undefined;
-  recommendationSettings:
-    | {
-        count: number | undefined;
-        minReleaseYear: number | undefined;
-        maxReleaseYear: number | undefined;
-        includePrimaryGenres: string[] | undefined;
-        excludePrimaryGenres: string[] | undefined;
-        includeSecondaryGenres: string[] | undefined;
-        excludeSecondaryGenres: string[] | undefined;
-        includeLanguages: string[] | undefined;
-        excludeLanguages: string[] | undefined;
-        excludeKnownArtists: number | undefined;
-      }
-    | undefined;
-  method: RecommendationMethod | undefined;
-  assessmentSettings:
-    | {
-        quantileRanking:
-          | {
-              primaryGenresWeight: number | undefined;
-              secondaryGenresWeight: number | undefined;
-              descriptorWeight: number | undefined;
-              ratingWeight: number | undefined;
-              ratingCountWeight: number | undefined;
-              descriptorCountWeight: number | undefined;
-              creditTagWeight: number | undefined;
-            }
-          | undefined;
-      }
-    | undefined;
-}
+import { EmbeddingSimilaritySettings } from "./EmbeddingSimilaritySettings";
+import { QuantileRankSettings } from "./QuantileRankSettings";
+import {
+  RecommendationSettingsForm,
+  RecommendationSettingsFormName,
+} from "./types";
 
 export const RecommendationSettings = ({
   profiles,
   aggregatedGenres,
   aggregatedLanguages,
+  embeddingKeys,
   settings,
   defaultQuantileRankAlbumAssessmentSettings,
 }: {
   profiles: Profile[];
   aggregatedGenres: GenreAggregate[];
   aggregatedLanguages: LanguageAggregate[];
+  embeddingKeys: string[];
   settings: RecommendationSettingsForm | null;
   defaultQuantileRankAlbumAssessmentSettings: QuantileRankAlbumAssessmentSettings;
 }) => {
+  const [currentMethod, setCurrentMethod] = useState<string>(
+    settings?.method || "quantile-ranking",
+  );
   const profileOptions = profiles.map((profile) => ({
     label: profile.getName(),
     value: profile.getId(),
@@ -237,137 +184,37 @@ export const RecommendationSettings = ({
           <Stack spacing="sm">
             <Select
               label="Method"
-              data={[{ label: "Quantile Ranking", value: "quantile-ranking" }]}
-              defaultValue={settings?.method || "quantile-ranking"}
+              data={[
+                { label: "Quantile Ranking", value: "quantile-ranking" },
+                {
+                  label: "Embedding Similarity",
+                  value: "embedding-similarity",
+                },
+              ]}
+              value={currentMethod}
+              onChange={(value) => {
+                if (value) {
+                  setCurrentMethod(value);
+                }
+              }}
               placeholder="Select Method"
               name={RecommendationSettingsFormName.Method}
             />
             <CollapsibleSection title="Method Settings">
-              <Stack spacing="sm">
-                <Title order={6}>Parameter Weights</Title>
-
-                <Grid gutter="xs">
-                  <Grid.Col md={6}>
-                    <NumberInput
-                      label="Primary Genres"
-                      placeholder="Primary Genres"
-                      min={0}
-                      max={20}
-                      step={1}
-                      name={
-                        RecommendationSettingsFormName.QuantileRankingPrimaryGenresWeight
-                      }
-                      defaultValue={
-                        settings?.assessmentSettings?.quantileRanking
-                          ?.primaryGenresWeight ??
-                        defaultQuantileRankAlbumAssessmentSettings.getPrimaryGenreWeight()
-                      }
-                    />
-                  </Grid.Col>
-                  <Grid.Col md={6}>
-                    <NumberInput
-                      label="Secondary Genres"
-                      placeholder="Secondary Genres"
-                      min={0}
-                      max={20}
-                      step={1}
-                      name={
-                        RecommendationSettingsFormName.QuantileRankingSecondaryGenresWeight
-                      }
-                      defaultValue={
-                        settings?.assessmentSettings?.quantileRanking
-                          ?.secondaryGenresWeight ??
-                        defaultQuantileRankAlbumAssessmentSettings.getSecondaryGenreWeight()
-                      }
-                    />
-                  </Grid.Col>
-                  <Grid.Col md={6}>
-                    <NumberInput
-                      label="Descriptor"
-                      placeholder="Descriptor"
-                      min={0}
-                      max={20}
-                      step={1}
-                      name={
-                        RecommendationSettingsFormName.QuantileRankingDescriptorWeight
-                      }
-                      defaultValue={
-                        settings?.assessmentSettings?.quantileRanking
-                          ?.descriptorWeight ??
-                        defaultQuantileRankAlbumAssessmentSettings.getDescriptorWeight()
-                      }
-                    />
-                  </Grid.Col>
-                  <Grid.Col md={6}>
-                    <NumberInput
-                      label="Rating"
-                      placeholder="Rating"
-                      min={0}
-                      max={20}
-                      step={1}
-                      name={
-                        RecommendationSettingsFormName.QuantileRankingRatingWeight
-                      }
-                      defaultValue={
-                        settings?.assessmentSettings?.quantileRanking
-                          ?.ratingWeight ??
-                        defaultQuantileRankAlbumAssessmentSettings.getRatingWeight()
-                      }
-                    />
-                  </Grid.Col>
-                  <Grid.Col md={6}>
-                    <NumberInput
-                      label="Rating Count"
-                      placeholder="Rating Count"
-                      min={0}
-                      max={20}
-                      step={1}
-                      name={
-                        RecommendationSettingsFormName.QuantileRankingRatingCountWeight
-                      }
-                      defaultValue={
-                        settings?.assessmentSettings?.quantileRanking
-                          ?.ratingCountWeight ??
-                        defaultQuantileRankAlbumAssessmentSettings.getRatingCountWeight()
-                      }
-                    />
-                  </Grid.Col>
-                  <Grid.Col md={6}>
-                    <NumberInput
-                      label="Descriptor Count"
-                      placeholder="Descriptor Count"
-                      min={0}
-                      max={20}
-                      step={1}
-                      name={
-                        RecommendationSettingsFormName.QuantileRankingDescriptorCountWeight
-                      }
-                      defaultValue={
-                        settings?.assessmentSettings?.quantileRanking
-                          ?.descriptorCountWeight ??
-                        defaultQuantileRankAlbumAssessmentSettings.getDescriptorCountWeight()
-                      }
-                    />
-                  </Grid.Col>
-                  <Grid.Col md={6}>
-                    <NumberInput
-                      label="Credits"
-                      placeholder="Credits"
-                      min={0}
-                      max={20}
-                      step={1}
-                      name={
-                        RecommendationSettingsFormName.QuantileRankingCreditTagWeight
-                      }
-                      defaultValue={
-                        settings?.assessmentSettings?.quantileRanking
-                          ?.creditTagWeight ??
-                        defaultQuantileRankAlbumAssessmentSettings.getCreditTagWeight()
-                      }
-                    />
-                  </Grid.Col>
-                </Grid>
-              </Stack>
+              {currentMethod === "quantile-ranking" && (
+                <QuantileRankSettings
+                  settings={settings}
+                  defaultQuantileRankAlbumAssessmentSettings={
+                    defaultQuantileRankAlbumAssessmentSettings
+                  }
+                />
+              )}
+              {currentMethod === "embedding-similarity" && (
+                <EmbeddingSimilaritySettings
+                  settings={settings}
+                  embbedingKeys={embeddingKeys}
+                />
+              )}
             </CollapsibleSection>
           </Stack>
           <div>
