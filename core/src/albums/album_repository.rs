@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use derive_builder::Builder;
 use serde_derive::{Deserialize, Serialize};
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModelArtist {
   pub name: String,
@@ -159,6 +160,34 @@ pub struct AlbumSearchQuery {
   pub max_release_year: Option<u32>,
 }
 
+#[derive(Debug)]
+pub struct SimilarAlbumsQuery {
+  pub embedding: Vec<f32>,
+  pub embedding_key: String,
+  pub filters: AlbumSearchQuery,
+  pub limit: usize,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
+pub struct AlbumEmbedding {
+  pub file_name: FileName,
+  pub key: String,
+  pub embedding: Vec<f32>,
+}
+
+pub fn embedding_to_bytes(embedding: &Vec<f32>) -> Vec<u8> {
+  embedding
+    .iter()
+    .flat_map(|val| val.to_le_bytes().to_vec())
+    .collect()
+}
+
+impl AlbumEmbedding {
+  pub fn embedding_bytes(&self) -> Vec<u8> {
+    embedding_to_bytes(&self.embedding)
+  }
+}
+
 #[async_trait]
 pub trait AlbumRepository {
   async fn put(&self, album: AlbumReadModel) -> Result<()>;
@@ -170,6 +199,12 @@ pub trait AlbumRepository {
   async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>>;
   async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>>;
   async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>>;
+  async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<AlbumEmbedding>>;
+  async fn find_embedding(&self, file_name: &FileName, key: &str)
+    -> Result<Option<AlbumEmbedding>>;
+  async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()>;
+  async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()>;
+  async fn find_similar_albums(&self, query: &SimilarAlbumsQuery) -> Result<Vec<AlbumReadModel>>;
 
   async fn get(&self, file_name: &FileName) -> Result<AlbumReadModel> {
     let record = self.find(file_name).await?;

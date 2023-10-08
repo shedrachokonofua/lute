@@ -1,6 +1,7 @@
 use super::album_repository::{
-  AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack, AlbumRepository,
-  AlbumSearchQuery, GenreAggregate, ItemAndCount,
+  embedding_to_bytes, AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit,
+  AlbumReadModelTrack, AlbumRepository, AlbumSearchQuery, GenreAggregate, ItemAndCount,
+  SimilarAlbumsQuery,
 };
 use crate::{
   files::file_metadata::file_name::FileName,
@@ -13,8 +14,9 @@ use rustis::{
   bb8::Pool,
   client::PooledClientManager,
   commands::{
-    FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtReducer,
-    FtSearchOptions, GenericCommands, JsonCommands, JsonGetOptions, SearchCommands, SetCondition,
+    FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtFlatVectorFieldAttributes,
+    FtIndexDataType, FtReducer, FtSearchOptions, FtVectorDistanceMetric, FtVectorFieldAlgorithm,
+    FtVectorType, GenericCommands, JsonCommands, JsonGetOptions, SearchCommands, SetCondition,
   },
 };
 use serde_derive::{Deserialize, Serialize};
@@ -137,6 +139,39 @@ impl TryFrom<&Vec<(String, String)>> for ItemAndCount {
   }
 }
 
+fn get_tag_query<T: ToString>(tag: &str, items: &Vec<T>) -> String {
+  if !items.is_empty() {
+    format!(
+      "{}:{{{}}} ",
+      tag,
+      items
+        .iter()
+        .map(|item| escape_tag_value(item.to_string().as_str()))
+        .collect::<Vec<String>>()
+        .join("|")
+    )
+  } else {
+    String::from("")
+  }
+}
+
+fn get_min_num_query(tag: &str, min: Option<usize>) -> String {
+  if let Some(min) = min {
+    format!("{}:[{}, +inf] ", tag, min)
+  } else {
+    String::from("")
+  }
+}
+
+fn get_num_range_query(tag: &str, min: Option<u32>, max: Option<u32>) -> String {
+  match (min, max) {
+    (Some(min), Some(max)) => format!("{}:[{}, {}] ", tag, min, max),
+    (Some(min), None) => format!("{}:[{}, +inf] ", tag, min),
+    (None, Some(max)) => format!("{}:[-inf, {}] ", tag, max),
+    (None, None) => String::from(""),
+  }
+}
+
 impl AlbumSearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     let mut ft_search_query = String::from("");
@@ -183,41 +218,19 @@ impl AlbumSearchQuery {
   }
 }
 
+impl SimilarAlbumsQuery {
+  pub fn to_ft_search_query(&self) -> String {
+    format!(
+      "(@embedding_key:{} {})=>[KNN {} @embedding $BLOB as distance]",
+      self.embedding_key,
+      self.filters.to_ft_search_query(),
+      self.limit
+    )
+  }
+}
+
 pub struct RedisAlbumRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-}
-
-fn get_tag_query<T: ToString>(tag: &str, items: &Vec<T>) -> String {
-  if !items.is_empty() {
-    format!(
-      "{}:{{{}}} ",
-      tag,
-      items
-        .iter()
-        .map(|item| escape_tag_value(item.to_string().as_str()))
-        .collect::<Vec<String>>()
-        .join("|")
-    )
-  } else {
-    String::from("")
-  }
-}
-
-fn get_min_num_query(tag: &str, min: Option<usize>) -> String {
-  if let Some(min) = min {
-    format!("{}:[{}, +inf] ", tag, min)
-  } else {
-    String::from("")
-  }
-}
-
-fn get_num_range_query(tag: &str, min: Option<u32>, max: Option<u32>) -> String {
-  match (min, max) {
-    (Some(min), Some(max)) => format!("{}:[{}, {}] ", tag, min, max),
-    (Some(min), None) => format!("{}:[{}, +inf] ", tag, min),
-    (None, Some(max)) => format!("{}:[-inf, {}] ", tag, max),
-    (None, None) => String::from(""),
-  }
 }
 
 const NAMESPACE: &str = "album";
@@ -286,6 +299,18 @@ impl RedisAlbumRepository {
             FtFieldSchema::identifier("$.language_count")
               .as_attribute("language_count")
               .field_type(FtFieldType::Numeric),
+            FtFieldSchema::identifier("$.embeddings..key")
+              .as_attribute("embedding_key")
+              .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.embeddings..embedding")
+              .as_attribute("embedding")
+              .field_type(FtFieldType::Vector(Some(FtVectorFieldAlgorithm::Flat(
+                FtFlatVectorFieldAttributes::new(
+                  FtVectorType::Float32,
+                  1536,
+                  FtVectorDistanceMetric::Cosine,
+                ),
+              )))),
           ],
         )
         .await?;
@@ -301,8 +326,10 @@ impl RedisAlbumRepository {
 #[async_trait]
 impl AlbumRepository for RedisAlbumRepository {
   async fn put(&self, album: AlbumReadModel) -> Result<()> {
-    let connection = self.redis_connection_pool.get().await?;
-    connection
+    self
+      .redis_connection_pool
+      .get()
+      .await?
       .json_set(
         self.key(&album.file_name),
         "$",
@@ -515,5 +542,89 @@ impl AlbumRepository for RedisAlbumRepository {
       .collect::<Vec<ItemAndCount>>();
     aggregated_languages.sort_by(|a, b| b.count.cmp(&a.count));
     Ok(aggregated_languages)
+  }
+
+  async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()> {
+    self
+      .redis_connection_pool
+      .get()
+      .await?
+      .json_set(
+        self.key(&embedding.file_name),
+        format!("$.embeddings.{}", embedding.key),
+        serde_json::to_string(embedding)?,
+        SetCondition::default(),
+      )
+      .await?;
+    Ok(())
+  }
+
+  async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<AlbumEmbedding>> {
+    let result: Option<String> = self
+      .redis_connection_pool
+      .get()
+      .await?
+      .json_get(
+        self.key(file_name),
+        JsonGetOptions::default().path("$.embeddings.."),
+      )
+      .await?;
+    let embeddings = result
+      .map(|r| serde_json::from_str::<Vec<AlbumEmbedding>>(&r))
+      .transpose()?
+      .unwrap_or_default();
+    Ok(embeddings)
+  }
+
+  async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()> {
+    self
+      .redis_connection_pool
+      .get()
+      .await?
+      .json_del(self.key(file_name), format!("$.embeddings.{}", key))
+      .await?;
+    Ok(())
+  }
+
+  async fn find_embedding(
+    &self,
+    file_name: &FileName,
+    key: &str,
+  ) -> Result<Option<AlbumEmbedding>> {
+    let result: Option<String> = self
+      .redis_connection_pool
+      .get()
+      .await?
+      .json_get(
+        self.key(file_name),
+        JsonGetOptions::default().path(format!("$.embeddings.{}", key)),
+      )
+      .await?;
+    let embedding = result
+      .map(|r| serde_json::from_str::<AlbumEmbedding>(&r))
+      .transpose()?;
+    Ok(embedding)
+  }
+
+  #[instrument(skip(self))]
+  async fn find_similar_albums(&self, query: &SimilarAlbumsQuery) -> Result<Vec<AlbumReadModel>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection
+      .ft_search(
+        INDEX_NAME,
+        query.to_ft_search_query(),
+        FtSearchOptions::default().params(("BLOB", embedding_to_bytes(&query.embedding))),
+      )
+      .await?;
+    let albums = result
+      .results
+      .iter()
+      .filter_map(|row| {
+        RedisAlbumReadModel::try_from(&row.values)
+          .ok()
+          .map(|r| r.into())
+      })
+      .collect::<Vec<AlbumReadModel>>();
+    Ok(albums)
   }
 }
