@@ -607,7 +607,10 @@ impl AlbumRepository for RedisAlbumRepository {
   }
 
   #[instrument(skip(self))]
-  async fn find_similar_albums(&self, query: &SimilarAlbumsQuery) -> Result<Vec<AlbumReadModel>> {
+  async fn find_similar_albums(
+    &self,
+    query: &SimilarAlbumsQuery,
+  ) -> Result<Vec<(AlbumReadModel, f32)>> {
     let connection = self.redis_connection_pool.get().await?;
     let result = connection
       .ft_search(
@@ -620,11 +623,22 @@ impl AlbumRepository for RedisAlbumRepository {
       .results
       .iter()
       .filter_map(|row| {
-        RedisAlbumReadModel::try_from(&row.values)
-          .ok()
-          .map(|r| r.into())
+        let json = row
+          .values
+          .get(0)
+          .map(|(_, json)| json)
+          .ok_or(anyhow!("invalid AlbumReadModel: missing json"))
+          .ok()?;
+        let distance: f32 = serde_json::from_str::<HashMap<String, String>>(json)
+          .ok()?
+          .get("distance")?
+          .parse()
+          .ok()?;
+        let redis_album_read_model = serde_json::from_str::<RedisAlbumReadModel>(json).ok()?;
+        let album_read_model: AlbumReadModel = redis_album_read_model.into();
+        Some((album_read_model, distance))
       })
-      .collect::<Vec<AlbumReadModel>>();
+      .collect::<Vec<(AlbumReadModel, f32)>>();
     Ok(albums)
   }
 }

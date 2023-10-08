@@ -2,8 +2,10 @@ use crate::{files::file_metadata::file_name::FileName, proto};
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use data_encoding::BASE64;
 use derive_builder::Builder;
 use serde_derive::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModelArtist {
@@ -98,6 +100,11 @@ impl AlbumReadModel {
         })
       })
       .collect::<Vec<String>>()
+  }
+
+  pub fn to_sha256(&self) -> Result<String> {
+    let hash = Sha256::digest(serde_json::to_string(&self)?.as_bytes());
+    Ok(BASE64.encode(&hash).to_string())
   }
 }
 
@@ -204,7 +211,10 @@ pub trait AlbumRepository {
     -> Result<Option<AlbumEmbedding>>;
   async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()>;
   async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()>;
-  async fn find_similar_albums(&self, query: &SimilarAlbumsQuery) -> Result<Vec<AlbumReadModel>>;
+  async fn find_similar_albums(
+    &self,
+    query: &SimilarAlbumsQuery,
+  ) -> Result<Vec<(AlbumReadModel, f32)>>;
 
   async fn get(&self, file_name: &FileName) -> Result<AlbumReadModel> {
     let record = self.find(file_name).await?;

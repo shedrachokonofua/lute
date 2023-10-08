@@ -48,6 +48,7 @@ serde = "1.0.163"
 serde_derive = "1.0.163"
 serde_json = "1.0.96"
 serde_urlencoded = "0.7.1"
+sha2 = "0.10.8"
 tl = "0.7.7"
 tokio = { version = "1.28.1", features = [
   "rt-multi-thread",
