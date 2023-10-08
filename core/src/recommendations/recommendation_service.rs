@@ -1,4 +1,5 @@
 use super::{
+  embedding_similarity::embedding_similarity_interactor::EmbeddingSimilarityAlbumAssessmentSettings,
   quantile_ranking::quantile_rank_interactor::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAlbumAssessmentSettingsBuilder,
   },
@@ -82,6 +83,16 @@ impl TryFrom<proto::QuantileRankAlbumAssessmentSettings> for QuantileRankAlbumAs
   }
 }
 
+impl From<proto::EmbeddingSimilarityAlbumAssessmentSettings>
+  for EmbeddingSimilarityAlbumAssessmentSettings
+{
+  fn from(value: proto::EmbeddingSimilarityAlbumAssessmentSettings) -> Self {
+    Self {
+      embedding_key: value.embedding_key,
+    }
+  }
+}
+
 impl TryFrom<proto::AlbumAssessmentSettings> for AlbumAssessmentSettings {
   type Error = Error;
 
@@ -90,6 +101,9 @@ impl TryFrom<proto::AlbumAssessmentSettings> for AlbumAssessmentSettings {
       Some(proto::album_assessment_settings::Settings::QuantileRankSettings(settings)) => Ok(
         Self::QuantileRank(QuantileRankAlbumAssessmentSettings::try_from(settings)?),
       ),
+      Some(proto::album_assessment_settings::Settings::EmbeddingSimilaritySettings(settings)) => {
+        Ok(Self::EmbeddingSimilarity(settings.into()))
+      }
       None => Err(anyhow::anyhow!("Settings not provided")),
     }
   }

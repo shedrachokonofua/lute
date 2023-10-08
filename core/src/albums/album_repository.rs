@@ -150,6 +150,7 @@ impl From<&ItemAndCount> for proto::LanguageAggregate {
 #[derive(Default, Builder, Debug)]
 #[builder(setter(into), default)]
 pub struct AlbumSearchQuery {
+  pub include_file_names: Vec<FileName>,
   pub exclude_file_names: Vec<FileName>,
   pub include_artists: Vec<String>,
   pub exclude_artists: Vec<String>,
@@ -185,7 +186,7 @@ pub struct AlbumEmbedding {
 pub fn embedding_to_bytes(embedding: &Vec<f32>) -> Vec<u8> {
   embedding
     .iter()
-    .flat_map(|val| val.to_le_bytes().to_vec())
+    .flat_map(|f| f.to_ne_bytes().to_vec())
     .collect()
 }
 
@@ -207,6 +208,11 @@ pub trait AlbumRepository {
   async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>>;
   async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>>;
   async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<AlbumEmbedding>>;
+  async fn find_many_embeddings(
+    &self,
+    file_name: Vec<FileName>,
+    key: &str,
+  ) -> Result<Vec<AlbumEmbedding>>;
   async fn find_embedding(&self, file_name: &FileName, key: &str)
     -> Result<Option<AlbumEmbedding>>;
   async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()>;
@@ -215,6 +221,7 @@ pub trait AlbumRepository {
     &self,
     query: &SimilarAlbumsQuery,
   ) -> Result<Vec<(AlbumReadModel, f32)>>;
+  async fn get_embedding_keys(&self) -> Result<Vec<String>>;
 
   async fn get(&self, file_name: &FileName) -> Result<AlbumReadModel> {
     let record = self.find(file_name).await?;

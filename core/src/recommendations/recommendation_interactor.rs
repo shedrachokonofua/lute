@@ -1,4 +1,8 @@
 use super::{
+  embedding_similarity::embedding_similarity_interactor::{
+    EmbeddingSimilarityAlbumAssessmentSettings, EmbeddingSimilarityAssessableAlbum,
+    EmbeddingSimilarityInteractor,
+  },
   quantile_ranking::quantile_rank_interactor::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAssessableAlbum, QuantileRankInteractor,
   },
@@ -19,10 +23,12 @@ use std::sync::Arc;
 
 pub enum AlbumAssessmentSettings {
   QuantileRank(QuantileRankAlbumAssessmentSettings),
+  EmbeddingSimilarity(EmbeddingSimilarityAlbumAssessmentSettings),
 }
 
 pub struct RecommendationInteractor {
   quantile_rank_interactor: QuantileRankInteractor,
+  embedding_similarity_interactor: EmbeddingSimilarityInteractor,
   album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   profile_interactor: ProfileInteractor,
 }
@@ -36,6 +42,9 @@ impl RecommendationInteractor {
   ) -> Self {
     Self {
       quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(
+        &album_read_model_repository,
+      )),
+      embedding_similarity_interactor: EmbeddingSimilarityInteractor::new(Arc::clone(
         &album_read_model_repository,
       )),
       album_read_model_repository: Arc::clone(&album_read_model_repository),
@@ -75,6 +84,17 @@ impl RecommendationInteractor {
           )
           .await
       }
+      AlbumAssessmentSettings::EmbeddingSimilarity(settings) => {
+        self
+          .embedding_similarity_interactor
+          .assess_album(
+            &profile,
+            &albums,
+            &EmbeddingSimilarityAssessableAlbum::try_from(album)?,
+            settings,
+          )
+          .await
+      }
     }
   }
 
@@ -94,6 +114,12 @@ impl RecommendationInteractor {
       AlbumAssessmentSettings::QuantileRank(settings) => {
         self
           .quantile_rank_interactor
+          .recommend_albums(&profile, &albums, settings, recommendation_settings)
+          .await
+      }
+      AlbumAssessmentSettings::EmbeddingSimilarity(settings) => {
+        self
+          .embedding_similarity_interactor
           .recommend_albums(&profile, &albums, settings, recommendation_settings)
           .await
       }

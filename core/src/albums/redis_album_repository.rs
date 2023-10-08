@@ -192,6 +192,7 @@ impl AlbumSearchQuery {
       self.min_release_year,
       self.max_release_year,
     ));
+    ft_search_query.push_str(&get_tag_query("@file_name", &self.include_file_names));
     ft_search_query.push_str(&get_tag_query("@artist_file_name", &self.include_artists));
     ft_search_query.push_str(&get_tag_query(
       "@primary_genre",
@@ -221,8 +222,8 @@ impl AlbumSearchQuery {
 impl SimilarAlbumsQuery {
   pub fn to_ft_search_query(&self) -> String {
     format!(
-      "(@embedding_key:{} {})=>[KNN {} @embedding $BLOB as distance]",
-      self.embedding_key,
+      "({} {})=>[KNN {} @embedding $BLOB as distance]",
+      get_tag_query("@embedding_key", &vec![self.embedding_key.clone()]),
       self.filters.to_ft_search_query(),
       self.limit
     )
@@ -599,6 +600,30 @@ impl AlbumRepository for RedisAlbumRepository {
     Ok(embeddings)
   }
 
+  async fn find_many_embeddings(
+    &self,
+    file_names: Vec<FileName>,
+    key: &str,
+  ) -> Result<Vec<AlbumEmbedding>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let keys: Vec<String> = file_names
+      .iter()
+      .map(|file_name| self.key(file_name))
+      .collect();
+    let result: Vec<String> = connection
+      .json_mget(keys, format!("$.embeddings.{}", key))
+      .await?;
+    let embeddings = result
+      .into_iter()
+      .filter_map(|r| {
+        serde_json::from_str::<Vec<AlbumEmbedding>>(&r)
+          .ok()
+          .and_then(|r| r.into_iter().next())
+      })
+      .collect::<Vec<AlbumEmbedding>>();
+    Ok(embeddings)
+  }
+
   async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()> {
     self
       .redis_connection_pool
@@ -639,29 +664,33 @@ impl AlbumRepository for RedisAlbumRepository {
       .ft_search(
         INDEX_NAME,
         query.to_ft_search_query(),
-        FtSearchOptions::default().params(("BLOB", embedding_to_bytes(&query.embedding))),
+        FtSearchOptions::default()
+          .params(("BLOB", embedding_to_bytes(&query.embedding)))
+          .dialect(2),
       )
       .await?;
     let albums = result
       .results
       .iter()
       .filter_map(|row| {
-        let json = row
+        let distance = row
           .values
           .get(0)
-          .map(|(_, json)| json)
-          .ok_or(anyhow!("invalid AlbumReadModel: missing json"))
-          .ok()?;
-        let distance: f32 = serde_json::from_str::<HashMap<String, String>>(json)
-          .ok()?
-          .get("distance")?
-          .parse()
-          .ok()?;
-        let redis_album_read_model = serde_json::from_str::<RedisAlbumReadModel>(json).ok()?;
+          .map(|(_, distance)| distance.parse::<f32>().ok())??;
+        let redis_album_read_model = row
+          .values
+          .get(1)
+          .and_then(|(_, json)| serde_json::from_str::<RedisAlbumReadModel>(json).ok())?;
         let album_read_model: AlbumReadModel = redis_album_read_model.into();
         Some((album_read_model, distance))
       })
       .collect::<Vec<(AlbumReadModel, f32)>>();
     Ok(albums)
+  }
+
+  async fn get_embedding_keys(&self) -> Result<Vec<String>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: Vec<String> = connection.ft_tagvals(INDEX_NAME, "embedding_key").await?;
+    Ok(result)
   }
 }

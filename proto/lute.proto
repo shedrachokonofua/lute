@@ -153,6 +153,10 @@ message GetAggregatedLanguagesReply {
   repeated LanguageAggregate languages = 1;
 }
 
+message GetEmbeddingKeysReply {
+  repeated string keys = 1;
+}
+
 service AlbumService {
   rpc GetAlbum(GetAlbumRequest) returns (GetAlbumReply) {}
   rpc GetAggregatedGenres(google.protobuf.Empty)
@@ -161,6 +165,7 @@ service AlbumService {
       returns (GetAggregatedDescriptorsReply) {}
   rpc GetAggregatedLanguages(google.protobuf.Empty)
       returns (GetAggregatedLanguagesReply) {}
+  rpc GetEmbeddingKeys(google.protobuf.Empty) returns (GetEmbeddingKeysReply) {}
 }
 
 message IsAuthorizedReply { bool authorized = 1; }
@@ -474,6 +479,10 @@ message QuantileRankAlbumAssessmentSettings {
   optional float novelty_score = 8;
 }
 
+message EmbeddingSimilarityAlbumAssessmentSettings {
+  string embedding_key = 1;
+}
+
 message AlbumAssessment {
   float score = 1;
   map<string, string> metadata = 2;
@@ -483,7 +492,8 @@ message AssessAlbumReply { AlbumAssessment assessment = 1; }
 
 message AlbumAssessmentSettings {
   oneof settings {
-    QuantileRankAlbumAssessmentSettings quantile_rank_settings = 3;
+    QuantileRankAlbumAssessmentSettings quantile_rank_settings = 1;
+    EmbeddingSimilarityAlbumAssessmentSettings embedding_similarity_settings = 2;
   }
 }
 

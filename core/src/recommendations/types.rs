@@ -1,4 +1,7 @@
-use crate::{albums::album_repository::AlbumReadModel, profile::profile::Profile};
+use crate::{
+  albums::album_repository::{AlbumReadModel, AlbumSearchQuery, AlbumSearchQueryBuilder},
+  profile::profile::Profile,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::{cmp::Ordering, collections::HashMap};
@@ -31,6 +34,38 @@ impl Default for AlbumRecommendationSettings {
       max_release_year: None,
       exclude_known_artists: Some(true),
     }
+  }
+}
+impl AlbumRecommendationSettings {
+  pub fn to_search_query(
+    &self,
+    profile: &Profile,
+    profile_albums: &[AlbumReadModel],
+  ) -> Result<AlbumSearchQuery> {
+    let mut search_query_builder = AlbumSearchQueryBuilder::default();
+    search_query_builder
+      .exclude_file_names(profile.albums.keys().cloned().collect::<Vec<_>>())
+      .include_primary_genres(self.include_primary_genres.clone())
+      .include_secondary_genres(self.include_secondary_genres.clone())
+      .include_languages(self.include_languages.clone())
+      .exclude_primary_genres(self.exclude_primary_genres.clone())
+      .exclude_secondary_genres(self.exclude_secondary_genres.clone())
+      .exclude_languages(self.exclude_languages.clone())
+      .min_release_year(self.min_release_year.clone())
+      .max_release_year(self.max_release_year.clone())
+      .min_primary_genre_count(1)
+      .min_secondary_genre_count(1)
+      .min_descriptor_count(5);
+    if self.exclude_known_artists.unwrap_or(false) {
+      search_query_builder.exclude_artists(
+        profile_albums
+          .iter()
+          .flat_map(|album| album.artists.clone())
+          .map(|artist| artist.file_name.to_string())
+          .collect::<Vec<_>>(),
+      );
+    }
+    Ok(search_query_builder.build()?)
   }
 }
 

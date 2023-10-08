@@ -37,6 +37,20 @@ impl proto::AlbumService for AlbumService {
     Ok(Response::new(reply))
   }
 
+  async fn get_embedding_keys(
+    &self,
+    _request: Request<()>,
+  ) -> Result<Response<proto::GetEmbeddingKeysReply>, Status> {
+    let reply = proto::GetEmbeddingKeysReply {
+      keys: self
+        .album_read_model_repository
+        .get_embedding_keys()
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?,
+    };
+    Ok(Response::new(reply))
+  }
+
   async fn get_aggregated_genres(
     &self,
     _request: Request<()>,
