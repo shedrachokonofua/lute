@@ -84,6 +84,11 @@ pub struct ParserSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct OpenAISettings {
+  pub api_key: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Settings {
   pub crawler: CrawlerSettings,
   pub file: FileSettings,
@@ -93,7 +98,7 @@ pub struct Settings {
   pub spotify: SpotifySettings,
   pub tracing: TracingSettings,
   pub parser: ParserSettings,
-  pub enable_replication_stream: bool,
+  pub openai: Option<OpenAISettings>,
 }
 
 impl Settings {
@@ -124,7 +129,6 @@ impl Settings {
       .set_default("tracing.service_name", "core")?
       .set_default("tracing.service_namespace", "lute")?
       .set_default("tracing.resource_labels", HashMap::<String, String>::new())?
-      .set_default("enable_replication_stream", false)?
       .set_default("sqlite.dir", env!("CARGO_MANIFEST_DIR"))?
       .build()?
       .try_deserialize()

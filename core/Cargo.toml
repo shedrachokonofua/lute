@@ -5,11 +5,12 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.71"
+async-openai = "0.14.3"
 async-stream = "0.3.5"
 async-trait = "0.1.72"
 chrono = { version = "0.4.24", features = ["serde"] }
 config = "0.13.3"
-console-subscriber = "0.1.9"
+console-subscriber = "0.2.0"
 data-encoding = "2.4.0"
 derive_builder = "0.12.0"
 dotenv = "0.15.0"
@@ -22,7 +23,7 @@ lazy_static = "1.4.0"
 num-traits = "0.2.16"
 opentelemetry = { version = "0.20.0" }
 opentelemetry-otlp = { version = "0.13.0" }
-ordered-float = "3.7.0"
+ordered-float = { version = "4.1.0" }
 prost = "0.12.0"
 prost-build = "0.12.0"
 r2d2 = "0.8.10"

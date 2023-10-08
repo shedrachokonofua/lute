@@ -321,6 +321,27 @@ impl RedisAlbumRepository {
   pub fn key(&self, file_name: &FileName) -> String {
     format!("{}:{}", NAMESPACE, file_name.to_string())
   }
+
+  pub async fn ensure_embeddings_field(&self, file_name: &FileName) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: Option<String> = connection
+      .json_get(
+        self.key(file_name),
+        JsonGetOptions::default().path("$.embeddings"),
+      )
+      .await?;
+    if result.is_none() || result.is_some_and(|r| r == "[]") {
+      connection
+        .json_set(
+          self.key(file_name),
+          "$.embeddings",
+          "{}",
+          SetCondition::default(),
+        )
+        .await?;
+    }
+    Ok(())
+  }
 }
 
 #[async_trait]
@@ -544,7 +565,9 @@ impl AlbumRepository for RedisAlbumRepository {
     Ok(aggregated_languages)
   }
 
+  #[instrument(skip(self))]
   async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()> {
+    self.ensure_embeddings_field(&embedding.file_name).await?;
     self
       .redis_connection_pool
       .get()

@@ -1,8 +1,9 @@
 use super::{
   album_repository::{
-    AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack,
-    AlbumRepository,
+    AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit,
+    AlbumReadModelTrack, AlbumRepository,
   },
+  embedding_provider::{AlbumEmbeddingProvider, OpenAIAlbumEmbeddingProvider},
   redis_album_repository::RedisAlbumRepository,
 };
 use crate::{
@@ -170,6 +171,65 @@ async fn crawl_artist_albums(
   Ok(())
 }
 
+async fn update_album_embedding(
+  provider: Arc<dyn AlbumEmbeddingProvider + Send + Sync + 'static>,
+  context: SubscriberContext,
+) -> Result<()> {
+  if let Event::FileParsed {
+    file_id: _,
+    file_name,
+    data: ParsedFileData::Album(parsed_album),
+  } = context.payload.event
+  {
+    let album_read_model_repository =
+      RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
+    let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
+    let embeddings = provider.generate(&album_read_model).await?;
+    for (key, embedding) in embeddings {
+      album_read_model_repository
+        .put_embedding(&AlbumEmbedding {
+          file_name: file_name.clone(),
+          key: key.to_string(),
+          embedding,
+        })
+        .await?;
+    }
+  }
+  Ok(())
+}
+
+fn build_embedding_provider_event_subscribers(
+  redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  settings: Arc<Settings>,
+) -> Result<Vec<EventSubscriber>> {
+  let mut providers = vec![];
+  if settings.openai.is_some() {
+    providers.push(Arc::new(OpenAIAlbumEmbeddingProvider::new(Arc::clone(
+      &settings,
+    ))?));
+  }
+  let subscribers = providers
+    .into_iter()
+    .filter_map(|provider| {
+      EventSubscriberBuilder::default()
+        .id(format!("update_album_embedding:{}", provider.name()))
+        .stream(Stream::Parser)
+        .batch_size(10)
+        .redis_connection_pool(Arc::clone(&redis_connection_pool))
+        .sqlite_connection(Arc::clone(&sqlite_connection))
+        .settings(Arc::clone(&settings))
+        .handle(Arc::new(move |context| {
+          let provider = Arc::clone(&provider);
+          Box::pin(async move { update_album_embedding(provider, context).await })
+        }))
+        .build()
+        .ok()
+    })
+    .collect::<Vec<EventSubscriber>>();
+  Ok(subscribers)
+}
+
 pub fn build_album_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
@@ -178,7 +238,7 @@ pub fn build_album_event_subscribers(
 ) -> Result<Vec<EventSubscriber>> {
   let album_crawler_interactor = Arc::clone(&crawler_interactor);
   let artist_crawler_interactor = Arc::clone(&crawler_interactor);
-  Ok(vec![
+  let mut subscribers = vec![
     EventSubscriberBuilder::default()
       .id("update_album_read_models".to_string())
       .stream(Stream::Parser)
@@ -207,7 +267,7 @@ pub fn build_album_event_subscribers(
       .generate_ordered_processing_group_id(Some(Arc::new(|(_, payload)| match &payload.event {
         Event::FileDeleted { file_name, .. } => {
           match file_name.page_type() {
-            PageType::Album => Some(file_name.to_string()), // Ensure potential duplicates are processed sequentially
+            PageType::Album => Some(file_name.to_string()), // Ensure duplicates are processed sequentially
             _ => None,
           }
         }
@@ -241,5 +301,11 @@ pub fn build_album_event_subscribers(
         Box::pin(async move { crawl_artist_albums(context, crawler_interactor).await })
       }))
       .build()?,
-  ])
+  ];
+  subscribers.append(&mut build_embedding_provider_event_subscribers(
+    Arc::clone(&redis_connection_pool),
+    Arc::clone(&sqlite_connection),
+    Arc::clone(&settings),
+  )?);
+  Ok(subscribers)
 }

@@ -34,6 +34,9 @@ pub struct EventSubscriber {
     default = "self.get_default_event_subscriber_repository()?"
   )]
   event_subscriber_repository: EventSubscriberRepository,
+  /**
+   * A function that returns a processing group ID for the given event. Events with the same processing group ID will be processed in order.
+   */
   #[builder(default = "self.generate_default_ordered_processing_group_id()")]
   generate_ordered_processing_group_id:
     Option<Arc<dyn Fn((&String, &EventPayload)) -> Option<String> + Send + Sync>>,
