@@ -1,5 +1,8 @@
 use super::{file_interactor::FileInteractor, file_metadata::file_name::FileName};
-use crate::proto::{self, IsFileStaleReply, IsFileStaleRequest, PutFileReply, PutFileRequest};
+use crate::proto::{
+  self, IsFileStaleReply, IsFileStaleRequest, IsSupportedFileNameReply, IsSupportedFileNameRequest,
+  PutFileReply, PutFileRequest,
+};
 use anyhow::Result;
 use tonic::{Request, Response, Status};
 use tracing::error;
@@ -10,6 +13,17 @@ pub struct FileService {
 
 #[tonic::async_trait]
 impl proto::FileService for FileService {
+  async fn is_supported_file_name(
+    &self,
+    request: Request<IsSupportedFileNameRequest>,
+  ) -> Result<Response<IsSupportedFileNameReply>, Status> {
+    Ok(Response::new(IsSupportedFileNameReply {
+      supported: FileName::try_from(request.into_inner().name)
+        .map(|_| true)
+        .unwrap_or(false),
+    }))
+  }
+
   async fn is_file_stale(
     &self,
     request: Request<IsFileStaleRequest>,
