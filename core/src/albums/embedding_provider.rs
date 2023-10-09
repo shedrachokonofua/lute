@@ -27,6 +27,20 @@ impl OpenAIAlbumEmbeddingProvider {
       None => Err(anyhow::anyhow!("OpenAI settings not found")),
     }
   }
+
+  fn get_input(&self, album: &AlbumReadModel) -> String {
+    let mut corpus = vec![];
+    corpus.extend(album.artists.clone().into_iter().map(|artist| artist.name));
+    corpus.extend(album.primary_genres.clone());
+    corpus.extend(album.secondary_genres.clone());
+    corpus.extend(album.descriptors.clone());
+    corpus.extend(album.languages.clone());
+    if let Some(release_date) = album.release_date {
+      corpus.push(format!("Released: {}", release_date));
+    }
+    corpus.extend(album.credit_tags());
+    corpus.join(", ")
+  }
 }
 
 #[async_trait]
@@ -39,7 +53,7 @@ impl AlbumEmbeddingProvider for OpenAIAlbumEmbeddingProvider {
   async fn generate(&self, album: &AlbumReadModel) -> Result<Vec<(&str, Vec<f32>)>> {
     let request = CreateEmbeddingRequestArgs::default()
       .model("text-embedding-ada-002")
-      .input([serde_json::to_string(album)?])
+      .input([self.get_input(album)])
       .build()?;
     let mut response = self.client.embeddings().create(request).await?;
     let mut result = Vec::new();
