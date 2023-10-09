@@ -215,7 +215,7 @@ fn build_embedding_provider_event_subscribers(
       EventSubscriberBuilder::default()
         .id(format!("update_album_embedding:{}", provider.name()))
         .stream(Stream::Parser)
-        .batch_size(10)
+        .batch_size(25)
         .redis_connection_pool(Arc::clone(&redis_connection_pool))
         .sqlite_connection(Arc::clone(&sqlite_connection))
         .settings(Arc::clone(&settings))
