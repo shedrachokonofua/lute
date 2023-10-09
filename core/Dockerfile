@@ -1,4 +1,4 @@
-FROM rust:1.67 as builder
+FROM rust:1.73 as builder
 WORKDIR /usr/src/app
 
 # Install protobuf compiler
