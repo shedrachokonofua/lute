@@ -6,6 +6,9 @@
     "service_worker": "src/background.ts",
     "type": "module"
   },
+  "action": {
+    "default_popup": "src/index.html"
+  },
   "permissions": ["pageCapture", "storage", "tabs", "scripting"],
   "host_permissions": ["http://*/*", "https://*/*"]
 }

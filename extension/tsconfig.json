@@ -1,6 +1,12 @@
 {
   "compilerOptions": {
     "lib": ["es2020", "WebWorker", "DOM"],
-    "types": ["chrome"]
-  }
+    "types": ["chrome"],
+    "jsx": "react-jsx",
+    "experimentalDecorators": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+  },
+  "include": ["src/**/*"],
 }
