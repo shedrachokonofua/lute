@@ -30,15 +30,17 @@ impl OpenAIAlbumEmbeddingProvider {
 
   fn get_input(&self, album: &AlbumReadModel) -> String {
     let mut corpus = vec![];
+    corpus.push(album.rating.to_string());
+    corpus.push(album.rating_count.to_string());
+    if let Some(release_date) = album.release_date {
+      corpus.push(release_date.to_string());
+    }
     corpus.extend(album.artists.clone().into_iter().map(|artist| artist.name));
     corpus.extend(album.primary_genres.clone());
     corpus.extend(album.secondary_genres.clone());
     corpus.extend(album.descriptors.clone());
     corpus.extend(album.languages.clone());
-    if let Some(release_date) = album.release_date {
-      corpus.push(format!("Released: {}", release_date));
-    }
-    corpus.extend(album.credit_tags());
+    corpus.extend(album.credits.clone().into_iter().map(|c| c.artist.name));
     corpus.join(", ")
   }
 }
