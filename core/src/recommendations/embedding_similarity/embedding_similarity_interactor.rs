@@ -51,7 +51,16 @@ impl EmbeddingSimilarityInteractor {
     Ok(average_embedding(
       profile_album_embeddings
         .iter()
-        .map(|embedding| &embedding.embedding)
+        .map(|embedding| {
+          (
+            &embedding.embedding,
+            profile
+              .albums
+              .get(&embedding.file_name)
+              .unwrap_or(&1)
+              .to_owned(),
+          )
+        })
         .collect(),
     ))
   }

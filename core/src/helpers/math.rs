@@ -35,12 +35,15 @@ pub fn default_if_zero<T: Num + FloatCore>(value: T, default: T) -> T {
   }
 }
 
-pub fn average_embedding(embeddings: Vec<&Vec<f32>>) -> Vec<f32> {
-  let len = embeddings.len();
-  let mut average_embedding = vec![0.0; embeddings[0].len()];
-  for embedding in embeddings {
+pub fn average_embedding(embeddings: Vec<(&Vec<f32>, u32)>) -> Vec<f32> {
+  let mut len = 0;
+  let mut average_embedding = vec![0.0; embeddings[0].0.len()];
+  for (embedding, weight) in embeddings {
     for (i, value) in embedding.iter().enumerate() {
-      average_embedding[i] += value;
+      for _ in 0..weight {
+        average_embedding[i] += value;
+      }
+      len += weight;
     }
   }
 
