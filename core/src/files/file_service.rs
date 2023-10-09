@@ -1,6 +1,6 @@
 use super::{file_interactor::FileInteractor, file_metadata::file_name::FileName};
 use crate::proto::{
-  self, IsFileStaleReply, IsFileStaleRequest, IsSupportedFileNameReply, IsSupportedFileNameRequest,
+  self, GetFilePageTypeReply, GetFilePageTypeRequest, IsFileStaleReply, IsFileStaleRequest,
   PutFileReply, PutFileRequest,
 };
 use anyhow::Result;
@@ -13,14 +13,15 @@ pub struct FileService {
 
 #[tonic::async_trait]
 impl proto::FileService for FileService {
-  async fn is_supported_file_name(
+  async fn get_file_page_type(
     &self,
-    request: Request<IsSupportedFileNameRequest>,
-  ) -> Result<Response<IsSupportedFileNameReply>, Status> {
-    Ok(Response::new(IsSupportedFileNameReply {
-      supported: FileName::try_from(request.into_inner().name)
-        .map(|_| true)
-        .unwrap_or(false),
+    request: Request<GetFilePageTypeRequest>,
+  ) -> Result<Response<GetFilePageTypeReply>, Status> {
+    Ok(Response::new(GetFilePageTypeReply {
+      page_type: FileName::try_from(request.into_inner().name)
+        .map(|file_name| file_name.page_type().into())
+        .map(|page_type: proto::PageType| page_type.into())
+        .map_err(|e| Status::invalid_argument(e.to_string()))?,
     }))
   }
 

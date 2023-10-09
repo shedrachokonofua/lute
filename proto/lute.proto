@@ -30,13 +30,14 @@ message IsFileStaleReply { bool stale = 1; }
 
 message DeleteFileRequest { string name = 1; }
 
-message IsSupportedFileNameRequest { string name = 1; }
+message GetFilePageTypeRequest { string name = 1; }
 
-message IsSupportedFileNameReply { bool supported = 1; }
+message GetFilePageTypeReply {
+  PageType page_type = 1;
+}
 
 service FileService {
-  rpc IsSupportedFileName(IsSupportedFileNameRequest)
-      returns (IsSupportedFileNameReply) {}
+  rpc GetFilePageType(GetFilePageTypeRequest) returns (GetFilePageTypeReply) {}
   rpc IsFileStale(IsFileStaleRequest) returns (IsFileStaleReply) {}
   rpc PutFile(PutFileRequest) returns (PutFileReply) {}
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}

@@ -1,5 +1,5 @@
 import "./polyfill";
-import { putFile, isSupportedFileName } from "./core";
+import { putFile, getFilePageType } from "./core";
 
 const isRymTab = (tab: chrome.tabs.Tab) => {
   return tab.url?.startsWith("https://rateyourmusic.com/");
@@ -27,10 +27,14 @@ export const getTabContent = async (tab: chrome.tabs.Tab) => {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const throwIfFileIsNotSupported = async (fileName: string) => {
-  if (!(await isSupportedFileName(fileName))) {
-    throw new Error(`File "${fileName}" is not supported`);
-  }
+const pageTypeCache = new Map<string, Number>();
+
+const loadFilePageType = async (fileName: string) => {
+  if (pageTypeCache.has(fileName)) return pageTypeCache.get(fileName);
+  const pageType = await getFilePageType(fileName);
+  pageTypeCache.set(fileName, pageType);
+  console.log(`Loaded page type for ${fileName}: ${pageType}`);
+  return pageType;
 };
 
 (async () => {
@@ -39,11 +43,11 @@ const throwIfFileIsNotSupported = async (fileName: string) => {
     const fileName = getFileName(tab);
     try {
       await Promise.all([
-        throwIfFileIsNotSupported(fileName),
+        loadFilePageType(fileName),
         delay(750), // wait for the page to be fully loaded
       ]);
     } catch (e) {
-      console.log(e.message);
+      console.log(`Unsupported page: ${fileName}`);
       return;
     }
     const content = await getTabContent(tab);

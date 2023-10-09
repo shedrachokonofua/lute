@@ -1,3 +1,4 @@
+use crate::proto;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -70,5 +71,16 @@ impl PageType {
 
   pub fn is_artist(&self) -> bool {
     matches!(self, PageType::Artist)
+  }
+}
+
+impl From<PageType> for proto::PageType {
+  fn from(val: PageType) -> Self {
+    match val {
+      PageType::Artist => proto::PageType::ArtistPage,
+      PageType::Album => proto::PageType::AlbumPage,
+      PageType::Chart => proto::PageType::ChartPage,
+      PageType::AlbumSearchResult => proto::PageType::AlbumSearchResultPage,
+    }
   }
 }
