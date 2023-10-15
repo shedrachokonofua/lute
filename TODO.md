@@ -29,8 +29,8 @@
 
 - Backlog:
   - [ ] Recommendations(Quantile rank): Genre tokenization
-  - [ ] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
-  - [ ] Recommendations(Vector similarity): Album recommendations, rpc method
+  - [x] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
+  - [x] Recommendations(Vector similarity): Album recommendations, rpc method
   - [ ] Extension: Album assessment popup
   - [ ] Events: Full correlation id and causation id support
   - [ ] Files: File content download stream rpc method
