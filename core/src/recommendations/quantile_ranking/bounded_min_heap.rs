@@ -26,14 +26,6 @@ impl<T: Ord> BoundedMinHeap<T> {
     }
   }
 
-  pub fn pop(&mut self) -> Option<T> {
-    self.heap.pop().map(|x| x.0)
-  }
-
-  pub fn peek(&self) -> Option<&T> {
-    self.heap.peek().map(|x| &x.0)
-  }
-
   pub fn drain(&mut self) -> Vec<T> {
     self.heap.drain().map(|x| x.0).collect()
   }
