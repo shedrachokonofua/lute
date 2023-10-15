@@ -28,7 +28,7 @@ impl From<Token> for SpotifyCredentials {
 
 impl From<SpotifyCredentials> for Token {
   fn from(credentials: SpotifyCredentials) -> Self {
-    let expires_at: DateTime<Utc> = DateTime::from_utc(credentials.expires_at, Utc);
+    let expires_at = DateTime::from_naive_utc_and_offset(credentials.expires_at, Utc);
 
     Self {
       scopes: SCOPES.clone(),
