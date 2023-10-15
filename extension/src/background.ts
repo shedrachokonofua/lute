@@ -1,22 +1,10 @@
 import "./polyfill";
 import { putFile, getFilePageType } from "./core";
 import { PageType } from "./proto/lute_pb";
+import { getPageContextMessage } from "./messages";
+import { getFileName } from "./helpers";
 
-const isRymTab = (tab: chrome.tabs.Tab) =>
-  tab.url?.startsWith("https://rateyourmusic.com/");
-
-const getFileName = (tab: chrome.tabs.Tab) => {
-  if (!tab?.url) throw new Error("Tab has no URL");
-  const url = new URL(tab.url);
-  const base = decodeURI(
-    url.pathname
-      .split("/")
-      .filter((x) => x !== "")
-      .join("/")
-  );
-  const queryPart = base.startsWith("search") ? url.search : "";
-  return base + queryPart;
-};
+const isRym = (url: string) => url.startsWith("https://rateyourmusic.com/");
 
 export const getTabContent = async (tab: chrome.tabs.Tab) => {
   if (!tab?.id) throw new Error("Tab has no ID");
@@ -42,9 +30,9 @@ const loadFilePageType = async (fileName: string) => {
 
 (async () => {
   chrome.tabs.onUpdated.addListener(async (_, changeInfo, tab) => {
-    if (!tab.url || !isRymTab(tab) || changeInfo.status !== "complete") return;
+    if (!tab.url || !isRym(tab.url) || changeInfo.status !== "complete") return;
 
-    const fileName = getFileName(tab);
+    const fileName = getFileName(tab.url);
     if (unsupportedPageCache.has(fileName)) {
       console.log(`Cached unsupported page: ${fileName}`);
       return;
@@ -63,5 +51,21 @@ const loadFilePageType = async (fileName: string) => {
 
     const content = await getTabContent(tab);
     await putFile(fileName, content);
+  });
+
+  getPageContextMessage.listen(async ({ url }) => {
+    if (!isRym(url)) return undefined;
+    const fileName = getFileName(url);
+    if (unsupportedPageCache.has(fileName)) return undefined;
+    try {
+      const pageType = await loadFilePageType(fileName);
+      if (pageType === undefined) return undefined;
+      return {
+        fileName,
+        pageType,
+      };
+    } catch (e) {
+      return undefined;
+    }
   });
 })();
