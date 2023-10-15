@@ -21,15 +21,13 @@ use core::{
   tracing::setup_tracing,
 };
 use dotenv::dotenv;
+use mimalloc::MiMalloc;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
-#[cfg(not(target_env = "msvc"))]
-use tikv_jemallocator::Jemalloc;
 use tokio::task;
 
-#[cfg(not(target_env = "msvc"))]
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: MiMalloc = MiMalloc;
 
 fn run_rpc_server(
   settings: Arc<Settings>,

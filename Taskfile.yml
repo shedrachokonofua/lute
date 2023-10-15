@@ -36,6 +36,13 @@ tasks:
     dir: core
     cmds:
       - cargo fmt
+  
+  "core:release":
+    dir: core
+    env:
+      RUST_LOG: warn,core=info
+    cmds:
+      - cargo build --release
 
   "web:proto":
     cmds:

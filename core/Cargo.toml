@@ -20,6 +20,7 @@ include_dir = "0.7.3"
 iter_tools = "0.1.4"
 kinded = "0.3.0"
 lazy_static = "1.4.0"
+mimalloc = "0.1.39"
 num-traits = "0.2.16"
 opentelemetry = { version = "0.20.0" }
 opentelemetry-otlp = { version = "0.13.0" }
@@ -69,10 +70,6 @@ tracing-subscriber = { version = "0.3.17", features = [
   "env-filter",
 ] }
 ulid = { version = "1.0.0", features = ["serde"] }
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = { version = "0.5.0", features = [
-  'unprefixed_malloc_on_supported_platforms',
-] }
 
 [build-dependencies]
 tonic-build = "0.10.0"
