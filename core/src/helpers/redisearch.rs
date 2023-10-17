@@ -15,9 +15,22 @@ pub async fn does_ft_index_exist<'a>(
 }
 
 pub fn escape_tag_value(input: &str) -> String {
-  ["/", "-", " ", ":", "&", "="]
-    .iter()
-    .fold(input.to_string(), |acc, c| {
-      acc.replace(c, &format!("\\{}", c))
+  input
+    .chars()
+    .map(|c| {
+      if c.is_ascii_alphanumeric() {
+        c.to_string()
+      } else if c.is_ascii() {
+        format!("\\{}", c)
+      } else {
+        // Convert non-ASCII chars to UTF-8
+        c.to_string()
+          .as_bytes()
+          .iter()
+          .map(|b| format!("{:02x}", b))
+          .collect::<Vec<String>>()
+          .join("")
+      }
     })
+    .collect()
 }

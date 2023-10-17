@@ -83,6 +83,8 @@ pub struct AlbumReadModel {
   pub release_date: Option<NaiveDate>,
   pub languages: Vec<String>,
   pub credits: Vec<AlbumReadModelCredit>,
+  pub duplicate_of: Option<FileName>,
+  pub duplicates: Vec<FileName>,
 }
 
 impl AlbumReadModel {
@@ -150,6 +152,7 @@ impl From<&ItemAndCount> for proto::LanguageAggregate {
 #[derive(Default, Builder, Debug)]
 #[builder(setter(into), default)]
 pub struct AlbumSearchQuery {
+  pub exact_name: Option<String>,
   pub include_file_names: Vec<FileName>,
   pub exclude_file_names: Vec<FileName>,
   pub include_artists: Vec<String>,
@@ -166,6 +169,7 @@ pub struct AlbumSearchQuery {
   pub min_descriptor_count: Option<usize>,
   pub min_release_year: Option<u32>,
   pub max_release_year: Option<u32>,
+  pub include_duplicates: bool,
 }
 
 #[derive(Debug)]
@@ -222,6 +226,8 @@ pub trait AlbumRepository {
     query: &SimilarAlbumsQuery,
   ) -> Result<Vec<(AlbumReadModel, f32)>>;
   async fn get_embedding_keys(&self) -> Result<Vec<String>>;
+  async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()>;
+  async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()>;
 
   async fn get(&self, file_name: &FileName) -> Result<AlbumReadModel> {
     let record = self.find(file_name).await?;

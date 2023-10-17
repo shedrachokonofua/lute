@@ -51,6 +51,14 @@ pub struct RedisAlbumReadModel {
   pub credit_tags: Vec<String>,
   #[serde(default)]
   pub credit_tag_count: u32,
+  #[serde(default)]
+  pub duplicate_of: Option<FileName>,
+  #[serde(default)]
+  pub is_duplicate: u8,
+  #[serde(default)]
+  pub duplicates: Vec<FileName>,
+  #[serde(default)]
+  pub name_tag: String, // redisearch doesn't support exact matching on text fields, so we need to store a tag for exact matching
 }
 
 impl Into<AlbumReadModel> for RedisAlbumReadModel {
@@ -68,6 +76,8 @@ impl Into<AlbumReadModel> for RedisAlbumReadModel {
       release_date: self.release_date,
       languages: self.languages,
       credits: self.credits,
+      duplicate_of: self.duplicate_of,
+      duplicates: self.duplicates,
     }
   }
 }
@@ -82,8 +92,10 @@ impl Into<RedisAlbumReadModel> for AlbumReadModel {
     let credit_tags = self.credit_tags();
     let credit_tag_count = credit_tags.len() as u32;
     let release_year = self.release_date.map(|d| d.year() as u32);
+    let is_duplicate = if self.duplicate_of.is_some() { 1 } else { 0 };
 
     RedisAlbumReadModel {
+      name_tag: self.name.clone(),
       name: self.name,
       file_name: self.file_name,
       rating: self.rating,
@@ -104,6 +116,9 @@ impl Into<RedisAlbumReadModel> for AlbumReadModel {
       credits: self.credits,
       credit_tags,
       credit_tag_count,
+      duplicate_of: self.duplicate_of,
+      duplicates: self.duplicates,
+      is_duplicate,
     }
   }
 }
@@ -176,6 +191,12 @@ fn get_num_range_query(tag: &str, min: Option<u32>, max: Option<u32>) -> String 
 impl AlbumSearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     let mut ft_search_query = String::from("");
+    if let Some(exact_name) = &self.exact_name {
+      ft_search_query.push_str(&get_tag_query("@name_tag", &vec![exact_name]));
+    }
+    if !self.include_duplicates {
+      ft_search_query.push_str(&&get_num_range_query("@is_duplicate", Some(0), Some(0)));
+    }
     ft_search_query.push_str(&get_min_num_query(
       "@primary_genre_count",
       self.min_primary_genre_count,
@@ -313,6 +334,12 @@ impl RedisAlbumRepository {
                   FtVectorDistanceMetric::Cosine,
                 ),
               )))),
+            FtFieldSchema::identifier("$.is_duplicate")
+              .as_attribute("is_duplicate")
+              .field_type(FtFieldType::Numeric),
+            FtFieldSchema::identifier("$.name_tag")
+              .as_attribute("name_tag")
+              .field_type(FtFieldType::Tag),
           ],
         )
         .await?;
@@ -695,5 +722,46 @@ impl AlbumRepository for RedisAlbumRepository {
     let connection = self.redis_connection_pool.get().await?;
     let result: Vec<String> = connection.ft_tagvals(INDEX_NAME, "embedding_key").await?;
     Ok(result)
+  }
+
+  async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()> {
+    self
+      .redis_connection_pool
+      .get()
+      .await?
+      .json_set(
+        self.key(file_name),
+        "$.duplicate_of",
+        serde_json::to_string(duplicate_of)?,
+        SetCondition::default(),
+      )
+      .await?;
+    self
+      .redis_connection_pool
+      .get()
+      .await?
+      .json_set(
+        self.key(file_name),
+        "$.is_duplicate",
+        serde_json::to_string(&1)?,
+        SetCondition::default(),
+      )
+      .await?;
+    Ok(())
+  }
+
+  async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()> {
+    self
+      .redis_connection_pool
+      .get()
+      .await?
+      .json_set(
+        self.key(file_name),
+        "$.duplicates",
+        serde_json::to_string(&duplicates)?,
+        SetCondition::default(),
+      )
+      .await?;
+    Ok(())
   }
 }

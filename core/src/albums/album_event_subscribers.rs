@@ -1,6 +1,7 @@
 use super::{
+  album_interactor::AlbumInteractor,
   album_repository::{
-    AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit,
+    self, AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit,
     AlbumReadModelTrack, AlbumRepository,
   },
   embedding_provider::{AlbumEmbeddingProvider, OpenAIAlbumEmbeddingProvider},
@@ -81,6 +82,8 @@ impl AlbumReadModel {
         .iter()
         .map(AlbumReadModelCredit::from)
         .collect::<Vec<AlbumReadModelCredit>>(),
+      duplicates: vec![],
+      duplicate_of: None,
     }
   }
 }
@@ -92,10 +95,10 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
     data: ParsedFileData::Album(parsed_album),
   } = context.payload.event
   {
-    let album_read_model_repository =
-      RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
     let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
-    album_read_model_repository.put(album_read_model).await?;
+    let album_repository = RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
+    let album_interactor = AlbumInteractor::new(Arc::new(album_repository));
+    album_interactor.put(album_read_model).await?;
   }
   Ok(())
 }
