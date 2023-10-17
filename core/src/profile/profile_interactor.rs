@@ -86,18 +86,16 @@ impl ProfileInteractor {
     file_name: &FileName,
     factor: u32,
   ) -> Result<Profile> {
-    if !self.album_read_model_repository.exists(file_name).await? {
-      anyhow::bail!("Album does not exist");
-    }
-
+    let album = self.album_read_model_repository.get(file_name).await?;
+    let file_name_to_add = album.duplicate_of.unwrap_or(file_name.clone());
     let (profile, new_addition) = self
       .profile_repository
-      .add_album_to_profile(id, file_name, factor)
+      .add_album_to_profile(id, &file_name_to_add, factor)
       .await
       .map_err(|e| {
         anyhow::anyhow!(
           "Failed to add album {} to profile: {}",
-          file_name.to_string(),
+          file_name_to_add.to_string(),
           e
         )
       })?;
