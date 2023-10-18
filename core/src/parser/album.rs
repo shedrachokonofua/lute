@@ -3,7 +3,7 @@ use super::{
     get_link_tag_href, get_meta_value, get_node_inner_text, get_tag_inner_text, query_select_first,
   },
   parsed_file_data::{ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedTrack},
-  util::{clean_artist_name, parse_release_date},
+  util::{clean_album_name, clean_artist_name, parse_release_date},
 };
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::{Error, Result};
@@ -13,7 +13,7 @@ use tracing::{instrument, warn};
 pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
   let dom = tl::parse(file_content, tl::ParserOptions::default())?;
 
-  let name = get_meta_value(&dom, "name")?;
+  let name = clean_album_name(get_meta_value(&dom, "name")?);
 
   let rating = get_meta_value(&dom, "ratingValue").and_then(|rating| {
     rating

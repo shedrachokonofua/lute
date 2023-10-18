@@ -34,3 +34,7 @@ pub fn parse_release_date(date_string: String) -> Result<NaiveDate> {
 pub fn clean_artist_name(artist_name: &str) -> &str {
   artist_name.trim_end_matches(" &amp;")
 }
+
+pub fn clean_album_name(album_name: String) -> String {
+  album_name.replace('’', "'")
+}
