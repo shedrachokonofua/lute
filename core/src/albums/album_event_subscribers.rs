@@ -1,7 +1,7 @@
 use super::{
   album_interactor::AlbumInteractor,
   album_repository::{
-    self, AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit,
+    AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit,
     AlbumReadModelTrack, AlbumRepository,
   },
   embedding_provider::{AlbumEmbeddingProvider, OpenAIAlbumEmbeddingProvider},
@@ -84,6 +84,7 @@ impl AlbumReadModel {
         .collect::<Vec<AlbumReadModelCredit>>(),
       duplicates: vec![],
       duplicate_of: None,
+      cover_image_url: parsed_album.cover_image_url,
     }
   }
 }

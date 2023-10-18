@@ -51,6 +51,7 @@ impl From<AlbumReadModel> for proto::Album {
       tracks: val.tracks.into_iter().map(|track| track.into()).collect(),
       release_date: val.release_date.map(|date| date.to_string()),
       languages: val.languages,
+      cover_image_url: val.cover_image_url,
     }
   }
 }
@@ -85,6 +86,7 @@ pub struct AlbumReadModel {
   pub credits: Vec<AlbumReadModelCredit>,
   pub duplicate_of: Option<FileName>,
   pub duplicates: Vec<FileName>,
+  pub cover_image_url: Option<String>,
 }
 
 impl AlbumReadModel {

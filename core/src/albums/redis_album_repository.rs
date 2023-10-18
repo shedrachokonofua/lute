@@ -59,6 +59,8 @@ pub struct RedisAlbumReadModel {
   pub duplicates: Vec<FileName>,
   #[serde(default)]
   pub name_tag: String, // redisearch doesn't support exact matching on text fields, so we need to store a tag for exact matching
+  #[serde(default)]
+  pub cover_image_url: Option<String>,
 }
 
 impl Into<AlbumReadModel> for RedisAlbumReadModel {
@@ -78,6 +80,7 @@ impl Into<AlbumReadModel> for RedisAlbumReadModel {
       credits: self.credits,
       duplicate_of: self.duplicate_of,
       duplicates: self.duplicates,
+      cover_image_url: self.cover_image_url,
     }
   }
 }
@@ -119,6 +122,7 @@ impl Into<RedisAlbumReadModel> for AlbumReadModel {
       duplicate_of: self.duplicate_of,
       duplicates: self.duplicates,
       is_duplicate,
+      cover_image_url: self.cover_image_url,
     }
   }
 }

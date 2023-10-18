@@ -35,4 +35,27 @@ impl EventPublisher {
     }).await?;
     Ok(())
   }
+
+  pub async fn batch_publish(&self, stream: Stream, payloads: Vec<EventPayload>) -> Result<()> {
+    self.sqlite_connection.call(move |conn| {
+      let transaction = conn.transaction()?;
+      for payload in payloads {
+        let mut statement = transaction.prepare(
+        "INSERT INTO events (correlation_id, causation_id, event, metadata, stream) VALUES (?1, ?2, ?3, ?4, ?5)",
+        )?;
+        statement.execute((
+          &payload.correlation_id,
+          &payload.causation_id,
+          serde_json::to_string(&payload.event)
+              .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+          serde_json::to_string(&payload.metadata)
+              .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+          &stream.tag(),
+        ))?;
+      }
+      transaction.commit()?;
+      Ok(())
+    }).await?;
+    Ok(())
+  }
 }

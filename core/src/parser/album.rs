@@ -45,6 +45,15 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     .and_then(|node| node.as_tag())
     .ok_or(anyhow::anyhow!("No release page container found"))?;
 
+  let cover_image_url = query_select_first(dom.parser(), container, ".page_release_art_frame")?
+    .query_selector(dom.parser(), "img")
+    .and_then(|mut iter| iter.next())
+    .and_then(|node| node.get(dom.parser()))
+    .and_then(|node| node.as_tag())
+    .and_then(|tag| tag.attributes().get("src"))
+    .flatten()
+    .map(|content| format!("https:{}", content.as_utf8_str().to_string()));
+
   let artists = query_select_first(dom.parser(), container, "span[itemprop='byArtist']")?
     .query_selector(dom.parser(), "a")
     .map(|iter| {
@@ -243,5 +252,6 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     tracks,
     languages,
     credits,
+    cover_image_url,
   })
 }

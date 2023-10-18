@@ -37,6 +37,8 @@ pub struct ParsedAlbum {
   pub languages: Vec<String>,
   #[serde(default)]
   pub credits: Vec<ParsedCredit>,
+  #[serde(default)]
+  pub cover_image_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

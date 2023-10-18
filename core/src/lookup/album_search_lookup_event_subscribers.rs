@@ -72,6 +72,7 @@ impl From<AlbumReadModel> for ParsedAlbum {
           roles: credit.roles.clone(),
         })
         .collect::<Vec<ParsedCredit>>(),
+      cover_image_url: album.cover_image_url,
     }
   }
 }
