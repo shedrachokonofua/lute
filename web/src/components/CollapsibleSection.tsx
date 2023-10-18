@@ -19,7 +19,8 @@ export const CollapsibleSection = ({
       <Button
         rightIcon={<Icon size={16} />}
         onClick={() => setIsOpen(!isOpen)}
-        variant="light"
+        variant="filled"
+        color="gray"
         compact
         fullWidth
       >
