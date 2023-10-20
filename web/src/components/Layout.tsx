@@ -4,37 +4,13 @@ import {
   Flex,
   Header,
   MediaQuery,
-  NavLink,
-  Navbar,
   Title,
   useMantineTheme,
 } from "@mantine/core";
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
+import { NavigationBar } from "./NavigationBar";
 import { SpotifyWidget } from "./SpotifyWidget";
-
-interface NavItemProps {
-  label: string;
-  href: string;
-  active?: boolean;
-}
-
-const NavItem = ({ label, href, active }: NavItemProps) => (
-  <NavLink
-    component="a"
-    href="/"
-    label="Recommendations"
-    sx={{
-      color: "rgb(200, 200, 200)",
-      "&:hover": {
-        background: "rgb(35, 35, 35)",
-      },
-    }}
-    variant="filled"
-    color="dark"
-    active={active}
-  />
-);
 
 export const Layout = () => {
   const theme = useMantineTheme();
@@ -43,22 +19,6 @@ export const Layout = () => {
     <AppShell
       navbarOffsetBreakpoint="sm"
       asideOffsetBreakpoint="sm"
-      navbar={
-        <Navbar
-          p="md"
-          hiddenBreakpoint="sm"
-          hidden={!opened}
-          width={{ base: 200 }}
-          style={{
-            background: "rgb(25, 25, 25)",
-            color: "rgb(200, 200, 200)",
-            border: "none",
-            padding: "0.5rem",
-          }}
-        >
-          <NavItem label="Recommendations" href="/" active />
-        </Navbar>
-      }
       header={
         <Header
           height={50}
@@ -100,6 +60,7 @@ export const Layout = () => {
           </div>
         </Header>
       }
+      navbar={<NavigationBar isOpen={opened} />}
       padding="xs"
     >
       <Outlet />

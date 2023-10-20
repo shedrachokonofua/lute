@@ -8,20 +8,15 @@ import {
   useRouteError,
 } from "react-router-dom";
 import {
-  getAggregatedGenres,
-  getAggregatedLanguages,
   getAlbumRecommendations,
-  getAllProfiles,
   getDefaultQuantileRankAlbumAssessmentSettings,
   getEmbeddingKeys,
 } from "../../client";
 import {
   AlbumRecommendation,
-  GenreAggregate,
-  LanguageAggregate,
-  Profile,
   QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
+import { useRemoteContext } from "../../remote-context";
 import { AlbumRecommendationItem } from "./AlbumRecommendationItem";
 import { RecommendationSettings } from "./RecommendationSettings";
 import {
@@ -61,9 +56,6 @@ const toNumber = (value: string | null | undefined) => {
 };
 
 interface RecommendationSettingsLoaderData {
-  profiles: Profile[];
-  aggregatedGenres: GenreAggregate[];
-  aggregatedLanguages: LanguageAggregate[];
   embeddingKeys: string[];
   settings: RecommendationSettingsForm | null;
   recommendations: AlbumRecommendation[] | null;
@@ -80,8 +72,7 @@ export const recommendationPageLoader = async ({
   const assessmentMethod = url.searchParams.get(
     RecommendationSettingsFormName.Method,
   );
-  const defaultQuantileRankAlbumAssessmentSettings =
-    await getDefaultQuantileRankAlbumAssessmentSettings();
+
   const assessmentSettings =
     assessmentMethod === "quantile-ranking"
       ? coerceToUndefined({
@@ -221,18 +212,13 @@ export const recommendationPageLoader = async ({
 
   const recommendations = settings ? getAlbumRecommendations(settings) : null;
 
-  const [profiles, aggregatedGenres, aggregatedLanguages, embeddingKeys] =
+  const [embeddingKeys, defaultQuantileRankAlbumAssessmentSettings] =
     await Promise.all([
-      getAllProfiles(),
-      getAggregatedGenres(),
-      getAggregatedLanguages(),
       getEmbeddingKeys(),
+      getDefaultQuantileRankAlbumAssessmentSettings(),
     ]);
 
   return defer({
-    profiles,
-    aggregatedGenres,
-    aggregatedLanguages,
     embeddingKeys,
     settings,
     recommendations,
@@ -241,10 +227,9 @@ export const recommendationPageLoader = async ({
 };
 
 export const RecommendationPage = () => {
+  const { profiles, aggregatedGenres, aggregatedLanguages } =
+    useRemoteContext();
   const {
-    profiles,
-    aggregatedGenres,
-    aggregatedLanguages,
     embeddingKeys,
     settings,
     recommendations,
