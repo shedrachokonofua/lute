@@ -237,7 +237,7 @@ export const RecommendationPage = () => {
   } = useLoaderData() as RecommendationSettingsLoaderData;
 
   return (
-    <Grid>
+    <Grid m={0}>
       <Grid.Col
         md={2.75}
         style={{
