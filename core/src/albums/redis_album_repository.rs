@@ -22,6 +22,7 @@ use rustis::{
 };
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
+use tokio::try_join;
 use tracing::{info, instrument};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
@@ -375,6 +376,60 @@ impl RedisAlbumRepository {
     }
     Ok(())
   }
+
+  async fn get_aggregated_primary_genres(&self) -> Result<Vec<ItemAndCount>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let primary_genre_result = connection
+      .ft_aggregate(
+        INDEX_NAME,
+        "@primary_genre_count:[1 +inf]",
+        FtAggregateOptions::default()
+          .groupby("@primary_genre", FtReducer::count().as_name("count")),
+      )
+      .await?;
+
+    Ok(
+      primary_genre_result
+        .results
+        .iter()
+        .map(ItemAndCount::try_from)
+        .filter_map(|r| match r {
+          Ok(item) => Some(item),
+          Err(e) => {
+            info!("Failed to parse primary genre: {}", e);
+            None
+          }
+        })
+        .collect(),
+    )
+  }
+
+  async fn get_aggregated_secondary_genres(&self) -> Result<Vec<ItemAndCount>> {
+    let connection = self.redis_connection_pool.get().await?;
+    let secondary_genre_result = connection
+      .ft_aggregate(
+        INDEX_NAME,
+        "@secondary_genre_count:[1 +inf]",
+        FtAggregateOptions::default()
+          .groupby("@secondary_genre", FtReducer::count().as_name("count")),
+      )
+      .await?;
+
+    Ok(
+      secondary_genre_result
+        .results
+        .iter()
+        .map(ItemAndCount::try_from)
+        .filter_map(|r| match r {
+          Ok(item) => Some(item),
+          Err(e) => {
+            info!("Failed to parse secondary genre: {}", e);
+            None
+          }
+        })
+        .collect(),
+    )
+  }
 }
 
 #[async_trait]
@@ -473,47 +528,10 @@ impl AlbumRepository for RedisAlbumRepository {
   }
 
   async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let primary_genre_result = connection
-      .ft_aggregate(
-        INDEX_NAME,
-        "@primary_genre_count:[1 +inf]",
-        FtAggregateOptions::default()
-          .groupby("@primary_genre", FtReducer::count().as_name("count")),
-      )
-      .await?;
-    let secondary_genre_result = connection
-      .ft_aggregate(
-        INDEX_NAME,
-        "@secondary_genre_count:[1 +inf]",
-        FtAggregateOptions::default()
-          .groupby("@secondary_genre", FtReducer::count().as_name("count")),
-      )
-      .await?;
-    let aggregated_primary_genres = primary_genre_result
-      .results
-      .iter()
-      .map(ItemAndCount::try_from)
-      .filter_map(|r| match r {
-        Ok(item) => Some(item),
-        Err(e) => {
-          info!("Failed to parse genre: {}", e);
-          None
-        }
-      })
-      .collect::<Vec<ItemAndCount>>();
-    let aggregated_secondary_genres = secondary_genre_result
-      .results
-      .iter()
-      .map(ItemAndCount::try_from)
-      .filter_map(|r| match r {
-        Ok(item) => Some(item),
-        Err(e) => {
-          info!("Failed to parse genre: {}", e);
-          None
-        }
-      })
-      .collect::<Vec<ItemAndCount>>();
+    let (aggregated_primary_genres, aggregated_secondary_genres) = try_join!(
+      self.get_aggregated_primary_genres(),
+      self.get_aggregated_secondary_genres()
+    )?;
     let mut genres = HashMap::new();
     for item in aggregated_primary_genres {
       genres.insert(
