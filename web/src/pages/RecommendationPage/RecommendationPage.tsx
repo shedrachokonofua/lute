@@ -33,7 +33,6 @@ import {
 function ErrorBoundary() {
   let error = useRouteError();
   console.error(error);
-  // Uncaught ReferenceError: path is not defined
   return <div>Dang! Something went wrong.</div>;
 }
 
@@ -257,9 +256,7 @@ export const RecommendationPage = () => {
       <Grid.Col
         md={2.75}
         style={{
-          borderRight: "1px solid rgb(200, 225, 235)",
-          boxShadow:
-            "inset -4px 0 10px -5px rgba(0, 0, 0, 0.15), inset 4px 0 10px -5px rgba(0, 0, 0, 0.15)",
+          borderRight: "1px solid #DDD",
         }}
         sx={{
           "@media (min-width: 1024px)": {
@@ -287,13 +284,14 @@ export const RecommendationPage = () => {
             overflowY: "auto",
             height: "calc(100vh - 55px)",
           },
+          background: "#eee",
         }}
         px="xs"
       >
         <React.Suspense fallback={<p>Loading recommendations...</p>}>
           <Await resolve={recommendations} errorElement={<ErrorBoundary />}>
             {(recommendations: AlbumRecommendation[] | null) => (
-              <Stack spacing="xl">
+              <Stack spacing="md">
                 {recommendations === null ? (
                   <div>Select a profile to get started</div>
                 ) : (
@@ -301,6 +299,7 @@ export const RecommendationPage = () => {
                     <AlbumRecommendationItem
                       key={r.getAlbum()!.getFileName()}
                       recommendation={r}
+                      recommendationMethod={settings?.method}
                     />
                   ))
                 )}

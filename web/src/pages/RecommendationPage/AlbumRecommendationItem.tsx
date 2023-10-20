@@ -1,9 +1,20 @@
-import { Anchor, Badge, Flex, Popover, Text, Title } from "@mantine/core";
+import {
+  Anchor,
+  Badge,
+  Box,
+  Card,
+  Flex,
+  Popover,
+  Text,
+  Title,
+} from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { AlbumAssessment, AlbumRecommendation } from "../../proto/lute_pb";
+import { RecommendationMethod } from "./types";
 
 interface AlbumRecommendationItemProps {
   recommendation: AlbumRecommendation;
+  recommendationMethod?: RecommendationMethod;
 }
 
 const Assessment = ({ assessment }: { assessment: AlbumAssessment }) => {
@@ -59,45 +70,83 @@ const Assessment = ({ assessment }: { assessment: AlbumAssessment }) => {
 
 export const AlbumRecommendationItem = ({
   recommendation,
+  recommendationMethod,
 }: AlbumRecommendationItemProps) => {
   const album = recommendation.getAlbum()!;
   const assessment = recommendation.getAssessment()!;
 
   return (
-    <div>
-      <Flex justify="space-between">
-        <Flex align="center" gap="0.5rem">
-          <Text weight="bold" size="1.25rem">
-            <Anchor
-              href={`https://rateyourmusic.com/${album.getFileName()}`}
-              target="_blank"
-            >
-              {album.getName()}
-            </Anchor>
+    <Card padding="sm">
+      <Flex
+        gap="md"
+        sx={{
+          "@media (max-width: 1024px)": {
+            flexDirection: "column",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            "@media (max-width: 1024px)": {
+              width: "100%",
+            },
+            width: 220,
+          }}
+        >
+          <img
+            src={album.getCoverImageUrl()}
+            alt={album.getName()}
+            style={{
+              height: "auto",
+              width: "100%",
+            }}
+          />
+        </Box>
+        <div
+          style={{
+            flex: 1,
+          }}
+        >
+          <Flex justify="space-between">
+            <Flex align="center" gap="0.5rem">
+              <Text weight="bold" size="1.25rem">
+                <Anchor
+                  href={`https://rateyourmusic.com/${album.getFileName()}`}
+                  target="_blank"
+                >
+                  {album.getName()}
+                </Anchor>
+              </Text>
+              <Badge
+                variant="gradient"
+                gradient={{ from: "teal", to: "blue", deg: 60 }}
+              >
+                {album.getRating().toFixed(2)}/5
+              </Badge>
+            </Flex>
+
+            {recommendationMethod === "quantile-ranking" && (
+              <Assessment assessment={assessment} />
+            )}
+          </Flex>
+          <Text weight="bold">
+            {album
+              .getArtistsList()
+              .map((a) => a.getName())
+              .join(", ")}
           </Text>
-          <Badge
-            variant="gradient"
-            gradient={{ from: "teal", to: "blue", deg: 60 }}
-          >
-            {album.getRating().toFixed(2)}/5
-          </Badge>
-        </Flex>
-        <Assessment assessment={assessment} />
+          <div>
+            <Text size="sm" color="#333">
+              {album.getReleaseDate()}
+            </Text>
+          </div>
+          <Text weight="semi-bold">
+            {album.getPrimaryGenresList().join(", ")}
+          </Text>
+          <Text size="md">{album.getSecondaryGenresList().join(", ")}</Text>
+          <Text size="sm">{album.getDescriptorsList().join(", ")}</Text>
+        </div>
       </Flex>
-      <Text weight="bold">
-        {album
-          .getArtistsList()
-          .map((a) => a.getName())
-          .join(", ")}
-      </Text>
-      <div>
-        <Text size="sm" color="#333">
-          {album.getReleaseDate()}
-        </Text>
-      </div>
-      <Text weight="semi-bold">{album.getPrimaryGenresList().join(", ")}</Text>
-      <Text size="md">{album.getSecondaryGenresList().join(", ")}</Text>
-      <Text size="sm">{album.getDescriptorsList().join(", ")}</Text>
-    </div>
+    </Card>
   );
 };
