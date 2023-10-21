@@ -94,7 +94,7 @@ impl proto::ProfileService for ProfileService {
     let request = request.into_inner();
     let id: ProfileId = request.id.try_into().map_err(|err| {
       error!("invalid profile id: {:?}", err);
-      Status::invalid_argument("invalid profile id")
+      Status::invalid_argument("Invalid profile id")
     })?;
     let profile = self
       .profile_interactor
@@ -102,7 +102,7 @@ impl proto::ProfileService for ProfileService {
       .await
       .map_err(|err| {
         error!("failed to create profile: {:?}", err);
-        Status::internal("failed to create profile")
+        Status::internal(err.to_string())
       })?;
     let reply = CreateProfileReply {
       profile: Some(profile.into()),
