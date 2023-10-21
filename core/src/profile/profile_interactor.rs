@@ -144,10 +144,14 @@ impl ProfileInteractor {
     id: &ProfileId,
   ) -> Result<(ProfileSummary, Vec<AlbumReadModel>)> {
     let profile = self.profile_repository.get(id).await?;
-    let albums = self
-      .album_read_model_repository
-      .get_many(profile.albums.keys().cloned().collect())
-      .await?;
+    let albums = if !profile.albums.is_empty() {
+      self
+        .album_read_model_repository
+        .get_many(profile.albums.keys().cloned().collect())
+        .await?
+    } else {
+      vec![]
+    };
     Ok((profile.summarize(&albums), albums))
   }
 
