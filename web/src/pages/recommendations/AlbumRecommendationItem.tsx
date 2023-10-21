@@ -76,7 +76,7 @@ export const AlbumRecommendationItem = ({
   const assessment = recommendation.getAssessment()!;
 
   return (
-    <Card padding="sm">
+    <Card padding="sm" shadow="xs" withBorder>
       <Flex
         gap="md"
         sx={{
