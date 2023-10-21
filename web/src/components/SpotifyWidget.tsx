@@ -1,6 +1,7 @@
 import { Badge, Button } from "@mantine/core";
-import { Async, useAsync } from "react-async";
-import { getSpotifyAuthUrl, isSpotifyAuthorized } from "../client";
+import { useAsync } from "react-async";
+import { getSpotifyAuthUrl } from "../client";
+import { useRemoteContext } from "../remote-context";
 
 const redirect = async () => {
   try {
@@ -12,6 +13,7 @@ const redirect = async () => {
 };
 
 export const SpotifyWidget = () => {
+  const { isSpotifyAuthenticated } = useRemoteContext();
   const { isLoading: isRedirectLoading, run: redirectForAuth } = useAsync({
     deferFn: redirect,
     onReject: (error) => {
@@ -19,34 +21,19 @@ export const SpotifyWidget = () => {
     },
   });
 
-  return (
-    <Async promiseFn={isSpotifyAuthorized}>
-      <Async.Loading>Loading...</Async.Loading>
-      <Async.Rejected>
-        Failed to get spotify status. Refresh page.
-      </Async.Rejected>
-      <Async.Fulfilled>
-        {(isAuthenticated: boolean) =>
-          isAuthenticated ? (
-            <Badge
-              variant="gradient"
-              gradient={{ to: "teal", from: "lime", deg: 105 }}
-            >
-              Spotify Connected
-            </Badge>
-          ) : (
-            <Button
-              compact
-              variant="gradient"
-              gradient={{ from: "teal", to: "lime", deg: 105 }}
-              loading={isRedirectLoading}
-              onClick={redirectForAuth}
-            >
-              Authenticate Spotify
-            </Button>
-          )
-        }
-      </Async.Fulfilled>
-    </Async>
+  return isSpotifyAuthenticated ? (
+    <Badge variant="gradient" gradient={{ to: "teal", from: "lime", deg: 105 }}>
+      Spotify Connected
+    </Badge>
+  ) : (
+    <Button
+      compact
+      variant="gradient"
+      gradient={{ from: "teal", to: "lime", deg: 105 }}
+      loading={isRedirectLoading}
+      onClick={redirectForAuth}
+    >
+      Authenticate Spotify
+    </Button>
   );
 };

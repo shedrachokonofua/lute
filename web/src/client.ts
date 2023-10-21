@@ -27,7 +27,7 @@ const client = {
   recommendation: new RecommendationServiceClient(coreUrl),
 };
 
-export const isSpotifyAuthorized = async (): Promise<boolean> => {
+export const getIsSpotifyAuthenticated = async (): Promise<boolean> => {
   const response = await client.spotify.isAuthorized(new Empty(), null);
   return response.getAuthorized();
 };

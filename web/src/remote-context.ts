@@ -3,22 +3,31 @@ import {
   getAggregatedGenres,
   getAggregatedLanguages,
   getAllProfiles,
+  getIsSpotifyAuthenticated,
 } from "./client";
 import { GenreAggregate, LanguageAggregate, Profile } from "./proto/lute_pb";
 
 export interface AppRemoteContext {
+  isSpotifyAuthenticated: boolean;
   profiles: Profile[];
   aggregatedGenres: GenreAggregate[];
   aggregatedLanguages: LanguageAggregate[];
 }
 
 export const getRemoteContext = async (): Promise<AppRemoteContext> => {
-  const [profiles, aggregatedGenres, aggregatedLanguages] = await Promise.all([
+  const [
+    isSpotifyAuthenticated,
+    profiles,
+    aggregatedGenres,
+    aggregatedLanguages,
+  ] = await Promise.all([
+    getIsSpotifyAuthenticated(),
     getAllProfiles(),
     getAggregatedGenres(),
     getAggregatedLanguages(),
   ]);
   return {
+    isSpotifyAuthenticated,
     profiles,
     aggregatedGenres,
     aggregatedLanguages,
