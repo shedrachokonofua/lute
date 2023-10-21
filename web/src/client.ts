@@ -11,6 +11,7 @@ import {
   AlbumRecommendation,
   AlbumRecommendationSettings,
   CreateProfileRequest,
+  DeleteProfileRequest,
   EmbeddingSimilarityAlbumAssessmentSettings,
   GenreAggregate,
   GetProfileRequest,
@@ -227,4 +228,10 @@ export const createProfile = async (
   request.setName(name);
   const response = await client.profile.createProfile(request, null);
   return response.getProfile()!;
+};
+
+export const deleteProfile = async (id: string): Promise<void> => {
+  const request = new DeleteProfileRequest();
+  request.setId(id);
+  await client.profile.deleteProfile(request, null);
 };

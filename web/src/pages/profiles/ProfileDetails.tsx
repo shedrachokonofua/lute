@@ -1,6 +1,11 @@
 import { Card, Grid, Text } from "@mantine/core";
-import { LoaderFunctionArgs, useLoaderData } from "react-router-dom";
-import { getProfile, getProfileSummary } from "../../client";
+import {
+  ActionFunction,
+  LoaderFunction,
+  redirect,
+  useLoaderData,
+} from "react-router-dom";
+import { deleteProfile, getProfile, getProfileSummary } from "../../client";
 import { Profile, ProfileSummary } from "../../proto/lute_pb";
 
 interface ProfileDetailsLoaderData {
@@ -8,7 +13,19 @@ interface ProfileDetailsLoaderData {
   profileSummary: ProfileSummary;
 }
 
-export const profileDetailsLoader = async ({ params }: LoaderFunctionArgs) => {
+export const profileDetailsAction: ActionFunction = async ({
+  request,
+  params,
+}) => {
+  if (request.method.toLowerCase() === "delete") {
+    await deleteProfile(params.id as string);
+    return redirect("/profiles");
+  }
+
+  return null;
+};
+
+export const profileDetailsLoader: LoaderFunction = async ({ params }) => {
   const id = params.id as string;
   const [profile, profileSummary] = await Promise.all([
     getProfile(id),

@@ -1,23 +1,26 @@
-import { Box, Button, Container, Group, Select } from "@mantine/core";
-import {
-  ActionFunction,
-  Link,
-  Outlet,
-  useNavigate,
-  useNavigation,
-  useParams,
-} from "react-router-dom";
+import { Box, Button, Container, Group } from "@mantine/core";
+import { IconPlus } from "@tabler/icons-react";
+import { ActionFunction, Link, Outlet, useMatches } from "react-router-dom";
 import { useRemoteContext } from "../../remote-context";
+import { ProfileDetailsMenu } from "./ProfileDetailsMenu";
+import { ProfileSelect } from "./ProfilesSelect";
 
 export const profilePageAction: ActionFunction = () => {
   return null;
 };
 
-export const ProfilesPage = () => {
+const useActiveProfile = () => {
   const { profiles } = useRemoteContext();
-  const navigate = useNavigate();
-  const { id } = useParams();
-  const isNavigating = useNavigation().state !== "idle";
+  const matches = useMatches();
+  const id = matches[matches.length - 1]?.params.id;
+  if (!id) {
+    return undefined;
+  }
+  return profiles.find((p) => p.getId() === id);
+};
+
+export const ProfilesPage = () => {
+  const activeProfile = useActiveProfile();
 
   return (
     <div
@@ -35,39 +38,20 @@ export const ProfilesPage = () => {
       >
         <Container size="lg">
           <Group position="apart">
-            <div>
-              <Select
-                searchable
-                size="sm"
-                label="Select a profile:"
-                placeholder="Select a profile"
-                defaultValue={id}
-                disabled={isNavigating}
-                data={profiles.map((p) => ({
-                  label: p.getName(),
-                  value: p.getId(),
-                }))}
-                styles={{
-                  root: {
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  },
-                  input: {
-                    width: 300,
-                  },
-                }}
-                onChange={(id) => {
-                  if (id) {
-                    navigate(`/profiles/${id}`);
-                  }
-                }}
-              />
-            </div>
-            <div>
-              <Button component={Link} to="/profiles/new">
+            <Group>
+              <Button
+                component={Link}
+                to="/profiles/new"
+                leftIcon={<IconPlus size={16} />}
+              >
                 Create Profile
               </Button>
+              <div>
+                <ProfileSelect id={activeProfile?.getId()} />
+              </div>
+            </Group>
+            <div>
+              {activeProfile && <ProfileDetailsMenu profile={activeProfile} />}
             </div>
           </Group>
         </Container>

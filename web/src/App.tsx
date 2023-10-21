@@ -6,6 +6,7 @@ import {
   DashboardPage,
   NoProfileSelected,
   ProfileDetails,
+  profileDetailsAction,
   profileDetailsLoader,
   profilePageAction,
   ProfilesPage,
@@ -58,6 +59,7 @@ const router = createBrowserRouter([
           {
             id: "profile-details",
             path: "/profiles/:id",
+            action: profileDetailsAction,
             loader: profileDetailsLoader,
             element: <ProfileDetails />,
           },
