@@ -75,7 +75,9 @@ export const NewProfilePage = () => {
             name="name"
           />
           <div>
-            <Button type="submit">Submit</Button>
+            <Button type="submit" name="revalidate-remote-context" value="true">
+              Submit
+            </Button>
           </div>
         </Stack>
       </Form>

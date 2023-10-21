@@ -29,7 +29,8 @@ const router = createBrowserRouter([
     element: <Layout />,
     id: "root",
     loader: getRemoteContext,
-    shouldRevalidate: () => false,
+    shouldRevalidate: ({ formData }) =>
+      formData?.get("revalidate-remote-context") === "true",
     children: [
       {
         path: "*",
@@ -45,6 +46,7 @@ const router = createBrowserRouter([
         element: <NewProfilePage />,
       },
       {
+        id: "profiles",
         path: "/profiles",
         element: <ProfilesPage />,
         action: profilePageAction,
@@ -54,6 +56,7 @@ const router = createBrowserRouter([
             element: <NoProfileSelected />,
           },
           {
+            id: "profile-details",
             path: "/profiles/:id",
             loader: profileDetailsLoader,
             element: <ProfileDetails />,
