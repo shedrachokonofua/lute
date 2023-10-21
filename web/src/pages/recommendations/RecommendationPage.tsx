@@ -69,9 +69,9 @@ export const recommendationPageLoader = async ({
   const profileId = url.searchParams.get(
     RecommendationSettingsFormName.ProfileId,
   );
-  const assessmentMethod = url.searchParams.get(
-    RecommendationSettingsFormName.Method,
-  );
+  const assessmentMethod =
+    url.searchParams.get(RecommendationSettingsFormName.Method) ||
+    "quantile-ranking";
 
   const assessmentSettings =
     assessmentMethod === "quantile-ranking"
