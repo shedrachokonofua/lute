@@ -8,8 +8,8 @@ use crate::{
   files::file_metadata::file_name::FileName,
   proto::{
     self, AddManyAlbumsToProfileReply, AddManyAlbumsToProfileRequest, CreateProfileReply,
-    CreateProfileRequest, GetProfileReply, GetProfileRequest, GetProfileSummaryReply,
-    GetProfileSummaryRequest, ImportSavedSpotifyTracksRequest,
+    CreateProfileRequest, DeleteProfileRequest, GetProfileReply, GetProfileRequest,
+    GetProfileSummaryReply, GetProfileSummaryRequest, ImportSavedSpotifyTracksRequest,
   },
   settings::Settings,
 };
@@ -108,6 +108,26 @@ impl proto::ProfileService for ProfileService {
       profile: Some(profile.into()),
     };
     Ok(Response::new(reply))
+  }
+
+  async fn delete_profile(
+    &self,
+    request: Request<DeleteProfileRequest>,
+  ) -> Result<Response<()>, Status> {
+    let request = request.into_inner();
+    let id: ProfileId = request.id.try_into().map_err(|err| {
+      error!("invalid profile id: {:?}", err);
+      Status::invalid_argument("invalid profile id")
+    })?;
+    self
+      .profile_interactor
+      .delete_profile(&id)
+      .await
+      .map_err(|err| {
+        error!("failed to delete profile: {:?}", err);
+        Status::internal(err.to_string())
+      })?;
+    Ok(Response::new(()))
   }
 
   async fn get_profile(

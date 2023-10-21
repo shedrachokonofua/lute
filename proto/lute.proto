@@ -460,8 +460,11 @@ message GetPendingSpotifyImportsReply {
 
 message GetAllProfilesReply { repeated Profile profiles = 1; }
 
+message DeleteProfileRequest { string id = 1; }
+
 service ProfileService {
   rpc CreateProfile(CreateProfileRequest) returns (CreateProfileReply) {}
+  rpc DeleteProfile(DeleteProfileRequest) returns (google.protobuf.Empty) {}
   rpc GetProfile(GetProfileRequest) returns (GetProfileReply) {}
   rpc GetAllProfiles(google.protobuf.Empty) returns (GetAllProfilesReply) {}
   rpc GetProfileSummary(GetProfileSummaryRequest)

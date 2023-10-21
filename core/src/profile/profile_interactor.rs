@@ -300,4 +300,8 @@ impl ProfileInteractor {
       .collect::<Vec<_>>();
     Ok(pending_imports)
   }
+
+  pub async fn delete_profile(&self, id: &ProfileId) -> Result<()> {
+    self.profile_repository.delete(id).await
+  }
 }

@@ -91,6 +91,15 @@ impl ProfileRepository {
     Ok(profile)
   }
 
+  pub async fn delete(&self, id: &ProfileId) -> Result<()> {
+    if !self.exists(id).await? {
+      bail!("Profile does not exist")
+    }
+    let connection = self.redis_connection_pool.get().await?;
+    connection.del(self.key(id)).await?;
+    Ok(())
+  }
+
   pub async fn is_album_on_profile(
     &self,
     id: &ProfileId,
