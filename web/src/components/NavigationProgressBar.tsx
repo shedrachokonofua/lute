@@ -12,7 +12,7 @@ export const NavigationProgressBar = () => {
         top: 0,
         left: 0,
         height: 3,
-        background: "#FFF",
+        background: "#CCC",
         zIndex: 1000,
         animation: "loadingAnimation 2s forwards",
 

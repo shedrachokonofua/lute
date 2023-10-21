@@ -1,5 +1,5 @@
 import { Empty } from "google-protobuf/google/protobuf/empty_pb";
-import { RecommendationSettingsForm } from "./pages/RecommendationPage/types";
+import { RecommendationSettingsForm } from "./pages/recommendations/types";
 import {
   AlbumServiceClient,
   ProfileServiceClient,
@@ -10,11 +10,15 @@ import {
   AlbumAssessmentSettings,
   AlbumRecommendation,
   AlbumRecommendationSettings,
+  CreateProfileRequest,
   EmbeddingSimilarityAlbumAssessmentSettings,
   GenreAggregate,
+  GetProfileRequest,
+  GetProfileSummaryRequest,
   HandleAuthorizationCodeRequest,
   LanguageAggregate,
   Profile,
+  ProfileSummary,
   QuantileRankAlbumAssessmentSettings,
   RecommendAlbumsRequest,
 } from "./proto/lute_pb";
@@ -197,3 +201,30 @@ export const getDefaultQuantileRankAlbumAssessmentSettings =
     }
     return settings;
   };
+
+export const getProfile = async (id: string): Promise<Profile | undefined> => {
+  const request = new GetProfileRequest();
+  request.setId(id);
+  const response = await client.profile.getProfile(request, null);
+  return response.getProfile()!;
+};
+
+export const getProfileSummary = async (
+  id: string,
+): Promise<ProfileSummary | undefined> => {
+  const request = new GetProfileSummaryRequest();
+  request.setId(id);
+  const response = await client.profile.getProfileSummary(request, null);
+  return response.getSummary()!;
+};
+
+export const createProfile = async (
+  id: string,
+  name: string,
+): Promise<Profile> => {
+  const request = new CreateProfileRequest();
+  request.setId(id);
+  request.setName(name);
+  const response = await client.profile.createProfile(request, null);
+  return response.getProfile()!;
+};
