@@ -63,10 +63,10 @@ impl LookupService {
 
 #[tonic::async_trait]
 impl proto::LookupService for LookupService {
-  async fn search_album(
+  async fn lookup_album(
     &self,
-    request: Request<proto::SearchAlbumRequest>,
-  ) -> Result<Response<proto::SearchAlbumReply>, Status> {
+    request: Request<proto::LookupAlbumRequest>,
+  ) -> Result<Response<proto::LookupAlbumReply>, Status> {
     let query = request
       .into_inner()
       .query
@@ -76,7 +76,7 @@ impl proto::LookupService for LookupService {
       .search_album(query.artist_name, query.album_name)
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
-    let reply = proto::SearchAlbumReply {
+    let reply = proto::LookupAlbumReply {
       lookup: Some(lookup.into()),
     };
     Ok(Response::new(reply))

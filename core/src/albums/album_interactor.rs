@@ -19,7 +19,7 @@ impl AlbumInteractor {
   }
 
   async fn process_duplicates(&self, album: &AlbumReadModel) -> Result<()> {
-    let potential_duplicates = self
+    let results = self
       .album_read_model_repository
       .search(
         &AlbumSearchQueryBuilder::default()
@@ -32,14 +32,16 @@ impl AlbumInteractor {
               .collect::<Vec<String>>(),
           )
           .build()?,
+        None,
       )
       .await?;
 
-    if potential_duplicates.len() < 2 {
+    if results.total < 2 {
       return Ok(());
     }
 
-    let mut duplicate_albums = potential_duplicates
+    let mut duplicate_albums = results
+      .albums
       .iter()
       .sorted_by(|a, b| {
         b.rating_count

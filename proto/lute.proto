@@ -164,9 +164,54 @@ message GetAggregatedLanguagesReply {
 message GetEmbeddingKeysReply {
   repeated string keys = 1;
 }
+message AlbumSearchQuery {
+  optional string exact_name = 1;
+  repeated string include_file_names = 2;
+  repeated string exclude_file_names = 3;
+  repeated string include_artists = 4;
+  repeated string exclude_artists = 5;
+  repeated string include_primary_genres = 6;
+  repeated string exclude_primary_genres = 7;
+  repeated string include_secondary_genres = 8;
+  repeated string exclude_secondary_genres = 9;
+  repeated string include_languages = 10;
+  repeated string exclude_languages = 11;
+  repeated string include_descriptors = 12;
+  optional uint32 min_primary_genre_count = 13;
+  optional uint32 min_secondary_genre_count = 14;
+  optional uint32 min_descriptor_count = 15;
+  optional uint32 min_release_year = 16;
+  optional uint32 max_release_year = 17;
+  optional bool include_duplicates = 18;
+}
+
+message SearchPagination {
+  optional uint32 offset = 1;
+  optional uint32 limit = 2;
+}
+
+message SearchAlbumsRequest {
+  AlbumSearchQuery query = 1;
+  SearchPagination pagination = 2;
+}
+
+message SearchAlbumsReply {
+  repeated Album albums = 1;
+  uint32 total = 2;
+}
+
+message GetManyAlbumsRequest {
+  repeated string file_names = 1;
+}
+
+message GetManyAlbumsReply {
+  repeated Album albums = 1;
+}
 
 service AlbumService {
   rpc GetAlbum(GetAlbumRequest) returns (GetAlbumReply) {}
+  rpc GetManyAlbums(GetManyAlbumsRequest) returns (GetManyAlbumsReply) {}
+  rpc SearchAlbums(SearchAlbumsRequest) returns (SearchAlbumsReply) {}
   rpc GetAggregatedGenres(google.protobuf.Empty)
       returns (GetAggregatedGenresReply) {}
   rpc GetAggregatedDescriptors(google.protobuf.Empty)
@@ -345,7 +390,7 @@ message AlbumSearchLookupQuery {
   string album_name = 2;
 }
 
-message SearchAlbumRequest { AlbumSearchLookupQuery query = 1; }
+message LookupAlbumRequest { AlbumSearchLookupQuery query = 1; }
 
 message AlbumSearchResult {
   string album_name = 1;
@@ -365,7 +410,7 @@ message AlbumSearchLookup {
   string status = 9;
 }
 
-message SearchAlbumReply { AlbumSearchLookup lookup = 1; }
+message LookupAlbumReply { AlbumSearchLookup lookup = 1; }
 
 message AggregatedStatus {
   string status = 1;
@@ -377,7 +422,7 @@ message GetAggregatedAlbumSearchStatusesReply {
 }
 
 service LookupService {
-  rpc SearchAlbum(SearchAlbumRequest) returns (SearchAlbumReply) {}
+  rpc LookupAlbum(LookupAlbumRequest) returns (LookupAlbumReply) {}
   rpc GetAggregatedAlbumSearchStatuses(google.protobuf.Empty)
       returns (GetAggregatedAlbumSearchStatusesReply) {}
 }

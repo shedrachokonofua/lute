@@ -100,16 +100,17 @@ impl
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
     let search_query = recommendation_settings.to_search_query(profile, profile_albums)?;
-    let albums = self
+    let search_results = self
       .album_read_model_repository
-      .search(&search_query)
+      .search(&search_query, None)
       .await?;
     let context =
       QuantileRankAlbumAssessmentContext::new(profile, profile_albums, assessment_settings);
     let mut result_heap = BoundedMinHeap::new(recommendation_settings.count as usize);
     let (recommendation_sender, mut recommendation_receiver) = mpsc::unbounded_channel();
     rayon::spawn(move || {
-      albums
+      search_results
+        .albums
         .par_iter()
         .for_each(|album| match context.assess(album) {
           Ok(assessment) => {

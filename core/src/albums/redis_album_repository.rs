@@ -1,7 +1,7 @@
 use super::album_repository::{
   embedding_to_bytes, AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit,
-  AlbumReadModelTrack, AlbumRepository, AlbumSearchQuery, GenreAggregate, ItemAndCount,
-  SimilarAlbumsQuery,
+  AlbumReadModelTrack, AlbumRepository, AlbumSearchQuery, AlbumSearchResult, GenreAggregate,
+  ItemAndCount, SearchPagination, SimilarAlbumsQuery,
 };
 use crate::{
   files::file_metadata::file_name::FileName,
@@ -199,7 +199,7 @@ impl AlbumSearchQuery {
     if let Some(exact_name) = &self.exact_name {
       ft_search_query.push_str(&get_tag_query("@name_tag", &vec![exact_name]));
     }
-    if !self.include_duplicates {
+    if !self.include_duplicates.is_some_and(|b| b == true) {
       ft_search_query.push_str(&&get_num_range_query("@is_duplicate", Some(0), Some(0)));
     }
     ft_search_query.push_str(&get_min_num_query(
@@ -497,34 +497,37 @@ impl AlbumRepository for RedisAlbumRepository {
   }
 
   #[instrument(skip(self))]
-  async fn search(&self, query: &AlbumSearchQuery) -> Result<Vec<AlbumReadModel>> {
-    let page_size: usize = 100_000;
-    let mut albums: Vec<AlbumReadModel> = Vec::new();
-    let mut offset = 0;
+  async fn search(
+    &self,
+    query: &AlbumSearchQuery,
+    pagination: Option<&SearchPagination>,
+  ) -> Result<AlbumSearchResult> {
+    let limit = pagination.and_then(|p| p.limit).unwrap_or_else(|| 100000);
+    let offset = pagination.and_then(|p| p.offset).unwrap_or_else(|| 0);
 
-    loop {
-      let connection = self.redis_connection_pool.get().await?;
-      let result = connection
-        .ft_search(
-          INDEX_NAME,
-          query.to_ft_search_query(),
-          FtSearchOptions::default().limit(offset, page_size),
-        )
-        .await?;
+    let connection = self.redis_connection_pool.get().await?;
+    let result = connection
+      .ft_search(
+        INDEX_NAME,
+        query.to_ft_search_query(),
+        FtSearchOptions::default().limit(offset, limit),
+      )
+      .await?;
 
-      albums.extend(result.results.iter().filter_map(|row| {
+    let albums = result
+      .results
+      .iter()
+      .filter_map(|row| {
         RedisAlbumReadModel::try_from(&row.values)
           .ok()
           .map(|r| r.into())
-      }));
+      })
+      .collect();
 
-      if result.results.len() < page_size {
-        break;
-      }
-      offset += page_size;
-    }
-
-    Ok(albums)
+    Ok(AlbumSearchResult {
+      albums,
+      total: result.total_results,
+    })
   }
 
   async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>> {

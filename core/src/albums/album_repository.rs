@@ -171,7 +171,65 @@ pub struct AlbumSearchQuery {
   pub min_descriptor_count: Option<usize>,
   pub min_release_year: Option<u32>,
   pub max_release_year: Option<u32>,
-  pub include_duplicates: bool,
+  pub include_duplicates: Option<bool>,
+}
+
+impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
+  type Error = anyhow::Error;
+
+  fn try_from(value: proto::AlbumSearchQuery) -> Result<Self> {
+    Ok(AlbumSearchQuery {
+      exact_name: value.exact_name,
+      include_file_names: value
+        .include_file_names
+        .into_iter()
+        .map(|file_name| FileName::try_from(file_name).map_err(|e| anyhow::Error::msg(e)))
+        .collect::<Result<Vec<FileName>>>()?,
+      exclude_file_names: value
+        .exclude_file_names
+        .into_iter()
+        .map(|file_name| FileName::try_from(file_name).map_err(|e| anyhow::Error::msg(e)))
+        .collect::<Result<Vec<FileName>>>()?,
+      include_artists: value.include_artists,
+      exclude_artists: value.exclude_artists,
+      include_primary_genres: value.include_primary_genres,
+      exclude_primary_genres: value.exclude_primary_genres,
+      include_secondary_genres: value.include_secondary_genres,
+      exclude_secondary_genres: value.exclude_secondary_genres,
+      include_languages: value.include_languages,
+      exclude_languages: value.exclude_languages,
+      include_descriptors: value.include_descriptors,
+      min_primary_genre_count: value.min_primary_genre_count.map(|i| i as usize),
+      min_secondary_genre_count: value.min_secondary_genre_count.map(|i| i as usize),
+      min_descriptor_count: value.min_descriptor_count.map(|i| i as usize),
+      min_release_year: value.min_release_year.map(|i| i as u32),
+      max_release_year: value.max_release_year.map(|i| i as u32),
+      include_duplicates: value.include_duplicates,
+    })
+  }
+}
+
+#[derive(Debug)]
+pub struct SearchPagination {
+  pub offset: Option<usize>,
+  pub limit: Option<usize>,
+}
+
+impl TryFrom<proto::SearchPagination> for SearchPagination {
+  type Error = anyhow::Error;
+
+  fn try_from(value: proto::SearchPagination) -> Result<Self> {
+    Ok(SearchPagination {
+      offset: value.offset.map(|i| i as usize),
+      limit: value.limit.map(|i| i as usize),
+    })
+  }
+}
+
+#[derive(Debug)]
+pub struct AlbumSearchResult {
+  pub albums: Vec<AlbumReadModel>,
+  pub total: usize,
 }
 
 #[derive(Debug)]
@@ -209,7 +267,11 @@ pub trait AlbumRepository {
   async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>>;
   async fn exists(&self, file_name: &FileName) -> Result<bool>;
   async fn get_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>>;
-  async fn search(&self, query: &AlbumSearchQuery) -> Result<Vec<AlbumReadModel>>;
+  async fn search(
+    &self,
+    query: &AlbumSearchQuery,
+    pagination: Option<&SearchPagination>,
+  ) -> Result<AlbumSearchResult>;
   async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>>;
   async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>>;
   async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>>;
