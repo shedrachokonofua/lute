@@ -6,7 +6,7 @@ import {
   IconTrashX,
 } from "@tabler/icons-react";
 import { Link, useSubmit } from "react-router-dom";
-import { Profile } from "../../proto/lute_pb";
+import { Profile } from "../../../proto/lute_pb";
 
 export const ProfileDetailsMenu = ({ profile }: { profile: Profile }) => {
   const submit = useSubmit();
@@ -43,6 +43,7 @@ export const ProfileDetailsMenu = ({ profile }: { profile: Profile }) => {
             ) {
               submit(
                 {
+                  intent: "delete-profile",
                   "revalidate-remote-context": "true",
                 },
                 {

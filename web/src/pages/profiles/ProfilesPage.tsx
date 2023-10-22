@@ -2,7 +2,7 @@ import { Box, Button, Container, Group } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { ActionFunction, Link, Outlet, useMatches } from "react-router-dom";
 import { useRemoteContext } from "../../remote-context";
-import { ProfileDetailsMenu } from "./ProfileDetailsMenu";
+import { ProfileDetailsMenu } from "./ProfileDetails";
 import { ProfileSelect } from "./ProfilesSelect";
 
 export const profilePageAction: ActionFunction = () => {

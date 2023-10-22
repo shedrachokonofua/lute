@@ -21,6 +21,7 @@ export const EmbeddingSimilaritySettings = ({
         settings?.assessmentSettings?.embeddingSimilarity?.embeddingKey ??
         embbedingKeys[0]
       }
+      variant="filled"
     />
   </Stack>
 );

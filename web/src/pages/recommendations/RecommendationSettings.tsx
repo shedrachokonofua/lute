@@ -71,6 +71,7 @@ export const RecommendationSettings = ({
               placeholder="Select Profile"
               name={RecommendationSettingsFormName.ProfileId}
               defaultValue={settings?.profileId}
+              variant="filled"
             />
             <NumberInput
               label="Recommendations Count"
@@ -79,6 +80,7 @@ export const RecommendationSettings = ({
               max={100}
               name={RecommendationSettingsFormName.Count}
               defaultValue={settings?.recommendationSettings?.count || 40}
+              variant="filled"
             />
           </Stack>
           <CollapsibleSection title="Filters">
@@ -95,6 +97,7 @@ export const RecommendationSettings = ({
                     defaultValue={
                       settings?.recommendationSettings?.minReleaseYear
                     }
+                    variant="filled"
                   />
                 </Grid.Col>
                 <Grid.Col md={6}>
@@ -108,6 +111,7 @@ export const RecommendationSettings = ({
                     defaultValue={
                       settings?.recommendationSettings?.maxReleaseYear
                     }
+                    variant="filled"
                   />
                 </Grid.Col>
               </Grid>
@@ -119,6 +123,7 @@ export const RecommendationSettings = ({
                 defaultValue={
                   settings?.recommendationSettings?.includePrimaryGenres
                 }
+                variant="filled"
                 searchable
               />
               <MultiSelect
@@ -129,6 +134,7 @@ export const RecommendationSettings = ({
                 defaultValue={
                   settings?.recommendationSettings?.excludePrimaryGenres
                 }
+                variant="filled"
                 searchable
               />
               <MultiSelect
@@ -139,6 +145,7 @@ export const RecommendationSettings = ({
                 defaultValue={
                   settings?.recommendationSettings?.includeSecondaryGenres
                 }
+                variant="filled"
                 searchable
               />
               <MultiSelect
@@ -149,6 +156,7 @@ export const RecommendationSettings = ({
                 defaultValue={
                   settings?.recommendationSettings?.excludeSecondaryGenres
                 }
+                variant="filled"
                 searchable
               />
               <MultiSelect
@@ -159,6 +167,7 @@ export const RecommendationSettings = ({
                 defaultValue={
                   settings?.recommendationSettings?.includeLanguages
                 }
+                variant="filled"
                 searchable
               />
               <MultiSelect
@@ -169,6 +178,7 @@ export const RecommendationSettings = ({
                 defaultValue={
                   settings?.recommendationSettings?.excludeLanguages
                 }
+                variant="filled"
                 searchable
               />
               <Checkbox
@@ -177,6 +187,7 @@ export const RecommendationSettings = ({
                 defaultValue={
                   settings?.recommendationSettings?.excludeKnownArtists
                 }
+                variant="filled"
                 value={1}
               />
             </Stack>
@@ -199,6 +210,7 @@ export const RecommendationSettings = ({
               }}
               placeholder="Select Method"
               name={RecommendationSettingsFormName.Method}
+              variant="filled"
             />
             <CollapsibleSection title="Method Settings">
               {currentMethod === "quantile-ranking" && (

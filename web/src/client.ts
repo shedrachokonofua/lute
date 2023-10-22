@@ -7,21 +7,29 @@ import {
   SpotifyServiceClient,
 } from "./proto/LuteServiceClientPb";
 import {
+  Album,
   AlbumAssessmentSettings,
   AlbumRecommendation,
   AlbumRecommendationSettings,
+  AlbumSearchQuery,
   CreateProfileRequest,
   DeleteProfileRequest,
   EmbeddingSimilarityAlbumAssessmentSettings,
   GenreAggregate,
+  GetManyAlbumsRequest,
   GetProfileRequest,
   GetProfileSummaryRequest,
   HandleAuthorizationCodeRequest,
   LanguageAggregate,
   Profile,
   ProfileSummary,
+  PutAlbumOnProfileRequest,
   QuantileRankAlbumAssessmentSettings,
   RecommendAlbumsRequest,
+  RemoveAlbumFromProfileRequest,
+  SearchAlbumsReply,
+  SearchAlbumsRequest,
+  SearchPagination,
 } from "./proto/lute_pb";
 
 const coreUrl = "http://0.0.0.0:22000";
@@ -234,4 +242,134 @@ export const deleteProfile = async (id: string): Promise<void> => {
   const request = new DeleteProfileRequest();
   request.setId(id);
   await client.profile.deleteProfile(request, null);
+};
+
+export const getManyAlbums = async (fileNames: string[]): Promise<Album[]> => {
+  const request = new GetManyAlbumsRequest();
+  request.setFileNamesList(fileNames);
+  const response = await client.album.getManyAlbums(request, null);
+  return response.getAlbumsList();
+};
+
+export interface AlbumSearchQueryParams {
+  exactName?: string;
+  includeFileNames?: string[];
+  excludeFileNames?: string[];
+  includeArtists?: string[];
+  excludeArtists?: string[];
+  includePrimaryGenres?: string[];
+  excludePrimaryGenres?: string[];
+  includeSecondaryGenres?: string[];
+  excludeSecondaryGenres?: string[];
+  includeLanguages?: string[];
+  excludeLanguages?: string[];
+  includeDescriptors?: string[];
+  minPrimaryGenreCount?: number;
+  minSecondaryGenreCount?: number;
+  minDescriptorCount?: number;
+  minReleaseYear?: number;
+  maxReleaseYear?: number;
+  includeDuplicates?: boolean;
+}
+
+export interface AlbumSearchPaginationParams {
+  offset?: number;
+  limit?: number;
+}
+
+export const searchAlbums = async (
+  queryParams: AlbumSearchQueryParams,
+  paginationParams?: AlbumSearchPaginationParams,
+): Promise<SearchAlbumsReply> => {
+  const query = new AlbumSearchQuery();
+  if (queryParams.exactName) {
+    query.setExactName(queryParams.exactName);
+  }
+  if (queryParams.includeFileNames) {
+    query.setIncludeFileNamesList(queryParams.includeFileNames);
+  }
+  if (queryParams.excludeFileNames) {
+    query.setExcludeFileNamesList(queryParams.excludeFileNames);
+  }
+  if (queryParams.includeArtists) {
+    query.setIncludeArtistsList(queryParams.includeArtists);
+  }
+  if (queryParams.excludeArtists) {
+    query.setExcludeArtistsList(queryParams.excludeArtists);
+  }
+  if (queryParams.includePrimaryGenres) {
+    query.setIncludePrimaryGenresList(queryParams.includePrimaryGenres);
+  }
+  if (queryParams.excludePrimaryGenres) {
+    query.setExcludePrimaryGenresList(queryParams.excludePrimaryGenres);
+  }
+  if (queryParams.includeSecondaryGenres) {
+    query.setIncludeSecondaryGenresList(queryParams.includeSecondaryGenres);
+  }
+  if (queryParams.excludeSecondaryGenres) {
+    query.setExcludeSecondaryGenresList(queryParams.excludeSecondaryGenres);
+  }
+  if (queryParams.includeLanguages) {
+    query.setIncludeLanguagesList(queryParams.includeLanguages);
+  }
+  if (queryParams.excludeLanguages) {
+    query.setExcludeLanguagesList(queryParams.excludeLanguages);
+  }
+  if (queryParams.includeDescriptors) {
+    query.setIncludeDescriptorsList(queryParams.includeDescriptors);
+  }
+  if (queryParams.minPrimaryGenreCount) {
+    query.setMinPrimaryGenreCount(queryParams.minPrimaryGenreCount);
+  }
+  if (queryParams.minSecondaryGenreCount) {
+    query.setMinSecondaryGenreCount(queryParams.minSecondaryGenreCount);
+  }
+  if (queryParams.minDescriptorCount) {
+    query.setMinDescriptorCount(queryParams.minDescriptorCount);
+  }
+  if (queryParams.minReleaseYear) {
+    query.setMinReleaseYear(queryParams.minReleaseYear);
+  }
+  if (queryParams.maxReleaseYear) {
+    query.setMaxReleaseYear(queryParams.maxReleaseYear);
+  }
+  if (queryParams.includeDuplicates) {
+    query.setIncludeDuplicates(queryParams.includeDuplicates);
+  }
+
+  const pagination = new SearchPagination();
+  if (paginationParams?.offset) {
+    pagination.setOffset(paginationParams.offset);
+  }
+  if (paginationParams?.limit) {
+    pagination.setLimit(paginationParams.limit);
+  }
+
+  const request = new SearchAlbumsRequest();
+  request.setQuery(query);
+  request.setPagination(pagination);
+  return await client.album.searchAlbums(request, null);
+};
+
+export const putAlbumOnProfile = async (
+  profileId: string,
+  fileName: string,
+  factor: number,
+): Promise<Profile> => {
+  const request = new PutAlbumOnProfileRequest();
+  request.setProfileId(profileId);
+  request.setFileName(fileName);
+  request.setFactor(factor);
+  const response = await client.profile.putAlbumOnProfile(request, null);
+  return response.getProfile()!;
+};
+
+export const removeAlbumFromProfile = async (
+  profileId: string,
+  fileName: string,
+): Promise<void> => {
+  const request = new RemoveAlbumFromProfileRequest();
+  request.setProfileId(profileId);
+  request.setFileName(fileName);
+  await client.profile.removeAlbumFromProfile(request, null);
 };

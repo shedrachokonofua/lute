@@ -10,6 +10,7 @@ export const ProfileSelect = ({ id }: { id?: string }) => {
   return (
     <Select
       searchable
+      variant="filled"
       size="sm"
       label="Select a profile:"
       placeholder="Select a profile"

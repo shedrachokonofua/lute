@@ -31,6 +31,7 @@ export const QuantileRankSettings = ({
               ?.primaryGenresWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getPrimaryGenreWeight()
           }
+          variant="filled"
         />
       </Grid.Col>
       <Grid.Col md={6}>
@@ -48,6 +49,7 @@ export const QuantileRankSettings = ({
               ?.secondaryGenresWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getSecondaryGenreWeight()
           }
+          variant="filled"
         />
       </Grid.Col>
       <Grid.Col md={6}>
@@ -62,6 +64,7 @@ export const QuantileRankSettings = ({
             settings?.assessmentSettings?.quantileRanking?.descriptorWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getDescriptorWeight()
           }
+          variant="filled"
         />
       </Grid.Col>
       <Grid.Col md={6}>
@@ -76,6 +79,7 @@ export const QuantileRankSettings = ({
             settings?.assessmentSettings?.quantileRanking?.ratingWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getRatingWeight()
           }
+          variant="filled"
         />
       </Grid.Col>
       <Grid.Col md={6}>
@@ -90,6 +94,7 @@ export const QuantileRankSettings = ({
             settings?.assessmentSettings?.quantileRanking?.ratingCountWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getRatingCountWeight()
           }
+          variant="filled"
         />
       </Grid.Col>
       <Grid.Col md={6}>
@@ -107,6 +112,7 @@ export const QuantileRankSettings = ({
               ?.descriptorCountWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getDescriptorCountWeight()
           }
+          variant="filled"
         />
       </Grid.Col>
       <Grid.Col md={6}>
@@ -121,6 +127,7 @@ export const QuantileRankSettings = ({
             settings?.assessmentSettings?.quantileRanking?.creditTagWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getCreditTagWeight()
           }
+          variant="filled"
         />
       </Grid.Col>
     </Grid>
