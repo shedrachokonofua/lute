@@ -516,6 +516,11 @@ message GetAllProfilesReply { repeated Profile profiles = 1; }
 
 message DeleteProfileRequest { string id = 1; }
 
+message RemoveAlbumFromProfileRequest {
+  string profile_id = 1;
+  string file_name = 2;
+}
+
 service ProfileService {
   rpc CreateProfile(CreateProfileRequest) returns (CreateProfileReply) {}
   rpc DeleteProfile(DeleteProfileRequest) returns (google.protobuf.Empty) {}
@@ -526,6 +531,8 @@ service ProfileService {
   rpc PutAlbumOnProfile(PutAlbumOnProfileRequest) returns (PutAlbumOnProfileReply) {}
   rpc PutManyAlbumsOnProfile(PutManyAlbumsOnProfileRequest)
       returns (PutManyAlbumsOnProfileReply) {}
+  rpc RemoveAlbumFromProfile(RemoveAlbumFromProfileRequest)
+      returns (google.protobuf.Empty) {}
   rpc ImportSavedSpotifyTracks(ImportSavedSpotifyTracksRequest)
       returns (google.protobuf.Empty) {}
   rpc ImportSpotifyPlaylistTracks(ImportSpotifyPlaylistTracksRequest)

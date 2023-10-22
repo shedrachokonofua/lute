@@ -139,6 +139,17 @@ impl ProfileInteractor {
     self.get_profile(id).await
   }
 
+  pub async fn remove_album_from_profile(
+    &self,
+    id: &ProfileId,
+    file_name: &FileName,
+  ) -> Result<()> {
+    self
+      .profile_repository
+      .remove_album_from_profile(id, file_name)
+      .await
+  }
+
   pub async fn get_profile_summary_and_albums(
     &self,
     id: &ProfileId,

@@ -350,4 +350,29 @@ impl proto::ProfileService for ProfileService {
     };
     Ok(Response::new(reply))
   }
+
+  async fn remove_album_from_profile(
+    &self,
+    request: Request<proto::RemoveAlbumFromProfileRequest>,
+  ) -> Result<Response<()>, Status> {
+    let request = request.into_inner();
+    let profile_id = ProfileId::try_from(request.profile_id).map_err(|err| {
+      error!("invalid profile id: {:?}", err);
+      Status::invalid_argument("invalid profile id")
+    })?;
+    let album_file_name = FileName::try_from(request.file_name).map_err(|err| {
+      error!("invalid album file name: {:?}", err);
+      Status::invalid_argument("invalid album file name")
+    })?;
+    self
+      .profile_interactor
+      .remove_album_from_profile(&profile_id, &album_file_name)
+      .await
+      .map_err(|err| {
+        error!("failed to remove album from profile: {:?}", err);
+        Status::internal("failed to remove album from profile")
+      })?;
+
+    Ok(Response::new(()))
+  }
 }

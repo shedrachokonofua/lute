@@ -139,4 +139,19 @@ impl ProfileRepository {
       .await?;
     Ok((self.get(id).await?, new_addition))
   }
+
+  pub async fn remove_album_from_profile(
+    &self,
+    id: &ProfileId,
+    album_file_name: &FileName,
+  ) -> Result<()> {
+    if !self.exists(id).await? {
+      bail!("Profile does not exist")
+    }
+    let connection = self.redis_connection_pool.get().await?;
+    connection
+      .json_del(self.key(id), self.profile_album_path(album_file_name))
+      .await?;
+    Ok(())
+  }
 }
