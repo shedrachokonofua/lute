@@ -475,12 +475,21 @@ message FileNameWithFactor {
   uint32 factor = 2;
 }
 
-message AddManyAlbumsToProfileRequest {
+message PutManyAlbumsOnProfileRequest {
   string profile_id = 1;
   repeated FileNameWithFactor albums = 2;
 }
 
-message AddManyAlbumsToProfileReply { Profile profile = 1; }
+message PutManyAlbumsOnProfileReply { Profile profile = 1; }
+
+
+message PutAlbumOnProfileRequest {
+  string profile_id = 1;
+  string file_name = 2;
+  uint32 factor = 3;
+}
+
+message PutAlbumOnProfileReply { Profile profile = 1; }
 
 message ImportSavedSpotifyTracksRequest { string profile_id = 1; }
 
@@ -514,8 +523,9 @@ service ProfileService {
   rpc GetAllProfiles(google.protobuf.Empty) returns (GetAllProfilesReply) {}
   rpc GetProfileSummary(GetProfileSummaryRequest)
       returns (GetProfileSummaryReply) {}
-  rpc AddManyAlbumsToProfile(AddManyAlbumsToProfileRequest)
-      returns (AddManyAlbumsToProfileReply) {}
+  rpc PutAlbumOnProfile(PutAlbumOnProfileRequest) returns (PutAlbumOnProfileReply) {}
+  rpc PutManyAlbumsOnProfile(PutManyAlbumsOnProfileRequest)
+      returns (PutManyAlbumsOnProfileReply) {}
   rpc ImportSavedSpotifyTracks(ImportSavedSpotifyTracksRequest)
       returns (google.protobuf.Empty) {}
   rpc ImportSpotifyPlaylistTracks(ImportSpotifyPlaylistTracksRequest)

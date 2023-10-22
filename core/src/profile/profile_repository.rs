@@ -118,7 +118,7 @@ impl ProfileRepository {
     Ok(json.is_some() && json.unwrap() != "[]")
   }
 
-  pub async fn add_album_to_profile(
+  pub async fn put_album_on_profile(
     &self,
     id: &ProfileId,
     album_file_name: &FileName,

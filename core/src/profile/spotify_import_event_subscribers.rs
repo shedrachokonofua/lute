@@ -31,7 +31,7 @@ pub async fn process_lookup_subscriptions(
       .await?;
     for subscription in subscriptions {
       profile_interactor
-        .add_album_to_profile(
+        .put_album_on_profile(
           &subscription.profile_id,
           &parsed_album_search_result.file_name,
           subscription.factor,

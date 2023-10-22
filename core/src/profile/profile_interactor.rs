@@ -80,7 +80,7 @@ impl ProfileInteractor {
     self.profile_repository.get_all().await
   }
 
-  pub async fn add_album_to_profile(
+  pub async fn put_album_on_profile(
     &self,
     id: &ProfileId,
     file_name: &FileName,
@@ -90,7 +90,7 @@ impl ProfileInteractor {
     let file_name_to_add = album.duplicate_of.unwrap_or(file_name.clone());
     let (profile, new_addition) = self
       .profile_repository
-      .add_album_to_profile(id, &file_name_to_add, factor)
+      .put_album_on_profile(id, &file_name_to_add, factor)
       .await
       .map_err(|e| {
         anyhow::anyhow!(
@@ -117,13 +117,13 @@ impl ProfileInteractor {
     Ok(profile)
   }
 
-  pub async fn add_many_albums_to_profile(
+  pub async fn put_many_albums_on_profile(
     &self,
     id: &ProfileId,
     entries: Vec<(FileName, u32)>,
   ) -> Result<Profile> {
     for (file_name, factor) in entries {
-      match self.add_album_to_profile(id, &file_name, factor).await {
+      match self.put_album_on_profile(id, &file_name, factor).await {
         Ok(_) => (),
         Err(e) => {
           warn!(
@@ -200,7 +200,7 @@ impl ProfileInteractor {
       .filter(|(lookup, _)| lookup.status() == AlbumSearchLookupStatus::AlbumParsed)
       .collect::<Vec<_>>();
     self
-      .add_many_albums_to_profile(
+      .put_many_albums_on_profile(
         id,
         complete_pairs
           .iter()

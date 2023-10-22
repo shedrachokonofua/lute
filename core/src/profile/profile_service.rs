@@ -7,9 +7,9 @@ use crate::{
   albums::album_repository::AlbumRepository,
   files::file_metadata::file_name::FileName,
   proto::{
-    self, AddManyAlbumsToProfileReply, AddManyAlbumsToProfileRequest, CreateProfileReply,
-    CreateProfileRequest, DeleteProfileRequest, GetProfileReply, GetProfileRequest,
-    GetProfileSummaryReply, GetProfileSummaryRequest, ImportSavedSpotifyTracksRequest,
+    self, CreateProfileReply, CreateProfileRequest, DeleteProfileRequest, GetProfileReply,
+    GetProfileRequest, GetProfileSummaryReply, GetProfileSummaryRequest,
+    ImportSavedSpotifyTracksRequest, PutManyAlbumsOnProfileReply, PutManyAlbumsOnProfileRequest,
   },
   settings::Settings,
 };
@@ -194,10 +194,10 @@ impl proto::ProfileService for ProfileService {
     Ok(Response::new(reply))
   }
 
-  async fn add_many_albums_to_profile(
+  async fn put_many_albums_on_profile(
     &self,
-    request: Request<AddManyAlbumsToProfileRequest>,
-  ) -> Result<Response<AddManyAlbumsToProfileReply>, Status> {
+    request: Request<PutManyAlbumsOnProfileRequest>,
+  ) -> Result<Response<PutManyAlbumsOnProfileReply>, Status> {
     let request = request.into_inner();
     let id: ProfileId = request.profile_id.try_into().map_err(|err| {
       error!("invalid profile id: {:?}", err);
@@ -220,13 +220,44 @@ impl proto::ProfileService for ProfileService {
       .collect();
     let profile = self
       .profile_interactor
-      .add_many_albums_to_profile(&id, entries)
+      .put_many_albums_on_profile(&id, entries)
       .await
       .map_err(|err| {
         error!("failed to add album to profile: {:?}", err);
         Status::internal("failed to add album to profile")
       })?;
-    let reply = AddManyAlbumsToProfileReply {
+    let reply = PutManyAlbumsOnProfileReply {
+      profile: Some(profile.into()),
+    };
+    Ok(Response::new(reply))
+  }
+
+  async fn put_album_on_profile(
+    &self,
+    request: Request<proto::PutAlbumOnProfileRequest>,
+  ) -> Result<Response<proto::PutAlbumOnProfileReply>, Status> {
+    let request = request.into_inner();
+    let id: ProfileId = request.profile_id.try_into().map_err(|err| {
+      error!("invalid profile id: {:?}", err);
+      Status::invalid_argument("invalid profile id")
+    })?;
+    let album_file_name: FileName = request
+      .file_name
+      .try_into()
+      .map_err(|err| {
+        error!("invalid album file name: {:?}", err);
+        Status::invalid_argument("invalid album file name")
+      })
+      .unwrap();
+    let profile = self
+      .profile_interactor
+      .put_album_on_profile(&id, &album_file_name, request.factor)
+      .await
+      .map_err(|err| {
+        error!("failed to add album to profile: {:?}", err);
+        Status::internal("failed to add album to profile")
+      })?;
+    let reply = proto::PutAlbumOnProfileReply {
       profile: Some(profile.into()),
     };
     Ok(Response::new(reply))
