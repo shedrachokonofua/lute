@@ -196,6 +196,12 @@ fn get_num_range_query(tag: &str, min: Option<u32>, max: Option<u32>) -> String 
 impl AlbumSearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     let mut ft_search_query = String::from("");
+    if let Some(text) = &self.text {
+      ft_search_query.push_str(&format!(
+        "({}*) ",
+        escape_tag_value(text).replace(r"\ ", " ").trim()
+      ));
+    }
     if let Some(exact_name) = &self.exact_name {
       ft_search_query.push_str(&get_tag_query("@name_tag", &vec![exact_name]));
     }

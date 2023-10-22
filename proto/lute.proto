@@ -183,6 +183,7 @@ message AlbumSearchQuery {
   optional uint32 min_release_year = 16;
   optional uint32 max_release_year = 17;
   optional bool include_duplicates = 18;
+  optional string text = 19;
 }
 
 message SearchPagination {

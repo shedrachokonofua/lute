@@ -154,6 +154,7 @@ impl From<&ItemAndCount> for proto::LanguageAggregate {
 #[derive(Default, Builder, Debug)]
 #[builder(setter(into), default)]
 pub struct AlbumSearchQuery {
+  pub text: Option<String>,
   pub exact_name: Option<String>,
   pub include_file_names: Vec<FileName>,
   pub exclude_file_names: Vec<FileName>,
@@ -179,6 +180,7 @@ impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
 
   fn try_from(value: proto::AlbumSearchQuery) -> Result<Self> {
     Ok(AlbumSearchQuery {
+      text: value.text,
       exact_name: value.exact_name,
       include_file_names: value
         .include_file_names
