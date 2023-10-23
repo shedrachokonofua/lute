@@ -32,14 +32,12 @@ const Pagination = ({ list }: { list: ProfileAlbumsProps["list"] }) => {
   return (
     <Group>
       {hasPrevious && (
-        <Link to={getUpdatedQueryString({ albumPage: list.page - 1 })}>
+        <Link to={getUpdatedQueryString({ page: list.page - 1 })}>
           Previous
         </Link>
       )}
       {hasNext && (
-        <Link to={getUpdatedQueryString({ albumPage: list.page + 1 })}>
-          Next
-        </Link>
+        <Link to={getUpdatedQueryString({ page: list.page + 1 })}>Next</Link>
       )}
     </Group>
   );
@@ -52,8 +50,8 @@ const AlbumSearchInput = ({ value }: { value: string }) => {
   useEffect(() => {
     navigate(
       getUpdatedQueryString({
-        albumSearch: debouncedSearchValue,
-        albumPage: 1,
+        search: debouncedSearchValue,
+        page: 1,
       }),
     );
   }, [debouncedSearchValue]);

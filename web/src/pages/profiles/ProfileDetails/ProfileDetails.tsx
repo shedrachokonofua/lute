@@ -103,16 +103,16 @@ export const profileDetailsLoader: LoaderFunction = async ({
     throw new Error("Profile not found");
   }
   const searchParams = new URLSearchParams(new URL(request.url).search);
-  const albumPage = Number(searchParams.get("albumPage")) || 1;
-  const pageSize = Number(searchParams.get("albumPageSize")) || 5;
-  const search = searchParams.get("albumSearch") || "";
+  const page = Number(searchParams.get("page")) || 1;
+  const pageSize = Number(searchParams.get("pageSize")) || 5;
+  const search = searchParams.get("search") || "";
   const searchResults = await searchAlbums(
     {
       text: search,
       includeFileNames: Array.from(profile.getAlbumsMap().keys()),
     },
     {
-      offset: (albumPage - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize,
     },
   );
@@ -125,7 +125,7 @@ export const profileDetailsLoader: LoaderFunction = async ({
     albumsList: {
       albums,
       search,
-      page: albumPage,
+      page,
       pageCount,
     },
   } as ProfileDetailsLoaderData;
@@ -168,8 +168,7 @@ const getActionNotification = (actionData: ProfileDetailsActionData) => {
 };
 
 export const ProfileDetails = () => {
-  const { profile, profileSummary, albumsList } =
-    useLoaderData() as ProfileDetailsLoaderData;
+  const { profile, albumsList } = useLoaderData() as ProfileDetailsLoaderData;
   const actionData = useActionData() as ProfileDetailsActionData | null;
   useEffect(() => {
     if (!actionData) return;
