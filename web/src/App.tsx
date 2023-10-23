@@ -1,24 +1,27 @@
 import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { Layout } from "./components";
 import {
   DashboardPage,
   NoProfileSelected,
   ProfileDetails,
+  ProfilesPage,
+  RecommendationPage,
+  SpotifyOAuthCallbackPage,
   profileDetailsAction,
   profileDetailsLoader,
   profilePageAction,
-  ProfilesPage,
-  RecommendationPage,
   recommendationPageLoader,
-  SpotifyOAuthCallbackPage,
 } from "./pages";
 import {
-  newProfileAction,
   NewProfilePage,
+  newProfileAction,
 } from "./pages/profiles/NewProfilePage";
 import { getRemoteContext } from "./remote-context";
+
+const queryClient = new QueryClient();
 
 const router = createBrowserRouter([
   {
@@ -59,8 +62,8 @@ const router = createBrowserRouter([
           {
             id: "profile-details",
             path: "/profiles/:id",
-            action: profileDetailsAction,
-            loader: profileDetailsLoader,
+            action: profileDetailsAction(queryClient),
+            loader: profileDetailsLoader(queryClient),
             element: <ProfileDetails />,
           },
         ],
@@ -75,8 +78,10 @@ const router = createBrowserRouter([
 ]);
 
 export const App = () => (
-  <MantineProvider>
-    <Notifications autoClose={5000} />
-    <RouterProvider router={router} />
-  </MantineProvider>
+  <QueryClientProvider client={queryClient}>
+    <MantineProvider>
+      <Notifications autoClose={5000} />
+      <RouterProvider router={router} />
+    </MantineProvider>
+  </QueryClientProvider>
 );

@@ -1,6 +1,7 @@
 import { Grid } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconCheck, IconX } from "@tabler/icons-react";
+import { QueryClient, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import {
   ActionFunction,
@@ -8,6 +9,7 @@ import {
   redirect,
   useActionData,
   useLoaderData,
+  useParams,
 } from "react-router-dom";
 import {
   deleteProfile,
@@ -39,97 +41,111 @@ interface ProfileDetailsActionData {
   error?: string;
 }
 
-export const profileDetailsAction: ActionFunction = async ({
-  request,
-  params,
-}) => {
-  const formData = await request.formData();
-  const intent = formData.get("intent");
-
-  if (intent === "delete-profile") {
-    await deleteProfile(params.id as string);
-    return redirect("/profiles");
-  }
-  if (intent === "remove-album") {
-    try {
-      await removeAlbumFromProfile(
-        params.id as string,
-        formData.get("fileName") as string,
-      );
-      return {
-        intent,
-        ok: true,
-      };
-    } catch (e) {
-      return {
-        intent,
-        ok: false,
-        error: (e as any).message,
-      };
+const profileDetailsQuery = (id: string) => ({
+  queryKey: ["profile", id],
+  queryFn: async () => {
+    const [profile, profileSummary] = await Promise.all([
+      getProfile(id),
+      getProfileSummary(id),
+    ]);
+    if (!profile || !profileSummary) {
+      throw new Error("Profile not found");
     }
-  }
-  if (intent === "update-album-factor") {
-    try {
-      const fileName = formData.get("fileName") as string;
-      const factor = Number(formData.get("factor"));
-      await putAlbumOnProfile(params.id as string, fileName, factor);
-      return {
-        intent,
-        ok: true,
-      };
-    } catch (e) {
-      return {
-        intent,
-        ok: false,
-        error: (e as any).message,
-      };
+    return {
+      profile,
+      profileSummary,
+    };
+  },
+});
+
+export const profileDetailsAction =
+  (queryClient: QueryClient): ActionFunction =>
+  async ({ request, params }) => {
+    const formData = await request.formData();
+    const intent = formData.get("intent");
+
+    if (intent === "delete-profile") {
+      await deleteProfile(params.id as string);
+      await queryClient.refetchQueries();
+      return redirect("/profiles");
     }
-  }
+    if (intent === "remove-album") {
+      try {
+        await removeAlbumFromProfile(
+          params.id as string,
+          formData.get("fileName") as string,
+        );
+        await queryClient.refetchQueries();
+        return {
+          intent,
+          ok: true,
+        };
+      } catch (e) {
+        return {
+          intent,
+          ok: false,
+          error: (e as any).message,
+        };
+      }
+    }
+    if (intent === "update-album-factor") {
+      try {
+        const fileName = formData.get("fileName") as string;
+        const factor = Number(formData.get("factor"));
+        await putAlbumOnProfile(params.id as string, fileName, factor);
+        await queryClient.refetchQueries();
+        return {
+          intent,
+          ok: true,
+        };
+      } catch (e) {
+        return {
+          intent,
+          ok: false,
+          error: (e as any).message,
+        };
+      }
+    }
 
-  return null;
-};
+    return null;
+  };
 
-export const profileDetailsLoader: LoaderFunction = async ({
-  params,
-  request,
-}) => {
-  const id = params.id as string;
-  const [profile, profileSummary] = await Promise.all([
-    getProfile(id),
-    getProfileSummary(id),
-  ]);
+export const profileDetailsLoader =
+  (queryClient: QueryClient): LoaderFunction =>
+  async ({ params, request }) => {
+    const id = params.id as string;
+    const { profile, profileSummary } = await queryClient.ensureQueryData(
+      profileDetailsQuery(id),
+    );
+    console.log("profile", profile.toObject());
+    const searchParams = new URLSearchParams(new URL(request.url).search);
+    const page = Number(searchParams.get("page")) || 1;
+    const pageSize = Number(searchParams.get("pageSize")) || 5;
+    const search = searchParams.get("search") || "";
+    const searchResults = await searchAlbums(
+      {
+        text: search,
+        includeFileNames: Array.from(profile.getAlbumsMap().keys()),
+      },
+      {
+        offset: (page - 1) * pageSize,
+        limit: pageSize,
+      },
+    );
+    const albums = searchResults.getAlbumsList();
+    const pageCount = Math.ceil(searchResults.getTotal() / pageSize);
 
-  if (!profile || !profileSummary) {
-    throw new Error("Profile not found");
-  }
-  const searchParams = new URLSearchParams(new URL(request.url).search);
-  const page = Number(searchParams.get("page")) || 1;
-  const pageSize = Number(searchParams.get("pageSize")) || 5;
-  const search = searchParams.get("search") || "";
-  const searchResults = await searchAlbums(
-    {
-      text: search,
-      includeFileNames: Array.from(profile.getAlbumsMap().keys()),
-    },
-    {
-      offset: (page - 1) * pageSize,
-      limit: pageSize,
-    },
-  );
-  const albums = searchResults.getAlbumsList();
-  const pageCount = Math.ceil(searchResults.getTotal() / pageSize);
-
-  return {
-    profile,
-    profileSummary,
-    albumsList: {
-      albums,
-      search,
-      page,
-      pageCount,
-    },
-  } as ProfileDetailsLoaderData;
-};
+    return {
+      profile,
+      profileSummary,
+      albumsList: {
+        albums,
+        search,
+        page,
+        pageCount,
+      },
+    } as ProfileDetailsLoaderData;
+  };
 
 const successNotification = (message: string) => ({
   message,
@@ -168,7 +184,21 @@ const getActionNotification = (actionData: ProfileDetailsActionData) => {
 };
 
 export const ProfileDetails = () => {
-  const { profile, albumsList } = useLoaderData() as ProfileDetailsLoaderData;
+  const params = useParams();
+  const {
+    profile: initialProfile,
+    profileSummary: initialProfileSummary,
+    albumsList,
+  } = useLoaderData() as ProfileDetailsLoaderData;
+  const {
+    data: { profile },
+  } = useQuery({
+    ...profileDetailsQuery(params.id as string),
+    initialData: {
+      profile: initialProfile,
+      profileSummary: initialProfileSummary,
+    },
+  });
   const actionData = useActionData() as ProfileDetailsActionData | null;
   useEffect(() => {
     if (!actionData) return;

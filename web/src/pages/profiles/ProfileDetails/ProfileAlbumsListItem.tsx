@@ -23,7 +23,7 @@ const AlbumFactorInput = ({
       onSubmit={(e) => {
         if (
           !confirm(
-            `Are you sure you want to the factor for "${album.getName()}"`,
+            `Are you sure you want to update the factor for "${album.getName()}"`,
           )
         ) {
           e.preventDefault();
