@@ -26,6 +26,7 @@ interface ProfileDetailsLoaderData {
   profileSummary: ProfileSummary;
   albumsList: {
     albums: Album[];
+    search: string;
     page: number;
     pageCount: number;
   };
@@ -104,8 +105,10 @@ export const profileDetailsLoader: LoaderFunction = async ({
   const searchParams = new URLSearchParams(new URL(request.url).search);
   const albumPage = Number(searchParams.get("albumPage")) || 1;
   const pageSize = Number(searchParams.get("albumPageSize")) || 5;
+  const search = searchParams.get("albumSearch") || "";
   const searchResults = await searchAlbums(
     {
+      text: search,
       includeFileNames: Array.from(profile.getAlbumsMap().keys()),
     },
     {
@@ -121,6 +124,7 @@ export const profileDetailsLoader: LoaderFunction = async ({
     profileSummary,
     albumsList: {
       albums,
+      search,
       page: albumPage,
       pageCount,
     },

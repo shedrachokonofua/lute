@@ -252,6 +252,7 @@ export const getManyAlbums = async (fileNames: string[]): Promise<Album[]> => {
 };
 
 export interface AlbumSearchQueryParams {
+  text?: string;
   exactName?: string;
   includeFileNames?: string[];
   excludeFileNames?: string[];
@@ -282,6 +283,9 @@ export const searchAlbums = async (
   paginationParams?: AlbumSearchPaginationParams,
 ): Promise<SearchAlbumsReply> => {
   const query = new AlbumSearchQuery();
+  if (queryParams.text) {
+    query.setText(queryParams.text);
+  }
   if (queryParams.exactName) {
     query.setExactName(queryParams.exactName);
   }

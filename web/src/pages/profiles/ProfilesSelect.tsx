@@ -1,11 +1,10 @@
 import { Select } from "@mantine/core";
-import { useNavigate, useNavigation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useRemoteContext } from "../../remote-context";
 
 export const ProfileSelect = ({ id }: { id?: string }) => {
   const { profiles } = useRemoteContext();
   const navigate = useNavigate();
-  const isNavigating = useNavigation().state !== "idle";
 
   return (
     <Select
@@ -15,7 +14,6 @@ export const ProfileSelect = ({ id }: { id?: string }) => {
       label="Select a profile:"
       placeholder="Select a profile"
       value={id || null}
-      disabled={isNavigating}
       data={profiles.map((p) => ({
         label: p.getName(),
         value: p.getId(),
