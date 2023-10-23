@@ -5,12 +5,14 @@ use crate::{
   sqlite::{migrate_to_latest, migrate_to_version},
 };
 
+use futures::future::join_all;
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
   commands::{FlushingMode, ServerCommands},
 };
 use std::sync::Arc;
+use tokio::spawn;
 use tonic::{Request, Response, Status};
 use tracing::error;
 
@@ -60,16 +62,25 @@ impl proto::OperationsService for OperationsService {
       Status::internal("Failed to list files")
     })?;
     let count = file_names.len() as u32;
-    for file_name in file_names {
-      let result = self
-        .file_interactor
-        .put_file_metadata(&file_name, None)
-        .await;
-      if let Err(e) = result {
-        error!("Failed to put file metadata: {:?}", e);
-      }
-    }
 
+    let file_interactor = self.file_interactor.clone();
+    spawn(async move {
+      for chunk in file_names.chunks(20) {
+        let tasks = chunk
+          .iter()
+          .map(|file_name| {
+            let file_interactor = file_interactor.clone();
+            async move {
+              let result = file_interactor.put_file_metadata(file_name, None).await;
+              if let Err(e) = result {
+                error!("Failed to parse file content store: {:?}", e);
+              }
+            }
+          })
+          .collect::<Vec<_>>();
+        join_all(tasks).await;
+      }
+    });
     Ok(Response::new(ParseFileContentStoreReply { count }))
   }
 

@@ -18,7 +18,7 @@ use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::info;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileInteractor {
   settings: Arc<Settings>,
   file_content_store: FileContentStore,

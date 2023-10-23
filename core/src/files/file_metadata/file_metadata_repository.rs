@@ -62,7 +62,7 @@ impl From<FileMetadata> for Vec<(String, String)> {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileMetadataRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
 }
