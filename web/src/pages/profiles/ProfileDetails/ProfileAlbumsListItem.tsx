@@ -95,6 +95,10 @@ export const ProfileAlbumsListItem = ({
       <div
         style={{
           flex: 1,
+          minHeight: "6rem",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
         }}
       >
         <Text>{album.getName()}</Text>

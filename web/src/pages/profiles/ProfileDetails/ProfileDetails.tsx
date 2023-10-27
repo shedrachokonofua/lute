@@ -117,23 +117,27 @@ export const profileDetailsLoader =
     const { profile, profileSummary } = await queryClient.ensureQueryData(
       profileDetailsQuery(id),
     );
-    console.log("profile", profile.toObject());
     const searchParams = new URLSearchParams(new URL(request.url).search);
     const page = Number(searchParams.get("page")) || 1;
     const pageSize = Number(searchParams.get("pageSize")) || 5;
     const search = searchParams.get("search") || "";
-    const searchResults = await searchAlbums(
-      {
-        text: search,
-        includeFileNames: Array.from(profile.getAlbumsMap().keys()),
-      },
-      {
-        offset: (page - 1) * pageSize,
-        limit: pageSize,
-      },
-    );
-    const albums = searchResults.getAlbumsList();
-    const pageCount = Math.ceil(searchResults.getTotal() / pageSize);
+    const fileNames = Array.from(profile.getAlbumsMap().keys());
+    const searchResults =
+      fileNames.length > 0
+        ? await searchAlbums(
+            {
+              text: search,
+              includeFileNames: Array.from(profile.getAlbumsMap().keys()),
+            },
+            {
+              offset: (page - 1) * pageSize,
+              limit: pageSize,
+            },
+          )
+        : null;
+    const albums = searchResults?.getAlbumsList() || [];
+    const total = searchResults?.getTotal() || 0;
+    const pageCount = Math.ceil(total / pageSize);
 
     return {
       profile,
