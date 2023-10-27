@@ -20,7 +20,9 @@ const getUpdatedQueryString = (updates: Record<string, any>) => {
   const url = new URL(window.location.href);
   const searchParams = new URLSearchParams(url.search);
   for (const [key, value] of Object.entries(updates)) {
-    searchParams.set(key, value);
+    if (value !== undefined) {
+      searchParams.set(key, value);
+    }
   }
   return "?" + searchParams.toString();
 };
@@ -51,7 +53,7 @@ const AlbumSearchInput = ({ value }: { value: string }) => {
     navigate(
       getUpdatedQueryString({
         search: debouncedSearchValue,
-        page: 1,
+        page: value !== debouncedSearchValue ? 1 : undefined,
       }),
     );
   }, [debouncedSearchValue]);
