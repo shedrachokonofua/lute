@@ -70,7 +70,8 @@ pub struct AlbumReadModelCredit {
   pub roles: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, PartialEq, Builder, Serialize, Deserialize, Clone, Default)]
+#[builder(default)]
 pub struct AlbumReadModel {
   pub name: String,
   pub file_name: FileName,

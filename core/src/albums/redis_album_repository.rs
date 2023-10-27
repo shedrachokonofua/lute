@@ -1,7 +1,7 @@
 use super::album_repository::{
-  embedding_to_bytes, AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit,
-  AlbumReadModelTrack, AlbumRepository, AlbumSearchQuery, AlbumSearchResult, GenreAggregate,
-  ItemAndCount, SearchPagination, SimilarAlbumsQuery,
+  embedding_to_bytes, AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelBuilder,
+  AlbumReadModelCredit, AlbumReadModelTrack, AlbumRepository, AlbumSearchQuery, AlbumSearchResult,
+  GenreAggregate, ItemAndCount, SearchPagination, SimilarAlbumsQuery,
 };
 use crate::{
   files::file_metadata::file_name::FileName,
@@ -15,9 +15,9 @@ use rustis::{
   client::PooledClientManager,
   commands::{
     FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtFlatVectorFieldAttributes,
-    FtIndexDataType, FtReducer, FtSearchOptions, FtVectorDistanceMetric, FtVectorFieldAlgorithm,
-    FtVectorType, GenericCommands, JsonCommands, JsonGetOptions, SearchCommands, SetCondition,
-    SortOrder,
+    FtIndexDataType, FtReducer, FtSearchOptions, FtSearchReturnAttribute, FtVectorDistanceMetric,
+    FtVectorFieldAlgorithm, FtVectorType, GenericCommands, JsonCommands, JsonGetOptions,
+    SearchCommands, SetCondition, SortOrder,
   },
 };
 use serde_derive::{Deserialize, Serialize};
@@ -206,7 +206,7 @@ impl AlbumSearchQuery {
       ft_search_query.push_str(&get_tag_query("@name_tag", &vec![exact_name]));
     }
     if !self.include_duplicates.is_some_and(|b| b == true) {
-      ft_search_query.push_str(&&get_num_range_query("@is_duplicate", Some(0), Some(0)));
+      ft_search_query.push_str(&get_num_range_query("@is_duplicate", Some(0), Some(0)));
     }
     ft_search_query.push_str(&get_min_num_query(
       "@primary_genre_count",
@@ -516,19 +516,91 @@ impl AlbumRepository for RedisAlbumRepository {
       .ft_search(
         INDEX_NAME,
         query.to_ft_search_query(),
-        FtSearchOptions::default().limit(offset, limit),
+        FtSearchOptions::default().limit(offset, limit)._return([
+          FtSearchReturnAttribute::identifier("$.name"),
+          FtSearchReturnAttribute::identifier("$.file_name"),
+          FtSearchReturnAttribute::identifier("$.rating"),
+          FtSearchReturnAttribute::identifier("$.rating_count"),
+          FtSearchReturnAttribute::identifier("$.artists"),
+          FtSearchReturnAttribute::identifier("$.primary_genres"),
+          FtSearchReturnAttribute::identifier("$.secondary_genres"),
+          FtSearchReturnAttribute::identifier("$.descriptors"),
+          FtSearchReturnAttribute::identifier("$.tracks"),
+          FtSearchReturnAttribute::identifier("$.release_date"),
+          FtSearchReturnAttribute::identifier("$.languages"),
+          FtSearchReturnAttribute::identifier("$.credits"),
+          FtSearchReturnAttribute::identifier("$.duplicate_of"),
+          FtSearchReturnAttribute::identifier("$.duplicates"),
+          FtSearchReturnAttribute::identifier("$.cover_image_url"),
+        ]),
       )
       .await?;
 
-    let albums = result
-      .results
-      .iter()
-      .filter_map(|row| {
-        RedisAlbumReadModel::try_from(&row.values)
-          .ok()
-          .map(|r| r.into())
-      })
-      .collect();
+    let mut albums = Vec::with_capacity(result.results.len());
+    for item in result.results {
+      let mut album_builder = AlbumReadModelBuilder::default();
+      for (key, value) in item.values {
+        match key.as_str() {
+          "$.name" => {
+            album_builder.name(value);
+          }
+          "$.file_name" => {
+            album_builder.file_name(FileName::try_from(value)?);
+          }
+          "$.rating" => {
+            album_builder.rating(value.parse()?);
+          }
+          "$.rating_count" => {
+            album_builder.rating_count(value.parse()?);
+          }
+          "$.artists" => {
+            album_builder.artists(serde_json::from_str(value.as_str())?);
+          }
+          "$.primary_genres" => {
+            album_builder.primary_genres(serde_json::from_str(value.as_str())?);
+          }
+          "$.secondary_genres" => {
+            album_builder.secondary_genres(serde_json::from_str(value.as_str())?);
+          }
+          "$.descriptors" => {
+            album_builder.descriptors(serde_json::from_str(value.as_str())?);
+          }
+          "$.tracks" => {
+            album_builder.tracks(serde_json::from_str(value.as_str())?);
+          }
+          "$.release_date" => {
+            match value.as_str() {
+              "" => album_builder.release_date(None),
+              _ => album_builder
+                .release_date(Some(NaiveDate::parse_from_str(value.as_str(), "%Y-%m-%d")?)),
+            };
+          }
+          "$.languages" => {
+            album_builder.languages(serde_json::from_str(value.as_str())?);
+          }
+          "$.credits" => {
+            album_builder.credits(serde_json::from_str(value.as_str())?);
+          }
+          "$.duplicate_of" => {
+            match value.as_str() {
+              "" => album_builder.duplicate_of(None),
+              _ => album_builder.duplicate_of(Some(FileName::try_from(value)?)),
+            };
+          }
+          "$.duplicates" => {
+            album_builder.duplicates(serde_json::from_str(value.as_str())?);
+          }
+          "$.cover_image_url" => {
+            match value.as_str() {
+              "" => album_builder.cover_image_url(None),
+              _ => album_builder.cover_image_url(Some(value)),
+            };
+          }
+          _ => {}
+        };
+      }
+      albums.push(album_builder.build()?);
+    }
 
     Ok(AlbumSearchResult {
       albums,
