@@ -1,4 +1,4 @@
-import { ActionIcon, Group, NumberInput, Text } from "@mantine/core";
+import { ActionIcon, Anchor, Group, NumberInput, Text } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { Form, useSubmit } from "react-router-dom";
@@ -101,7 +101,12 @@ export const ProfileAlbumsListItem = ({
           justifyContent: "center",
         }}
       >
-        <Text>{album.getName()}</Text>
+        <Anchor
+          href={`https://rateyourmusic.com/${album.getFileName()}`}
+          target="_blank"
+        >
+          {album.getName()}
+        </Anchor>
         <Text>
           {album
             .getArtistsList()
