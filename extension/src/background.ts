@@ -1,5 +1,5 @@
 import "./polyfill";
-import { putFile, getFilePageType } from "./core";
+import { putFile, getFilePageType, deleteFile } from "./core";
 import { PageType } from "./proto/lute_pb";
 import { getPageContextMessage } from "./messages";
 import { getFileName } from "./helpers";
@@ -68,4 +68,29 @@ const loadFilePageType = async (fileName: string) => {
       return undefined;
     }
   });
+
+  chrome.webRequest.onBeforeRedirect.addListener(
+    async (details) => {
+      if (!isRym(details.url) || !isRym(details.redirectUrl)) return;
+      const oldFileName = getFileName(details.url);
+      const newFileName = getFileName(details.redirectUrl);
+      if (oldFileName === newFileName) return;
+
+      console.log("Deleting moved file: ", oldFileName);
+      try {
+        unsupportedPageCache.delete(oldFileName);
+        await deleteFile(oldFileName);
+      } catch (e) {
+        console.log({
+          message: "Failed to delete moved file",
+          oldFileName,
+          newFileName,
+          e,
+        });
+      }
+    },
+    {
+      urls: ["<all_urls>"],
+    }
+  );
 })();

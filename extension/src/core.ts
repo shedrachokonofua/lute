@@ -5,6 +5,7 @@ import {
 } from "./proto/LuteServiceClientPb";
 import {
   AssessAlbumRequest,
+  DeleteFileRequest,
   GetFilePageTypeRequest,
   Profile,
   PutFileRequest,
@@ -45,4 +46,10 @@ export const assessAlbum = async (profileId: string, fileName: string) => {
   request.setProfileId(profileId);
   const reply = await client.recommendation.assessAlbum(request, null);
   return reply.getAssessment();
+};
+
+export const deleteFile = async (fileName: string) => {
+  const request = new DeleteFileRequest();
+  request.setName(fileName);
+  await client.file.deleteFile(request, null);
 };

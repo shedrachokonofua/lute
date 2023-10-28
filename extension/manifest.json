@@ -9,6 +9,6 @@
   "action": {
     "default_popup": "src/index.html"
   },
-  "permissions": ["pageCapture", "storage", "tabs", "scripting"],
+  "permissions": ["pageCapture", "storage", "tabs", "scripting", "webRequest"],
   "host_permissions": ["http://*/*", "https://*/*"]
 }
