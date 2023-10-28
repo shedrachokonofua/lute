@@ -236,7 +236,7 @@ pub struct AlbumSearchResult {
 }
 
 #[derive(Debug)]
-pub struct SimilarAlbumsQuery {
+pub struct AlbumEmbeddingSimilarirtySearchQuery {
   pub embedding: Vec<f32>,
   pub embedding_key: String,
   pub filters: AlbumSearchQuery,
@@ -288,9 +288,9 @@ pub trait AlbumRepository {
     -> Result<Option<AlbumEmbedding>>;
   async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()>;
   async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()>;
-  async fn find_similar_albums(
+  async fn embedding_similarity_search(
     &self,
-    query: &SimilarAlbumsQuery,
+    query: &AlbumEmbeddingSimilarirtySearchQuery,
   ) -> Result<Vec<(AlbumReadModel, f32)>>;
   async fn get_embedding_keys(&self) -> Result<Vec<String>>;
   async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()>;

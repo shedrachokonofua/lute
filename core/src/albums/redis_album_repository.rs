@@ -1,7 +1,8 @@
 use super::album_repository::{
-  embedding_to_bytes, AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelBuilder,
-  AlbumReadModelCredit, AlbumReadModelTrack, AlbumRepository, AlbumSearchQuery, AlbumSearchResult,
-  GenreAggregate, ItemAndCount, SearchPagination, SimilarAlbumsQuery,
+  embedding_to_bytes, AlbumEmbedding, AlbumEmbeddingSimilarirtySearchQuery, AlbumReadModel,
+  AlbumReadModelArtist, AlbumReadModelBuilder, AlbumReadModelCredit, AlbumReadModelTrack,
+  AlbumRepository, AlbumSearchQuery, AlbumSearchResult, GenreAggregate, ItemAndCount,
+  SearchPagination,
 };
 use crate::{
   files::file_metadata::file_name::FileName,
@@ -252,7 +253,7 @@ impl AlbumSearchQuery {
   }
 }
 
-impl SimilarAlbumsQuery {
+impl AlbumEmbeddingSimilarirtySearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     format!(
       "({} {})=>[KNN {} @embedding $BLOB as distance]",
@@ -786,9 +787,9 @@ impl AlbumRepository for RedisAlbumRepository {
   }
 
   #[instrument(skip(self))]
-  async fn find_similar_albums(
+  async fn embedding_similarity_search(
     &self,
-    query: &SimilarAlbumsQuery,
+    query: &AlbumEmbeddingSimilarirtySearchQuery,
   ) -> Result<Vec<(AlbumReadModel, f32)>> {
     let connection = self.redis_connection_pool.get().await?;
     let result = connection

@@ -1,6 +1,6 @@
 use crate::{
   albums::album_repository::{
-    AlbumReadModel, AlbumRepository, AlbumSearchQueryBuilder, SimilarAlbumsQuery,
+    AlbumEmbeddingSimilarirtySearchQuery, AlbumReadModel, AlbumRepository, AlbumSearchQueryBuilder,
   },
   helpers::math::average_embedding,
   profile::profile::Profile,
@@ -101,7 +101,7 @@ impl
       .await?;
     let mut search_result = self
       .album_read_model_repository
-      .find_similar_albums(&SimilarAlbumsQuery {
+      .embedding_similarity_search(&AlbumEmbeddingSimilarirtySearchQuery {
         embedding: profile_embedding,
         embedding_key: settings.embedding_key.clone(),
         filters: AlbumSearchQueryBuilder::default()
@@ -134,7 +134,7 @@ impl
     let search_query = recommendation_settings.to_search_query(profile, profile_albums)?;
     let similar_albums = self
       .album_read_model_repository
-      .find_similar_albums(&SimilarAlbumsQuery {
+      .embedding_similarity_search(&AlbumEmbeddingSimilarirtySearchQuery {
         embedding: profile_embedding,
         embedding_key: assessment_settings.embedding_key.clone(),
         filters: search_query,
