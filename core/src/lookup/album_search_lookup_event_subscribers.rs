@@ -27,7 +27,6 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::Utc;
-use futures::future::BoxFuture;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::info;
@@ -336,26 +335,9 @@ pub fn build_album_search_lookup_event_subscribers(
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Result<Vec<EventSubscriber>> {
-  let file_processing_handler: Arc<
-    dyn Fn(SubscriberContext) -> BoxFuture<'static, Result<()>> + Send + Sync,
-  > = Arc::new(move |context| {
-    let lookup_interactor = LookupInteractor::new(
-      Arc::clone(&context.settings),
-      Arc::clone(&context.redis_connection_pool),
-      Arc::clone(&context.sqlite_connection),
-    );
-    let event_publisher = EventPublisher::new(
-      Arc::clone(&context.settings),
-      Arc::clone(&context.sqlite_connection),
-    );
-    Box::pin(async move {
-      handle_file_processing_event(context, lookup_interactor, event_publisher).await
-    })
-  });
-
   Ok(vec![
     EventSubscriberBuilder::default()
-      .id("lookup".to_string())
+      .id("album_search_lookup")
       .stream(Stream::Lookup)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
@@ -387,22 +369,33 @@ pub fn build_album_search_lookup_event_subscribers(
       }))
       .build()?,
     EventSubscriberBuilder::default()
-      .id("lookup".to_string())
-      .stream(Stream::File)
-      .batch_size(1)
+      .id("album_search_lookup_file_processing")
+      .streams(vec![Stream::File, Stream::Parser])
+      .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
-      .handle(Arc::clone(&file_processing_handler))
-      .build()?,
-    EventSubscriberBuilder::default()
-      .id("lookup".to_string())
-      .stream(Stream::Parser)
-      .batch_size(1)
-      .redis_connection_pool(Arc::clone(&redis_connection_pool))
-      .sqlite_connection(Arc::clone(&sqlite_connection))
-      .settings(Arc::clone(&settings))
-      .handle(Arc::clone(&file_processing_handler))
+      .generate_ordered_processing_group_id(Arc::new(|(_, payload)| {
+        if let Some(correlation_id) = &payload.correlation_id {
+          Some(correlation_id.clone())
+        } else {
+          None
+        }
+      }))
+      .handle(Arc::new(move |context| {
+        let lookup_interactor = LookupInteractor::new(
+          Arc::clone(&context.settings),
+          Arc::clone(&context.redis_connection_pool),
+          Arc::clone(&context.sqlite_connection),
+        );
+        let event_publisher = EventPublisher::new(
+          Arc::clone(&context.settings),
+          Arc::clone(&context.sqlite_connection),
+        );
+        Box::pin(async move {
+          handle_file_processing_event(context, lookup_interactor, event_publisher).await
+        })
+      }))
       .build()?,
   ])
 }
