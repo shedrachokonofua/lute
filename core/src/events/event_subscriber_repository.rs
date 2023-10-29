@@ -1,6 +1,7 @@
-use super::event::{Event, EventPayload, EventPayloadBuilder, Stream};
+use super::event::{Event, EventPayload, EventPayloadBuilder, Stream, StreamKind};
 use anyhow::Result;
-use std::{collections::HashMap, sync::Arc};
+use rusqlite::{params, types::Value};
+use std::{collections::HashMap, rc::Rc, sync::Arc};
 use tracing::{error, instrument};
 
 pub struct EventSubscriberRepository {
@@ -17,14 +18,38 @@ impl EventList {
   }
 }
 
+fn map_event_row(row: &rusqlite::Row<'_>) -> Result<(String, EventPayload), rusqlite::Error> {
+  Ok((
+    row.get::<_, i32>(0)?.to_string(),
+    EventPayloadBuilder::default()
+      .correlation_id(row.get::<_, Option<String>>(1)?)
+      .causation_id(row.get::<_, Option<String>>(2)?)
+      .event(
+        serde_json::from_str::<Event>(&row.get::<_, String>(3)?).map_err(|err| {
+          error!(message = err.to_string(), "Failed to deserialize event");
+          rusqlite::Error::ExecuteReturnedResults
+        })?,
+      )
+      .metadata(
+        row
+          .get::<_, Option<String>>(4)?
+          .map(|metadata: String| serde_json::from_str(&metadata).unwrap_or(HashMap::new())),
+      )
+      .build()
+      .map_err(|err| {
+        error!(message = err.to_string(), "Failed to build event payload");
+        rusqlite::Error::ExecuteReturnedResults
+      })?,
+  ))
+}
+
 impl EventSubscriberRepository {
   pub fn new(sqlite_connection: Arc<tokio_rusqlite::Connection>) -> Self {
     Self { sqlite_connection }
   }
 
   #[instrument(skip(self))]
-  pub async fn get_cursor(&self, stream: &Stream, subscriber_id: &str) -> Result<String> {
-    let stream = stream.clone();
+  pub async fn get_cursor(&self, subscriber_id: &str) -> Result<String> {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
@@ -33,11 +58,10 @@ impl EventSubscriberRepository {
           "
           SELECT cursor
           FROM event_subscriber_cursors
-          WHERE subscriber_id = ? AND stream = ?
+          WHERE subscriber_id = ?
           ",
         )?;
-        let mut rows =
-          statement.query_map([subscriber_id, stream.tag()], |row| row.get::<_, u32>(0))?;
+        let mut rows = statement.query_map([subscriber_id], |row| row.get::<_, u32>(0))?;
         rows
           .next()
           .transpose()
@@ -48,8 +72,7 @@ impl EventSubscriberRepository {
   }
 
   #[instrument(skip(self))]
-  pub async fn set_cursor(&self, stream: &Stream, subscriber_id: &str, cursor: &str) -> Result<()> {
-    let stream = stream.clone();
+  pub async fn set_cursor(&self, subscriber_id: &str, cursor: &str) -> Result<()> {
     let cursor = cursor.to_string();
     let subscriber_id = subscriber_id.to_string();
     self
@@ -57,12 +80,12 @@ impl EventSubscriberRepository {
       .call(move |conn| {
         let mut statement = conn.prepare(
           "
-          INSERT INTO event_subscriber_cursors (subscriber_id, stream, cursor)
-          VALUES (?, ?, ?)
-          ON CONFLICT (subscriber_id, stream) DO UPDATE SET cursor = ?
+          INSERT INTO event_subscriber_cursors (subscriber_id, cursor)
+          VALUES (?1, ?2)
+          ON CONFLICT (subscriber_id) DO UPDATE SET cursor = ?2
           ",
         )?;
-        statement.execute([subscriber_id, stream.tag(), cursor.clone(), cursor])?;
+        statement.execute(params![subscriber_id, cursor])?;
 
         Ok(())
       })
@@ -71,8 +94,7 @@ impl EventSubscriberRepository {
   }
 
   #[instrument(skip(self))]
-  pub async fn delete_cursor(&self, stream: &Stream, subscriber_id: &str) -> Result<()> {
-    let stream = stream.clone();
+  pub async fn delete_cursor(&self, subscriber_id: &str) -> Result<()> {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
@@ -80,10 +102,10 @@ impl EventSubscriberRepository {
         let mut statement = conn.prepare(
           "
           DELETE FROM event_subscriber_cursors
-          WHERE subscriber_id = ? AND stream = ?
+          WHERE subscriber_id = ?
           ",
         )?;
-        statement.execute([subscriber_id, stream.tag()])?;
+        statement.execute([subscriber_id])?;
         Ok(())
       })
       .await?;
@@ -93,65 +115,52 @@ impl EventSubscriberRepository {
   #[instrument(skip(self))]
   pub async fn get_events_after_cursor(
     &self,
-    stream: &Stream,
+    streams: &Vec<Stream>,
     subscriber_id: &str,
     count: usize,
   ) -> Result<EventList> {
-    let stream = stream.clone();
     let subscriber_id = subscriber_id.to_string();
-    let cursor = self.get_cursor(&stream, &subscriber_id).await?;
+    let cursor = self.get_cursor(&subscriber_id).await?;
+    let is_global = streams.iter().any(|s| s.kind() == StreamKind::Global);
+    let stream_tags = streams
+      .iter()
+      .map(|s| Value::from(s.tag()))
+      .collect::<Vec<_>>();
     self
       .sqlite_connection
       .call(move |conn| {
-        let (sql, params) = match stream {
-          Stream::Global => (
+        if is_global {
+          let mut statement = conn.prepare(
             "
             SELECT id, correlation_id, causation_id, event, metadata
             FROM events
-            WHERE id > ?
+            WHERE id > ?1
             ORDER BY id ASC
-            LIMIT ?
+            LIMIT ?2
             ",
-            (cursor.clone(), count.to_string(), None),
-          ),
-          _ => (
+          )?;
+          let events = statement
+            .query_map(params![cursor.clone(), count.to_string()], map_event_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+          Ok(EventList { events })
+        } else {
+          let mut statement = conn.prepare(
             "
             SELECT id, correlation_id, causation_id, event, metadata
             FROM events
-            WHERE stream = ? AND id > ?
+            WHERE stream IN rarray(?1) AND id > ?2
             ORDER BY id ASC
-            LIMIT ?
+            LIMIT ?3
             ",
-            (stream.tag(), cursor.clone(), Some(count.to_string())),
-          ),
-        };
-
-        let mut statement = conn.prepare(sql)?;
-        let events = statement
-          .query_map(params, |row| {
-            Ok((
-              row.get::<_, i32>(0)?.to_string(),
-              EventPayloadBuilder::default()
-                .correlation_id(row.get::<_, Option<String>>(1)?)
-                .causation_id(row.get::<_, Option<String>>(2)?)
-                .event(
-                  serde_json::from_str::<Event>(&row.get::<_, String>(3)?).map_err(|err| {
-                    error!(message = err.to_string(), "Failed to deserialize event");
-                    rusqlite::Error::ExecuteReturnedResults
-                  })?,
-                )
-                .metadata(row.get::<_, Option<String>>(4)?.map(|metadata: String| {
-                  serde_json::from_str(&metadata).unwrap_or(HashMap::new())
-                }))
-                .build()
-                .map_err(|err| {
-                  error!(message = err.to_string(), "Failed to build event payload");
-                  rusqlite::Error::ExecuteReturnedResults
-                })?,
-            ))
-          })?
-          .collect::<Result<Vec<_>, _>>()?;
-        Ok(EventList { events })
+          )?;
+          let events = statement
+            .query_map(
+              params![Rc::new(stream_tags), cursor.clone(), count.to_string()],
+              map_event_row,
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
+          Ok(EventList { events })
+        }
       })
       .await
       .map_err(|e| e.into())

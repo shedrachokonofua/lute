@@ -26,8 +26,10 @@ pub struct EventSubscriber {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub sqlite_connection: Arc<tokio_rusqlite::Connection>,
   pub settings: Arc<Settings>,
+  #[builder(setter(into))]
   pub id: String,
-  pub stream: Stream,
+  #[builder(setter(each(name = "stream")))]
+  pub streams: Vec<Stream>,
   pub handle: Arc<dyn Fn(SubscriberContext) -> BoxFuture<'static, Result<()>> + Send + Sync>,
   #[builder(
     setter(skip),
@@ -37,7 +39,10 @@ pub struct EventSubscriber {
   /**
    * A function that returns a processing group ID for the given event. Events with the same processing group ID will be processed in order.
    */
-  #[builder(default = "self.generate_default_ordered_processing_group_id()")]
+  #[builder(
+    default = "self.generate_default_ordered_processing_group_id()",
+    setter(strip_option)
+  )]
   generate_ordered_processing_group_id:
     Option<Arc<dyn Fn((&String, &EventPayload)) -> Option<String> + Send + Sync>>,
 }
@@ -63,36 +68,34 @@ impl EventSubscriberBuilder {
 
 impl EventSubscriber {
   pub async fn get_cursor(&self) -> Result<String> {
-    self
-      .event_subscriber_repository
-      .get_cursor(&self.stream, &self.id)
-      .await
+    self.event_subscriber_repository.get_cursor(&self.id).await
   }
 
   pub async fn set_cursor(&self, cursor: &str) -> Result<()> {
     self
       .event_subscriber_repository
-      .set_cursor(&self.stream, &self.id, cursor)
+      .set_cursor(&self.id, cursor)
       .await
   }
 
   pub async fn delete_cursor(&self) -> Result<()> {
     self
       .event_subscriber_repository
-      .delete_cursor(&self.stream, &self.id)
+      .delete_cursor(&self.id)
       .await
   }
 
-  pub async fn poll_stream(&self) -> Result<Option<String>> {
+  pub async fn poll(&self) -> Result<Option<String>> {
     let event_list = self
       .event_subscriber_repository
-      .get_events_after_cursor(&self.stream, &self.id, self.batch_size)
+      .get_events_after_cursor(&self.streams, &self.id, self.batch_size)
       .await?;
+    let stream_tags = self.streams.iter().map(|s| s.tag()).join(",");
     debug!(
-      stream = self.stream.tag(),
+      streams = stream_tags.as_str(),
       subscriber_id = self.id,
       count = &event_list.events.len(),
-      "Polled stream"
+      "Subscriber polled"
     );
     let tail_cursor = event_list.tail_cursor();
 
@@ -120,9 +123,10 @@ impl EventSubscriber {
           let settings = Arc::clone(&self.settings);
           let handle = self.handle.clone();
           let subscriber_id = self.id.clone();
-          let stream_tag = self.stream.tag();
+          let stream_tags = stream_tags.clone();
+
           debug!(
-            stream = stream_tag,
+            streams = stream_tags.as_str(),
             subscriber_id,
             group_id = group_id,
             count = group.len(),
@@ -131,7 +135,7 @@ impl EventSubscriber {
           tokio::spawn(async move {
             for (entry_id, payload) in group {
               debug!(
-                stream = stream_tag,
+                stream = stream_tags.as_str(),
                 subscriber_id,
                 entry_id = entry_id,
                 "Processing event"
@@ -146,7 +150,7 @@ impl EventSubscriber {
               .await
               .map_err(|err| {
                 error!(
-                  stream = stream_tag,
+                  stream = stream_tags.as_str(),
                   subscriber_id,
                   entry_id = entry_id,
                   error = err.to_string(),
@@ -170,7 +174,7 @@ impl EventSubscriber {
 
   pub async fn run(&self) -> Result<()> {
     loop {
-      match self.poll_stream().await {
+      match self.poll().await {
         Ok(Some(tail_cursor)) => {
           self.set_cursor(&tail_cursor).await?;
         }

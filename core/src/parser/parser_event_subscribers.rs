@@ -72,10 +72,10 @@ pub fn build_parser_event_subscribers(
 ) -> Result<Vec<EventSubscriber>> {
   Ok(vec![
     EventSubscriberBuilder::default()
+      .id("parse_saved_file")
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
-      .id("parse_saved_file".to_string())
       .batch_size(settings.parser.concurrency as usize)
       .stream(Stream::File)
       .handle(Arc::new(|context| {
@@ -83,10 +83,10 @@ pub fn build_parser_event_subscribers(
       }))
       .build()?,
     EventSubscriberBuilder::default()
+      .id("populate_failed_parse_files_repository")
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
-      .id("populate_failed_parse_files_repository".to_string())
       .batch_size(1)
       .stream(Stream::Parser)
       .handle(Arc::new(|context| {

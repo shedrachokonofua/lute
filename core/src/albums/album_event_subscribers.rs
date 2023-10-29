@@ -244,31 +244,31 @@ pub fn build_album_event_subscribers(
   let artist_crawler_interactor = Arc::clone(&crawler_interactor);
   let mut subscribers = vec![
     EventSubscriberBuilder::default()
-      .id("update_album_read_models".to_string())
+      .id("update_album_read_models")
       .stream(Stream::Parser)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
-      .generate_ordered_processing_group_id(Some(Arc::new(|(_, payload)| match &payload.event {
+      .generate_ordered_processing_group_id(Arc::new(|(_, payload)| match &payload.event {
         Event::FileParsed {
           data: ParsedFileData::Album(ParsedAlbum { name, .. }),
           ..
         } => Some(name.clone()), // Ensure potential duplicates are processed sequentially
         _ => None,
-      })))
+      }))
       .handle(Arc::new(|context| {
         Box::pin(async move { update_album_read_models(context).await })
       }))
       .build()?,
     EventSubscriberBuilder::default()
-      .id("delete_album_read_models".to_string())
+      .id("delete_album_read_models")
       .stream(Stream::File)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
-      .generate_ordered_processing_group_id(Some(Arc::new(|(_, payload)| match &payload.event {
+      .generate_ordered_processing_group_id(Arc::new(|(_, payload)| match &payload.event {
         Event::FileDeleted { file_name, .. } => {
           match file_name.page_type() {
             PageType::Album => Some(file_name.to_string()), // Ensure duplicates are processed sequentially
@@ -276,13 +276,13 @@ pub fn build_album_event_subscribers(
           }
         }
         _ => None,
-      })))
+      }))
       .handle(Arc::new(|context| {
         Box::pin(async move { delete_album_read_models(context).await })
       }))
       .build()?,
     EventSubscriberBuilder::default()
-      .id("crawl_chart_albums".to_string())
+      .id("crawl_chart_albums")
       .stream(Stream::Parser)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
@@ -294,7 +294,7 @@ pub fn build_album_event_subscribers(
       }))
       .build()?,
     EventSubscriberBuilder::default()
-      .id("crawl_artist_albums".to_string())
+      .id("crawl_artist_albums")
       .stream(Stream::Parser)
       .batch_size(250)
       .redis_connection_pool(Arc::clone(&redis_connection_pool))

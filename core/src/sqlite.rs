@@ -2,6 +2,7 @@ use crate::settings::Settings;
 use anyhow::Result;
 use include_dir::{include_dir, Dir};
 use lazy_static::lazy_static;
+use rusqlite::vtab;
 use rusqlite_migration::AsyncMigrations;
 use std::{path::Path, sync::Arc};
 use tokio_rusqlite::Connection;
@@ -19,6 +20,7 @@ pub async fn build_sqlite_connection(settings: Arc<Settings>) -> Result<Connecti
     .call(|conn| {
       conn.pragma_update(None, "journal_mode", "WAL")?;
       conn.pragma_update(None, "foreign_keys", "ON")?;
+      vtab::array::load_module(&conn)?;
       Ok(())
     })
     .await?;

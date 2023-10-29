@@ -34,7 +34,6 @@ impl proto::EventService for EventService {
             .map_err(|err| Status::invalid_argument(err.to_string()))?;
           if let Some(cursor) = event_stream_request.cursor.clone() {
             event_subscriber_repository.set_cursor(
-              &stream_id,
               &event_stream_request.subscriber_id,
               &cursor,
             )
@@ -42,7 +41,7 @@ impl proto::EventService for EventService {
             .map_err(|err| Status::internal(err.to_string()))?;
           }
           let event_list = event_subscriber_repository.get_events_after_cursor(
-            &stream_id,
+            &vec![stream_id.clone()],
             &event_stream_request.subscriber_id,
             event_stream_request.max_batch_size.unwrap_or(10) as usize,
           )
