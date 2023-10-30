@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use ulid::serde::ulid_as_u128;
 use ulid::Ulid;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Kinded)]
 #[serde(tag = "type", content = "data")]
 pub enum Event {
   FileSaved {

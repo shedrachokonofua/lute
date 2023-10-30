@@ -2,12 +2,12 @@ use super::profile::{Profile, ProfileId};
 use crate::{
   albums::album_repository::AlbumReadModel,
   files::file_metadata::file_name::FileName,
-  helpers::math::{desc_sort_by, median_by},
+  helpers::math::{desc_sort_by, median},
 };
 use chrono::Datelike;
 use rayon::prelude::*;
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::repeat};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, Eq)]
 pub struct ItemWithFactor {
@@ -149,9 +149,17 @@ impl Profile {
       .collect::<Vec<ItemWithFactor>>();
     desc_sort_by_factor(&mut years);
 
-    let median_year = median_by(&mut years, |item| {
-      item.item.parse::<f32>().expect("Invalid year")
-    }) as u32;
+    let median_year = median(
+      years
+        .iter()
+        .flat_map(|item| {
+          repeat(item.item.parse::<f32>().unwrap())
+            .take(item.factor as usize)
+            .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>(),
+    )
+    .round() as u32;
 
     let mut primary_genres = primary_genres_map
       .iter()

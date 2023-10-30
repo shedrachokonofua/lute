@@ -138,6 +138,9 @@ impl EventSubscriber {
                 stream = stream_tags.as_str(),
                 subscriber_id,
                 entry_id = entry_id,
+                event_kind = payload.event.kind().to_string(),
+                correlation_id = payload.correlation_id,
+                causation_id = payload.causation_id,
                 "Processing event"
               );
               handle(SubscriberContext {

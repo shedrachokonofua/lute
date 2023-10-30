@@ -21,7 +21,7 @@ import {
 } from "../../../client";
 import { Album, Profile, ProfileSummary } from "../../../proto/lute_pb";
 import { ProfileAlbums } from "./ProfileAlbums";
-import { ProfileDetailsCard } from "./ProfileDetailsCard";
+import { ProfileOverview } from "./ProfileOverview";
 
 interface ProfileDetailsLoaderData {
   profile: Profile;
@@ -195,7 +195,7 @@ export const ProfileDetails = () => {
     albumsList,
   } = useLoaderData() as ProfileDetailsLoaderData;
   const {
-    data: { profile },
+    data: { profile, profileSummary },
   } = useQuery({
     ...profileDetailsQuery(params.id as string),
     initialData: {
@@ -215,7 +215,7 @@ export const ProfileDetails = () => {
   return (
     <Grid>
       <Grid.Col md={4}>
-        <ProfileDetailsCard label="Summary"></ProfileDetailsCard>
+        <ProfileOverview profileSummary={profileSummary} />
       </Grid.Col>
       <Grid.Col md={8}>
         <ProfileAlbums profile={profile} list={albumsList} />

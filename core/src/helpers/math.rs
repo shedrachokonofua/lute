@@ -1,10 +1,8 @@
 use num_traits::{float::FloatCore, Num};
 
-pub fn median_by<T, F>(sorted_values: &mut Vec<T>, f: F) -> f32
-where
-  F: Fn(&T) -> f32,
-  T: Clone,
-{
+pub fn median(vals: Vec<f32>) -> f32 {
+  let mut sorted_values = vals.clone();
+  sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
   let count = sorted_values.len();
   if count == 0 {
     return 0.0;
@@ -13,9 +11,9 @@ where
   let middle = count / 2;
 
   if count % 2 == 0 {
-    (f(&sorted_values[middle - 1]) + f(&sorted_values[middle])) / 2.0
+    (sorted_values[middle - 1] + sorted_values[middle]) / 2.0
   } else {
-    f(&sorted_values[middle])
+    sorted_values[middle]
   }
 }
 
