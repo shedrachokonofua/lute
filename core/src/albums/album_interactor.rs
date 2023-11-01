@@ -31,6 +31,7 @@ impl AlbumInteractor {
               .map(|artist| artist.file_name.to_string())
               .collect::<Vec<String>>(),
           )
+          .include_duplicates(true)
           .build()?,
         None,
       )
