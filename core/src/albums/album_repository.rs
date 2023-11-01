@@ -52,6 +52,12 @@ impl From<AlbumReadModel> for proto::Album {
       release_date: val.release_date.map(|date| date.to_string()),
       languages: val.languages,
       cover_image_url: val.cover_image_url,
+      duplicate_of: val.duplicate_of.map(|file_name| file_name.to_string()),
+      duplicates: val
+        .duplicates
+        .into_iter()
+        .map(|file_name| file_name.to_string())
+        .collect(),
     }
   }
 }

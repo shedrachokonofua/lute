@@ -131,6 +131,8 @@ message Album {
   optional string release_date = 10;
   repeated string languages = 11;
   optional string cover_image_url = 12;
+  optional string duplicate_of = 13;
+  repeated string duplicates = 14;
 }
 
 message GetAlbumReply { Album album = 1; }
