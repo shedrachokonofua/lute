@@ -17,9 +17,13 @@ import {
   EmbeddingSimilarityAlbumAssessmentSettings,
   GenreAggregate,
   GetManyAlbumsRequest,
+  GetPendingSpotifyImportsReply,
+  GetPendingSpotifyImportsRequest,
   GetProfileRequest,
   GetProfileSummaryRequest,
   HandleAuthorizationCodeRequest,
+  ImportSavedSpotifyTracksRequest,
+  ImportSpotifyPlaylistTracksRequest,
   LanguageAggregate,
   Profile,
   ProfileSummary,
@@ -376,4 +380,31 @@ export const removeAlbumFromProfile = async (
   request.setProfileId(profileId);
   request.setFileName(fileName);
   await client.profile.removeAlbumFromProfile(request, null);
+};
+
+export const getPendingSpotifyImports = async (
+  profileId: string,
+): Promise<GetPendingSpotifyImportsReply> => {
+  const request = new GetPendingSpotifyImportsRequest();
+  request.setProfileId(profileId);
+  const response = await client.profile.getPendingSpotifyImports(request, null);
+  return response;
+};
+
+export const importSavedSpotifyTracks = async (
+  profileId: string,
+): Promise<void> => {
+  const request = new ImportSavedSpotifyTracksRequest();
+  request.setProfileId(profileId);
+  await client.profile.importSavedSpotifyTracks(request, null);
+};
+
+export const importSpotifyPlaylistTracks = async (
+  profileId: string,
+  playlistId: string,
+): Promise<void> => {
+  const request = new ImportSpotifyPlaylistTracksRequest();
+  request.setProfileId(profileId);
+  request.setPlaylistId(playlistId);
+  await client.profile.importSpotifyPlaylistTracks(request, null);
 };

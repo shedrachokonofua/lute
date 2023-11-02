@@ -1,4 +1,4 @@
-import { Box, Stack, Text } from "@mantine/core";
+import { Box, Group, Stack, Text } from "@mantine/core";
 import { ReactNode } from "react";
 import { ItemWithFactor, ProfileSummary } from "../../../proto/lute_pb";
 import { ProfileDetailsCard } from "./ProfileDetailsCard";
@@ -50,14 +50,16 @@ export const ProfileOverview = ({
     <ProfileDetailsCard label="Overview">
       <Box pt="sm">
         <Stack spacing="sm">
-          <OverviewItem
-            label="Average Rating"
-            value={profileSummary.getAverageRating().toFixed(2)}
-          />
-          <OverviewItem
-            label="Median Year"
-            value={profileSummary.getMedianYear()}
-          />
+          <Group grow>
+            <OverviewItem
+              label="Average Rating"
+              value={profileSummary.getAverageRating().toFixed(2)}
+            />
+            <OverviewItem
+              label="Median Year"
+              value={profileSummary.getMedianYear()}
+            />
+          </Group>
           <OverviewItem label="Top Artists" value={topArtists.join(", ")} />
           <OverviewItem
             label="Top Primary Genres"

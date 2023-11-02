@@ -1,0 +1,259 @@
+import { Group, Menu, SegmentedControl, Stack, Text } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
+import {
+  IconDownload,
+  IconFolderHeart,
+  IconPlaylist,
+  IconX,
+} from "@tabler/icons-react";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import {
+  importSavedSpotifyTracks,
+  importSpotifyPlaylistTracks,
+} from "../../../client";
+import {
+  AggregatedStatus,
+  GetPendingSpotifyImportsReply,
+  Profile,
+} from "../../../proto/lute_pb";
+import { ProfileDetailsCard } from "./ProfileDetailsCard";
+import { pendingSpotifyImportsQuery, profileDetailsQuery } from "./queries";
+import { useInterval } from "./use-interval";
+import { useUpdateEffect } from "./use-update-effect";
+
+type CardMode = "in-progress" | "failures";
+
+const usePendingSpotifyImports = (
+  profile: Profile,
+  initialPendingSpotifyImports: GetPendingSpotifyImportsReply,
+  mode: CardMode,
+) => {
+  const profileId = profile.getId();
+  const [
+    {
+      data: pendingSpotifyImports,
+      refetch: refetchPendingSpotifyImports,
+      isRefetching,
+    },
+    { refetch: refetchProfileDetails },
+  ] = useQueries({
+    queries: [
+      {
+        ...pendingSpotifyImportsQuery(profileId),
+        initialData: initialPendingSpotifyImports,
+      },
+      {
+        ...profileDetailsQuery(profileId),
+      },
+    ],
+  });
+  useUpdateEffect(() => {
+    refetchPendingSpotifyImports();
+  }, [refetchPendingSpotifyImports, mode]);
+
+  const [pendingImports, failedImports] = pendingSpotifyImports!
+    .getStatusesList()
+    .sort((a, b) => a.getStatus().localeCompare(b.getStatus()))
+    .reduce<[AggregatedStatus[], AggregatedStatus[]]>(
+      (acc, status) => {
+        if (status.getStatus().includes("failed")) {
+          acc[1].push(status);
+        } else {
+          acc[0].push(status);
+        }
+        return acc;
+      },
+      [[], []],
+    );
+  const isImportInProgress = pendingImports.length > 0;
+  const secondsTillRefetch = useInterval(
+    () => {
+      refetchPendingSpotifyImports();
+      refetchProfileDetails();
+    },
+    isImportInProgress && !isRefetching ? 5 : null,
+  );
+
+  const statusList = mode === "in-progress" ? pendingImports : failedImports;
+
+  return {
+    statusList,
+    isRefetching,
+    isImportInProgress,
+    secondsTillRefetch,
+  };
+};
+
+const useImportMenu = (profile: Profile) => {
+  const { refetch: refetchPendingSpotifyImports } = useQuery({
+    ...pendingSpotifyImportsQuery(profile.getId()),
+    enabled: false,
+  });
+  const loadingNotificationId = `import-${profile.getId()}`;
+  const importSavedTracksMutation = useMutation({
+    mutationFn: () => importSavedSpotifyTracks(profile.getId()),
+    onMutate: () => {
+      notifications.show({
+        id: loadingNotificationId,
+        message: "Loading saved tracks from Spotify",
+        color: "gray",
+        withBorder: true,
+        loading: true,
+        autoClose: false,
+      });
+    },
+    onSuccess: () => {
+      notifications.hide(loadingNotificationId);
+      notifications.show({
+        message: "Crawling RYM for albums, this may take a while",
+        color: "blue",
+        withBorder: true,
+        icon: <IconDownload />,
+      });
+      refetchPendingSpotifyImports();
+    },
+    onError: (e) => {
+      notifications.hide(loadingNotificationId);
+      notifications.show({
+        title: "Failed to import saved tracks",
+        message: e.message,
+        color: "red",
+        withBorder: true,
+        icon: <IconX />,
+      });
+    },
+  });
+  const importPlaylistMutation = useMutation({
+    mutationFn: (playlistId: string) =>
+      importSpotifyPlaylistTracks(profile.getId(), playlistId),
+    onMutate: () => {
+      notifications.show({
+        id: loadingNotificationId,
+        message: "Loading playlist tracks from Spotify",
+        color: "blue",
+        withBorder: true,
+        loading: true,
+        autoClose: false,
+      });
+    },
+    onSuccess: () => {
+      notifications.hide(loadingNotificationId);
+      notifications.show({
+        title: "Importing playlist tracks",
+        message: "Looking up playlist tracks on RYM, this may take a while",
+        color: "blue",
+        withBorder: true,
+        icon: <IconDownload />,
+      });
+      refetchPendingSpotifyImports();
+    },
+    onError: (e) => {
+      notifications.hide(loadingNotificationId);
+      notifications.show({
+        title: "Failed to import playlist tracks",
+        message: e.message,
+        color: "red",
+        withBorder: true,
+        icon: <IconX />,
+      });
+    },
+  });
+
+  return {
+    importSavedTracksMutation,
+    importPlaylistMutation,
+  };
+};
+
+const statusToName: Record<string, string> = {
+  started: "Started",
+  search_crawling: "Crawling Search Page",
+  search_parsing: "Parsing Search Page",
+  album_crawling: "Crawling Album Page",
+  album_parsing: "Parsing Album Page",
+  search_parsed: "Parsed Search Page",
+};
+
+export const ProfileSpotifyImport = ({
+  profile,
+  pendingSpotifyImports: initialPendingSpotifyImports,
+}: {
+  profile: Profile;
+  pendingSpotifyImports: GetPendingSpotifyImportsReply;
+}) => {
+  const [type, setType] = useState<CardMode>("in-progress");
+  const { statusList, isImportInProgress, secondsTillRefetch, isRefetching } =
+    usePendingSpotifyImports(profile, initialPendingSpotifyImports, type);
+  const { importSavedTracksMutation, importPlaylistMutation } =
+    useImportMenu(profile);
+
+  return (
+    <ProfileDetailsCard
+      label="Spotify Import"
+      dropdownMenu={
+        <>
+          <Menu.Item
+            disabled={importSavedTracksMutation.isPending || isImportInProgress}
+            onClick={() => importSavedTracksMutation.mutate()}
+            icon={<IconFolderHeart size={16} />}
+          >
+            Import albums from saved tracks
+          </Menu.Item>
+          <Menu.Item
+            disabled={importPlaylistMutation.isPending || isImportInProgress}
+            onClick={() => {
+              const playlistId = window.prompt("Enter the Spotify playlist ID");
+              if (playlistId) {
+                importPlaylistMutation.mutate(playlistId);
+              }
+            }}
+            icon={<IconPlaylist size={16} />}
+          >
+            Import albums from playlist
+          </Menu.Item>
+        </>
+      }
+      footer={
+        isImportInProgress ? (
+          <Text size="xs" color="gray" align="right">
+            {isRefetching
+              ? "Refetching..."
+              : `Refetching in ${secondsTillRefetch} seconds`}
+          </Text>
+        ) : undefined
+      }
+    >
+      <Stack spacing="md" py="sm">
+        <SegmentedControl
+          data={[
+            { label: "In-Progress", value: "in-progress" },
+            { label: "Failures", value: "failures" },
+          ]}
+          value={type}
+          onChange={(value) => setType(value as CardMode)}
+        />
+        <div>
+          {statusList.map((aggStatus, i) => {
+            const status = aggStatus.getStatus();
+            const count = aggStatus.getCount();
+            return (
+              <Group
+                key={status}
+                position="apart"
+                py={6}
+                style={{
+                  borderBottom:
+                    i !== statusList.length - 1 ? "1px solid #ddd" : undefined,
+                }}
+              >
+                <Text size="md">{statusToName[status] || status}</Text>
+                <Text size="md">{count}</Text>
+              </Group>
+            );
+          })}
+        </div>
+      </Stack>
+    </ProfileDetailsCard>
+  );
+};

@@ -1,4 +1,4 @@
-import { Grid } from "@mantine/core";
+import { Grid, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import { QueryClient, useQuery } from "@tanstack/react-query";
@@ -13,19 +13,26 @@ import {
 } from "react-router-dom";
 import {
   deleteProfile,
-  getProfile,
-  getProfileSummary,
   putAlbumOnProfile,
   removeAlbumFromProfile,
   searchAlbums,
 } from "../../../client";
-import { Album, Profile, ProfileSummary } from "../../../proto/lute_pb";
+import {
+  Album,
+  GetPendingSpotifyImportsReply,
+  Profile,
+  ProfileSummary,
+} from "../../../proto/lute_pb";
+import { useRemoteContext } from "../../../remote-context";
 import { ProfileAlbums } from "./ProfileAlbums";
 import { ProfileOverview } from "./ProfileOverview";
+import { ProfileSpotifyImport } from "./ProfileSpotifyImport";
+import { pendingSpotifyImportsQuery, profileDetailsQuery } from "./queries";
 
 interface ProfileDetailsLoaderData {
   profile: Profile;
   profileSummary: ProfileSummary;
+  pendingSpotifyImports: GetPendingSpotifyImportsReply;
   albumsList: {
     albums: Album[];
     search: string;
@@ -40,23 +47,6 @@ interface ProfileDetailsActionData {
   result?: any;
   error?: string;
 }
-
-const profileDetailsQuery = (id: string) => ({
-  queryKey: ["profile", id],
-  queryFn: async () => {
-    const [profile, profileSummary] = await Promise.all([
-      getProfile(id),
-      getProfileSummary(id),
-    ]);
-    if (!profile || !profileSummary) {
-      throw new Error("Profile not found");
-    }
-    return {
-      profile,
-      profileSummary,
-    };
-  },
-});
 
 export const profileDetailsAction =
   (queryClient: QueryClient): ActionFunction =>
@@ -114,9 +104,11 @@ export const profileDetailsLoader =
   (queryClient: QueryClient): LoaderFunction =>
   async ({ params, request }) => {
     const id = params.id as string;
-    const { profile, profileSummary } = await queryClient.ensureQueryData(
-      profileDetailsQuery(id),
-    );
+    const [{ profile, profileSummary }, pendingSpotifyImports] =
+      await Promise.all([
+        queryClient.ensureQueryData(profileDetailsQuery(id)),
+        queryClient.ensureQueryData(pendingSpotifyImportsQuery(id)),
+      ]);
     const searchParams = new URLSearchParams(new URL(request.url).search);
     const page = Number(searchParams.get("page")) || 1;
     const pageSize = Number(searchParams.get("pageSize")) || 5;
@@ -126,7 +118,7 @@ export const profileDetailsLoader =
       fileNames.length > 0
         ? await searchAlbums(
             {
-              text: search,
+              text: search.trim(),
               includeFileNames: Array.from(profile.getAlbumsMap().keys()),
             },
             {
@@ -142,6 +134,7 @@ export const profileDetailsLoader =
     return {
       profile,
       profileSummary,
+      pendingSpotifyImports,
       albumsList: {
         albums,
         search,
@@ -192,6 +185,7 @@ export const ProfileDetails = () => {
   const {
     profile: initialProfile,
     profileSummary: initialProfileSummary,
+    pendingSpotifyImports: pendingSpotifyImports,
     albumsList,
   } = useLoaderData() as ProfileDetailsLoaderData;
   const {
@@ -211,11 +205,20 @@ export const ProfileDetails = () => {
       notifications.show(notification);
     }
   }, [actionData]);
+  const { isSpotifyAuthenticated } = useRemoteContext();
 
   return (
     <Grid>
       <Grid.Col md={4}>
-        <ProfileOverview profileSummary={profileSummary} />
+        <Stack spacing="md">
+          <ProfileOverview profileSummary={profileSummary} />
+          {isSpotifyAuthenticated && (
+            <ProfileSpotifyImport
+              profile={profile}
+              pendingSpotifyImports={pendingSpotifyImports}
+            />
+          )}
+        </Stack>
       </Grid.Col>
       <Grid.Col md={8}>
         <ProfileAlbums profile={profile} list={albumsList} />
