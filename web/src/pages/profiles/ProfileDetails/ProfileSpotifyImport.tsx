@@ -173,6 +173,8 @@ const statusToName: Record<string, string> = {
   album_crawling: "Crawling Album Page",
   album_parsing: "Parsing Album Page",
   search_parsed: "Parsed Search Page",
+  search_parse_failed: "Failed to Parse Search Page",
+  album_parse_failed: "Failed to Parse Album Page",
 };
 
 export const ProfileSpotifyImport = ({
@@ -198,7 +200,7 @@ export const ProfileSpotifyImport = ({
             onClick={() => importSavedTracksMutation.mutate()}
             icon={<IconFolderHeart size={16} />}
           >
-            Import albums from saved tracks
+            Import from saved tracks
           </Menu.Item>
           <Menu.Item
             disabled={importPlaylistMutation.isPending || isImportInProgress}
@@ -210,7 +212,7 @@ export const ProfileSpotifyImport = ({
             }}
             icon={<IconPlaylist size={16} />}
           >
-            Import albums from playlist
+            Import from playlist
           </Menu.Item>
         </>
       }
