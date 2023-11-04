@@ -36,7 +36,7 @@ export const ProfilesPage = () => {
         }}
         py="md"
       >
-        <Container size="lg">
+        <Container size="xl">
           <Group position="apart">
             <Group>
               <Button
@@ -56,7 +56,7 @@ export const ProfilesPage = () => {
           </Group>
         </Container>
       </Box>
-      <Container size="lg" py="md">
+      <Container size="xl" py="md">
         <Outlet />
       </Container>
     </div>
