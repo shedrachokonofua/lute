@@ -11,6 +11,8 @@ services:
       - 22001:8001
     volumes:
       - redis_data:/data
+    networks:
+      - lute_network
 
 volumes:
   redis_data:
@@ -18,3 +20,4 @@ volumes:
 networks:
   lute_network:
     driver: bridge
+    name: lute_network

@@ -1,4 +1,4 @@
-FROM rust:1.73 as builder
+FROM rust:1.71 as builder
 WORKDIR /usr/src/app
 
 # Install protobuf compiler
@@ -14,6 +14,9 @@ COPY proto proto
 RUN cargo install --path core
 
 FROM debian:bullseye-slim
-RUN apt-get update && rm -rf /var/lib/apt/lists/*
+RUN apt-get update
+RUN apt-get install ca-certificates -y
+RUN update-ca-certificates
+RUN rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/cargo/bin/core /usr/local/bin/core
 CMD ["core"]

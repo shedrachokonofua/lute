@@ -119,6 +119,16 @@ tasks:
   "core:up":
     cmds:
       - task: "redis:up"
+      - docker-compose -f ./infra/dev/core/docker-compose.yml up -d
+    
+  "core:up:build":
+    cmds:
+      - task: "redis:up"
+      - docker-compose -f ./infra/dev/core/docker-compose.yml up -d --build
+  
+  "core:run-with-redis":
+    cmds:
+      - task: "redis:up"
       - task: "core:run" 
 
   "postgres:up":
