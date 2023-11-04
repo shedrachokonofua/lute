@@ -250,7 +250,7 @@ pub fn build_album_event_subscribers(
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
-      .generate_ordered_processing_group_id(Arc::new(|(_, payload)| match &payload.event {
+      .generate_ordered_processing_group_id(Arc::new(|row| match &row.payload.event {
         Event::FileParsed {
           data: ParsedFileData::Album(ParsedAlbum { name, .. }),
           ..
@@ -268,7 +268,7 @@ pub fn build_album_event_subscribers(
       .redis_connection_pool(Arc::clone(&redis_connection_pool))
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
-      .generate_ordered_processing_group_id(Arc::new(|(_, payload)| match &payload.event {
+      .generate_ordered_processing_group_id(Arc::new(|row| match &row.payload.event {
         Event::FileDeleted { file_name, .. } => {
           match file_name.page_type() {
             PageType::Album => Some(file_name.to_string()), // Ensure duplicates are processed sequentially

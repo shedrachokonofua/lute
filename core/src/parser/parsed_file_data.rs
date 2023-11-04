@@ -54,13 +54,13 @@ pub struct ParsedChartAlbum {
   pub release_date: Option<NaiveDate>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedArtistAlbum {
   pub name: String,
   pub file_name: FileName,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedArtist {
   pub name: String,
   pub albums: Vec<ParsedArtistAlbum>,
@@ -73,7 +73,7 @@ pub struct ParsedAlbumSearchResult {
   pub artists: Vec<ParsedArtistReference>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type", content = "data")]
 pub enum ParsedFileData {
   Chart(Vec<ParsedChartAlbum>),

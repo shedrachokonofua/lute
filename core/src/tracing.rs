@@ -2,6 +2,7 @@ use crate::settings::TracingSettings;
 use anyhow::Result;
 use opentelemetry::sdk::{trace, Resource};
 use opentelemetry_otlp::WithExportConfig;
+use std::io;
 use std::time::Duration;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
@@ -40,7 +41,11 @@ pub fn setup_tracing(tracing_settings: &TracingSettings) -> Result<()> {
 
   let registry = Registry::default()
     .with(tracing_opentelemetry::layer().with_tracer(tracer))
-    .with(tracing_subscriber::fmt::layer().json())
+    .with(
+      tracing_subscriber::fmt::layer()
+        .json()
+        .with_writer(io::stdout),
+    )
     .with(EnvFilter::from_default_env());
 
   tracing::subscriber::set_global_default(registry).expect("setting default subscriber failed");

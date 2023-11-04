@@ -8,20 +8,27 @@ pub struct EventSubscriberRepository {
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
 }
 
+#[derive(Debug, Clone)]
+pub struct EventRow {
+  pub id: String,
+  pub stream: Stream,
+  pub payload: EventPayload,
+}
+
 pub struct EventList {
-  pub events: Vec<(String, EventPayload)>,
+  pub rows: Vec<EventRow>,
 }
 
 impl EventList {
   pub fn tail_cursor(&self) -> Option<String> {
-    self.events.last().map(|(id, _)| id.to_string())
+    self.rows.last().map(|row| row.id.clone())
   }
 }
 
-fn map_event_row(row: &rusqlite::Row<'_>) -> Result<(String, EventPayload), rusqlite::Error> {
-  Ok((
-    row.get::<_, i32>(0)?.to_string(),
-    EventPayloadBuilder::default()
+fn map_event_row(row: &rusqlite::Row<'_>) -> Result<EventRow, rusqlite::Error> {
+  Ok(EventRow {
+    id: row.get::<_, i32>(0)?.to_string(),
+    payload: EventPayloadBuilder::default()
       .correlation_id(row.get::<_, Option<String>>(1)?)
       .causation_id(row.get::<_, Option<String>>(2)?)
       .event(
@@ -40,7 +47,11 @@ fn map_event_row(row: &rusqlite::Row<'_>) -> Result<(String, EventPayload), rusq
         error!(message = err.to_string(), "Failed to build event payload");
         rusqlite::Error::ExecuteReturnedResults
       })?,
-  ))
+    stream: Stream::try_from(row.get::<_, String>(5)?).map_err(|err| {
+      error!(message = err.to_string(), "Failed to parse stream");
+      rusqlite::Error::ExecuteReturnedResults
+    })?,
+  })
 }
 
 impl EventSubscriberRepository {
@@ -132,34 +143,34 @@ impl EventSubscriberRepository {
         if is_global {
           let mut statement = conn.prepare(
             "
-            SELECT id, correlation_id, causation_id, event, metadata
+            SELECT id, correlation_id, causation_id, event, metadata, stream
             FROM events
             WHERE id > ?1
             ORDER BY id ASC
             LIMIT ?2
             ",
           )?;
-          let events = statement
+          let rows = statement
             .query_map(params![cursor.clone(), count.to_string()], map_event_row)?
             .collect::<Result<Vec<_>, _>>()?;
-          Ok(EventList { events })
+          Ok(EventList { rows })
         } else {
           let mut statement = conn.prepare(
             "
-            SELECT id, correlation_id, causation_id, event, metadata
+            SELECT id, correlation_id, causation_id, event, metadata, stream
             FROM events
             WHERE stream IN rarray(?1) AND id > ?2
             ORDER BY id ASC
             LIMIT ?3
             ",
           )?;
-          let events = statement
+          let rows = statement
             .query_map(
               params![Rc::new(stream_tags), cursor.clone(), count.to_string()],
               map_event_row,
             )?
             .collect::<Result<Vec<_>, _>>()?;
-          Ok(EventList { events })
+          Ok(EventList { rows })
         }
       })
       .await

@@ -1,18 +1,20 @@
 use crate::settings::Settings;
 
 use super::event::{EventPayload, Stream};
-use super::event_subscriber_repository::EventSubscriberRepository;
+use super::event_subscriber_repository::{EventRow, EventSubscriberRepository};
 use anyhow::Result;
 use derive_builder::Builder;
 use futures::future::{join_all, BoxFuture};
 use iter_tools::Itertools;
 use rustis::{bb8::Pool, client::PooledClientManager};
+use std::collections::HashMap;
 use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
 use tracing::{debug, error};
 
 pub struct SubscriberContext {
   pub entry_id: String,
+  pub stream: Stream,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub sqlite_connection: Arc<tokio_rusqlite::Connection>,
   pub settings: Arc<Settings>,
@@ -44,7 +46,7 @@ pub struct EventSubscriber {
     setter(strip_option)
   )]
   generate_ordered_processing_group_id:
-    Option<Arc<dyn Fn((&String, &EventPayload)) -> Option<String> + Send + Sync>>,
+    Option<Arc<dyn Fn(&EventRow) -> Option<String> + Send + Sync>>,
 }
 
 impl EventSubscriberBuilder {
@@ -61,7 +63,7 @@ impl EventSubscriberBuilder {
 
   pub fn generate_default_ordered_processing_group_id(
     &self,
-  ) -> Option<Arc<dyn Fn((&String, &EventPayload)) -> Option<String> + Send + Sync>> {
+  ) -> Option<Arc<dyn Fn(&EventRow) -> Option<String> + Send + Sync>> {
     None
   }
 }
@@ -94,24 +96,23 @@ impl EventSubscriber {
     debug!(
       streams = stream_tags.as_str(),
       subscriber_id = self.id,
-      count = &event_list.events.len(),
+      count = &event_list.rows.len(),
       "Subscriber polled"
     );
     let tail_cursor = event_list.tail_cursor();
 
-    let mut ordered_processing_groups = vec![];
-    for (key, group) in &event_list
-      .events
-      .into_iter()
-      .group_by(|(id, event_payload)| {
-        self
-          .generate_ordered_processing_group_id
-          .as_ref()
-          .and_then(|f| f((id, event_payload)))
-          .unwrap_or(id.clone())
-      })
-    {
-      ordered_processing_groups.push((key, group.collect::<Vec<_>>()));
+    let mut ordered_processing_groups: HashMap<String, Vec<EventRow>> = HashMap::new();
+    for (key, group) in &event_list.rows.into_iter().group_by(|row| {
+      self
+        .generate_ordered_processing_group_id
+        .as_ref()
+        .and_then(|f| f(row))
+        .unwrap_or(row.id.clone())
+    }) {
+      ordered_processing_groups
+        .entry(key.clone())
+        .or_default()
+        .extend(group);
     }
 
     join_all(
@@ -133,9 +134,11 @@ impl EventSubscriber {
             "Processing group"
           );
           tokio::spawn(async move {
-            for (entry_id, payload) in group {
+            for row in group {
+              let entry_id = row.id;
+              let payload = row.payload;
               debug!(
-                stream = stream_tags.as_str(),
+                streams = stream_tags.as_str(),
                 subscriber_id,
                 entry_id = entry_id,
                 event_kind = payload.event.kind().to_string(),
@@ -149,6 +152,7 @@ impl EventSubscriber {
                 settings: Arc::clone(&settings),
                 entry_id: entry_id.clone(),
                 payload: payload.clone(),
+                stream: row.stream.clone(),
               })
               .await
               .map_err(|err| {

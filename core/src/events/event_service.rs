@@ -51,12 +51,12 @@ impl proto::EventService for EventService {
           let tail_cursor = event_list.tail_cursor().clone();
           if let Some(tail_cursor) = tail_cursor {
             yield proto::EventStreamReply {
-              items: event_list.events.into_iter().map(|(id, payload)| {
+              items: event_list.rows.into_iter().map(|row| {
                 proto::EventStreamItem {
-                  entry_id: id.clone(),
-                  payload: Some(payload.into()),
+                  entry_id: row.id.clone(),
+                  payload: Some(row.payload.into()),
                   stream_id: stream_id.tag(),
-                  timestamp: id.clone().split('-').next()
+                  timestamp: row.id.clone().split('-').next()
                     .expect("Invalid event stream item ID")
                     .parse::<u64>()
                     .expect("Invalid event stream item ID")

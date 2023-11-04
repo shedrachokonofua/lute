@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use ulid::serde::ulid_as_u128;
 use ulid::Ulid;
 
-#[derive(Serialize, Deserialize, Clone, Kinded)]
+#[derive(Serialize, Deserialize, Clone, Kinded, Debug)]
 #[serde(tag = "type", content = "data")]
 pub enum Event {
   FileSaved {
@@ -99,7 +99,7 @@ impl From<Event> for proto::Event {
   }
 }
 
-#[derive(Serialize, Deserialize, Clone, Builder)]
+#[derive(Serialize, Deserialize, Clone, Builder, Debug)]
 pub struct EventPayload {
   pub event: Event,
   #[builder(setter(into), default)]

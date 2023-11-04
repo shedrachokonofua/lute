@@ -6,6 +6,7 @@ use rusqlite::vtab;
 use rusqlite_migration::AsyncMigrations;
 use std::{path::Path, sync::Arc};
 use tokio_rusqlite::Connection;
+use tracing::info;
 
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/migrations");
 
@@ -43,6 +44,8 @@ pub async fn migrate_to_version(settings: Arc<Settings>, version: u32) -> Result
 
 pub async fn connect_to_sqlite(settings: Arc<Settings>) -> Result<Arc<tokio_rusqlite::Connection>> {
   let connection = Arc::new(build_sqlite_connection(settings.clone()).await?);
+  info!("Connected to SQLite database");
   migrate_to_latest(Arc::clone(&settings)).await?;
+  info!("All sqlite migrations applied");
   Ok(connection)
 }

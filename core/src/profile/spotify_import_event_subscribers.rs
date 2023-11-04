@@ -59,6 +59,13 @@ pub fn build_spotify_import_event_subscribers(
     .redis_connection_pool(Arc::clone(&redis_connection_pool))
     .sqlite_connection(Arc::clone(&sqlite_connection))
     .settings(Arc::clone(&settings))
+    .generate_ordered_processing_group_id(Arc::new(|row| {
+      if let Some(correlation_id) = &row.payload.correlation_id {
+        Some(correlation_id.clone())
+      } else {
+        None
+      }
+    }))
     .handle(Arc::new(move |context| {
       let profile_interactor = ProfileInteractor::new(
         Arc::clone(&context.settings),
