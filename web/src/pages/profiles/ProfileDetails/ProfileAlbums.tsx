@@ -27,23 +27,36 @@ const getUpdatedQueryString = (updates: Record<string, any>) => {
   return "?" + searchParams.toString();
 };
 
-const Pagination = ({ list }: { list: ProfileAlbumsProps["list"] }) => {
-  const hasNext = list.page < list.pageCount;
-  const hasPrevious = list.page > 1;
-
-  return (
-    <Group>
-      {hasPrevious && (
-        <Link to={getUpdatedQueryString({ page: list.page - 1 })}>
-          Previous
-        </Link>
-      )}
-      {hasNext && (
-        <Link to={getUpdatedQueryString({ page: list.page + 1 })}>Next</Link>
-      )}
-    </Group>
+const PaginationLink = ({
+  targetPage,
+  enabled,
+  label,
+}: {
+  targetPage: number;
+  enabled: boolean;
+  label: string;
+}) => {
+  return enabled ? (
+    <Link to={getUpdatedQueryString({ page: targetPage })}>{label}</Link>
+  ) : (
+    <div>{label}</div>
   );
 };
+
+const Pagination = ({ list }: { list: ProfileAlbumsProps["list"] }) => (
+  <Group>
+    <PaginationLink
+      targetPage={list.page - 1}
+      enabled={list.page > 1}
+      label="Previous"
+    />
+    <PaginationLink
+      targetPage={list.page + 1}
+      enabled={list.page < list.pageCount}
+      label="Next"
+    />
+  </Group>
+);
 
 const AlbumSearchInput = ({ value }: { value: string }) => {
   const [searchValue, setSearchValue] = useState(value);
@@ -85,12 +98,13 @@ export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
         <AlbumSearchInput value={list.search} />
       </Card.Section>
       <div>
-        {list.albums.map((album) => (
+        {list.albums.map((album, i) => (
           <ProfileAlbumsListItem
             key={album.getFileName()}
             album={album}
             profile={profile}
             factor={profile.getAlbumsMap().get(album.getFileName()) || 0}
+            hasBorder={i !== list.albums.length - 1}
           />
         ))}
       </div>
