@@ -70,17 +70,19 @@ export const ProfileAlbumsListItem = ({
   profile,
   album,
   factor,
+  hasBorder = true,
 }: {
   profile: Profile;
   album: Album;
   factor: number;
+  hasBorder?: boolean;
 }) => {
   const submit = useSubmit();
 
   return (
     <Group
       style={{
-        borderBottom: "1px solid #DDD",
+        borderBottom: hasBorder ? "1px solid #ddd" : undefined,
         padding: "8px 0",
       }}
     >
