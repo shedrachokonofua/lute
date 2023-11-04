@@ -36,11 +36,16 @@ message GetFilePageTypeReply {
   PageType page_type = 1;
 }
 
+message GetFileContentRequest { string name = 1; }
+
+message GetFileContentReply { string content = 1; }
+
 service FileService {
   rpc GetFilePageType(GetFilePageTypeRequest) returns (GetFilePageTypeReply) {}
   rpc IsFileStale(IsFileStaleRequest) returns (IsFileStaleReply) {}
   rpc PutFile(PutFileRequest) returns (PutFileReply) {}
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+  rpc GetFileContent(GetFileContentRequest) returns (GetFileContentReply) {}
 }
 
 message GetCrawlerMonitorReply { CrawlerMonitor monitor = 1; }

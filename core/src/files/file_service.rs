@@ -1,7 +1,7 @@
 use super::{file_interactor::FileInteractor, file_metadata::file_name::FileName};
 use crate::proto::{
-  self, GetFilePageTypeReply, GetFilePageTypeRequest, IsFileStaleReply, IsFileStaleRequest,
-  PutFileReply, PutFileRequest,
+  self, GetFileContentReply, GetFilePageTypeReply, GetFilePageTypeRequest, IsFileStaleReply,
+  IsFileStaleRequest, PutFileReply, PutFileRequest,
 };
 use anyhow::Result;
 use tonic::{Request, Response, Status};
@@ -82,5 +82,24 @@ impl proto::FileService for FileService {
       })?;
 
     Ok(Response::new(()))
+  }
+
+  async fn get_file_content(
+    &self,
+    request: Request<proto::GetFileContentRequest>,
+  ) -> Result<Response<GetFileContentReply>, Status> {
+    let name = request.into_inner().name;
+    let file_name =
+      FileName::try_from(name.clone()).map_err(|e| Status::invalid_argument(e.to_string()))?;
+    let content = self
+      .file_interactor
+      .get_file_content(&file_name)
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal(format!("Failed to get file content: {}", e))
+      })?;
+
+    Ok(Response::new(GetFileContentReply { content }))
   }
 }

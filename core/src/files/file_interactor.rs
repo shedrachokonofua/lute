@@ -128,4 +128,8 @@ impl FileInteractor {
       .await?;
     Ok(())
   }
+
+  pub async fn get_file_content(&self, file_name: &FileName) -> Result<String> {
+    self.file_content_store.get(file_name).await
+  }
 }
