@@ -142,8 +142,8 @@ impl EventSubscriber {
                 subscriber_id,
                 entry_id = entry_id,
                 event_kind = payload.event.kind().to_string(),
-                correlation_id = payload.correlation_id,
-                causation_id = payload.causation_id,
+                correlation_id = payload.correlation_id.clone(),
+                causation_id = payload.causation_id.clone(),
                 "Processing event"
               );
               handle(SubscriberContext {
@@ -161,6 +161,8 @@ impl EventSubscriber {
                   subscriber_id,
                   entry_id = entry_id,
                   error = err.to_string(),
+                  correlation_id = payload.correlation_id,
+                  causation_id = payload.causation_id,
                   "Error handling event"
                 );
                 err

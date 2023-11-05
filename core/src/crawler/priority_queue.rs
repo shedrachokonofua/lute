@@ -12,7 +12,7 @@ use rustis::{
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
-use tracing::{info, instrument};
+use tracing::{info, instrument, warn};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Priority {
@@ -191,7 +191,8 @@ impl PriorityQueue {
       .unwrap_or_else(|| params.file_name.to_string());
 
     if self.contains(&deduplication_key).await? {
-      bail!("Item already exists in queue");
+      warn!("Item already exists in queue, skipping");
+      return Ok(());
     }
 
     if self.is_full().await? {
