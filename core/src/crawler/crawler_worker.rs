@@ -100,7 +100,12 @@ impl CrawlerWorker {
 
   pub async fn run(&self) -> Result<()> {
     loop {
-      self.execute().await?;
+      if let Err(e) = self.execute().await {
+        warn!(
+          e = &e.to_string().as_str(),
+          "Failed to execute crawler worker"
+        );
+      }
       self.wait().await;
     }
   }
