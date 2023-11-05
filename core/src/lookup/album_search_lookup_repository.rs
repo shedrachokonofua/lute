@@ -90,6 +90,14 @@ impl AlbumSearchLookupRepository {
     &self,
     queries: Vec<&AlbumSearchLookupQuery>,
   ) -> Result<Vec<Option<AlbumSearchLookup>>> {
+    if queries.is_empty() {
+      return Ok(vec![]);
+    }
+
+    if queries.len() == 1 {
+      return Ok(vec![self.find(queries[0]).await?]);
+    }
+
     let connection = self.redis_connection_pool.get().await?;
     let mut pipeline = connection.create_pipeline();
     for query in queries {
