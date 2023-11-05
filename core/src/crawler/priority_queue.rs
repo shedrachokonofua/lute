@@ -1,6 +1,7 @@
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::{bail, Result};
 use chrono::NaiveDateTime;
+use derive_builder::Builder;
 use futures::future::join_all;
 use rustis::{
   bb8::Pool,
@@ -55,7 +56,8 @@ impl ToString for Priority {
   }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Builder)]
+#[builder(default, setter(strip_option, into))]
 pub struct QueuePushParameters {
   pub file_name: FileName,
   pub priority: Option<Priority>,

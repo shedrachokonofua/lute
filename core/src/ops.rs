@@ -1,10 +1,17 @@
 use crate::{
+  crawler::{
+    crawler_interactor::CrawlerInteractor,
+    priority_queue::{Priority, QueuePushParametersBuilder},
+  },
   files::file_interactor::FileInteractor,
-  proto::{self, ParseFileContentStoreReply},
+  parser::failed_parse_files_repository::FailedParseFilesRepository,
+  proto::{
+    self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest, MigrateSqliteRequest,
+    ParseFileContentStoreReply,
+  },
   settings::Settings,
   sqlite::{migrate_to_latest, migrate_to_version},
 };
-
 use futures::future::join_all;
 use rustis::{
   bb8::Pool,
@@ -19,7 +26,9 @@ use tracing::error;
 pub struct OperationsService {
   settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  crawler_interactor: Arc<CrawlerInteractor>,
   file_interactor: FileInteractor,
+  failed_parse_files_repository: FailedParseFilesRepository,
 }
 
 impl OperationsService {
@@ -27,11 +36,20 @@ impl OperationsService {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    crawler_interactor: Arc<CrawlerInteractor>,
   ) -> Self {
     Self {
+      crawler_interactor,
       settings: Arc::clone(&settings),
       redis_connection_pool: Arc::clone(&redis_connection_pool),
-      file_interactor: FileInteractor::new(settings, redis_connection_pool, sqlite_connection),
+      file_interactor: FileInteractor::new(
+        settings,
+        Arc::clone(&redis_connection_pool),
+        sqlite_connection,
+      ),
+      failed_parse_files_repository: FailedParseFilesRepository {
+        redis_connection_pool: Arc::clone(&redis_connection_pool),
+      },
     }
   }
 }
@@ -96,7 +114,7 @@ impl proto::OperationsService for OperationsService {
 
   async fn migrate_sqlite(
     &self,
-    request: Request<proto::MigrateSqliteRequest>,
+    request: Request<MigrateSqliteRequest>,
   ) -> Result<Response<()>, Status> {
     let version = request.into_inner().version;
     migrate_to_version(Arc::clone(&self.settings), version)
@@ -106,5 +124,45 @@ impl proto::OperationsService for OperationsService {
         Status::internal("Failed to migrate sqlite to version")
       })?;
     Ok(Response::new(()))
+  }
+
+  async fn crawl_parse_failed_files(
+    &self,
+    request: Request<CrawlParseFailedFilesRequest>,
+  ) -> Result<Response<CrawlParseFailedFilesReply>, Status> {
+    let error = request.into_inner().error;
+    let files = self
+      .failed_parse_files_repository
+      .find_many(error.as_deref())
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal(format!("Failed to get files by error: {}", e))
+      })?
+      .into_iter()
+      .map(|file| file.file_name)
+      .collect::<Vec<_>>();
+    let count = files.len() as u32;
+    for file in files {
+      self
+        .crawler_interactor
+        .enqueue(
+          QueuePushParametersBuilder::default()
+            .file_name(file)
+            .priority(Priority::High)
+            .correlation_id("rpc:crawl_parse_failed_files")
+            .build()
+            .map_err(|e| {
+              error!("Error: {:?}", e);
+              Status::internal(format!("Failed to build queue push parameters: {}", e))
+            })?,
+        )
+        .await
+        .map_err(|e| {
+          error!("Error: {:?}", e);
+          Status::internal("Failed to enqueue file")
+        })?;
+    }
+    Ok(Response::new(CrawlParseFailedFilesReply { count }))
   }
 }

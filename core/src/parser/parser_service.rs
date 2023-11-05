@@ -297,7 +297,7 @@ impl proto::ParserService for ParserService {
     let error_type = request.error.to_string();
     let failures = self
       .failed_parse_files_repository
-      .find_many_by_error(&error_type)
+      .find_many(Some(&error_type))
       .await
       .map_err(|err| {
         error!(err = err.to_string(), "failed to find many by error");

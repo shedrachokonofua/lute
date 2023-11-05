@@ -1,6 +1,6 @@
 use crate::{
   albums::{album_repository::AlbumRepository, album_service::AlbumService},
-  crawler::{crawler::Crawler, crawler_service::CrawlerService},
+  crawler::{crawler_interactor::CrawlerInteractor, crawler_service::CrawlerService},
   events::event_service::EventService,
   files::{
     file_interactor::FileInteractor, file_metadata::file_name::FileName, file_service::FileService,
@@ -54,7 +54,7 @@ impl RpcServer {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    crawler: Arc<Crawler>,
+    crawler_interactor: Arc<CrawlerInteractor>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
     album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
@@ -67,7 +67,9 @@ impl RpcServer {
           Arc::clone(&sqlite_connection),
         ),
       }),
-      crawler_service: Arc::new(CrawlerService { crawler }),
+      crawler_service: Arc::new(CrawlerService {
+        crawler_interactor: Arc::clone(&crawler_interactor),
+      }),
       album_service: Arc::new(AlbumService::new(Arc::clone(&album_read_model_repository))),
       spotify_service: Arc::new(SpotifyService {
         spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
@@ -76,6 +78,7 @@ impl RpcServer {
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
         Arc::clone(&sqlite_connection),
+        Arc::clone(&crawler_interactor),
       )),
       parser_service: Arc::new(ParserService::new(
         Arc::clone(&settings),

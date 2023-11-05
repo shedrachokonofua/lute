@@ -140,12 +140,14 @@ impl FailedParseFilesRepository {
     Ok(())
   }
 
-  pub async fn find_many_by_error(&self, error: &str) -> Result<Vec<FailedParseFile>> {
+  pub async fn find_many(&self, error: Option<&str>) -> Result<Vec<FailedParseFile>> {
     let connection = self.redis_connection_pool.get().await?;
     let result = connection
       .ft_search(
         self.search_index_name(),
-        format!("@error:{{ {} }}", escape_tag_value(error)),
+        error
+          .map(|e| format!("@error:{{ {} }}", escape_tag_value(e)))
+          .unwrap_or(String::from("")),
         FtSearchOptions::default().limit(0, 10000),
       )
       .await?;
@@ -167,7 +169,7 @@ impl FailedParseFilesRepository {
 
   pub async fn aggregate_errors(
     &self,
-    _page_type: Option<PageType>,
+    _page_type: Option<PageType>, // FIXME
   ) -> Result<Vec<AggregatedError>> {
     let connection = self.redis_connection_pool.get().await?;
     let result = connection

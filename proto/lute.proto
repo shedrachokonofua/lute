@@ -282,10 +282,20 @@ message MigrateSqliteRequest {
   uint32 version = 1;
 }
 
+message CrawlParseFailedFilesRequest {
+  optional string error = 1;
+}
+
+message CrawlParseFailedFilesReply {
+  uint32 count = 1; 
+}
+
 service OperationsService {
   rpc FlushRedis(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc ParseFileContentStore(google.protobuf.Empty)
       returns (ParseFileContentStoreReply) {}
+  rpc CrawlParseFailedFiles(CrawlParseFailedFilesRequest)
+      returns (CrawlParseFailedFilesReply) {}
   rpc MigrateSqliteToLatest(google.protobuf.Empty)
       returns (google.protobuf.Empty) {}
   rpc MigrateSqlite(MigrateSqliteRequest) returns (google.protobuf.Empty) {}

@@ -4,7 +4,7 @@ use core::{
     album_event_subscribers::build_album_event_subscribers,
     redis_album_repository::RedisAlbumRepository,
   },
-  crawler::crawler::Crawler,
+  crawler::{crawler::Crawler, crawler_interactor::CrawlerInteractor},
   events::event_subscriber::EventSubscriber,
   files::file_metadata::file_name::FileName,
   helpers::fifo_queue::FifoQueue,
@@ -33,7 +33,7 @@ fn run_rpc_server(
   settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
-  crawler: Arc<Crawler>,
+  crawler_interactor: Arc<CrawlerInteractor>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
   album_read_model_repository: Arc<RedisAlbumRepository>,
 ) -> task::JoinHandle<()> {
@@ -41,7 +41,7 @@ fn run_rpc_server(
     settings,
     redis_connection_pool,
     sqlite_connection,
-    crawler,
+    crawler_interactor,
     parser_retry_queue,
     album_read_model_repository,
   );
@@ -55,14 +55,14 @@ fn start_event_subscribers(
   settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
-  crawler: Arc<Crawler>,
+  crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
   event_subscribers.extend(build_album_event_subscribers(
     Arc::clone(&redis_connection_pool),
     Arc::clone(&sqlite_connection),
     settings.clone(),
-    Arc::clone(&crawler.crawler_interactor),
+    Arc::clone(&crawler_interactor),
   )?);
   event_subscribers.extend(build_parser_event_subscribers(
     Arc::clone(&redis_connection_pool),
@@ -73,7 +73,7 @@ fn start_event_subscribers(
     Arc::clone(&redis_connection_pool),
     Arc::clone(&sqlite_connection),
     settings.clone(),
-    Arc::clone(&crawler.crawler_interactor),
+    Arc::clone(&crawler_interactor),
   )?);
   event_subscribers.extend(build_profile_event_subscribers(
     Arc::clone(&redis_connection_pool),
@@ -84,7 +84,7 @@ fn start_event_subscribers(
     Arc::clone(&redis_connection_pool),
     Arc::clone(&sqlite_connection),
     settings,
-    Arc::clone(&crawler.crawler_interactor),
+    Arc::clone(&crawler_interactor),
   )?);
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });
@@ -129,14 +129,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
     Arc::clone(&sqlite_connection),
-    Arc::clone(&crawler),
+    Arc::clone(&crawler.crawler_interactor),
   )?;
 
   run_rpc_server(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
     Arc::clone(&sqlite_connection),
-    Arc::clone(&crawler),
+    Arc::clone(&crawler.crawler_interactor),
     Arc::clone(&parser_retry_queue),
     Arc::clone(&album_read_model_repository),
   )
