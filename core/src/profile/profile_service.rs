@@ -375,4 +375,27 @@ impl proto::ProfileService for ProfileService {
 
     Ok(Response::new(()))
   }
+
+  async fn clear_pending_spotify_imports(
+    &self,
+    request: Request<proto::ClearPendingSpotifyImportsRequest>,
+  ) -> Result<Response<()>, Status> {
+    let request = request.into_inner();
+    let profile_id = ProfileId::try_from(request.profile_id).map_err(|err| {
+      let message = format!("invalid profile id: {:?}", err);
+      error!("{}", message);
+      Status::invalid_argument(message)
+    })?;
+    self
+      .profile_interactor
+      .clear_pending_spotify_imports(&profile_id)
+      .await
+      .map_err(|err| {
+        let message = format!("failed to clear pending spotify imports: {:?}", err);
+        error!("{}", message);
+        Status::internal(message)
+      })?;
+
+    Ok(Response::new(()))
+  }
 }

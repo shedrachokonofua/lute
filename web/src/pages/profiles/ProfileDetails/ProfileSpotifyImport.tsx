@@ -4,11 +4,13 @@ import {
   IconDownload,
   IconFolderHeart,
   IconPlaylist,
+  IconTrashFilled,
   IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
+  clearPendingSpotifyImports,
   importSavedSpotifyTracks,
   importSpotifyPlaylistTracks,
 } from "../../../client";
@@ -78,6 +80,7 @@ const usePendingSpotifyImports = (
   const statusList = mode === "in-progress" ? pendingImports : failedImports;
 
   return {
+    pendingSpotifyImports,
     statusList,
     isRefetching,
     isImportInProgress,
@@ -140,7 +143,6 @@ const useImportMenu = (profile: Profile) => {
     onSuccess: () => {
       notifications.hide(loadingNotificationId);
       notifications.show({
-        title: "Importing playlist tracks",
         message: "Looking up playlist tracks on RYM, this may take a while",
         color: "blue",
         withBorder: true,
@@ -159,10 +161,43 @@ const useImportMenu = (profile: Profile) => {
       });
     },
   });
+  const clearPendingSpotifyImportsMutation = useMutation({
+    mutationFn: () => clearPendingSpotifyImports(profile.getId()),
+    onMutate: () => {
+      notifications.show({
+        id: loadingNotificationId,
+        message: "Clearing pending imports",
+        color: "gray",
+        withBorder: true,
+        loading: true,
+        autoClose: false,
+      });
+    },
+    onSuccess: () => {
+      notifications.hide(loadingNotificationId);
+      notifications.show({
+        message: "Cleared pending imports",
+        withBorder: true,
+        icon: <IconTrashFilled />,
+      });
+      refetchPendingSpotifyImports();
+    },
+    onError: (e) => {
+      notifications.hide(loadingNotificationId);
+      notifications.show({
+        title: "Failed to clear pending imports",
+        message: e.message,
+        color: "red",
+        withBorder: true,
+        icon: <IconX />,
+      });
+    },
+  });
 
   return {
     importSavedTracksMutation,
     importPlaylistMutation,
+    clearPendingSpotifyImportsMutation,
   };
 };
 
@@ -185,10 +220,18 @@ export const ProfileSpotifyImport = ({
   pendingSpotifyImports: GetPendingSpotifyImportsReply;
 }) => {
   const [type, setType] = useState<CardMode>("in-progress");
-  const { statusList, isImportInProgress, secondsTillRefetch, isRefetching } =
-    usePendingSpotifyImports(profile, initialPendingSpotifyImports, type);
-  const { importSavedTracksMutation, importPlaylistMutation } =
-    useImportMenu(profile);
+  const {
+    pendingSpotifyImports,
+    statusList,
+    isImportInProgress,
+    secondsTillRefetch,
+    isRefetching,
+  } = usePendingSpotifyImports(profile, initialPendingSpotifyImports, type);
+  const {
+    importSavedTracksMutation,
+    importPlaylistMutation,
+    clearPendingSpotifyImportsMutation,
+  } = useImportMenu(profile);
 
   return (
     <ProfileDetailsCard
@@ -213,6 +256,16 @@ export const ProfileSpotifyImport = ({
             icon={<IconPlaylist size={16} />}
           >
             Import from playlist
+          </Menu.Item>
+          <Menu.Item
+            disabled={
+              clearPendingSpotifyImportsMutation.isPending ||
+              pendingSpotifyImports?.getCount() === 0
+            }
+            onClick={() => clearPendingSpotifyImportsMutation.mutate()}
+            icon={<IconTrashFilled size={16} />}
+          >
+            Clear pending imports
           </Menu.Item>
         </>
       }

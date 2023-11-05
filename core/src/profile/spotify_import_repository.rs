@@ -161,7 +161,7 @@ impl SpotifyImportRepository {
     Ok(())
   }
 
-  pub async fn remove_subscription(
+  pub async fn delete_subscription(
     &self,
     profile_id: &ProfileId,
     album_search_lookup_query: &AlbumSearchLookupQuery,

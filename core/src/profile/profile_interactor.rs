@@ -227,7 +227,7 @@ impl ProfileInteractor {
     join_all(complete_pairs.iter().map(|(_, subscription)| {
       self
         .spotify_import_repository
-        .remove_subscription(id, &subscription.album_search_lookup_query)
+        .delete_subscription(id, &subscription.album_search_lookup_query)
     }))
     .await;
 
@@ -258,14 +258,14 @@ impl ProfileInteractor {
       .await
   }
 
-  pub async fn remove_spotify_import_subscription(
+  pub async fn delete_spotify_import_subscription(
     &self,
     profile_id: &ProfileId,
     album_search_lookup_query: &AlbumSearchLookupQuery,
   ) -> Result<()> {
     self
       .spotify_import_repository
-      .remove_subscription(profile_id, album_search_lookup_query)
+      .delete_subscription(profile_id, album_search_lookup_query)
       .await
   }
 
@@ -314,5 +314,22 @@ impl ProfileInteractor {
 
   pub async fn delete_profile(&self, id: &ProfileId) -> Result<()> {
     self.profile_repository.delete(id).await
+  }
+
+  pub async fn clear_pending_spotify_imports(&self, profile_id: &ProfileId) -> Result<()> {
+    let pending_imports = self.get_pending_spotify_imports(profile_id).await?;
+    for pending_import in pending_imports {
+      self
+        .delete_spotify_import_subscription(
+          &pending_import.profile_id,
+          pending_import.album_search_lookup.query(),
+        )
+        .await?;
+      self
+        .lookup_interactor
+        .delete_album_search_lookup(pending_import.album_search_lookup.query())
+        .await?;
+    }
+    Ok(())
   }
 }

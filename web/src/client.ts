@@ -12,6 +12,7 @@ import {
   AlbumRecommendation,
   AlbumRecommendationSettings,
   AlbumSearchQuery,
+  ClearPendingSpotifyImportsRequest,
   CreateProfileRequest,
   DeleteProfileRequest,
   EmbeddingSimilarityAlbumAssessmentSettings,
@@ -407,4 +408,12 @@ export const importSpotifyPlaylistTracks = async (
   request.setProfileId(profileId);
   request.setPlaylistId(playlistId);
   await client.profile.importSpotifyPlaylistTracks(request, null);
+};
+
+export const clearPendingSpotifyImports = async (
+  profileId: string,
+): Promise<void> => {
+  const request = new ClearPendingSpotifyImportsRequest();
+  request.setProfileId(profileId);
+  await client.profile.clearPendingSpotifyImports(request, null);
 };

@@ -108,4 +108,8 @@ impl LookupInteractor {
       .find_many_by_album_file_name(album_file_name)
       .await
   }
+
+  pub async fn delete_album_search_lookup(&self, query: &AlbumSearchLookupQuery) -> Result<()> {
+    self.album_search_lookup_repository.delete(query).await
+  }
 }

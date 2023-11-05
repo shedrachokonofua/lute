@@ -9,7 +9,7 @@ use rustis::{
   client::{BatchPreparedCommand, PooledClientManager},
   commands::{
     FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtReducer,
-    FtSearchOptions, HashCommands, SearchCommands,
+    FtSearchOptions, GenericCommands, HashCommands, SearchCommands,
   },
 };
 use std::{collections::HashMap, sync::Arc};
@@ -181,5 +181,15 @@ impl AlbumSearchLookupRepository {
       .collect::<Vec<_>>();
 
     Ok(aggregates)
+  }
+
+  pub async fn delete(&self, query: &AlbumSearchLookupQuery) -> Result<()> {
+    self
+      .redis_connection_pool
+      .get()
+      .await?
+      .del(key(query))
+      .await?;
+    Ok(())
   }
 }

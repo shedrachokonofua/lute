@@ -38,7 +38,7 @@ pub async fn process_lookup_subscriptions(
         )
         .await?;
       profile_interactor
-        .remove_spotify_import_subscription(&subscription.profile_id, &query)
+        .delete_spotify_import_subscription(&subscription.profile_id, &query)
         .await?;
     }
   }
