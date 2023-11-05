@@ -19,7 +19,7 @@ use crate::{
     event_publisher::EventPublisher,
     event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
-  files::file_metadata::page_type::PageType,
+  files::file_metadata::{file_name::FileName, page_type::PageType},
   parser::parsed_file_data::{
     ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack,
   },
@@ -200,20 +200,28 @@ impl AlbumSearchLookupOrchestrator {
   }
 
   #[instrument(skip(self))]
+  async fn enqueue_to_crawler(&self, file_name: &FileName, correlation_id: String) -> Result<()> {
+    self
+      .crawler_interactor
+      .enqueue(QueuePushParameters {
+        file_name: file_name.clone(),
+        priority: Some(Priority::High),
+        deduplication_key: Some(format!("{}:{}", file_name.to_string(), correlation_id)),
+        correlation_id: Some(correlation_id),
+        metadata: None,
+      })
+      .await?;
+    Ok(())
+  }
+
+  #[instrument(skip(self))]
   async fn handle_lookup_event(&self, event: Event, correlation_id: String) -> Result<()> {
     if let Event::LookupAlbumSearchUpdated { lookup } = event {
       self.save_lookup(&lookup).await?;
 
       if let AlbumSearchLookup::Started { query, .. } = lookup {
         self
-          .crawler_interactor
-          .enqueue(QueuePushParameters {
-            file_name: query.file_name(),
-            priority: Some(Priority::High),
-            deduplication_key: None,
-            correlation_id: Some(correlation_id.clone()),
-            metadata: None,
-          })
+          .enqueue_to_crawler(&query.file_name(), correlation_id.clone())
           .await?;
         self
           .save_lookup(&AlbumSearchLookup::SearchCrawling {
@@ -259,14 +267,10 @@ impl AlbumSearchLookupOrchestrator {
           }
           None => {
             self
-              .crawler_interactor
-              .enqueue(QueuePushParameters {
-                file_name: parsed_album_search_result.file_name.clone(),
-                priority: Some(Priority::High),
-                deduplication_key: None,
-                correlation_id: Some(correlation_id.clone()),
-                metadata: None,
-              })
+              .enqueue_to_crawler(
+                &parsed_album_search_result.file_name,
+                correlation_id.clone(),
+              )
               .await?;
             self
               .save_lookup(&AlbumSearchLookup::AlbumCrawling {
