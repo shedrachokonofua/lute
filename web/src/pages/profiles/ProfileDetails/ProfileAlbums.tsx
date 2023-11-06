@@ -1,21 +1,23 @@
-import { Card, Flex, Pagination, Select, Text, TextInput } from "@mantine/core";
+import {
+  Card,
+  Flex,
+  Pagination,
+  Select,
+  Switch,
+  Text,
+  TextInput,
+} from "@mantine/core";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Album, Profile } from "../../../proto/lute_pb";
+import { Profile } from "../../../proto/lute_pb";
 import { ProfileAlbumsListItem } from "./ProfileAlbumsListItem";
 import { ProfileDetailsCard } from "./ProfileDetailsCard";
+import { ProfileAlbumsList } from "./types";
 import { useDebounce } from "./use-debounce";
 
 interface ProfileAlbumsProps {
   profile: Profile;
-  list: {
-    albums: Album[];
-    search: string;
-    page: number;
-    pageSize: number;
-    pageCount: number;
-    total: number;
-  };
+  list: ProfileAlbumsList;
 }
 
 const getUpdatedQueryString = (updates: Record<string, any>) => {
@@ -59,9 +61,8 @@ const AlbumSearchInput = ({ value }: { value: string }) => {
   );
 };
 
-const PageSizeSelect = ({ list }: { list: ProfileAlbumsProps["list"] }) => {
+const PageSizeSelect = ({ list }: { list: ProfileAlbumsList }) => {
   const navigate = useNavigate();
-
   return (
     <Text>
       Showing{" "}
@@ -111,10 +112,40 @@ const getControlHref = (control: string, list: ProfileAlbumsProps["list"]) => {
   }
 };
 
+const SearchModeSwitch = ({ list }: { list: ProfileAlbumsList }) => {
+  const navigate = useNavigate();
+  return (
+    <Switch
+      onLabel={<Text>New</Text>}
+      offLabel={<Text>Existing</Text>}
+      size="lg"
+      radius="md"
+      styles={{
+        track: {
+          background: "#DBDBDB",
+          fontWeight: "normal",
+          fontSize: 14,
+          width: 90,
+          textAlign: "center",
+          minHeight: "2.25rem",
+        },
+      }}
+      checked={list.searchMode === "new"}
+      onChange={(e) => {
+        navigate(
+          getUpdatedQueryString({
+            searchMode: e.currentTarget.checked ? "new" : "existing",
+          }),
+        );
+      }}
+    />
+  );
+};
+
 export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
   return (
     <ProfileDetailsCard
-      label={`Albums(${profile.getAlbumsMap().getLength()})`}
+      label="Albums"
       footer={
         <Flex justify="space-between" align="center">
           <Pagination
@@ -134,7 +165,16 @@ export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
       }
     >
       <Card.Section withBorder inheritPadding py="xs">
-        <AlbumSearchInput value={list.search} />
+        <Flex gap="md" align="center">
+          <div
+            style={{
+              flex: 1,
+            }}
+          >
+            <AlbumSearchInput value={list.search} />
+          </div>
+          <SearchModeSwitch list={list} />
+        </Flex>
       </Card.Section>
       <div>
         {list.albums.map((album, i) => (
@@ -142,6 +182,7 @@ export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
             key={album.getFileName()}
             album={album}
             profile={profile}
+            searchMode={list.searchMode}
             factor={profile.getAlbumsMap().get(album.getFileName()) || 0}
             hasBorder={i !== list.albums.length - 1}
           />

@@ -22,7 +22,6 @@ import {
 import { ProfileDetailsCard } from "./ProfileDetailsCard";
 import { pendingSpotifyImportsQuery, profileDetailsQuery } from "./queries";
 import { useInterval } from "./use-interval";
-import { useUpdateEffect } from "./use-update-effect";
 
 type CardMode = "in-progress" | "failures";
 
@@ -50,9 +49,6 @@ const usePendingSpotifyImports = (
       },
     ],
   });
-  useUpdateEffect(() => {
-    refetchPendingSpotifyImports();
-  }, [refetchPendingSpotifyImports, mode]);
 
   const [pendingImports, failedImports] = pendingSpotifyImports!
     .getStatusesList()

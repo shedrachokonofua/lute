@@ -1,28 +1,28 @@
-import { Grid, Stack, Text } from "@mantine/core";
+import { Grid,Stack,Text } from "@mantine/core";
 import React from "react";
 import {
-  Await,
-  LoaderFunctionArgs,
-  defer,
-  useLoaderData,
-  useRouteError,
+Await,
+LoaderFunctionArgs,
+defer,
+useLoaderData,
+useRouteError,
 } from "react-router-dom";
 import {
-  getAlbumRecommendations,
-  getDefaultQuantileRankAlbumAssessmentSettings,
-  getEmbeddingKeys,
+getAlbumRecommendations,
+getDefaultQuantileRankAlbumAssessmentSettings,
+getEmbeddingKeys,
 } from "../../client";
 import {
-  AlbumRecommendation,
-  QuantileRankAlbumAssessmentSettings,
+AlbumRecommendation,
+QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
 import { useRemoteContext } from "../../remote-context";
 import { AlbumRecommendationItem } from "./AlbumRecommendationItem";
 import { RecommendationSettings } from "./RecommendationSettings";
 import {
-  RecommendationMethod,
-  RecommendationSettingsForm,
-  RecommendationSettingsFormName,
+RecommendationMethod,
+RecommendationSettingsForm,
+RecommendationSettingsFormName,
 } from "./types";
 
 function ErrorBoundary() {
@@ -273,7 +273,7 @@ export const RecommendationPage = () => {
         }}
         px="xs"
       >
-        <React.Suspense fallback={<p>Loading recommendations...</p>}>
+        <React.Suspense fallback={<Text>Loading recommendations...</Text>}>
           <Await resolve={recommendations} errorElement={<ErrorBoundary />}>
             {(recommendations: AlbumRecommendation[] | null) => (
               <Stack spacing="md">

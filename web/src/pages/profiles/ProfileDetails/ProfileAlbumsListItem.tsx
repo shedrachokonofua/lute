@@ -3,6 +3,7 @@ import { IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { Form, useSubmit } from "react-router-dom";
 import { Album, Profile } from "../../../proto/lute_pb";
+import { ProfileAlbumsList } from "./types";
 
 const AlbumFactorInput = ({
   album,
@@ -71,11 +72,13 @@ export const ProfileAlbumsListItem = ({
   album,
   factor,
   hasBorder = true,
+  searchMode,
 }: {
   profile: Profile;
   album: Album;
   factor: number;
   hasBorder?: boolean;
+  searchMode: ProfileAlbumsList["searchMode"];
 }) => {
   const submit = useSubmit();
 
@@ -121,32 +124,34 @@ export const ProfileAlbumsListItem = ({
         <div>
           <AlbumFactorInput album={album} factor={factor} />
         </div>
-        <div>
-          <ActionIcon
-            color="red"
-            variant="light"
-            radius="sm"
-            onClick={() => {
-              if (
-                confirm(
-                  `Are you sure you want to remove "${album.getName()}" from "${profile.getName()}"`,
-                )
-              ) {
-                submit(
-                  {
-                    intent: "remove-album",
-                    fileName: album.getFileName(),
-                  },
-                  {
-                    method: "delete",
-                  },
-                );
-              }
-            }}
-          >
-            <IconTrash size="1rem" />
-          </ActionIcon>
-        </div>
+        {searchMode === "existing" && (
+          <div>
+            <ActionIcon
+              color="red"
+              variant="light"
+              radius="sm"
+              onClick={() => {
+                if (
+                  confirm(
+                    `Are you sure you want to remove "${album.getName()}" from "${profile.getName()}"`,
+                  )
+                ) {
+                  submit(
+                    {
+                      intent: "remove-album",
+                      fileName: album.getFileName(),
+                    },
+                    {
+                      method: "delete",
+                    },
+                  );
+                }
+              }}
+            >
+              <IconTrash size="1rem" />
+            </ActionIcon>
+          </div>
+        )}
       </Group>
     </Group>
   );

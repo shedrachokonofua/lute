@@ -18,7 +18,6 @@ import {
   searchAlbums,
 } from "../../../client";
 import {
-  Album,
   GetPendingSpotifyImportsReply,
   Profile,
   ProfileSummary,
@@ -28,19 +27,13 @@ import { ProfileAlbums } from "./ProfileAlbums";
 import { ProfileOverview } from "./ProfileOverview";
 import { ProfileSpotifyImport } from "./ProfileSpotifyImport";
 import { pendingSpotifyImportsQuery, profileDetailsQuery } from "./queries";
+import { ProfileAlbumsList } from "./types";
 
 interface ProfileDetailsLoaderData {
   profile: Profile;
   profileSummary: ProfileSummary;
   pendingSpotifyImports: GetPendingSpotifyImportsReply;
-  albumsList: {
-    albums: Album[];
-    search: string;
-    page: number;
-    pageCount: number;
-    pageSize: number;
-    total: number;
-  };
+  albumsList: ProfileAlbumsList;
 }
 
 interface ProfileDetailsActionData {
@@ -55,15 +48,20 @@ export const profileDetailsAction =
   async ({ request, params }) => {
     const formData = await request.formData();
     const intent = formData.get("intent");
+    const profileId = params.id as string;
 
     if (intent === "delete-profile") {
-      await deleteProfile(params.id as string);
+      await deleteProfile(profileId);
+      queryClient.removeQueries({
+        queryKey: profileDetailsQuery(profileId).queryKey,
+        exact: true,
+      });
       return redirect("/profiles");
     }
     if (intent === "remove-album") {
       try {
         await removeAlbumFromProfile(
-          params.id as string,
+          profileId,
           formData.get("fileName") as string,
         );
         await queryClient.refetchQueries();
@@ -83,8 +81,11 @@ export const profileDetailsAction =
       try {
         const fileName = formData.get("fileName") as string;
         const factor = Number(formData.get("factor"));
-        await putAlbumOnProfile(params.id as string, fileName, factor);
-        await queryClient.refetchQueries();
+        await putAlbumOnProfile(profileId, fileName, factor);
+        await queryClient.refetchQueries({
+          queryKey: profileDetailsQuery(profileId).queryKey,
+          exact: true,
+        });
         return {
           intent,
           ok: true,
@@ -113,14 +114,18 @@ export const profileDetailsLoader =
     const searchParams = new URLSearchParams(new URL(request.url).search);
     const page = Number(searchParams.get("page")) || 1;
     const pageSize = Number(searchParams.get("pageSize")) || 5;
-    const search = searchParams.get("search") || "";
+    const search = (searchParams.get("search") || "").trim();
+    const searchMode = searchParams.get("searchMode") || "existing";
     const fileNames = Array.from(profile.getAlbumsMap().keys());
-    const searchResults =
-      fileNames.length > 0
+    let searchResults =
+      (searchMode === "existing" && fileNames.length > 0) ||
+      (searchMode === "new" && search !== "")
         ? await searchAlbums(
             {
-              text: search.trim(),
-              includeFileNames: Array.from(profile.getAlbumsMap().keys()),
+              text: search,
+              [searchMode === "existing"
+                ? "includeFileNames"
+                : "excludeFileNames"]: fileNames,
             },
             {
               offset: (page - 1) * pageSize,
@@ -139,6 +144,7 @@ export const profileDetailsLoader =
       albumsList: {
         albums,
         search,
+        searchMode,
         page,
         pageSize,
         pageCount,
