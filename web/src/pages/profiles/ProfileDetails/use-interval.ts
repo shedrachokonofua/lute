@@ -51,7 +51,6 @@ export const useInterval = (
     if (intervalSeconds === null) {
       return;
     }
-    console.log("useInterval: setting interval");
     const intervalId = setInterval(() => {
       tick();
       if (secondsRemainingRef.current === 0) {

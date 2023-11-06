@@ -27,8 +27,7 @@ export const Layout = () => {
             height={50}
             p="md"
             style={{
-              background:
-                "linear-gradient(to bottom, rgb(25, 110, 150), rgb(6, 80, 120))",
+              background: "#1F2D5C",
               borderBottom: "none",
             }}
           >

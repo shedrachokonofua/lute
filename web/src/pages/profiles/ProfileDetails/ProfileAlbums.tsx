@@ -1,4 +1,4 @@
-import { Card, Group, TextInput } from "@mantine/core";
+import { Card, Flex, Pagination, Select, Text, TextInput } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Album, Profile } from "../../../proto/lute_pb";
@@ -12,7 +12,9 @@ interface ProfileAlbumsProps {
     albums: Album[];
     search: string;
     page: number;
+    pageSize: number;
     pageCount: number;
+    total: number;
   };
 }
 
@@ -26,37 +28,6 @@ const getUpdatedQueryString = (updates: Record<string, any>) => {
   }
   return "?" + searchParams.toString();
 };
-
-const PaginationLink = ({
-  targetPage,
-  enabled,
-  label,
-}: {
-  targetPage: number;
-  enabled: boolean;
-  label: string;
-}) => {
-  return enabled ? (
-    <Link to={getUpdatedQueryString({ page: targetPage })}>{label}</Link>
-  ) : (
-    <div>{label}</div>
-  );
-};
-
-const Pagination = ({ list }: { list: ProfileAlbumsProps["list"] }) => (
-  <Group>
-    <PaginationLink
-      targetPage={list.page - 1}
-      enabled={list.page > 1}
-      label="Previous"
-    />
-    <PaginationLink
-      targetPage={list.page + 1}
-      enabled={list.page < list.pageCount}
-      label="Next"
-    />
-  </Group>
-);
 
 const AlbumSearchInput = ({ value }: { value: string }) => {
   const [searchValue, setSearchValue] = useState(value);
@@ -88,11 +59,79 @@ const AlbumSearchInput = ({ value }: { value: string }) => {
   );
 };
 
+const PageSizeSelect = ({ list }: { list: ProfileAlbumsProps["list"] }) => {
+  const navigate = useNavigate();
+
+  return (
+    <Text>
+      Showing{" "}
+      <Select
+        data={[
+          { value: "5", label: "5" },
+          { value: "10", label: "10" },
+          { value: "25", label: "25" },
+          { value: "50", label: "50" },
+        ]}
+        defaultValue={list.pageSize.toString()}
+        styles={{
+          root: {
+            width: 70,
+            display: "inline-block",
+          },
+          rightSection: {
+            paddingLeft: 4,
+          },
+        }}
+        onChange={(pageSize) => {
+          navigate(
+            getUpdatedQueryString({
+              pageSize,
+              page: 1,
+            }),
+          );
+        }}
+      />
+      of {list.total} albums
+    </Text>
+  );
+};
+
+const getControlHref = (control: string, list: ProfileAlbumsProps["list"]) => {
+  switch (control) {
+    case "first":
+      return getUpdatedQueryString({ page: 1 });
+    case "last":
+      return getUpdatedQueryString({ page: list.pageCount });
+    case "next":
+      return getUpdatedQueryString({ page: list.page + 1 });
+    case "previous":
+      return getUpdatedQueryString({ page: list.page - 1 });
+    default:
+      return undefined;
+  }
+};
+
 export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
   return (
     <ProfileDetailsCard
       label={`Albums(${profile.getAlbumsMap().getLength()})`}
-      footer={<Pagination list={list} />}
+      footer={
+        <Flex justify="space-between" align="center">
+          <Pagination
+            value={list.page}
+            total={list.pageCount}
+            getItemProps={(page) => ({
+              component: Link,
+              to: getUpdatedQueryString({ page }),
+            })}
+            getControlProps={(control) => {
+              const to = getControlHref(control, list);
+              return to ? { component: Link, to } : {};
+            }}
+          />
+          <PageSizeSelect list={list} />
+        </Flex>
+      }
     >
       <Card.Section withBorder inheritPadding py="xs">
         <AlbumSearchInput value={list.search} />

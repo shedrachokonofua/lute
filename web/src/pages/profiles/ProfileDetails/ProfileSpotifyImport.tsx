@@ -270,7 +270,7 @@ export const ProfileSpotifyImport = ({
         </>
       }
       footer={
-        isImportInProgress ? (
+        isImportInProgress && secondsTillRefetch ? (
           <Text size="xs" color="gray" align="right">
             {isRefetching
               ? "Refetching..."

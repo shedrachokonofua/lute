@@ -1,3 +1,5 @@
+import { Text } from "@mantine/core";
+
 export const NoProfileSelected = () => (
-  <span>Select a profile from the dropdown above.</span>
+  <Text>Select a profile from the dropdown above.</Text>
 );

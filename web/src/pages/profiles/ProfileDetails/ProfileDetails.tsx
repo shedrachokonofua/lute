@@ -38,6 +38,8 @@ interface ProfileDetailsLoaderData {
     search: string;
     page: number;
     pageCount: number;
+    pageSize: number;
+    total: number;
   };
 }
 
@@ -56,7 +58,6 @@ export const profileDetailsAction =
 
     if (intent === "delete-profile") {
       await deleteProfile(params.id as string);
-      await queryClient.refetchQueries();
       return redirect("/profiles");
     }
     if (intent === "remove-album") {
@@ -139,7 +140,9 @@ export const profileDetailsLoader =
         albums,
         search,
         page,
+        pageSize,
         pageCount,
+        total,
       },
     } as ProfileDetailsLoaderData;
   };

@@ -1,4 +1,4 @@
-import { Grid, Stack } from "@mantine/core";
+import { Grid, Stack, Text } from "@mantine/core";
 import React from "react";
 import {
   Await,
@@ -278,7 +278,7 @@ export const RecommendationPage = () => {
             {(recommendations: AlbumRecommendation[] | null) => (
               <Stack spacing="md">
                 {recommendations === null ? (
-                  <div>Select a profile to get started</div>
+                  <Text>Select a profile to get started</Text>
                 ) : (
                   recommendations.map((r) => (
                     <AlbumRecommendationItem

@@ -83,7 +83,7 @@ export const ProfileAlbumsListItem = ({
     <Group
       style={{
         borderBottom: hasBorder ? "1px solid #ddd" : undefined,
-        padding: "8px 0",
+        padding: "6px 0",
       }}
     >
       <img
