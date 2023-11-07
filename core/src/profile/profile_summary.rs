@@ -126,7 +126,11 @@ impl Profile {
           .or_insert(*factor);
       }
 
-      ratings.push(album.rating);
+      ratings.append(
+        &mut repeat(album.rating)
+          .take(*factor as usize)
+          .collect::<Vec<_>>(),
+      );
     }
 
     let average_rating = ratings.iter().sum::<f32>() / ratings.len() as f32;
