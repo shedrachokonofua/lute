@@ -135,6 +135,7 @@ const SearchModeSwitch = ({ list }: { list: ProfileAlbumsList }) => {
         navigate(
           getUpdatedQueryString({
             searchMode: e.currentTarget.checked ? "new" : "existing",
+            page: 1,
           }),
         );
       }}
