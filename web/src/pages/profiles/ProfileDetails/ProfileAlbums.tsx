@@ -91,7 +91,7 @@ const PageSizeSelect = ({ list }: { list: ProfileAlbumsList }) => {
             }),
           );
         }}
-      />
+      />{" "}
       of {list.total} albums
     </Text>
   );
@@ -104,9 +104,13 @@ const getControlHref = (control: string, list: ProfileAlbumsProps["list"]) => {
     case "last":
       return getUpdatedQueryString({ page: list.pageCount });
     case "next":
-      return getUpdatedQueryString({ page: list.page + 1 });
+      return list.page < list.pageCount
+        ? getUpdatedQueryString({ page: list.page + 1 })
+        : undefined;
     case "previous":
-      return getUpdatedQueryString({ page: list.page - 1 });
+      return list.page > 1
+        ? getUpdatedQueryString({ page: list.page - 1 })
+        : undefined;
     default:
       return undefined;
   }
@@ -119,7 +123,7 @@ const SearchModeSwitch = ({ list }: { list: ProfileAlbumsList }) => {
       onLabel={<Text>New</Text>}
       offLabel={<Text>Existing</Text>}
       size="lg"
-      radius="md"
+      radius="lg"
       styles={{
         track: {
           background: "#DBDBDB",
