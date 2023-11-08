@@ -49,9 +49,9 @@ pub fn build_spotify_import_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
   settings: Arc<Settings>,
-  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
 ) -> Result<Vec<EventSubscriber>> {
-  let album_read_model_repository = Arc::clone(&album_read_model_repository);
+  let album_repository = Arc::clone(&album_repository);
   Ok(vec![EventSubscriberBuilder::default()
     .id("profile_spotify_import".to_string())
     .stream(Stream::Lookup)
@@ -71,7 +71,7 @@ pub fn build_spotify_import_event_subscribers(
         Arc::clone(&context.settings),
         Arc::clone(&context.redis_connection_pool),
         Arc::clone(&context.sqlite_connection),
-        Arc::clone(&album_read_model_repository),
+        Arc::clone(&album_repository),
       );
       Box::pin(async move { process_lookup_subscriptions(context, profile_interactor).await })
     }))

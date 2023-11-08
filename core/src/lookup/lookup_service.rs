@@ -1,6 +1,6 @@
 use super::{album_search_lookup::AlbumSearchLookup, lookup_interactor::LookupInteractor};
 use crate::{
-  albums::album_repository::{AlbumReadModel, AlbumReadModelArtist},
+  albums::album_read_model::{AlbumReadModel, AlbumReadModelArtist},
   proto::{self},
   settings::Settings,
 };

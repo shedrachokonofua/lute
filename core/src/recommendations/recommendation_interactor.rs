@@ -12,7 +12,7 @@ use super::{
   },
 };
 use crate::{
-  albums::album_repository::AlbumRepository,
+  albums::{album_repository::AlbumRepository, album_search_index::AlbumSearchIndex},
   files::file_metadata::file_name::FileName,
   profile::{profile::ProfileId, profile_interactor::ProfileInteractor},
   settings::Settings,
@@ -29,7 +29,7 @@ pub enum AlbumAssessmentSettings {
 pub struct RecommendationInteractor {
   quantile_rank_interactor: QuantileRankInteractor,
   embedding_similarity_interactor: EmbeddingSimilarityInteractor,
-  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   profile_interactor: ProfileInteractor,
 }
 
@@ -38,21 +38,20 @@ impl RecommendationInteractor {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   ) -> Self {
     Self {
-      quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(
-        &album_read_model_repository,
-      )),
+      quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(&album_search_index)),
       embedding_similarity_interactor: EmbeddingSimilarityInteractor::new(Arc::clone(
-        &album_read_model_repository,
+        &album_search_index,
       )),
-      album_read_model_repository: Arc::clone(&album_read_model_repository),
+      album_repository: Arc::clone(&album_repository),
       profile_interactor: ProfileInteractor::new(
         settings,
         redis_connection_pool,
         sqlite_connection,
-        Arc::clone(&album_read_model_repository),
+        Arc::clone(&album_repository),
       ),
     }
   }
@@ -65,13 +64,10 @@ impl RecommendationInteractor {
   ) -> Result<AlbumAssessment> {
     let profile = self.profile_interactor.get_profile(profile_id).await?;
     let albums = self
-      .album_read_model_repository
+      .album_repository
       .get_many(profile.album_file_names())
       .await?;
-    let album = self
-      .album_read_model_repository
-      .get(album_file_name)
-      .await?;
+    let album = self.album_repository.get(album_file_name).await?;
     match settings {
       AlbumAssessmentSettings::QuantileRank(settings) => {
         self
@@ -106,7 +102,7 @@ impl RecommendationInteractor {
   ) -> Result<Vec<AlbumRecommendation>> {
     let profile = self.profile_interactor.get_profile(profile_id).await?;
     let albums = self
-      .album_read_model_repository
+      .album_repository
       .get_many(profile.album_file_names())
       .await?;
 

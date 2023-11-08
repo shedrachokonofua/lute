@@ -7,8 +7,8 @@ use super::{
 };
 use crate::{
   albums::{
-    album_repository::{AlbumReadModel, AlbumRepository},
-    redis_album_repository::RedisAlbumRepository,
+    album_read_model::AlbumReadModel, album_repository::AlbumRepository,
+    redis::RedisAlbumRepository,
   },
   crawler::{
     crawler_interactor::CrawlerInteractor,
@@ -185,7 +185,7 @@ struct AlbumSearchLookupOrchestrator {
   crawler_interactor: Arc<CrawlerInteractor>,
   lookup_interactor: LookupInteractor,
   event_publisher: EventPublisher,
-  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
 }
 
 impl AlbumSearchLookupOrchestrator {
@@ -240,7 +240,7 @@ impl AlbumSearchLookupOrchestrator {
       } = lookup
       {
         match self
-          .album_read_model_repository
+          .album_repository
           .find(&parsed_album_search_result.file_name)
           .await?
         {
@@ -412,7 +412,7 @@ pub fn build_album_search_lookup_event_subscribers(
       Arc::clone(&sqlite_connection),
     ),
     event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
-    album_read_model_repository: Arc::new(RedisAlbumRepository::new(Arc::clone(
+    album_repository: Arc::new(RedisAlbumRepository::new(Arc::clone(
       &redis_connection_pool,
     ))),
   });

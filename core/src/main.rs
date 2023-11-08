@@ -2,7 +2,7 @@ use anyhow::Result;
 use core::{
   albums::{
     album_event_subscribers::build_album_event_subscribers,
-    redis_album_repository::RedisAlbumRepository,
+    redis::{RedisAlbumRepository, RedisAlbumSearchIndex},
   },
   crawler::{crawler::Crawler, crawler_interactor::CrawlerInteractor},
   events::event_subscriber::EventSubscriber,
@@ -35,7 +35,8 @@ fn run_rpc_server(
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
   crawler_interactor: Arc<CrawlerInteractor>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
-  album_read_model_repository: Arc<RedisAlbumRepository>,
+  album_repository: Arc<RedisAlbumRepository>,
+  album_search_index: Arc<RedisAlbumSearchIndex>,
 ) -> task::JoinHandle<()> {
   let rpc_server = RpcServer::new(
     settings,
@@ -43,7 +44,8 @@ fn run_rpc_server(
     sqlite_connection,
     crawler_interactor,
     parser_retry_queue,
-    album_read_model_repository,
+    album_repository,
+    album_search_index,
   );
 
   task::spawn(async move {
@@ -121,10 +123,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   )?);
   crawler.run()?;
 
-  let album_read_model_repository = Arc::new(RedisAlbumRepository::new(Arc::clone(
-    &redis_connection_pool,
-  )));
-
   start_event_subscribers(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
@@ -132,13 +130,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Arc::clone(&crawler.crawler_interactor),
   )?;
 
+  let album_repository = Arc::new(RedisAlbumRepository::new(Arc::clone(
+    &redis_connection_pool,
+  )));
+  let album_search_index = Arc::new(RedisAlbumSearchIndex::new(Arc::clone(
+    &redis_connection_pool,
+  )));
   run_rpc_server(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
     Arc::clone(&sqlite_connection),
     Arc::clone(&crawler.crawler_interactor),
     Arc::clone(&parser_retry_queue),
-    Arc::clone(&album_read_model_repository),
+    Arc::clone(&album_repository),
+    Arc::clone(&album_search_index),
   )
   .await?;
 

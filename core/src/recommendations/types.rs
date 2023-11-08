@@ -1,5 +1,8 @@
 use crate::{
-  albums::album_repository::{AlbumReadModel, AlbumSearchQuery, AlbumSearchQueryBuilder},
+  albums::{
+    album_read_model::AlbumReadModel,
+    album_search_index::{AlbumSearchQuery, AlbumSearchQueryBuilder},
+  },
   profile::profile::Profile,
 };
 use anyhow::Result;

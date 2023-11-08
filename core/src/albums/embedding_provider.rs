@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{albums::album_repository::AlbumReadModel, settings::Settings};
+use crate::{albums::album_read_model::AlbumReadModel, settings::Settings};
 use anyhow::Result;
 use async_openai::{config::OpenAIConfig, types::CreateEmbeddingRequestArgs, Client};
 use async_trait::async_trait;

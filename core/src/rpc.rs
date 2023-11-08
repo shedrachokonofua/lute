@@ -1,5 +1,8 @@
 use crate::{
-  albums::{album_repository::AlbumRepository, album_service::AlbumService},
+  albums::{
+    album_repository::AlbumRepository, album_search_index::AlbumSearchIndex,
+    album_service::AlbumService,
+  },
   crawler::{crawler_interactor::CrawlerInteractor, crawler_service::CrawlerService},
   events::event_service::EventService,
   files::{
@@ -56,7 +59,8 @@ impl RpcServer {
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
     crawler_interactor: Arc<CrawlerInteractor>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
-    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   ) -> Self {
     Self {
       settings: Arc::clone(&settings),
@@ -70,7 +74,10 @@ impl RpcServer {
       crawler_service: Arc::new(CrawlerService {
         crawler_interactor: Arc::clone(&crawler_interactor),
       }),
-      album_service: Arc::new(AlbumService::new(Arc::clone(&album_read_model_repository))),
+      album_service: Arc::new(AlbumService::new(
+        Arc::clone(&album_repository),
+        Arc::clone(&album_search_index),
+      )),
       spotify_service: Arc::new(SpotifyService {
         spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
       }),
@@ -90,7 +97,7 @@ impl RpcServer {
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
         Arc::clone(&sqlite_connection),
-        Arc::clone(&album_read_model_repository),
+        Arc::clone(&album_repository),
       )),
       lookup_service: Arc::new(LookupService::new(
         Arc::clone(&settings),
@@ -101,7 +108,8 @@ impl RpcServer {
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
         Arc::clone(&sqlite_connection),
-        Arc::clone(&album_read_model_repository),
+        Arc::clone(&album_repository),
+        Arc::clone(&album_search_index),
       )),
       event_service: Arc::new(EventService::new(Arc::clone(&sqlite_connection))),
     }

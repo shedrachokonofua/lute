@@ -1,19 +1,72 @@
-use super::album_repository::{AlbumRepository, AlbumSearchQuery};
+use super::{
+  album_repository::AlbumRepository,
+  album_search_index::{AlbumSearchIndex, AlbumSearchQuery, SearchPagination},
+};
 use crate::{files::file_metadata::file_name::FileName, proto};
 use anyhow::{Error, Result};
 use std::sync::Arc;
 use tonic::{async_trait, Request, Response, Status};
 
+impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
+  type Error = anyhow::Error;
+
+  fn try_from(value: proto::AlbumSearchQuery) -> Result<Self> {
+    Ok(AlbumSearchQuery {
+      text: value.text,
+      exact_name: value.exact_name,
+      include_file_names: value
+        .include_file_names
+        .into_iter()
+        .map(|file_name| FileName::try_from(file_name).map_err(|e| anyhow::Error::msg(e)))
+        .collect::<Result<Vec<FileName>>>()?,
+      exclude_file_names: value
+        .exclude_file_names
+        .into_iter()
+        .map(|file_name| FileName::try_from(file_name).map_err(|e| anyhow::Error::msg(e)))
+        .collect::<Result<Vec<FileName>>>()?,
+      include_artists: value.include_artists,
+      exclude_artists: value.exclude_artists,
+      include_primary_genres: value.include_primary_genres,
+      exclude_primary_genres: value.exclude_primary_genres,
+      include_secondary_genres: value.include_secondary_genres,
+      exclude_secondary_genres: value.exclude_secondary_genres,
+      include_languages: value.include_languages,
+      exclude_languages: value.exclude_languages,
+      include_descriptors: value.include_descriptors,
+      min_primary_genre_count: value.min_primary_genre_count.map(|i| i as usize),
+      min_secondary_genre_count: value.min_secondary_genre_count.map(|i| i as usize),
+      min_descriptor_count: value.min_descriptor_count.map(|i| i as usize),
+      min_release_year: value.min_release_year.map(|i| i as u32),
+      max_release_year: value.max_release_year.map(|i| i as u32),
+      include_duplicates: value.include_duplicates,
+    })
+  }
+}
+
+impl TryFrom<proto::SearchPagination> for SearchPagination {
+  type Error = anyhow::Error;
+
+  fn try_from(value: proto::SearchPagination) -> Result<Self> {
+    Ok(SearchPagination {
+      offset: value.offset.map(|i| i as usize),
+      limit: value.limit.map(|i| i as usize),
+    })
+  }
+}
+
 pub struct AlbumService {
-  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
 }
 
 impl AlbumService {
   pub fn new(
-    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   ) -> Self {
     Self {
-      album_read_model_repository,
+      album_repository,
+      album_search_index,
     }
   }
 }
@@ -27,7 +80,7 @@ impl proto::AlbumService for AlbumService {
     let file_name = FileName::try_from(request.into_inner().file_name)
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
     let album = self
-      .album_read_model_repository
+      .album_repository
       .get(&file_name)
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
@@ -49,7 +102,7 @@ impl proto::AlbumService for AlbumService {
       .collect::<Result<Vec<FileName>, Error>>()
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
     let albums = self
-      .album_read_model_repository
+      .album_repository
       .get_many(file_names)
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
@@ -78,7 +131,7 @@ impl proto::AlbumService for AlbumService {
         Status::invalid_argument(format!("Invalid pagination: {}", e.to_string()))
       })?;
     let results = self
-      .album_read_model_repository
+      .album_search_index
       .search(&query, pagination.as_ref())
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
@@ -99,7 +152,7 @@ impl proto::AlbumService for AlbumService {
   ) -> Result<Response<proto::GetEmbeddingKeysReply>, Status> {
     let reply = proto::GetEmbeddingKeysReply {
       keys: self
-        .album_read_model_repository
+        .album_search_index
         .get_embedding_keys()
         .await
         .map_err(|e| Status::internal(e.to_string()))?,
@@ -113,7 +166,7 @@ impl proto::AlbumService for AlbumService {
   ) -> Result<Response<proto::GetAggregatedGenresReply>, Status> {
     let reply = proto::GetAggregatedGenresReply {
       genres: self
-        .album_read_model_repository
+        .album_repository
         .get_aggregated_genres()
         .await
         .map_err(|e| Status::internal(e.to_string()))?
@@ -130,7 +183,7 @@ impl proto::AlbumService for AlbumService {
   ) -> Result<Response<proto::GetAggregatedDescriptorsReply>, Status> {
     let reply = proto::GetAggregatedDescriptorsReply {
       descriptors: self
-        .album_read_model_repository
+        .album_repository
         .get_aggregated_descriptors()
         .await
         .map_err(|e| Status::internal(e.to_string()))?
@@ -147,7 +200,7 @@ impl proto::AlbumService for AlbumService {
   ) -> Result<Response<proto::GetAggregatedLanguagesReply>, Status> {
     let reply = proto::GetAggregatedLanguagesReply {
       languages: self
-        .album_read_model_repository
+        .album_repository
         .get_aggregated_languages()
         .await
         .map_err(|e| Status::internal(e.to_string()))?

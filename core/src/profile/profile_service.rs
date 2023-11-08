@@ -72,14 +72,14 @@ impl ProfileService {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       profile_interactor: ProfileInteractor::new(
         settings,
         redis_connection_pool,
         sqlite_connection,
-        album_read_model_repository,
+        album_repository,
       ),
     }
   }

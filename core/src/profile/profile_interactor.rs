@@ -8,7 +8,7 @@ use super::{
   spotify_import_repository::SpotifyImportRepository,
 };
 use crate::{
-  albums::album_repository::{AlbumReadModel, AlbumRepository},
+  albums::{album_read_model::AlbumReadModel, album_repository::AlbumRepository},
   events::{
     event::{Event, EventPayload, Stream},
     event_publisher::EventPublisher,
@@ -35,7 +35,7 @@ pub struct PendingSpotifyImport {
 
 pub struct ProfileInteractor {
   profile_repository: ProfileRepository,
-  album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   event_publisher: EventPublisher,
   spotify_client: SpotifyClient,
   lookup_interactor: LookupInteractor,
@@ -47,13 +47,13 @@ impl ProfileInteractor {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<tokio_rusqlite::Connection>,
-    album_read_model_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {
       profile_repository: ProfileRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
-      album_read_model_repository: Arc::clone(&album_read_model_repository),
+      album_repository: Arc::clone(&album_repository),
       event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
       spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
       lookup_interactor: LookupInteractor::new(
@@ -86,7 +86,7 @@ impl ProfileInteractor {
     file_name: &FileName,
     factor: u32,
   ) -> Result<Profile> {
-    let album = self.album_read_model_repository.get(file_name).await?;
+    let album = self.album_repository.get(file_name).await?;
     let file_name_to_add = album.duplicate_of.unwrap_or(file_name.clone());
     let (profile, new_addition) = self
       .profile_repository
@@ -157,7 +157,7 @@ impl ProfileInteractor {
     let profile = self.profile_repository.get(id).await?;
     let albums = if !profile.albums.is_empty() {
       self
-        .album_read_model_repository
+        .album_repository
         .get_many(profile.albums.keys().cloned().collect())
         .await?
     } else {

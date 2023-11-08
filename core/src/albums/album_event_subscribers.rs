@@ -1,11 +1,11 @@
 use super::{
   album_interactor::AlbumInteractor,
-  album_repository::{
-    AlbumEmbedding, AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit,
-    AlbumReadModelTrack, AlbumRepository,
+  album_read_model::{
+    AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack,
   },
+  album_search_index::{AlbumEmbedding, AlbumSearchIndex},
   embedding_provider::{AlbumEmbeddingProvider, OpenAIAlbumEmbeddingProvider},
-  redis_album_repository::RedisAlbumRepository,
+  redis::{RedisAlbumRepository, RedisAlbumSearchIndex},
 };
 use crate::{
   crawler::{
@@ -98,7 +98,9 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
   {
     let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
     let album_repository = RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
-    let album_interactor = AlbumInteractor::new(Arc::new(album_repository));
+    let album_search_index = RedisAlbumSearchIndex::new(Arc::clone(&context.redis_connection_pool));
+    let album_interactor =
+      AlbumInteractor::new(Arc::new(album_repository), Arc::new(album_search_index));
     album_interactor.put(album_read_model).await?;
   }
   Ok(())
@@ -106,9 +108,11 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
 
 async fn delete_album_read_models(context: SubscriberContext) -> Result<()> {
   if let Event::FileDeleted { file_name, .. } = context.payload.event {
-    let album_read_model_repository =
-      RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
-    album_read_model_repository.delete(&file_name).await?;
+    let album_repository = RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
+    let album_search_index = RedisAlbumSearchIndex::new(Arc::clone(&context.redis_connection_pool));
+    let album_interactor =
+      AlbumInteractor::new(Arc::new(album_repository), Arc::new(album_search_index));
+    album_interactor.delete(&file_name).await?;
   }
   Ok(())
 }
@@ -185,12 +189,11 @@ async fn update_album_embedding(
     data: ParsedFileData::Album(parsed_album),
   } = context.payload.event
   {
-    let album_read_model_repository =
-      RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
+    let album_search_index = RedisAlbumSearchIndex::new(Arc::clone(&context.redis_connection_pool));
     let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
     let embeddings = provider.generate(&album_read_model).await?;
     for (key, embedding) in embeddings {
-      album_read_model_repository
+      album_search_index
         .put_embedding(&AlbumEmbedding {
           file_name: file_name.clone(),
           key: key.to_string(),
