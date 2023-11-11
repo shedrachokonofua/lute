@@ -3,6 +3,7 @@ use crate::{
   albums::album_read_model::{AlbumReadModel, AlbumReadModelArtist},
   proto::{self},
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
@@ -53,7 +54,7 @@ impl LookupService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    sqlite_connection: Arc<SqliteConnection>,
   ) -> Self {
     Self {
       lookup_interactor: LookupInteractor::new(settings, redis_connection_pool, sqlite_connection),

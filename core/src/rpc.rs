@@ -22,6 +22,7 @@ use crate::{
   recommendations::recommendation_service::RecommendationService,
   settings::Settings,
   spotify::{spotify_client::SpotifyClient, spotify_service::SpotifyService},
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -56,7 +57,7 @@ impl RpcServer {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    sqlite_connection: Arc<SqliteConnection>,
     crawler_interactor: Arc<CrawlerInteractor>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
     album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,

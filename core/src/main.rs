@@ -18,7 +18,7 @@ use core::{
   redis::{build_redis_connection_pool, setup_redis_indexes},
   rpc::RpcServer,
   settings::Settings,
-  sqlite::connect_to_sqlite,
+  sqlite::SqliteConnection,
   tracing::setup_tracing,
 };
 use dotenv::dotenv;
@@ -33,7 +33,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 fn run_rpc_server(
   settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   crawler_interactor: Arc<CrawlerInteractor>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
   album_repository: Arc<SqliteAlbumRepository>,
@@ -57,7 +57,7 @@ fn run_rpc_server(
 fn start_event_subscribers(
   settings: Arc<Settings>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
@@ -101,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let settings = Arc::new(Settings::new()?);
   setup_tracing(&settings.tracing)?;
 
-  let sqlite_connection = Arc::new(connect_to_sqlite(Arc::clone(&settings)).await?);
+  let sqlite_connection = Arc::new(SqliteConnection::new(Arc::clone(&settings)).await?);
 
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
   setup_redis_indexes(redis_connection_pool.clone()).await?;

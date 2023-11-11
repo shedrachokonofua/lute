@@ -11,6 +11,7 @@ use crate::{
   },
   files::file_metadata::file_name::FileName,
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -25,7 +26,7 @@ impl LookupInteractor {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    sqlite_connection: Arc<SqliteConnection>,
   ) -> Self {
     Self {
       album_search_lookup_repository: AlbumSearchLookupRepository {

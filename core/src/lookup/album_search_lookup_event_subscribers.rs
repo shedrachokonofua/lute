@@ -24,6 +24,7 @@ use crate::{
     ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack,
   },
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use chrono::Utc;
@@ -400,7 +401,7 @@ impl AlbumSearchLookupOrchestrator {
 
 pub fn build_album_search_lookup_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Result<Vec<EventSubscriber>> {

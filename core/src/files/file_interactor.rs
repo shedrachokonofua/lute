@@ -11,6 +11,7 @@ use crate::{
     event_publisher::EventPublisher,
   },
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
@@ -30,7 +31,7 @@ impl FileInteractor {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    sqlite_connection: Arc<SqliteConnection>,
   ) -> Self {
     Self {
       settings: Arc::clone(&settings),

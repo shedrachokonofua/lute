@@ -10,6 +10,7 @@ use crate::{
   },
   files::file_content_store::FileContentStore,
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use chrono::Utc;
@@ -67,7 +68,7 @@ async fn populate_failed_parse_files_repository(context: SubscriberContext) -> R
 
 pub fn build_parser_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   settings: Arc<Settings>,
 ) -> Result<Vec<EventSubscriber>> {
   Ok(vec![

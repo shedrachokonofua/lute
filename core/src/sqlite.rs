@@ -21,6 +21,7 @@ pub async fn build_sqlite_connection(settings: Arc<Settings>) -> Result<Connecti
     .call(|conn| {
       conn.pragma_update(None, "journal_mode", "WAL")?;
       conn.pragma_update(None, "foreign_keys", "ON")?;
+      conn.pragma_update(None, "synchronous", "NORMAL")?;
       vtab::array::load_module(&conn)?;
       Ok(())
     })
@@ -48,4 +49,30 @@ pub async fn connect_to_sqlite(settings: Arc<Settings>) -> Result<Arc<tokio_rusq
   migrate_to_latest(Arc::clone(&settings)).await?;
   info!("All sqlite migrations applied");
   Ok(connection)
+}
+
+#[derive(Clone, Debug)]
+pub struct SqliteConnection {
+  read_connection: Arc<tokio_rusqlite::Connection>,
+  write_connection: Arc<tokio_rusqlite::Connection>,
+}
+
+impl SqliteConnection {
+  pub async fn new(settings: Arc<Settings>) -> Result<Self> {
+    let read_connection = Arc::new(build_sqlite_connection(settings.clone()).await?);
+    let write_connection = Arc::new(build_sqlite_connection(settings.clone()).await?);
+    migrate_to_latest(Arc::clone(&settings)).await?;
+    Ok(Self {
+      read_connection,
+      write_connection,
+    })
+  }
+
+  pub fn read(&self) -> Arc<tokio_rusqlite::Connection> {
+    Arc::clone(&self.read_connection)
+  }
+
+  pub fn write(&self) -> Arc<tokio_rusqlite::Connection> {
+    Arc::clone(&self.write_connection)
+  }
 }

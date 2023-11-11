@@ -7,6 +7,7 @@ use crate::{
   helpers::fifo_queue::FifoQueue,
   parser::parser::parse_file_on_store,
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -18,7 +19,7 @@ use ulid::Ulid;
 pub fn start_parser_retry_consumer(
   queue: Arc<FifoQueue<FileName>>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   settings: Arc<Settings>,
 ) -> Result<()> {
   let file_content_store = FileContentStore::new(&settings.file.content_store)?;

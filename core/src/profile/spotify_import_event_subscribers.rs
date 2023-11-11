@@ -6,6 +6,7 @@ use crate::{
   },
   lookup::album_search_lookup::AlbumSearchLookup,
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -47,7 +48,7 @@ pub async fn process_lookup_subscriptions(
 
 pub fn build_spotify_import_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   settings: Arc<Settings>,
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
 ) -> Result<Vec<EventSubscriber>> {

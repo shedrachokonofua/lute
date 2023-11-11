@@ -22,6 +22,7 @@ use crate::{
     ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack,
   },
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -208,7 +209,7 @@ async fn update_album_embedding(
 
 fn build_embedding_provider_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   settings: Arc<Settings>,
 ) -> Result<Vec<EventSubscriber>> {
   let mut providers = vec![];
@@ -240,7 +241,7 @@ fn build_embedding_provider_event_subscribers(
 
 pub fn build_album_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Result<Vec<EventSubscriber>> {

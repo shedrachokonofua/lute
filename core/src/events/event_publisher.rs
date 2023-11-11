@@ -1,16 +1,16 @@
 use super::event::{EventPayload, Stream};
-use crate::settings::Settings;
+use crate::{settings::Settings, sqlite::SqliteConnection};
 use anyhow::Result;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct EventPublisher {
   pub settings: Arc<Settings>,
-  pub sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  pub sqlite_connection: Arc<SqliteConnection>,
 }
 
 impl EventPublisher {
-  pub fn new(settings: Arc<Settings>, sqlite_connection: Arc<tokio_rusqlite::Connection>) -> Self {
+  pub fn new(settings: Arc<Settings>, sqlite_connection: Arc<SqliteConnection>) -> Self {
     Self {
       settings,
       sqlite_connection,
@@ -18,7 +18,7 @@ impl EventPublisher {
   }
 
   pub async fn publish(&self, stream: Stream, payload: EventPayload) -> Result<()> {
-    self.sqlite_connection.call(move |conn| {
+    self.sqlite_connection.write().call(move |conn| {
       conn.execute(
         "INSERT INTO events (correlation_id, causation_id, event, metadata, stream) VALUES (?1, ?2, ?3, ?4, ?5)",
         (
@@ -37,7 +37,7 @@ impl EventPublisher {
   }
 
   pub async fn batch_publish(&self, stream: Stream, payloads: Vec<EventPayload>) -> Result<()> {
-    self.sqlite_connection.call(move |conn| {
+    self.sqlite_connection.write().call(move |conn| {
       let transaction = conn.transaction()?;
       for payload in payloads {
         let mut statement = transaction.prepare(

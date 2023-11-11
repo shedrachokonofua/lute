@@ -10,7 +10,7 @@ use crate::{
     ParseFileContentStoreReply,
   },
   settings::Settings,
-  sqlite::{migrate_to_latest, migrate_to_version},
+  sqlite::{migrate_to_latest, migrate_to_version, SqliteConnection},
 };
 use futures::future::join_all;
 use rustis::{
@@ -35,7 +35,7 @@ impl OperationsService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    sqlite_connection: Arc<SqliteConnection>,
     crawler_interactor: Arc<CrawlerInteractor>,
   ) -> Self {
     Self {

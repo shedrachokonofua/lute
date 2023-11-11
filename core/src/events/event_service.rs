@@ -1,16 +1,16 @@
 use super::event_subscriber_repository::EventSubscriberRepository;
-use crate::proto;
+use crate::{proto, sqlite::SqliteConnection};
 use futures::Stream;
 use std::{pin::Pin, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use tonic::{Request, Response, Status, Streaming};
 
 pub struct EventService {
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
 }
 
 impl EventService {
-  pub fn new(sqlite_connection: Arc<tokio_rusqlite::Connection>) -> Self {
+  pub fn new(sqlite_connection: Arc<SqliteConnection>) -> Self {
     Self { sqlite_connection }
   }
 }

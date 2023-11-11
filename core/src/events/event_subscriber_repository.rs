@@ -1,11 +1,12 @@
 use super::event::{Event, EventPayload, EventPayloadBuilder, Stream, StreamKind};
+use crate::sqlite::SqliteConnection;
 use anyhow::Result;
 use rusqlite::{params, types::Value};
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 use tracing::{error, instrument};
 
 pub struct EventSubscriberRepository {
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
 }
 
 #[derive(Debug, Clone)]
@@ -55,7 +56,7 @@ fn map_event_row(row: &rusqlite::Row<'_>) -> Result<EventRow, rusqlite::Error> {
 }
 
 impl EventSubscriberRepository {
-  pub fn new(sqlite_connection: Arc<tokio_rusqlite::Connection>) -> Self {
+  pub fn new(sqlite_connection: Arc<SqliteConnection>) -> Self {
     Self { sqlite_connection }
   }
 
@@ -64,6 +65,7 @@ impl EventSubscriberRepository {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut statement = conn.prepare(
           "
@@ -88,6 +90,7 @@ impl EventSubscriberRepository {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
+      .write()
       .call(move |conn| {
         let mut statement = conn.prepare(
           "
@@ -109,6 +112,7 @@ impl EventSubscriberRepository {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
+      .write()
       .call(move |conn| {
         let mut statement = conn.prepare(
           "
@@ -139,6 +143,7 @@ impl EventSubscriberRepository {
       .collect::<Vec<_>>();
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         if is_global {
           let mut statement = conn.prepare(

@@ -1,4 +1,5 @@
 use crate::settings::Settings;
+use crate::sqlite::SqliteConnection;
 
 use super::event::{EventPayload, Stream};
 use super::event_subscriber_repository::{EventRow, EventSubscriberRepository};
@@ -16,7 +17,7 @@ pub struct SubscriberContext {
   pub entry_id: String,
   pub stream: Stream,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  pub sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  pub sqlite_connection: Arc<SqliteConnection>,
   pub settings: Arc<Settings>,
   pub payload: EventPayload,
 }
@@ -26,7 +27,7 @@ pub struct EventSubscriber {
   #[builder(default = "10")]
   pub batch_size: usize,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  pub sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  pub sqlite_connection: Arc<SqliteConnection>,
   pub settings: Arc<Settings>,
   #[builder(setter(into))]
   pub id: String,

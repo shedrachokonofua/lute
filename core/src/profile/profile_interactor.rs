@@ -20,6 +20,7 @@ use crate::{
   },
   settings::Settings,
   spotify::spotify_client::{SpotifyClient, SpotifyTrack},
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use futures::future::join_all;
@@ -46,7 +47,7 @@ impl ProfileInteractor {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    sqlite_connection: Arc<SqliteConnection>,
     album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   ) -> Self {
     Self {

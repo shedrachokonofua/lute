@@ -2,7 +2,7 @@ use super::{
   crawler_interactor::CrawlerInteractor, crawler_worker::CrawlerWorker,
   priority_queue::PriorityQueue,
 };
-use crate::{files::file_interactor::FileInteractor, settings::Settings};
+use crate::{files::file_interactor::FileInteractor, settings::Settings, sqlite::SqliteConnection};
 use anyhow::Result;
 use reqwest::Proxy;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -22,7 +22,7 @@ impl Crawler {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    sqlite_connection: Arc<SqliteConnection>,
   ) -> Result<Self> {
     let priority_queue = Arc::new(PriorityQueue::new(
       Arc::clone(&redis_connection_pool),

@@ -10,6 +10,7 @@ use crate::{
   },
   files::file_metadata::file_name::ChartParameters,
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use chrono::{Datelike, Local};
@@ -106,7 +107,7 @@ async fn crawl_similar_albums(
 
 pub fn build_recommendation_event_subscribers(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   settings: Arc<Settings>,
   crawler_interactor: Arc<CrawlerInteractor>,
 ) -> Result<Vec<EventSubscriber>> {

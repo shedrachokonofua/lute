@@ -16,6 +16,7 @@ use crate::{
   files::file_metadata::file_name::FileName,
   profile::{profile::ProfileId, profile_interactor::ProfileInteractor},
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -37,7 +38,7 @@ impl RecommendationInteractor {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    sqlite_connection: Arc<SqliteConnection>,
     album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   ) -> Self {

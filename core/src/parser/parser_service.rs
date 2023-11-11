@@ -20,6 +20,7 @@ use crate::{
     ParseFileOnContentStoreRequest,
   },
   settings::Settings,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -29,7 +30,7 @@ use tracing::error;
 use ulid::Ulid;
 
 pub struct ParserService {
-  sqlite_connection: Arc<tokio_rusqlite::Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
   failed_parse_files_repository: FailedParseFilesRepository,
   file_interactor: FileInteractor,
   settings: Arc<Settings>,
@@ -194,7 +195,7 @@ impl ParserService {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<tokio_rusqlite::Connection>,
+    sqlite_connection: Arc<SqliteConnection>,
     parser_retry_queue: Arc<FifoQueue<FileName>>,
   ) -> Self {
     Self {

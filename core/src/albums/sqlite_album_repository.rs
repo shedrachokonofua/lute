@@ -4,7 +4,7 @@ use super::{
   },
   album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
 };
-use crate::files::file_metadata::file_name::FileName;
+use crate::{files::file_metadata::file_name::FileName, sqlite::SqliteConnection};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -14,11 +14,10 @@ use std::{
   rc::Rc,
   sync::Arc,
 };
-use tokio_rusqlite::Connection;
 use tracing::error;
 
 pub struct SqliteAlbumRepository {
-  sqlite_connection: Arc<Connection>,
+  sqlite_connection: Arc<SqliteConnection>,
 }
 
 struct FindAlbumResultCreditEntry {
@@ -94,7 +93,7 @@ struct AlbumEntity {
 }
 
 impl SqliteAlbumRepository {
-  pub fn new(sqlite_connection: Arc<Connection>) -> Self {
+  pub fn new(sqlite_connection: Arc<SqliteConnection>) -> Self {
     Self { sqlite_connection }
   }
 
@@ -109,6 +108,7 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -173,6 +173,7 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -221,6 +222,7 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -266,6 +268,7 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -300,6 +303,7 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -337,6 +341,7 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -387,6 +392,7 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -453,6 +459,7 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -574,6 +581,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   async fn put(&self, album: AlbumReadModel) -> Result<()> {
     self
       .sqlite_connection
+      .write()
       .call(move |conn| {
         let tx = conn.transaction()?;
         tx.execute(
@@ -851,6 +859,7 @@ impl AlbumRepository for SqliteAlbumRepository {
 
     let album_file_names = self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -882,6 +891,7 @@ impl AlbumRepository for SqliteAlbumRepository {
     let file_name = file_name.to_string();
     self
       .sqlite_connection
+      .write()
       .call(move |conn| conn.execute("DELETE FROM albums WHERE file_name = ?", params![file_name]))
       .await?;
     Ok(())
@@ -921,6 +931,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>> {
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -952,6 +963,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>> {
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -979,6 +991,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>> {
     self
       .sqlite_connection
+      .read()
       .call(move |conn| {
         let mut stmt = conn.prepare(
           "
@@ -1009,6 +1022,7 @@ impl AlbumRepository for SqliteAlbumRepository {
         let file_name = file_name.to_string();
         self
           .sqlite_connection
+          .write()
           .call(move |conn| {
             let tx = conn.transaction()?;
             let album_id: i64 = tx.query_row(
@@ -1050,6 +1064,7 @@ impl AlbumRepository for SqliteAlbumRepository {
         let duplicate_of = duplicate_of.to_string();
         self
           .sqlite_connection
+          .write()
           .call(move |conn| {
             let tx = conn.transaction()?;
             let album_id: i64 = tx.query_row(
