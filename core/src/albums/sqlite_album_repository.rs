@@ -14,7 +14,7 @@ use std::{
   rc::Rc,
   sync::Arc,
 };
-use tracing::error;
+use tracing::{error, instrument};
 
 pub struct SqliteAlbumRepository {
   sqlite_connection: Arc<SqliteConnection>,
@@ -97,6 +97,7 @@ impl SqliteAlbumRepository {
     Self { sqlite_connection }
   }
 
+  #[instrument(skip_all, fields(count = file_names.len()))]
   async fn find_album_entities(
     &self,
     file_names: Vec<FileName>,
@@ -162,6 +163,7 @@ impl SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all, fields(count = album_ids.len()))]
   async fn find_album_artists(
     &self,
     album_ids: Vec<i64>,
@@ -211,6 +213,7 @@ impl SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all, fields(count = album_ids.len()))]
   async fn find_album_genres(
     &self,
     album_ids: Vec<i64>,
@@ -260,6 +263,7 @@ impl SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all, fields(count = album_ids.len()))]
   async fn find_album_descriptors(&self, album_ids: Vec<i64>) -> Result<HashMap<i64, Vec<String>>> {
     let album_id_params = album_ids
       .into_iter()
@@ -295,6 +299,7 @@ impl SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all, fields(count = album_ids.len()))]
   async fn find_album_languages(&self, album_ids: Vec<i64>) -> Result<HashMap<i64, Vec<String>>> {
     let album_id_params = album_ids
       .into_iter()
@@ -330,6 +335,7 @@ impl SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all, fields(count = album_ids.len()))]
   async fn find_album_tracks(
     &self,
     album_ids: Vec<i64>,
@@ -381,6 +387,7 @@ impl SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all, fields(count = album_ids.len()))]
   async fn find_album_credits(
     &self,
     album_ids: Vec<i64>,
@@ -448,6 +455,7 @@ impl SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all, fields(count = album_ids.len()))]
   async fn find_album_duplicates(
     &self,
     album_ids: Vec<i64>,
@@ -507,6 +515,7 @@ impl SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all, fields(count = file_names.len()))]
   async fn find_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>> {
     let album_entities = self.find_album_entities(file_names.clone()).await?;
     let album_ids = album_entities
@@ -578,6 +587,7 @@ impl SqliteAlbumRepository {
 
 #[async_trait]
 impl AlbumRepository for SqliteAlbumRepository {
+  #[instrument(skip_all, fields(file_name = album.file_name.to_string()))]
   async fn put(&self, album: AlbumReadModel) -> Result<()> {
     self
       .sqlite_connection
@@ -848,6 +858,7 @@ impl AlbumRepository for SqliteAlbumRepository {
     Ok(())
   }
 
+  #[instrument(skip_all, fields(count = artist_file_name.len()))]
   async fn find_artist_albums(
     &self,
     artist_file_name: Vec<FileName>,
@@ -887,6 +898,7 @@ impl AlbumRepository for SqliteAlbumRepository {
     self.find_many(album_file_names).await
   }
 
+  #[instrument(skip_all, fields(file_name))]
   async fn delete(&self, file_name: &FileName) -> Result<()> {
     let file_name = file_name.to_string();
     self
@@ -897,6 +909,7 @@ impl AlbumRepository for SqliteAlbumRepository {
     Ok(())
   }
 
+  #[instrument(skip_all, fields(file_name))]
   async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>> {
     self
       .find_many(vec![file_name.clone()])
@@ -904,6 +917,7 @@ impl AlbumRepository for SqliteAlbumRepository {
       .map(|mut albums| albums.pop())
   }
 
+  #[instrument(skip_all, fields(count = file_names.len()))]
   async fn get_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>> {
     let albums = self.find_many(file_names.clone()).await?;
     let album_map = albums
@@ -928,6 +942,7 @@ impl AlbumRepository for SqliteAlbumRepository {
     }
   }
 
+  #[instrument(skip_all)]
   async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>> {
     self
       .sqlite_connection
@@ -960,6 +975,7 @@ impl AlbumRepository for SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all)]
   async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>> {
     self
       .sqlite_connection
@@ -988,6 +1004,7 @@ impl AlbumRepository for SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all)]
   async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>> {
     self
       .sqlite_connection
@@ -1016,6 +1033,7 @@ impl AlbumRepository for SqliteAlbumRepository {
       .map_err(|e| e.into())
   }
 
+  #[instrument(skip_all, fields(file_name, count = duplicates.len()))]
   async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()> {
     match self.find(file_name).await? {
       Some(_) => {
@@ -1057,6 +1075,7 @@ impl AlbumRepository for SqliteAlbumRepository {
     }
   }
 
+  #[instrument(skip(self))]
   async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()> {
     match self.find(file_name).await? {
       Some(_) => {
