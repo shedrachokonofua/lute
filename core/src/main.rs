@@ -1,7 +1,8 @@
 use anyhow::Result;
 use core::{
   albums::{
-    album_event_subscribers::build_album_event_subscribers, redis::RedisAlbumSearchIndex,
+    album_event_subscribers::build_album_event_subscribers,
+    redis_album_search_index::RedisAlbumSearchIndex,
     sqlite_album_repository::SqliteAlbumRepository,
   },
   crawler::{crawler::Crawler, crawler_interactor::CrawlerInteractor},

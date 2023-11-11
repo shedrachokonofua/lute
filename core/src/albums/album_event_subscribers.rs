@@ -5,7 +5,7 @@ use super::{
   },
   album_search_index::{AlbumEmbedding, AlbumSearchIndex},
   embedding_provider::{AlbumEmbeddingProvider, OpenAIAlbumEmbeddingProvider},
-  redis::RedisAlbumSearchIndex,
+  redis_album_search_index::RedisAlbumSearchIndex,
   sqlite_album_repository::SqliteAlbumRepository,
 };
 use crate::{

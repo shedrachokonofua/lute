@@ -3,7 +3,7 @@ use super::{
     AlbumReadModel, AlbumReadModelArtist, AlbumReadModelBuilder, AlbumReadModelCredit,
     AlbumReadModelTrack,
   },
-  album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
+  album_repository::ItemAndCount,
   album_search_index::{
     embedding_to_bytes, AlbumEmbedding, AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex,
     AlbumSearchQuery, AlbumSearchResult, SearchPagination,
@@ -20,15 +20,14 @@ use rustis::{
   bb8::Pool,
   client::PooledClientManager,
   commands::{
-    FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtFlatVectorFieldAttributes,
-    FtIndexDataType, FtReducer, FtSearchOptions, FtSearchReturnAttribute, FtVectorDistanceMetric,
-    FtVectorFieldAlgorithm, FtVectorType, GenericCommands, JsonCommands, JsonGetOptions,
-    SearchCommands, SetCondition, SortOrder,
+    FtCreateOptions, FtFieldSchema, FtFieldType, FtFlatVectorFieldAttributes, FtIndexDataType,
+    FtSearchOptions, FtSearchReturnAttribute, FtVectorDistanceMetric, FtVectorFieldAlgorithm,
+    FtVectorType, GenericCommands, JsonCommands, JsonGetOptions, SearchCommands, SetCondition,
+    SortOrder,
   },
 };
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
-use tokio::try_join;
+use std::sync::Arc;
 use tracing::{info, instrument};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
@@ -282,257 +281,6 @@ const INDEX_NAME: &str = "album_idx";
 
 fn redis_key(file_name: &FileName) -> String {
   format!("{}:{}", NAMESPACE, file_name.to_string())
-}
-
-impl RedisAlbumRepository {
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
-    Self {
-      redis_connection_pool,
-    }
-  }
-
-  async fn get_aggregated_primary_genres(&self) -> Result<Vec<ItemAndCount>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let primary_genre_result = connection
-      .ft_aggregate(
-        INDEX_NAME,
-        "@primary_genre_count:[1 +inf]",
-        FtAggregateOptions::default()
-          .groupby("@primary_genre", FtReducer::count().as_name("count")),
-      )
-      .await?;
-
-    Ok(
-      primary_genre_result
-        .results
-        .iter()
-        .map(ItemAndCount::try_from)
-        .filter_map(|r| match r {
-          Ok(item) => Some(item),
-          Err(e) => {
-            info!("Failed to parse primary genre: {}", e);
-            None
-          }
-        })
-        .collect(),
-    )
-  }
-
-  async fn get_aggregated_secondary_genres(&self) -> Result<Vec<ItemAndCount>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let secondary_genre_result = connection
-      .ft_aggregate(
-        INDEX_NAME,
-        "@secondary_genre_count:[1 +inf]",
-        FtAggregateOptions::default()
-          .groupby("@secondary_genre", FtReducer::count().as_name("count")),
-      )
-      .await?;
-
-    Ok(
-      secondary_genre_result
-        .results
-        .iter()
-        .map(ItemAndCount::try_from)
-        .filter_map(|r| match r {
-          Ok(item) => Some(item),
-          Err(e) => {
-            info!("Failed to parse secondary genre: {}", e);
-            None
-          }
-        })
-        .collect(),
-    )
-  }
-}
-
-#[async_trait]
-impl AlbumRepository for RedisAlbumRepository {
-  async fn put(&self, album: AlbumReadModel) -> Result<()> {
-    self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_set(
-        redis_key(&album.file_name),
-        "$",
-        serde_json::to_string::<RedisAlbumReadModel>(&album.into())?,
-        SetCondition::default(),
-      )
-      .await?;
-    Ok(())
-  }
-
-  async fn delete(&self, file_name: &FileName) -> Result<()> {
-    let connection = self.redis_connection_pool.get().await?;
-    connection.del(redis_key(file_name)).await?;
-    Ok(())
-  }
-
-  async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let result: Option<String> = connection
-      .json_get(redis_key(file_name), JsonGetOptions::default())
-      .await?;
-    let record = result
-      .map(|r| serde_json::from_str::<RedisAlbumReadModel>(&r))
-      .transpose()?
-      .map(|r| r.into());
-
-    Ok(record)
-  }
-
-  async fn get_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let keys: Vec<String> = file_names
-      .iter()
-      .map(|file_name| redis_key(file_name))
-      .collect();
-    let result: Vec<String> = connection.json_mget(keys, "$").await?;
-    let records = result
-      .into_iter()
-      .map(|r| -> Result<Vec<RedisAlbumReadModel>> {
-        serde_json::from_str(&r).map_err(|e| anyhow::anyhow!(e))
-      })
-      .collect::<Result<Vec<Vec<RedisAlbumReadModel>>>>()?;
-    let data = records
-      .into_iter()
-      .flat_map(|r| r.into_iter())
-      .map(|r| r.into())
-      .collect::<Vec<AlbumReadModel>>();
-
-    Ok(data)
-  }
-
-  async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>> {
-    let (aggregated_primary_genres, aggregated_secondary_genres) = try_join!(
-      self.get_aggregated_primary_genres(),
-      self.get_aggregated_secondary_genres()
-    )?;
-    let mut genres = HashMap::new();
-    for item in aggregated_primary_genres {
-      genres.insert(
-        item.name.clone(),
-        GenreAggregate {
-          name: item.name,
-          primary_genre_count: item.count,
-          secondary_genre_count: 0,
-        },
-      );
-    }
-    for item in aggregated_secondary_genres {
-      if let Some(genre) = genres.get_mut(&item.name) {
-        genre.secondary_genre_count = item.count;
-      } else {
-        genres.insert(
-          item.name.clone(),
-          GenreAggregate {
-            name: item.name,
-            primary_genre_count: 0,
-            secondary_genre_count: item.count,
-          },
-        );
-      }
-    }
-    let mut genres = genres.into_values().collect::<Vec<GenreAggregate>>();
-    genres.sort_by(|a, b| {
-      let a_total = a.primary_genre_count + a.secondary_genre_count;
-      let b_total = b.primary_genre_count + b.secondary_genre_count;
-      b_total.cmp(&a_total)
-    });
-    Ok(genres)
-  }
-
-  async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let result = connection
-      .ft_aggregate(
-        INDEX_NAME,
-        "@descriptor_count:[1 +inf]",
-        FtAggregateOptions::default().groupby("@descriptor", FtReducer::count().as_name("count")),
-      )
-      .await?;
-    let mut aggregated_descriptors = result
-      .results
-      .iter()
-      .map(ItemAndCount::try_from)
-      .filter_map(|r| match r {
-        Ok(item) => Some(item),
-        Err(e) => {
-          info!("Failed to parse descriptor: {}", e);
-          None
-        }
-      })
-      .collect::<Vec<ItemAndCount>>();
-    aggregated_descriptors.sort_by(|a, b| b.count.cmp(&a.count));
-    Ok(aggregated_descriptors)
-  }
-
-  async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let result = connection
-      .ft_aggregate(
-        INDEX_NAME,
-        "@language_count:[1 +inf]",
-        FtAggregateOptions::default().groupby("@language", FtReducer::count().as_name("count")),
-      )
-      .await?;
-    let mut aggregated_languages = result
-      .results
-      .iter()
-      .map(ItemAndCount::try_from)
-      .filter_map(|r| match r {
-        Ok(item) => Some(item),
-        Err(e) => {
-          info!("Failed to parse language: {}", e);
-          None
-        }
-      })
-      .collect::<Vec<ItemAndCount>>();
-    aggregated_languages.sort_by(|a, b| b.count.cmp(&a.count));
-    Ok(aggregated_languages)
-  }
-
-  async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()> {
-    self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_set(
-        redis_key(file_name),
-        "$.duplicate_of",
-        serde_json::to_string(duplicate_of)?,
-        SetCondition::default(),
-      )
-      .await?;
-    self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_set(
-        redis_key(file_name),
-        "$.is_duplicate",
-        serde_json::to_string(&1)?,
-        SetCondition::default(),
-      )
-      .await?;
-    Ok(())
-  }
-
-  async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()> {
-    self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_set(
-        redis_key(file_name),
-        "$.duplicates",
-        serde_json::to_string(&duplicates)?,
-        SetCondition::default(),
-      )
-      .await?;
-    Ok(())
-  }
 }
 
 impl RedisAlbumSearchIndex {

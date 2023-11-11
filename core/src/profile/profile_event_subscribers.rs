@@ -1,7 +1,7 @@
 use super::spotify_import_event_subscribers::build_spotify_import_event_subscribers;
 use crate::{
-  albums::redis::RedisAlbumRepository, events::event_subscriber::EventSubscriber,
-  settings::Settings,
+  albums::sqlite_album_repository::SqliteAlbumRepository,
+  events::event_subscriber::EventSubscriber, settings::Settings,
 };
 use anyhow::Result;
 use rustis::{bb8::Pool, client::PooledClientManager};
@@ -17,9 +17,7 @@ pub fn build_profile_event_subscribers(
     Arc::clone(&redis_connection_pool),
     Arc::clone(&sqlite_connection),
     settings,
-    Arc::new(RedisAlbumRepository::new(Arc::clone(
-      &redis_connection_pool,
-    ))),
+    Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection))),
   )?);
   Ok(subscribers)
 }

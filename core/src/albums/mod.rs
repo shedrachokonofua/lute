@@ -5,5 +5,5 @@ pub mod album_repository;
 pub mod album_search_index;
 pub mod album_service;
 mod embedding_provider;
-pub mod redis;
+pub mod redis_album_search_index;
 pub mod sqlite_album_repository;

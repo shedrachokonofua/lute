@@ -1,5 +1,5 @@
 use crate::{
-  albums::redis::RedisAlbumSearchIndex,
+  albums::redis_album_search_index::RedisAlbumSearchIndex,
   lookup::album_search_lookup_repository::AlbumSearchLookupRepository,
   parser::failed_parse_files_repository::FailedParseFilesRepository,
   profile::spotify_import_repository::SpotifyImportRepository, settings::RedisSettings,

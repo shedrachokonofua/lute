@@ -8,7 +8,7 @@ use super::{
 use crate::{
   albums::{
     album_read_model::AlbumReadModel, album_repository::AlbumRepository,
-    redis::RedisAlbumRepository,
+    sqlite_album_repository::SqliteAlbumRepository,
   },
   crawler::{
     crawler_interactor::CrawlerInteractor,
@@ -412,9 +412,7 @@ pub fn build_album_search_lookup_event_subscribers(
       Arc::clone(&sqlite_connection),
     ),
     event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
-    album_repository: Arc::new(RedisAlbumRepository::new(Arc::clone(
-      &redis_connection_pool,
-    ))),
+    album_repository: Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection))),
   });
   Ok(vec![EventSubscriberBuilder::default()
     .id("album_search_lookup")
