@@ -5,7 +5,8 @@ use super::{
   },
   album_search_index::{AlbumEmbedding, AlbumSearchIndex},
   embedding_provider::{AlbumEmbeddingProvider, OpenAIAlbumEmbeddingProvider},
-  redis::{RedisAlbumRepository, RedisAlbumSearchIndex},
+  redis::RedisAlbumSearchIndex,
+  sqlite_album_repository::SqliteAlbumRepository,
 };
 use crate::{
   crawler::{
@@ -97,7 +98,7 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
   } = context.payload.event
   {
     let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
-    let album_repository = RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
+    let album_repository = SqliteAlbumRepository::new(Arc::clone(&context.sqlite_connection));
     let album_search_index = RedisAlbumSearchIndex::new(Arc::clone(&context.redis_connection_pool));
     let album_interactor =
       AlbumInteractor::new(Arc::new(album_repository), Arc::new(album_search_index));
@@ -108,7 +109,7 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
 
 async fn delete_album_read_models(context: SubscriberContext) -> Result<()> {
   if let Event::FileDeleted { file_name, .. } = context.payload.event {
-    let album_repository = RedisAlbumRepository::new(Arc::clone(&context.redis_connection_pool));
+    let album_repository = SqliteAlbumRepository::new(Arc::clone(&context.sqlite_connection));
     let album_search_index = RedisAlbumSearchIndex::new(Arc::clone(&context.redis_connection_pool));
     let album_interactor =
       AlbumInteractor::new(Arc::new(album_repository), Arc::new(album_search_index));

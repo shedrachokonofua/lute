@@ -12,55 +12,6 @@ pub struct AlbumReadModelArtist {
   pub file_name: FileName,
 }
 
-impl From<AlbumReadModelTrack> for proto::Track {
-  fn from(val: AlbumReadModelTrack) -> Self {
-    proto::Track {
-      name: val.name,
-      duration_seconds: val.duration_seconds,
-      rating: val.rating,
-      position: val.position,
-    }
-  }
-}
-
-impl From<AlbumReadModelArtist> for proto::AlbumArtist {
-  fn from(val: AlbumReadModelArtist) -> Self {
-    proto::AlbumArtist {
-      name: val.name,
-      file_name: val.file_name.to_string(),
-    }
-  }
-}
-
-impl From<AlbumReadModel> for proto::Album {
-  fn from(val: AlbumReadModel) -> Self {
-    proto::Album {
-      name: val.name,
-      file_name: val.file_name.to_string(),
-      rating: val.rating,
-      rating_count: val.rating_count,
-      artists: val
-        .artists
-        .into_iter()
-        .map(|artist| artist.into())
-        .collect(),
-      primary_genres: val.primary_genres,
-      secondary_genres: val.secondary_genres,
-      descriptors: val.descriptors,
-      tracks: val.tracks.into_iter().map(|track| track.into()).collect(),
-      release_date: val.release_date.map(|date| date.to_string()),
-      languages: val.languages,
-      cover_image_url: val.cover_image_url,
-      duplicate_of: val.duplicate_of.map(|file_name| file_name.to_string()),
-      duplicates: val
-        .duplicates
-        .into_iter()
-        .map(|file_name| file_name.to_string())
-        .collect(),
-    }
-  }
-}
-
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModelTrack {
   pub name: String,
@@ -115,5 +66,54 @@ impl AlbumReadModel {
   pub fn to_sha256(&self) -> Result<String> {
     let hash = Sha256::digest(serde_json::to_string(&self)?.as_bytes());
     Ok(BASE64.encode(&hash).to_string())
+  }
+}
+
+impl From<AlbumReadModelTrack> for proto::Track {
+  fn from(val: AlbumReadModelTrack) -> Self {
+    proto::Track {
+      name: val.name,
+      duration_seconds: val.duration_seconds,
+      rating: val.rating,
+      position: val.position,
+    }
+  }
+}
+
+impl From<AlbumReadModelArtist> for proto::AlbumArtist {
+  fn from(val: AlbumReadModelArtist) -> Self {
+    proto::AlbumArtist {
+      name: val.name,
+      file_name: val.file_name.to_string(),
+    }
+  }
+}
+
+impl From<AlbumReadModel> for proto::Album {
+  fn from(val: AlbumReadModel) -> Self {
+    proto::Album {
+      name: val.name,
+      file_name: val.file_name.to_string(),
+      rating: val.rating,
+      rating_count: val.rating_count,
+      artists: val
+        .artists
+        .into_iter()
+        .map(|artist| artist.into())
+        .collect(),
+      primary_genres: val.primary_genres,
+      secondary_genres: val.secondary_genres,
+      descriptors: val.descriptors,
+      tracks: val.tracks.into_iter().map(|track| track.into()).collect(),
+      release_date: val.release_date.map(|date| date.to_string()),
+      languages: val.languages,
+      cover_image_url: val.cover_image_url,
+      duplicate_of: val.duplicate_of.map(|file_name| file_name.to_string()),
+      duplicates: val
+        .duplicates
+        .into_iter()
+        .map(|file_name| file_name.to_string())
+        .collect(),
+    }
   }
 }

@@ -34,7 +34,7 @@ export const ProfileOverview = ({
 }: {
   profileSummary: ProfileSummary;
 }) => {
-  const N = 5;
+  const N = 8;
   const topArtists = getTopItems(profileSummary.getArtistsList(), N);
   const topPrimaryGenres = getTopItems(
     profileSummary.getPrimaryGenresList(),

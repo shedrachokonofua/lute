@@ -1,8 +1,8 @@
 use anyhow::Result;
 use core::{
   albums::{
-    album_event_subscribers::build_album_event_subscribers,
-    redis::{RedisAlbumRepository, RedisAlbumSearchIndex},
+    album_event_subscribers::build_album_event_subscribers, redis::RedisAlbumSearchIndex,
+    sqlite_album_repository::SqliteAlbumRepository,
   },
   crawler::{crawler::Crawler, crawler_interactor::CrawlerInteractor},
   events::event_subscriber::EventSubscriber,
@@ -35,7 +35,7 @@ fn run_rpc_server(
   sqlite_connection: Arc<tokio_rusqlite::Connection>,
   crawler_interactor: Arc<CrawlerInteractor>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
-  album_repository: Arc<RedisAlbumRepository>,
+  album_repository: Arc<SqliteAlbumRepository>,
   album_search_index: Arc<RedisAlbumSearchIndex>,
 ) -> task::JoinHandle<()> {
   let rpc_server = RpcServer::new(
@@ -130,9 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Arc::clone(&crawler.crawler_interactor),
   )?;
 
-  let album_repository = Arc::new(RedisAlbumRepository::new(Arc::clone(
-    &redis_connection_pool,
-  )));
+  let album_repository = Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection)));
   let album_search_index = Arc::new(RedisAlbumSearchIndex::new(Arc::clone(
     &redis_connection_pool,
   )));
