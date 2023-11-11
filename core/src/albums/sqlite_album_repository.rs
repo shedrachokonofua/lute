@@ -840,6 +840,44 @@ impl AlbumRepository for SqliteAlbumRepository {
     Ok(())
   }
 
+  async fn find_artist_albums(
+    &self,
+    artist_file_name: Vec<FileName>,
+  ) -> Result<Vec<AlbumReadModel>> {
+    let artist_file_name_params = artist_file_name
+      .iter()
+      .map(|f| Value::from(f.to_string()))
+      .collect::<Vec<Value>>();
+
+    let album_file_names = self
+      .sqlite_connection
+      .call(move |conn| {
+        let mut stmt = conn.prepare(
+          "
+          SELECT albums.file_name
+          FROM album_artists
+          JOIN albums ON albums.id = album_artists.album_id
+          JOIN artists ON artists.id = album_artists.artist_id
+          WHERE artists.file_name IN rarray(?)
+          ",
+        )?;
+        let mut rows = stmt.query_map([Rc::new(artist_file_name_params)], |row| {
+          Ok(row.get::<_, String>(0)?)
+        })?;
+        let mut result_set = HashSet::<FileName>::new();
+        while let Some(Ok(row)) = rows.next() {
+          result_set.insert(FileName::try_from(row).map_err(|e| {
+            error!(message = e.to_string(), "Failed to parse album file name");
+            rusqlite::Error::ExecuteReturnedResults
+          })?);
+        }
+        Ok(result_set.into_iter().collect::<Vec<FileName>>())
+      })
+      .await?;
+
+    self.find_many(album_file_names).await
+  }
+
   async fn delete(&self, file_name: &FileName) -> Result<()> {
     let file_name = file_name.to_string();
     self

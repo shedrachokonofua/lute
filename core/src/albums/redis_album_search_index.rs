@@ -410,47 +410,6 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     Ok(())
   }
 
-  async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()> {
-    self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_set(
-        redis_key(file_name),
-        "$.duplicate_of",
-        serde_json::to_string(duplicate_of)?,
-        SetCondition::default(),
-      )
-      .await?;
-    self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_set(
-        redis_key(file_name),
-        "$.is_duplicate",
-        serde_json::to_string(&1)?,
-        SetCondition::default(),
-      )
-      .await?;
-    Ok(())
-  }
-
-  async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()> {
-    self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_set(
-        redis_key(file_name),
-        "$.duplicates",
-        serde_json::to_string(&duplicates)?,
-        SetCondition::default(),
-      )
-      .await?;
-    Ok(())
-  }
-
   async fn delete(&self, file_name: &FileName) -> Result<()> {
     let connection = self.redis_connection_pool.get().await?;
     connection.del(redis_key(file_name)).await?;

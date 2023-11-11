@@ -48,6 +48,10 @@ pub trait AlbumRepository {
   async fn put(&self, album: AlbumReadModel) -> Result<()>;
   async fn delete(&self, file_name: &FileName) -> Result<()>;
   async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>>;
+  async fn find_artist_albums(
+    &self,
+    artist_file_names: Vec<FileName>,
+  ) -> Result<Vec<AlbumReadModel>>;
   async fn get_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>>;
   async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>>;
   async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>>;

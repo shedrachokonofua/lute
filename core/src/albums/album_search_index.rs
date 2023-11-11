@@ -95,6 +95,4 @@ pub trait AlbumSearchIndex {
     query: &AlbumEmbeddingSimilarirtySearchQuery,
   ) -> Result<Vec<(AlbumReadModel, f32)>>;
   async fn get_embedding_keys(&self) -> Result<Vec<String>>;
-  async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()>;
-  async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()>;
 }
