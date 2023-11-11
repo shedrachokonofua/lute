@@ -1,4 +1,4 @@
-FROM rust:1.71 as builder
+FROM rust:1.73-bookworm as builder
 WORKDIR /usr/src/app
 
 # Install protobuf compiler
@@ -13,7 +13,7 @@ COPY proto proto
 
 RUN cargo install --path core
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 RUN apt-get update
 RUN apt-get install ca-certificates -y
 RUN update-ca-certificates
