@@ -1,11 +1,39 @@
 use super::{
-  album_repository::AlbumRepository,
+  album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
   album_search_index::{AlbumSearchIndex, AlbumSearchQuery, SearchPagination},
 };
 use crate::{files::file_metadata::file_name::FileName, proto};
 use anyhow::{Error, Result};
 use std::sync::Arc;
 use tonic::{async_trait, Request, Response, Status};
+
+impl From<&GenreAggregate> for proto::GenreAggregate {
+  fn from(val: &GenreAggregate) -> Self {
+    proto::GenreAggregate {
+      name: val.name.clone(),
+      primary_genre_count: val.primary_genre_count,
+      secondary_genre_count: val.secondary_genre_count,
+    }
+  }
+}
+
+impl From<&ItemAndCount> for proto::DescriptorAggregate {
+  fn from(val: &ItemAndCount) -> Self {
+    proto::DescriptorAggregate {
+      name: val.name.clone(),
+      count: val.count,
+    }
+  }
+}
+
+impl From<&ItemAndCount> for proto::LanguageAggregate {
+  fn from(val: &ItemAndCount) -> Self {
+    proto::LanguageAggregate {
+      name: val.name.clone(),
+      count: val.count,
+    }
+  }
+}
 
 impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
   type Error = anyhow::Error;
