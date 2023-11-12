@@ -1,6 +1,6 @@
 use super::event::{Event, EventPayload, EventPayloadBuilder, Stream, StreamKind};
 use crate::sqlite::SqliteConnection;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use rusqlite::{params, types::Value};
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 use tracing::{error, instrument};
@@ -65,17 +65,25 @@ impl EventSubscriberRepository {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut statement = conn.prepare("SELECT cursor FROM event_subscribers WHERE id = ?")?;
         let mut rows = statement.query_map([subscriber_id], |row| row.get::<_, u32>(0))?;
         rows
           .next()
           .transpose()
           .map(|cursor| cursor.unwrap_or(0).to_string())
+          .map_err(|e| {
+            error!(message = e.to_string(), "Failed to get cursor");
+            anyhow::anyhow!("Failed to get cursor")
+          })
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get cursor");
+        anyhow::anyhow!("Failed to get cursor")
+      })?
   }
 
   #[instrument(skip(self))]
@@ -84,8 +92,9 @@ impl EventSubscriberRepository {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
-      .write()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut statement = conn.prepare(
           "
           INSERT INTO event_subscribers (id, cursor)
@@ -97,8 +106,11 @@ impl EventSubscriberRepository {
 
         Ok(())
       })
-      .await?;
-    Ok(())
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to set cursor");
+        anyhow::anyhow!("Failed to set cursor")
+      })?
   }
 
   #[instrument(skip(self))]
@@ -106,14 +118,18 @@ impl EventSubscriberRepository {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
-      .write()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut statement = conn.prepare("DELETE FROM event_subscribers WHERE id = ?")?;
         statement.execute([subscriber_id])?;
         Ok(())
       })
-      .await?;
-    Ok(())
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to delete cursor");
+        anyhow::anyhow!("Failed to delete cursor")
+      })?
   }
 
   #[instrument(skip(self))]
@@ -132,8 +148,9 @@ impl EventSubscriberRepository {
       .collect::<Vec<_>>();
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         if is_global {
           let mut statement = conn.prepare(
             "
@@ -168,6 +185,9 @@ impl EventSubscriberRepository {
         }
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get events after cursor");
+        anyhow!("Failed to get events after cursor")
+      })?
   }
 }

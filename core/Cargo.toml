@@ -12,6 +12,7 @@ chrono = { version = "0.4.24", features = ["serde"] }
 config = "0.13.3"
 console-subscriber = "0.2.0"
 data-encoding = "2.4.0"
+deadpool-sqlite = "0.6.0"
 derive_builder = "0.12.0"
 dotenv = "0.15.0"
 futures = "0.3.28"
@@ -27,7 +28,6 @@ opentelemetry-otlp = { version = "0.13.0" }
 ordered-float = { version = "4.1.0" }
 prost = "0.12.0"
 prost-build = "0.12.0"
-r2d2 = "0.8.10"
 r2d2_sqlite = "0.22.0"
 rayon = "1.7.0"
 regex = "1.8.3"

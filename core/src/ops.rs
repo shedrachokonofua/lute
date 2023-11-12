@@ -10,7 +10,7 @@ use crate::{
     ParseFileContentStoreReply,
   },
   settings::Settings,
-  sqlite::{migrate_to_latest, migrate_to_version, SqliteConnection},
+  sqlite::SqliteConnection,
 };
 use futures::future::join_all;
 use rustis::{
@@ -24,7 +24,7 @@ use tonic::{Request, Response, Status};
 use tracing::error;
 
 pub struct OperationsService {
-  settings: Arc<Settings>,
+  sqlite_connection: Arc<SqliteConnection>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   crawler_interactor: Arc<CrawlerInteractor>,
   file_interactor: FileInteractor,
@@ -40,7 +40,7 @@ impl OperationsService {
   ) -> Self {
     Self {
       crawler_interactor,
-      settings: Arc::clone(&settings),
+      sqlite_connection: Arc::clone(&sqlite_connection),
       redis_connection_pool: Arc::clone(&redis_connection_pool),
       file_interactor: FileInteractor::new(
         settings,
@@ -103,7 +103,9 @@ impl proto::OperationsService for OperationsService {
   }
 
   async fn migrate_sqlite_to_latest(&self, _: Request<()>) -> Result<Response<()>, Status> {
-    migrate_to_latest(Arc::clone(&self.settings))
+    self
+      .sqlite_connection
+      .migrate_to_latest()
       .await
       .map_err(|e| {
         error!("Error: {:?}", e);
@@ -117,7 +119,9 @@ impl proto::OperationsService for OperationsService {
     request: Request<MigrateSqliteRequest>,
   ) -> Result<Response<()>, Status> {
     let version = request.into_inner().version;
-    migrate_to_version(Arc::clone(&self.settings), version)
+    self
+      .sqlite_connection
+      .migrate_to_version(version)
       .await
       .map_err(|e| {
         error!("Error: {:?}", e);

@@ -109,8 +109,9 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT
@@ -160,7 +161,10 @@ impl SqliteAlbumRepository {
         Ok(result)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to find album entities");
+        anyhow!("Failed to find album entities")
+      })?
   }
 
   #[instrument(skip_all, fields(count = album_ids.len()))]
@@ -175,8 +179,9 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT
@@ -210,7 +215,10 @@ impl SqliteAlbumRepository {
         Ok(result)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to find album artists");
+        anyhow!("Failed to find album artists")
+      })?
   }
 
   #[instrument(skip_all, fields(count = album_ids.len()))]
@@ -225,8 +233,9 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT
@@ -260,7 +269,10 @@ impl SqliteAlbumRepository {
         Ok(result)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to find album genres");
+        anyhow!("Failed to find album genres")
+      })?
   }
 
   #[instrument(skip_all, fields(count = album_ids.len()))]
@@ -272,8 +284,9 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT
@@ -296,7 +309,10 @@ impl SqliteAlbumRepository {
         Ok(result)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to find album descriptors");
+        anyhow!("Failed to find album descriptors")
+      })?
   }
 
   #[instrument(skip_all, fields(count = album_ids.len()))]
@@ -308,8 +324,9 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT
@@ -332,7 +349,10 @@ impl SqliteAlbumRepository {
         Ok(result)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to find album languages");
+        anyhow!("Failed to find album languages")
+      })?
   }
 
   #[instrument(skip_all, fields(count = album_ids.len()))]
@@ -347,8 +367,9 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT
@@ -384,7 +405,10 @@ impl SqliteAlbumRepository {
         Ok(result)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to find album tracks");
+        anyhow!("Failed to find album tracks")
+      })?
   }
 
   #[instrument(skip_all, fields(count = album_ids.len()))]
@@ -399,8 +423,9 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT
@@ -452,7 +477,10 @@ impl SqliteAlbumRepository {
         Ok(result)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to find album credits");
+        anyhow!("Failed to find album credits")
+      })?
   }
 
   #[instrument(skip_all, fields(count = album_ids.len()))]
@@ -467,8 +495,8 @@ impl SqliteAlbumRepository {
 
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get().await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT
@@ -512,7 +540,10 @@ impl SqliteAlbumRepository {
         Ok(result)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to find album duplicates");
+        anyhow!("Failed to find album duplicates")
+      })?
   }
 
   #[instrument(skip_all, fields(count = file_names.len()))]
@@ -591,8 +622,9 @@ impl AlbumRepository for SqliteAlbumRepository {
   async fn put(&self, album: AlbumReadModel) -> Result<()> {
     self
       .sqlite_connection
-      .write()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let tx = conn.transaction()?;
         tx.execute(
           "
@@ -848,14 +880,14 @@ impl AlbumRepository for SqliteAlbumRepository {
             )?;
           }
         }
-        tx.commit()
+        tx.commit()?;
+        Ok(())
       })
       .await
       .map_err(|e| {
         error!(message = e.to_string(), "Failed to put album");
-        e
-      })?;
-    Ok(())
+        anyhow!("Failed to put album")
+      })?
   }
 
   #[instrument(skip_all, fields(count = artist_file_name.len()))]
@@ -870,8 +902,9 @@ impl AlbumRepository for SqliteAlbumRepository {
 
     let album_file_names = self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT albums.file_name
@@ -891,9 +924,13 @@ impl AlbumRepository for SqliteAlbumRepository {
             rusqlite::Error::ExecuteReturnedResults
           })?);
         }
-        Ok(result_set.into_iter().collect::<Vec<FileName>>())
+        Ok::<Vec<FileName>, rusqlite::Error>(result_set.into_iter().collect::<Vec<FileName>>())
       })
-      .await?;
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to find artist albums");
+        anyhow!("Failed to find artist albums")
+      })??;
 
     self.find_many(album_file_names).await
   }
@@ -903,10 +940,17 @@ impl AlbumRepository for SqliteAlbumRepository {
     let file_name = file_name.to_string();
     self
       .sqlite_connection
-      .write()
-      .call(move |conn| conn.execute("DELETE FROM albums WHERE file_name = ?", params![file_name]))
-      .await?;
-    Ok(())
+      .get()
+      .await?
+      .interact(move |conn| {
+        conn.execute("DELETE FROM albums WHERE file_name = ?", params![file_name])?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to delete album");
+        anyhow!("Failed to delete album")
+      })?
   }
 
   #[instrument(skip_all, fields(file_name))]
@@ -946,8 +990,9 @@ impl AlbumRepository for SqliteAlbumRepository {
   async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>> {
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT 
@@ -972,15 +1017,19 @@ impl AlbumRepository for SqliteAlbumRepository {
         Ok(genres)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get aggregated genres");
+        anyhow!("Failed to get aggregated genres")
+      })?
   }
 
   #[instrument(skip_all)]
   async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>> {
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT d.name, COUNT(*) as count
@@ -1001,15 +1050,22 @@ impl AlbumRepository for SqliteAlbumRepository {
         Ok(descriptors)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(
+          message = e.to_string(),
+          "Failed to get aggregated descriptors"
+        );
+        anyhow!("Failed to get aggregated descriptors")
+      })?
   }
 
   #[instrument(skip_all)]
   async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>> {
     self
       .sqlite_connection
-      .read()
-      .call(move |conn| {
+      .get()
+      .await?
+      .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
           SELECT l.name, COUNT(*) as count
@@ -1030,7 +1086,13 @@ impl AlbumRepository for SqliteAlbumRepository {
         Ok(languages)
       })
       .await
-      .map_err(|e| e.into())
+      .map_err(|e| {
+        error!(
+          message = e.to_string(),
+          "Failed to get aggregated languages"
+        );
+        anyhow!("Failed to get aggregated languages")
+      })?
   }
 
   #[instrument(skip_all, fields(file_name, count = duplicates.len()))]
@@ -1040,8 +1102,9 @@ impl AlbumRepository for SqliteAlbumRepository {
         let file_name = file_name.to_string();
         self
           .sqlite_connection
-          .write()
-          .call(move |conn| {
+          .get()
+          .await?
+          .interact(move |conn| {
             let tx = conn.transaction()?;
             let album_id: i64 = tx.query_row(
               "SELECT id FROM albums WHERE file_name = ?",
@@ -1066,10 +1129,14 @@ impl AlbumRepository for SqliteAlbumRepository {
                 params![album_id, duplicate_id],
               )?;
             }
-            tx.commit()
+            tx.commit()?;
+            Ok(())
           })
-          .await?;
-        Ok(())
+          .await
+          .map_err(|e| {
+            error!(message = e.to_string(), "Failed to set album duplicates");
+            anyhow!("Failed to set album duplicates")
+          })?
       }
       None => Err(anyhow!("Album not found")),
     }
@@ -1083,8 +1150,8 @@ impl AlbumRepository for SqliteAlbumRepository {
         let duplicate_of = duplicate_of.to_string();
         self
           .sqlite_connection
-          .write()
-          .call(move |conn| {
+          .get().await?
+          .interact(move |conn| {
             let tx = conn.transaction()?;
             let album_id: i64 = tx.query_row(
               "SELECT id FROM albums WHERE file_name = ?",
@@ -1104,10 +1171,14 @@ impl AlbumRepository for SqliteAlbumRepository {
               ",
               params![duplicate_of_id, album_id],
             )?;
-            tx.commit()
+            tx.commit()?;
+            Ok(())
           })
-          .await?;
-        Ok(())
+          .await
+          .map_err(|e| {
+            error!(message = e.to_string(), "Failed to set album duplicate of");
+            anyhow!("Failed to set album duplicate of")
+          })?
       }
       None => Err(anyhow!("Album not found")),
     }
