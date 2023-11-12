@@ -46,6 +46,7 @@ const usePendingSpotifyImports = (
       },
       {
         ...profileDetailsQuery(profileId),
+        enabled: false,
       },
     ],
   });

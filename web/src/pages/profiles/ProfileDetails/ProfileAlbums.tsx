@@ -7,13 +7,14 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Profile } from "../../../proto/lute_pb";
 import { ProfileAlbumsListItem } from "./ProfileAlbumsListItem";
 import { ProfileDetailsCard } from "./ProfileDetailsCard";
 import { ProfileAlbumsList } from "./types";
 import { useDebounce } from "./use-debounce";
+import { useUpdateEffect } from "./use-update-effect";
 
 interface ProfileAlbumsProps {
   profile: Profile;
@@ -35,7 +36,7 @@ const AlbumSearchInput = ({ value }: { value: string }) => {
   const [searchValue, setSearchValue] = useState(value);
   const debouncedSearchValue = useDebounce(searchValue, 250);
   const navigate = useNavigate();
-  useEffect(() => {
+  useUpdateEffect(() => {
     navigate(
       getUpdatedQueryString({
         search: debouncedSearchValue,
@@ -43,7 +44,7 @@ const AlbumSearchInput = ({ value }: { value: string }) => {
       }),
     );
   }, [debouncedSearchValue]);
-  useEffect(() => {
+  useUpdateEffect(() => {
     if (!value) {
       setSearchValue("");
     }

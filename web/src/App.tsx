@@ -21,7 +21,13 @@ import {
 } from "./pages/profiles/NewProfilePage";
 import { getRemoteContext } from "./remote-context";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 10,
+    },
+  },
+});
 
 const router = createBrowserRouter([
   {
