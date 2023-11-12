@@ -14,6 +14,7 @@ use std::{
   rc::Rc,
   sync::Arc,
 };
+use tokio::try_join;
 use tracing::{error, instrument};
 
 pub struct SqliteAlbumRepository {
@@ -553,14 +554,23 @@ impl SqliteAlbumRepository {
       .values()
       .map(|album| album.id)
       .collect::<Vec<i64>>();
-    let album_artists = self.find_album_artists(album_ids.clone()).await?;
-    let album_genres = self.find_album_genres(album_ids.clone()).await?;
-    let album_descriptors = self.find_album_descriptors(album_ids.clone()).await?;
-    let album_languages = self.find_album_languages(album_ids.clone()).await?;
-    let album_tracks = self.find_album_tracks(album_ids.clone()).await?;
-    let album_credits = self.find_album_credits(album_ids.clone()).await?;
-    let album_duplicates = self.find_album_duplicates(album_ids.clone()).await?;
-
+    let (
+      album_artists,
+      album_genres,
+      album_descriptors,
+      album_languages,
+      album_tracks,
+      album_credits,
+      album_duplicates,
+    ) = try_join!(
+      self.find_album_artists(album_ids.clone()),
+      self.find_album_genres(album_ids.clone()),
+      self.find_album_descriptors(album_ids.clone()),
+      self.find_album_languages(album_ids.clone()),
+      self.find_album_tracks(album_ids.clone()),
+      self.find_album_credits(album_ids.clone()),
+      self.find_album_duplicates(album_ids.clone()),
+    )?;
     let mut result = Vec::<AlbumReadModel>::new();
     for file_name in file_names {
       if let Some(album_entity) = album_entities.get(&file_name) {
