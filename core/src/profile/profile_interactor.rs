@@ -26,7 +26,7 @@ use anyhow::Result;
 use futures::future::join_all;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 pub struct PendingSpotifyImport {
   pub profile_id: ProfileId,
@@ -167,6 +167,7 @@ impl ProfileInteractor {
     Ok((profile.summarize(&albums), albums))
   }
 
+  #[instrument(skip(self))]
   pub async fn get_profile_summary(&self, id: &ProfileId) -> Result<ProfileSummary> {
     let (profile_summary, _) = self.get_profile_summary_and_albums(id).await?;
     Ok(profile_summary)

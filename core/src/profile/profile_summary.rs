@@ -8,6 +8,7 @@ use chrono::Datelike;
 use rayon::prelude::*;
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, iter::repeat};
+use tracing::instrument;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, Eq)]
 pub struct ItemWithFactor {
@@ -55,6 +56,7 @@ pub struct ProfileSummary {
 }
 
 impl Profile {
+  #[instrument(skip_all, fields(id = %self.id.to_string(), len = album_read_models.len()))]
   pub fn summarize(&self, album_read_models: &[AlbumReadModel]) -> ProfileSummary {
     let album_read_models_map = album_read_models
       .into_par_iter()
