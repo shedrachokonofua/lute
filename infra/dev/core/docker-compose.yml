@@ -11,6 +11,8 @@ services:
       - "22000:22000"
     volumes:
       - ../../../core/lute.db:/usr/src/app/core/lute.db
+      - ../../../core/lute.db-shm:/usr/src/app/core/lute.db-shm
+      - ../../../core/lute.db-wal:/usr/src/app/core/lute.db-wal
     depends_on:
       - promtail
     networks:
