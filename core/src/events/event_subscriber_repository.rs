@@ -67,13 +67,7 @@ impl EventSubscriberRepository {
       .sqlite_connection
       .read()
       .call(move |conn| {
-        let mut statement = conn.prepare(
-          "
-          SELECT cursor
-          FROM event_subscriber_cursors
-          WHERE subscriber_id = ?
-          ",
-        )?;
+        let mut statement = conn.prepare("SELECT cursor FROM event_subscribers WHERE id = ?")?;
         let mut rows = statement.query_map([subscriber_id], |row| row.get::<_, u32>(0))?;
         rows
           .next()
@@ -94,9 +88,9 @@ impl EventSubscriberRepository {
       .call(move |conn| {
         let mut statement = conn.prepare(
           "
-          INSERT INTO event_subscriber_cursors (subscriber_id, cursor)
+          INSERT INTO event_subscribers (id, cursor)
           VALUES (?1, ?2)
-          ON CONFLICT (subscriber_id) DO UPDATE SET cursor = ?2
+          ON CONFLICT (id) DO UPDATE SET cursor = ?2
           ",
         )?;
         statement.execute(params![subscriber_id, cursor])?;
@@ -114,12 +108,7 @@ impl EventSubscriberRepository {
       .sqlite_connection
       .write()
       .call(move |conn| {
-        let mut statement = conn.prepare(
-          "
-          DELETE FROM event_subscriber_cursors
-          WHERE subscriber_id = ?
-          ",
-        )?;
+        let mut statement = conn.prepare("DELETE FROM event_subscribers WHERE id = ?")?;
         statement.execute([subscriber_id])?;
         Ok(())
       })
