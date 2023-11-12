@@ -159,7 +159,7 @@ impl ProfileInteractor {
     let albums = if !profile.albums.is_empty() {
       self
         .album_repository
-        .get_many(profile.albums.keys().cloned().collect())
+        .find_many(profile.albums.keys().cloned().collect())
         .await?
     } else {
       vec![]

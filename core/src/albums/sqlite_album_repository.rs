@@ -546,84 +546,6 @@ impl SqliteAlbumRepository {
         anyhow!("Failed to find album duplicates")
       })?
   }
-
-  #[instrument(skip_all, fields(count = file_names.len()))]
-  async fn find_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>> {
-    let album_entities = self.find_album_entities(file_names.clone()).await?;
-    let album_ids = album_entities
-      .values()
-      .map(|album| album.id)
-      .collect::<Vec<i64>>();
-    let (
-      album_artists,
-      album_genres,
-      album_descriptors,
-      album_languages,
-      album_tracks,
-      album_credits,
-      album_duplicates,
-    ) = try_join!(
-      self.find_album_artists(album_ids.clone()),
-      self.find_album_genres(album_ids.clone()),
-      self.find_album_descriptors(album_ids.clone()),
-      self.find_album_languages(album_ids.clone()),
-      self.find_album_tracks(album_ids.clone()),
-      self.find_album_credits(album_ids.clone()),
-      self.find_album_duplicates(album_ids.clone()),
-    )?;
-    let mut result = Vec::<AlbumReadModel>::new();
-    for file_name in file_names {
-      if let Some(album_entity) = album_entities.get(&file_name) {
-        let album_id = album_entity.id;
-        let artists = album_artists
-          .get(&album_id)
-          .map(|artists| artists.clone())
-          .unwrap_or_else(|| Vec::new());
-        let (primary_genres, secondary_genres) = album_genres
-          .get(&album_id)
-          .map(|genres| genres.clone())
-          .unwrap_or_else(|| (Vec::new(), Vec::new()));
-        let descriptors = album_descriptors
-          .get(&album_id)
-          .map(|descriptors| descriptors.clone())
-          .unwrap_or_else(|| Vec::new());
-        let languages = album_languages
-          .get(&album_id)
-          .map(|languages| languages.clone())
-          .unwrap_or_else(|| Vec::new());
-        let tracks = album_tracks
-          .get(&album_id)
-          .map(|tracks| tracks.clone())
-          .unwrap_or_else(|| Vec::new());
-        let credits = album_credits
-          .get(&album_id)
-          .map(|credits| credits.clone())
-          .unwrap_or_else(|| Vec::new());
-        let (duplicate_of, duplicates) = album_duplicates
-          .get(&album_id)
-          .map(|(duplicate_of, duplicates)| (duplicate_of.clone(), duplicates.clone()))
-          .unwrap_or((None, Vec::new()));
-        result.push(AlbumReadModel {
-          name: album_entity.name.clone(),
-          file_name: album_entity.file_name.clone(),
-          rating: album_entity.rating,
-          rating_count: album_entity.rating_count,
-          release_date: album_entity.release_date,
-          cover_image_url: album_entity.cover_image_url.clone(),
-          duplicate_of,
-          duplicates,
-          artists,
-          primary_genres,
-          secondary_genres,
-          descriptors,
-          languages,
-          tracks,
-          credits,
-        });
-      }
-    }
-    Ok(result)
-  }
 }
 
 #[async_trait]
@@ -900,6 +822,102 @@ impl AlbumRepository for SqliteAlbumRepository {
       })?
   }
 
+  #[instrument(skip_all, fields(file_name))]
+  async fn delete(&self, file_name: &FileName) -> Result<()> {
+    let file_name = file_name.to_string();
+    self
+      .sqlite_connection
+      .get()
+      .await?
+      .interact(move |conn| {
+        conn.execute("DELETE FROM albums WHERE file_name = ?", params![file_name])?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to delete album");
+        anyhow!("Failed to delete album")
+      })?
+  }
+
+  #[instrument(skip_all, fields(count = file_names.len()))]
+  async fn find_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>> {
+    let album_entities = self.find_album_entities(file_names.clone()).await?;
+    let album_ids = album_entities
+      .values()
+      .map(|album| album.id)
+      .collect::<Vec<i64>>();
+    let (
+      album_artists,
+      album_genres,
+      album_descriptors,
+      album_languages,
+      album_tracks,
+      album_credits,
+      album_duplicates,
+    ) = try_join!(
+      self.find_album_artists(album_ids.clone()),
+      self.find_album_genres(album_ids.clone()),
+      self.find_album_descriptors(album_ids.clone()),
+      self.find_album_languages(album_ids.clone()),
+      self.find_album_tracks(album_ids.clone()),
+      self.find_album_credits(album_ids.clone()),
+      self.find_album_duplicates(album_ids.clone()),
+    )?;
+    let mut result = Vec::<AlbumReadModel>::new();
+    for file_name in file_names {
+      if let Some(album_entity) = album_entities.get(&file_name) {
+        let album_id = album_entity.id;
+        let artists = album_artists
+          .get(&album_id)
+          .map(|artists| artists.clone())
+          .unwrap_or_else(|| Vec::new());
+        let (primary_genres, secondary_genres) = album_genres
+          .get(&album_id)
+          .map(|genres| genres.clone())
+          .unwrap_or_else(|| (Vec::new(), Vec::new()));
+        let descriptors = album_descriptors
+          .get(&album_id)
+          .map(|descriptors| descriptors.clone())
+          .unwrap_or_else(|| Vec::new());
+        let languages = album_languages
+          .get(&album_id)
+          .map(|languages| languages.clone())
+          .unwrap_or_else(|| Vec::new());
+        let tracks = album_tracks
+          .get(&album_id)
+          .map(|tracks| tracks.clone())
+          .unwrap_or_else(|| Vec::new());
+        let credits = album_credits
+          .get(&album_id)
+          .map(|credits| credits.clone())
+          .unwrap_or_else(|| Vec::new());
+        let (duplicate_of, duplicates) = album_duplicates
+          .get(&album_id)
+          .map(|(duplicate_of, duplicates)| (duplicate_of.clone(), duplicates.clone()))
+          .unwrap_or((None, Vec::new()));
+        result.push(AlbumReadModel {
+          name: album_entity.name.clone(),
+          file_name: album_entity.file_name.clone(),
+          rating: album_entity.rating,
+          rating_count: album_entity.rating_count,
+          release_date: album_entity.release_date,
+          cover_image_url: album_entity.cover_image_url.clone(),
+          duplicate_of,
+          duplicates,
+          artists,
+          primary_genres,
+          secondary_genres,
+          descriptors,
+          languages,
+          tracks,
+          credits,
+        });
+      }
+    }
+    Ok(result)
+  }
+
   #[instrument(skip_all, fields(count = artist_file_name.len()))]
   async fn find_artist_albums(
     &self,
@@ -946,54 +964,11 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all, fields(file_name))]
-  async fn delete(&self, file_name: &FileName) -> Result<()> {
-    let file_name = file_name.to_string();
-    self
-      .sqlite_connection
-      .get()
-      .await?
-      .interact(move |conn| {
-        conn.execute("DELETE FROM albums WHERE file_name = ?", params![file_name])?;
-        Ok(())
-      })
-      .await
-      .map_err(|e| {
-        error!(message = e.to_string(), "Failed to delete album");
-        anyhow!("Failed to delete album")
-      })?
-  }
-
-  #[instrument(skip_all, fields(file_name))]
   async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>> {
     self
       .find_many(vec![file_name.clone()])
       .await
       .map(|mut albums| albums.pop())
-  }
-
-  #[instrument(skip_all, fields(count = file_names.len()))]
-  async fn get_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>> {
-    let albums = self.find_many(file_names.clone()).await?;
-    let album_map = albums
-      .iter()
-      .map(|album| (album.file_name.clone(), album))
-      .collect::<HashMap<FileName, &AlbumReadModel>>();
-    let missing_file_names = file_names
-      .into_iter()
-      .filter(|file_name| !album_map.contains_key(file_name))
-      .collect::<Vec<FileName>>();
-    if missing_file_names.len() > 0 {
-      Err(anyhow!(
-        "Albums not found: {}",
-        missing_file_names
-          .iter()
-          .map(|file_name| file_name.to_string())
-          .collect::<Vec<String>>()
-          .join(", ")
-      ))
-    } else {
-      Ok(albums)
-    }
   }
 
   #[instrument(skip_all)]

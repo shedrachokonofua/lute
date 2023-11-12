@@ -66,7 +66,7 @@ impl RecommendationInteractor {
     let profile = self.profile_interactor.get_profile(profile_id).await?;
     let albums = self
       .album_repository
-      .get_many(profile.album_file_names())
+      .find_many(profile.album_file_names())
       .await?;
     let album = self.album_repository.get(album_file_name).await?;
     match settings {
@@ -104,7 +104,7 @@ impl RecommendationInteractor {
     let profile = self.profile_interactor.get_profile(profile_id).await?;
     let albums = self
       .album_repository
-      .get_many(profile.album_file_names())
+      .find_many(profile.album_file_names())
       .await?;
 
     match assessment_settings {
