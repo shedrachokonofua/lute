@@ -51,10 +51,10 @@ service FileService {
 message GetCrawlerMonitorReply { CrawlerMonitor monitor = 1; }
 
 enum CrawlerStatus {
-  Paused = 0;
-  Running = 1;
-  Draining = 2;
-  Throttled = 3;
+  CrawlerPaused = 0;
+  CrawlerRunning = 1;
+  CrawlerDraining = 2;
+  CrawlerThrottled = 3;
 }
 
 enum CrawlerItemPriority {
@@ -703,6 +703,34 @@ message EventStreamRequest {
   optional string cursor = 4;
 }
 
+message EventStreamSnapshot {
+  string id = 1;
+  string tail = 2;
+}
+
+enum EventSubscriberStatus {
+  SubscriberPaused = 0;
+  SubscriberRunning = 1;
+  SubscriberDraining = 2;
+}
+
+message EventSubscriberSnapshot {
+  string id = 1;
+  EventSubscriberStatus status = 2;
+  string cursor = 3;
+}
+
+message EventsMonitor {
+  uint32 event_count = 1;
+  repeated EventSubscriberSnapshot subscribers = 2;
+  repeated EventStreamSnapshot streams = 3;
+}
+
+message GetEventsMonitorReply {
+  EventsMonitor monitor = 1;
+}
+
 service EventService {
   rpc Stream(stream EventStreamRequest) returns (stream EventStreamReply) {}
+  rpc GetMonitor(google.protobuf.Empty) returns (GetEventsMonitorReply) {}
 }

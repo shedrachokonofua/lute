@@ -31,10 +31,10 @@ impl From<CrawlerMonitor> for proto::CrawlerMonitor {
 impl From<CrawlerStatus> for proto::CrawlerStatus {
   fn from(val: CrawlerStatus) -> Self {
     match val {
-      CrawlerStatus::Running => proto::CrawlerStatus::Running,
-      CrawlerStatus::Paused => proto::CrawlerStatus::Paused,
-      CrawlerStatus::Draining => proto::CrawlerStatus::Draining,
-      CrawlerStatus::Throttled => proto::CrawlerStatus::Throttled,
+      CrawlerStatus::Running => proto::CrawlerStatus::CrawlerRunning,
+      CrawlerStatus::Paused => proto::CrawlerStatus::CrawlerPaused,
+      CrawlerStatus::Draining => proto::CrawlerStatus::CrawlerDraining,
+      CrawlerStatus::Throttled => proto::CrawlerStatus::CrawlerThrottled,
     }
   }
 }
@@ -42,10 +42,10 @@ impl From<CrawlerStatus> for proto::CrawlerStatus {
 impl From<proto::CrawlerStatus> for CrawlerStatus {
   fn from(val: proto::CrawlerStatus) -> Self {
     match val {
-      proto::CrawlerStatus::Running => CrawlerStatus::Running,
-      proto::CrawlerStatus::Paused => CrawlerStatus::Paused,
-      proto::CrawlerStatus::Draining => CrawlerStatus::Draining,
-      proto::CrawlerStatus::Throttled => CrawlerStatus::Throttled,
+      proto::CrawlerStatus::CrawlerRunning => CrawlerStatus::Running,
+      proto::CrawlerStatus::CrawlerPaused => CrawlerStatus::Paused,
+      proto::CrawlerStatus::CrawlerDraining => CrawlerStatus::Draining,
+      proto::CrawlerStatus::CrawlerThrottled => CrawlerStatus::Throttled,
     }
   }
 }

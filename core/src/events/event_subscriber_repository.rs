@@ -5,8 +5,39 @@ use rusqlite::{params, types::Value};
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 use tracing::{error, instrument};
 
+#[derive(Debug, Clone)]
 pub struct EventSubscriberRepository {
   sqlite_connection: Arc<SqliteConnection>,
+}
+
+#[derive(Debug, Clone)]
+pub enum EventSubscriberStatus {
+  Paused = 0,
+  Running = 1,
+  /**
+   * Draining means that the subscriber is running, but will not process any new events.
+   */
+  Draining = 2,
+}
+
+impl TryFrom<u32> for EventSubscriberStatus {
+  type Error = anyhow::Error;
+
+  fn try_from(value: u32) -> Result<Self, Self::Error> {
+    match value {
+      0 => Ok(EventSubscriberStatus::Paused),
+      1 => Ok(EventSubscriberStatus::Running),
+      2 => Ok(EventSubscriberStatus::Draining),
+      _ => Err(anyhow!("Invalid event subscriber status")),
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct EventSubscriberRow {
+  pub id: String,
+  pub cursor: String,
+  pub status: EventSubscriberStatus,
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +89,84 @@ fn map_event_row(row: &rusqlite::Row<'_>) -> Result<EventRow, rusqlite::Error> {
 impl EventSubscriberRepository {
   pub fn new(sqlite_connection: Arc<SqliteConnection>) -> Self {
     Self { sqlite_connection }
+  }
+
+  pub async fn get_event_count(&self) -> Result<usize> {
+    self
+      .sqlite_connection
+      .get()
+      .await?
+      .interact(|conn| {
+        let mut statement = conn.prepare("SELECT COUNT(*) FROM events")?;
+        let count = statement.query_row([], |row| row.get::<_, i64>(0))?;
+        Ok(count as usize)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get event count");
+        anyhow!("Failed to get event count")
+      })?
+  }
+
+  pub async fn get_subscribers(&self) -> Result<Vec<EventSubscriberRow>> {
+    self
+      .sqlite_connection
+      .get()
+      .await?
+      .interact(|conn| {
+        let mut statement = conn.prepare("SELECT id, cursor, status FROM event_subscribers")?;
+        let rows = statement
+          .query_map([], |row| {
+            Ok(EventSubscriberRow {
+              id: row.get::<_, String>(0)?,
+              cursor: row.get::<_, u32>(1)?.to_string(),
+              status: EventSubscriberStatus::try_from(row.get::<_, u32>(2)?).map_err(|e| {
+                error!(message = e.to_string(), "Failed to get subscribers");
+                rusqlite::Error::ExecuteReturnedResults
+              })?,
+            })
+          })?
+          .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get subscribers");
+        anyhow!("Failed to get subscribers")
+      })?
+  }
+
+  pub async fn get_stream_tails(&self) -> Result<Vec<(Stream, String)>> {
+    self
+      .sqlite_connection
+      .get()
+      .await?
+      .interact(|conn| {
+        let mut statement = conn.prepare(
+          "
+          SELECT stream, MAX(id)
+          FROM events
+          GROUP BY stream
+          ",
+        )?;
+        let rows = statement
+          .query_map([], |row| {
+            Ok((
+              Stream::try_from(row.get::<_, String>(0)?).map_err(|e| {
+                error!(message = e.to_string(), "Failed to get stream tails");
+                rusqlite::Error::ExecuteReturnedResults
+              })?,
+              row.get::<_, i32>(1)?.to_string(),
+            ))
+          })?
+          .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get stream tails");
+        anyhow!("Failed to get stream tails")
+      })?
   }
 
   #[instrument(skip(self))]

@@ -170,7 +170,7 @@ impl TryFrom<&HashMap<String, String>> for EventPayload {
   }
 }
 
-#[derive(Clone, Kinded, Debug)]
+#[derive(Clone, Kinded, Debug, PartialEq, Eq)]
 #[kinded(display = "kebab-case")]
 pub enum Stream {
   File,
