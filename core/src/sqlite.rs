@@ -1,6 +1,6 @@
 use crate::settings::Settings;
 use anyhow::Result;
-use deadpool_sqlite::{Config, Hook, HookError, Object, Pool, Runtime};
+use deadpool_sqlite::{Config, Hook, HookError, Object, Pool, PoolBuilder, Runtime};
 use include_dir::{include_dir, Dir};
 use lazy_static::lazy_static;
 use rusqlite::vtab;
@@ -16,13 +16,13 @@ lazy_static! {
 
 #[derive(Clone, Debug)]
 pub struct SqliteConnection {
-  pool: Arc<Pool>,
+  read_pool: Arc<Pool>,
+  write_pool: Arc<Pool>,
 }
 
-impl SqliteConnection {
-  pub async fn new(settings: Arc<Settings>) -> Result<Self> {
-    let config = Config::new(Path::new(&settings.sqlite.dir).join("lute.db"));
-    let pool = config
+fn get_pool_builder(config: &Config) -> Result<PoolBuilder> {
+  Ok(
+    config
       .builder(Runtime::Tokio1)?
       .post_create(Hook::async_fn(|wrapper, _| {
         Box::pin(async move {
@@ -45,15 +45,28 @@ impl SqliteConnection {
               HookError::Message(format!("Failed to initialize SQLite connection: {:?}", e))
             })
         })
-      }))
+      })),
+  )
+}
+
+impl SqliteConnection {
+  pub async fn new(settings: Arc<Settings>) -> Result<Self> {
+    let config = Config::new(Path::new(&settings.sqlite.dir).join("lute.db"));
+    let write_pool = get_pool_builder(&config)?
+      .max_size(1)
       .build()
       .map_err(|e| {
         error!("Failed to initialize SQLite connection: {:?}", e);
         anyhow::anyhow!("Failed to initialize SQLite connection: {:?}", e)
       })?;
+    let read_pool = get_pool_builder(&config)?.build().map_err(|e| {
+      error!("Failed to initialize SQLite connection: {:?}", e);
+      anyhow::anyhow!("Failed to initialize SQLite connection: {:?}", e)
+    })?;
 
     let sqlite_connection = Self {
-      pool: Arc::new(pool),
+      read_pool: Arc::new(read_pool),
+      write_pool: Arc::new(write_pool),
     };
     sqlite_connection.migrate_to_latest().await?;
 
@@ -62,7 +75,7 @@ impl SqliteConnection {
 
   pub async fn migrate_to_latest(&self) -> Result<()> {
     self
-      .pool
+      .write_pool
       .get()
       .await?
       .interact(|conn| {
@@ -79,7 +92,7 @@ impl SqliteConnection {
 
   pub async fn migrate_to_version(&self, version: u32) -> Result<()> {
     self
-      .pool
+      .write_pool
       .get()
       .await?
       .interact(move |conn| {
@@ -93,8 +106,15 @@ impl SqliteConnection {
       })?
   }
 
-  pub async fn get(&self) -> Result<Object> {
-    self.pool.get().await.map_err(|e| {
+  pub async fn read(&self) -> Result<Object> {
+    self.read_pool.get().await.map_err(|e| {
+      error!("Failed to get SQLite connection: {:?}", e);
+      anyhow::anyhow!("Failed to get SQLite connection: {:?}", e)
+    })
+  }
+
+  pub async fn write(&self) -> Result<Object> {
+    self.write_pool.get().await.map_err(|e| {
       error!("Failed to get SQLite connection: {:?}", e);
       anyhow::anyhow!("Failed to get SQLite connection: {:?}", e)
     })

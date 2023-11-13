@@ -94,7 +94,7 @@ impl EventSubscriberRepository {
   pub async fn get_event_count(&self) -> Result<usize> {
     self
       .sqlite_connection
-      .get()
+      .read()
       .await?
       .interact(|conn| {
         let mut statement = conn.prepare("SELECT COUNT(*) FROM events")?;
@@ -111,7 +111,7 @@ impl EventSubscriberRepository {
   pub async fn get_subscribers(&self) -> Result<Vec<EventSubscriberRow>> {
     self
       .sqlite_connection
-      .get()
+      .read()
       .await?
       .interact(|conn| {
         let mut statement = conn.prepare("SELECT id, cursor, status FROM event_subscribers")?;
@@ -139,7 +139,7 @@ impl EventSubscriberRepository {
   pub async fn get_stream_tails(&self) -> Result<Vec<(Stream, String)>> {
     self
       .sqlite_connection
-      .get()
+      .read()
       .await?
       .interact(|conn| {
         let mut statement = conn.prepare(
@@ -174,7 +174,7 @@ impl EventSubscriberRepository {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
-      .get()
+      .read()
       .await?
       .interact(move |conn| {
         let mut statement = conn.prepare("SELECT cursor FROM event_subscribers WHERE id = ?")?;
@@ -201,7 +201,7 @@ impl EventSubscriberRepository {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
-      .get()
+      .write()
       .await?
       .interact(move |conn| {
         let mut statement = conn.prepare(
@@ -227,7 +227,7 @@ impl EventSubscriberRepository {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
-      .get()
+      .write()
       .await?
       .interact(move |conn| {
         let mut statement = conn.prepare("DELETE FROM event_subscribers WHERE id = ?")?;
@@ -257,7 +257,7 @@ impl EventSubscriberRepository {
       .collect::<Vec<_>>();
     self
       .sqlite_connection
-      .get()
+      .read()
       .await?
       .interact(move |conn| {
         if is_global {
