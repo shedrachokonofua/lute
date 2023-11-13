@@ -21,66 +21,9 @@ pub struct SqliteAlbumRepository {
   sqlite_connection: Arc<SqliteConnection>,
 }
 
-struct FindAlbumResultCreditEntry {
-  pub artist: AlbumReadModelArtist,
-  pub roles: HashSet<String>,
-}
-
-impl From<FindAlbumResultCreditEntry> for AlbumReadModelCredit {
-  fn from(val: FindAlbumResultCreditEntry) -> Self {
-    AlbumReadModelCredit {
-      artist: val.artist,
-      roles: val.roles.into_iter().collect(),
-    }
-  }
-}
-
-struct FindAlbumResultEntry {
-  pub name: String,
-  pub file_name: FileName,
-  pub rating: f32,
-  pub rating_count: u32,
-  pub release_date: Option<NaiveDate>,
-  pub cover_image_url: Option<String>,
-  pub duplicate_of: Option<FileName>,
-  pub duplicates: HashSet<FileName>,
-  pub artists: HashMap<FileName, String>,
-  pub primary_genres: HashSet<String>,
-  pub secondary_genres: HashSet<String>,
-  pub descriptors: HashSet<String>,
-  pub languages: HashSet<String>,
-  pub tracks: HashMap<String, AlbumReadModelTrack>,
-  pub credits: HashMap<FileName, FindAlbumResultCreditEntry>,
-}
-
-impl From<FindAlbumResultEntry> for AlbumReadModel {
-  fn from(val: FindAlbumResultEntry) -> Self {
-    AlbumReadModel {
-      name: val.name,
-      file_name: val.file_name,
-      rating: val.rating,
-      rating_count: val.rating_count,
-      release_date: val.release_date,
-      cover_image_url: val.cover_image_url,
-      duplicate_of: val.duplicate_of,
-      duplicates: val.duplicates.into_iter().collect(),
-      artists: val
-        .artists
-        .into_iter()
-        .map(|(file_name, name)| AlbumReadModelArtist { file_name, name })
-        .collect(),
-      primary_genres: val.primary_genres.into_iter().collect(),
-      secondary_genres: val.secondary_genres.into_iter().collect(),
-      descriptors: val.descriptors.into_iter().collect(),
-      languages: val.languages.into_iter().collect(),
-      tracks: val.tracks.into_values().collect::<Vec<_>>(),
-      credits: val
-        .credits
-        .into_values()
-        .map(|credit| credit.into())
-        .collect(),
-    }
-  }
+enum AlbumDuplication {
+  Duplicates(Vec<FileName>),
+  DuplicateOf(FileName),
 }
 
 struct AlbumEntity {
@@ -485,10 +428,10 @@ impl SqliteAlbumRepository {
   }
 
   #[instrument(skip_all, fields(count = album_ids.len()))]
-  async fn find_album_duplicates(
+  async fn find_album_duplication(
     &self,
     album_ids: Vec<i64>,
-  ) -> Result<HashMap<i64, (Option<FileName>, Vec<FileName>)>> {
+  ) -> Result<HashMap<i64, AlbumDuplication>> {
     let album_id_params = album_ids
       .into_iter()
       .map(|f| Value::from(f))
@@ -502,41 +445,58 @@ impl SqliteAlbumRepository {
           "
           SELECT
             album_duplicates.original_album_id,
+            album_duplicates.duplicate_album_id,
             original_albums.file_name,
             duplicate_albums.file_name
           FROM album_duplicates
           LEFT JOIN albums original_albums ON album_duplicates.original_album_id = original_albums.id
           LEFT JOIN albums duplicate_albums ON album_duplicates.duplicate_album_id = duplicate_albums.id
-          WHERE album_duplicates.original_album_id IN rarray(?)
+          WHERE album_duplicates.original_album_id IN rarray(?1) OR album_duplicates.duplicate_album_id IN rarray(?1)
           ",
         )?;
         let mut rows = stmt.query_map([Rc::new(album_id_params)], |row| {
           Ok((
             row.get::<_, i64>(0)?,
-            row.get::<_, Option<String>>(2)?,
-            row.get::<_, Option<String>>(3)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
           ))
         })?;
-        let mut result = HashMap::<i64, (Option<FileName>, Vec<FileName>)>::new();
-        while let Some(Ok(row)) = rows.next() {
-          let (original_album_id, original_album_file_name, duplicate_album_file_name) = row;
-          let album_entry = result
+        let mut result = HashMap::<i64, AlbumDuplication>::new();
+        while let Some(Ok((
+          original_album_id,
+          duplicate_album_id,
+          original_album_file_name,
+          duplicate_album_file_name,
+        ))) = rows.next() {
+          let original_album_file_name = FileName::try_from(original_album_file_name.clone())
+            .map_err(|e| {
+              error!(message = e.to_string(), "Failed to parse album file name");
+              rusqlite::Error::ExecuteReturnedResults
+            })?;
+          let original_album_entry = result
             .entry(original_album_id)
-            .or_insert_with(|| (None, Vec::new()));
-          if let Some(duplicate_album_file_name) = duplicate_album_file_name {
-            album_entry.1.push(FileName::try_from(duplicate_album_file_name.clone())
-              .map_err(|e| {
-                error!(message = e.to_string(), "Failed to parse album file name");
-                rusqlite::Error::ExecuteReturnedResults
-              })?);
+            .or_insert_with(|| AlbumDuplication::Duplicates(Vec::new()));
+          let duplicate_album_file_name = FileName::try_from(duplicate_album_file_name.clone())
+            .map_err(|e| {
+              error!(message = e.to_string(), "Failed to parse album file name");
+              rusqlite::Error::ExecuteReturnedResults
+            })?;
+          match original_album_entry {
+            AlbumDuplication::Duplicates(duplicates) => {
+              duplicates.push(duplicate_album_file_name);
+            }
+            AlbumDuplication::DuplicateOf(_) => {
+              panic!(
+                "Album {} is both a duplicate and a duplicate of another album",
+                original_album_file_name.to_string()
+              );
+            }
           }
-          if let Some(original_album_file_name) = original_album_file_name {
-            album_entry.0 = Some(FileName::try_from(original_album_file_name.clone())
-              .map_err(|e| {
-                error!(message = e.to_string(), "Failed to parse album file name");
-                rusqlite::Error::ExecuteReturnedResults
-              })?);
-          }
+          result.insert(
+            duplicate_album_id,
+            AlbumDuplication::DuplicateOf(original_album_file_name.clone()),
+          );
         }
         Ok(result)
       })
@@ -848,13 +808,13 @@ impl AlbumRepository for SqliteAlbumRepository {
       .map(|album| album.id)
       .collect::<Vec<i64>>();
     let (
-      album_artists,
-      album_genres,
-      album_descriptors,
-      album_languages,
-      album_tracks,
-      album_credits,
-      album_duplicates,
+      mut album_artists,
+      mut album_genres,
+      mut album_descriptors,
+      mut album_languages,
+      mut album_tracks,
+      mut album_credits,
+      mut album_duplicates,
     ) = try_join!(
       self.find_album_artists(album_ids.clone()),
       self.find_album_genres(album_ids.clone()),
@@ -862,40 +822,35 @@ impl AlbumRepository for SqliteAlbumRepository {
       self.find_album_languages(album_ids.clone()),
       self.find_album_tracks(album_ids.clone()),
       self.find_album_credits(album_ids.clone()),
-      self.find_album_duplicates(album_ids.clone()),
+      self.find_album_duplication(album_ids.clone()),
     )?;
     let mut result = Vec::<AlbumReadModel>::new();
     for file_name in file_names {
       if let Some(album_entity) = album_entities.get(&file_name) {
         let album_id = album_entity.id;
         let artists = album_artists
-          .get(&album_id)
-          .map(|artists| artists.clone())
+          .remove(&album_id)
           .unwrap_or_else(|| Vec::new());
         let (primary_genres, secondary_genres) = album_genres
-          .get(&album_id)
-          .map(|genres| genres.clone())
+          .remove(&album_id)
           .unwrap_or_else(|| (Vec::new(), Vec::new()));
         let descriptors = album_descriptors
-          .get(&album_id)
-          .map(|descriptors| descriptors.clone())
+          .remove(&album_id)
           .unwrap_or_else(|| Vec::new());
         let languages = album_languages
-          .get(&album_id)
-          .map(|languages| languages.clone())
+          .remove(&album_id)
           .unwrap_or_else(|| Vec::new());
-        let tracks = album_tracks
-          .get(&album_id)
-          .map(|tracks| tracks.clone())
-          .unwrap_or_else(|| Vec::new());
+        let tracks = album_tracks.remove(&album_id).unwrap_or_else(|| Vec::new());
         let credits = album_credits
-          .get(&album_id)
-          .map(|credits| credits.clone())
+          .remove(&album_id)
           .unwrap_or_else(|| Vec::new());
-        let (duplicate_of, duplicates) = album_duplicates
-          .get(&album_id)
-          .map(|(duplicate_of, duplicates)| (duplicate_of.clone(), duplicates.clone()))
-          .unwrap_or((None, Vec::new()));
+        let (duplicate_of, duplicates) = match album_duplicates
+          .remove(&album_id)
+          .unwrap_or_else(|| AlbumDuplication::Duplicates(Vec::new()))
+        {
+          AlbumDuplication::Duplicates(duplicates) => (None, duplicates),
+          AlbumDuplication::DuplicateOf(duplicate_of) => (Some(duplicate_of), Vec::new()),
+        };
         result.push(AlbumReadModel {
           name: album_entity.name.clone(),
           file_name: album_entity.file_name.clone(),
