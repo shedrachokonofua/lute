@@ -371,7 +371,21 @@ impl RedisAlbumSearchIndex {
     Ok(())
   }
 
+  pub async fn ensure_album_root(&self, file_name: &FileName) -> Result<()> {
+    let connection = self.redis_connection_pool.get().await?;
+    let result: Option<String> = connection
+      .json_get(redis_key(file_name), JsonGetOptions::default())
+      .await?;
+    if result.is_none() || result.is_some_and(|r| r == "{}") {
+      connection
+        .json_set(redis_key(file_name), "$", "{}", SetCondition::default())
+        .await?;
+    }
+    Ok(())
+  }
+
   pub async fn ensure_embeddings_field(&self, file_name: &FileName) -> Result<()> {
+    self.ensure_album_root(file_name).await?;
     let connection = self.redis_connection_pool.get().await?;
     let result: Option<String> = connection
       .json_get(
@@ -396,6 +410,7 @@ impl RedisAlbumSearchIndex {
 #[async_trait]
 impl AlbumSearchIndex for RedisAlbumSearchIndex {
   async fn put(&self, album: AlbumReadModel) -> Result<()> {
+    let current_embedddings = self.get_embeddings(&album.file_name).await?;
     self
       .redis_connection_pool
       .get()
@@ -407,6 +422,11 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
         SetCondition::default(),
       )
       .await?;
+    if !current_embedddings.is_empty() {
+      for embedding in current_embedddings {
+        self.put_embedding(&embedding).await?;
+      }
+    }
     Ok(())
   }
 
@@ -559,7 +579,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
       .await?
       .json_get(
         redis_key(file_name),
-        JsonGetOptions::default().path("$.embeddings.."),
+        JsonGetOptions::default().path("$.embeddings[*]"),
       )
       .await?;
     let embeddings = result
