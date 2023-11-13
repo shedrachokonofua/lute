@@ -21,7 +21,7 @@ impl ProfileRepository {
   }
 
   pub fn profile_album_path(&self, album_file_name: &FileName) -> String {
-    format!("$.albums.{}", album_file_name.to_string())
+    format!("$.albums[\"{}\"]", album_file_name.to_string())
   }
 
   pub async fn find(&self, id: &ProfileId) -> Result<Option<Profile>> {

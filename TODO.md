@@ -25,27 +25,26 @@
       - [x] Migrate to SQLite
       - [x] Support ordered processing groups
     - Album read model:
-      - [ ] Duplicate album detection
+      - [x] Duplicate album detection
 
 - Backlog:
-  - [ ] Recommendations(Quantile rank): Genre tokenization
   - [x] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
   - [x] Recommendations(Vector similarity): Album recommendations, rpc method
-  - [ ] Extension: Album assessment popup
+  - [x] Extension: Album assessment popup
   - [ ] Events: Full correlation id and causation id support
-  - [ ] Files: File content download stream rpc method
+  - [x] Files: File content download rpc method
   - [ ] Files: File content not found event. Should trigger crawling.
   - [ ] Connector: P2P
   - [ ] SSL support
   - [ ] Recommendation: Recommendation generated event
-  - [ ] Events: Subscriber monitor(Iterator age, status, etc)
+  - [x] Events: Subscriber monitor(status, etc)
   - [ ] Events: Subscriber statuses, iterator reset
   - [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile
   - [ ] Lookup: Chart
   - [ ] Web(Recommendation page): Expose novelty score setting
-  - [ ] Web(Profile page): Bootstrap basic page for profile CRUD
+  - [x] Web(Profile page): Bootstrap basic page for profile CRUD
   - [ ] Flag to rebuild redisearch indexes on startup
-  - [ ] Parser: Extract album cover image
+  - [x] Parser: Extract album cover image
   - [ ] Web(Recommendation page): Settings presets
   - [ ] Parser: Extract album spotify link
   - [ ] Album read model repository stats, rpc method
