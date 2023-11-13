@@ -18,7 +18,7 @@ pub fn escape_tag_value(input: &str) -> String {
   input
     .chars()
     .map(|c| {
-      if c.is_ascii_alphanumeric() {
+      if c.is_ascii_alphanumeric() || c == '…' {
         c.to_string()
       } else if c.is_ascii() {
         format!("\\{}", c)
