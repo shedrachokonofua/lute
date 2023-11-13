@@ -5,6 +5,7 @@ use data_encoding::BASE64;
 use derive_builder::Builder;
 use serde_derive::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use unidecode::unidecode;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModelArtist {
@@ -66,6 +67,10 @@ impl AlbumReadModel {
   pub fn to_sha256(&self) -> Result<String> {
     let hash = Sha256::digest(serde_json::to_string(&self)?.as_bytes());
     Ok(BASE64.encode(&hash).to_string())
+  }
+
+  pub fn ascii_name(&self) -> String {
+    unidecode(&self.name)
   }
 }
 

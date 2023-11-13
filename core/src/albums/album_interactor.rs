@@ -37,11 +37,13 @@ impl AlbumInteractor {
       .await?
       .into_iter()
       .filter(|potential_duplicate| {
-        potential_duplicate.file_name != album.file_name && potential_duplicate.name == album.name
+        potential_duplicate
+          .ascii_name()
+          .eq_ignore_ascii_case(album.ascii_name().as_str())
       })
       .collect::<Vec<_>>();
 
-    if potential_duplicates.len() < 2 {
+    if potential_duplicates.len() <= 1 {
       return Ok(());
     }
 
@@ -72,15 +74,18 @@ impl AlbumInteractor {
     }
 
     for mut duplicate_album in duplicate_albums.into_iter() {
-      if let Some(duplicate_of) = &duplicate_album.duplicate_of {
-        if duplicate_of != &original_album_file_name {
-          self
-            .album_repository
-            .set_duplicate_of(&duplicate_album.file_name, &original_album_file_name)
-            .await?;
-          duplicate_album.duplicate_of = Some(original_album_file_name.clone());
-          self.album_search_index.put(duplicate_album).await?;
-        }
+      if duplicate_album
+        .duplicate_of
+        .as_ref()
+        .map(|d| d != &original_album_file_name)
+        .unwrap_or(true)
+      {
+        self
+          .album_repository
+          .set_duplicate_of(&duplicate_album.file_name, &original_album_file_name)
+          .await?;
+        duplicate_album.duplicate_of = Some(original_album_file_name.clone());
+        self.album_search_index.put(duplicate_album).await?;
       }
     }
 
