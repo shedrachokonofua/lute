@@ -44,6 +44,19 @@ impl proto::EventService for EventService {
   type StreamStream =
     Pin<Box<dyn Stream<Item = Result<proto::EventStreamReply, Status>> + Send + 'static>>;
 
+  async fn set_cursor(
+    &self,
+    request: Request<proto::SetEventCursorRequest>,
+  ) -> Result<Response<()>, Status> {
+    let request = request.into_inner();
+    self
+      .event_subscriber_repository
+      .set_cursor(&request.subscriber_id, &request.cursor)
+      .await
+      .map_err(|err| Status::internal(err.to_string()))?;
+    Ok(Response::new(()))
+  }
+
   async fn get_monitor(
     &self,
     _: Request<()>,

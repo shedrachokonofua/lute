@@ -730,7 +730,13 @@ message GetEventsMonitorReply {
   EventsMonitor monitor = 1;
 }
 
+message SetEventCursorRequest {
+  string subscriber_id = 1;
+  string cursor = 2;
+}
+
 service EventService {
   rpc Stream(stream EventStreamRequest) returns (stream EventStreamReply) {}
   rpc GetMonitor(google.protobuf.Empty) returns (GetEventsMonitorReply) {}
+  rpc SetCursor(SetEventCursorRequest) returns (google.protobuf.Empty) {}
 }
