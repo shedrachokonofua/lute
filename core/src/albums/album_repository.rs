@@ -19,6 +19,8 @@ pub struct ItemAndCount {
 #[async_trait]
 pub trait AlbumRepository {
   async fn put(&self, album: AlbumReadModel) -> Result<()>;
+  async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()>;
+  async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()>;
   async fn delete(&self, file_name: &FileName) -> Result<()>;
   async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>>;
   async fn find_artist_albums(
@@ -26,11 +28,16 @@ pub trait AlbumRepository {
     artist_file_names: Vec<FileName>,
   ) -> Result<Vec<AlbumReadModel>>;
   async fn find_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>>;
-  async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>>;
-  async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>>;
-  async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>>;
-  async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()>;
-  async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()>;
+  async fn get_aggregated_genres(&self, limit: Option<u32>) -> Result<Vec<GenreAggregate>>;
+  async fn get_aggregated_descriptors(&self, limit: Option<u32>) -> Result<Vec<ItemAndCount>>;
+  async fn get_aggregated_languages(&self, limit: Option<u32>) -> Result<Vec<ItemAndCount>>;
+  async fn get_aggregated_years(&self, limit: Option<u32>) -> Result<Vec<ItemAndCount>>;
+  async fn get_album_count(&self) -> Result<u32>;
+  async fn get_artist_count(&self) -> Result<u32>;
+  async fn get_genre_count(&self) -> Result<u32>;
+  async fn get_descriptor_count(&self) -> Result<u32>;
+  async fn get_language_count(&self) -> Result<u32>;
+  async fn get_duplicate_count(&self) -> Result<u32>;
 
   #[instrument(skip(self))]
   async fn get(&self, file_name: &FileName) -> Result<AlbumReadModel> {

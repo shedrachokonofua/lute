@@ -1,4 +1,5 @@
 use super::{
+  album_interactor::{AlbumInteractor, AlbumMonitor},
   album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
   album_search_index::{AlbumSearchIndex, AlbumSearchQuery, SearchPagination},
 };
@@ -7,29 +8,37 @@ use anyhow::{Error, Result};
 use std::sync::Arc;
 use tonic::{async_trait, Request, Response, Status};
 
-impl From<&GenreAggregate> for proto::GenreAggregate {
-  fn from(val: &GenreAggregate) -> Self {
+impl From<GenreAggregate> for proto::GenreAggregate {
+  fn from(val: GenreAggregate) -> Self {
     proto::GenreAggregate {
-      name: val.name.clone(),
+      name: val.name,
       primary_genre_count: val.primary_genre_count,
       secondary_genre_count: val.secondary_genre_count,
     }
   }
 }
 
-impl From<&ItemAndCount> for proto::DescriptorAggregate {
-  fn from(val: &ItemAndCount) -> Self {
-    proto::DescriptorAggregate {
-      name: val.name.clone(),
-      count: val.count,
+impl From<AlbumMonitor> for proto::AlbumMonitor {
+  fn from(val: AlbumMonitor) -> Self {
+    proto::AlbumMonitor {
+      album_count: val.album_count,
+      artist_count: val.artist_count,
+      genre_count: val.genre_count,
+      descriptor_count: val.descriptor_count,
+      duplicate_count: val.duplicate_count,
+      language_count: val.language_count,
+      top_genres: val.top_genres.into_iter().map(|i| i.into()).collect(),
+      top_descriptors: val.top_descriptors.into_iter().map(|i| i.into()).collect(),
+      top_languages: val.top_languages.into_iter().map(|i| i.into()).collect(),
+      aggregated_years: val.aggregated_years.into_iter().map(|i| i.into()).collect(),
     }
   }
 }
 
-impl From<&ItemAndCount> for proto::LanguageAggregate {
-  fn from(val: &ItemAndCount) -> Self {
-    proto::LanguageAggregate {
-      name: val.name.clone(),
+impl From<ItemAndCount> for proto::ItemAndCount {
+  fn from(val: ItemAndCount) -> Self {
+    proto::ItemAndCount {
+      name: val.name,
       count: val.count,
     }
   }
@@ -83,6 +92,7 @@ impl TryFrom<proto::SearchPagination> for SearchPagination {
 }
 
 pub struct AlbumService {
+  album_interactor: Arc<AlbumInteractor>,
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
 }
@@ -93,14 +103,30 @@ impl AlbumService {
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   ) -> Self {
     Self {
-      album_repository,
-      album_search_index,
+      album_repository: Arc::clone(&album_repository),
+      album_search_index: Arc::clone(&album_search_index),
+      album_interactor: Arc::new(AlbumInteractor::new(album_repository, album_search_index)),
     }
   }
 }
 
 #[async_trait]
 impl proto::AlbumService for AlbumService {
+  async fn get_monitor(
+    &self,
+    _request: Request<()>,
+  ) -> Result<Response<proto::GetAlbumMonitorReply>, Status> {
+    let monitor = self
+      .album_interactor
+      .get_monitor()
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+    let reply = proto::GetAlbumMonitorReply {
+      monitor: Some(monitor.into()),
+    };
+    Ok(Response::new(reply))
+  }
+
   async fn get_album(
     &self,
     request: Request<proto::GetAlbumRequest>,
@@ -195,10 +221,10 @@ impl proto::AlbumService for AlbumService {
     let reply = proto::GetAggregatedGenresReply {
       genres: self
         .album_repository
-        .get_aggregated_genres()
+        .get_aggregated_genres(None)
         .await
         .map_err(|e| Status::internal(e.to_string()))?
-        .iter()
+        .into_iter()
         .map(|i| i.into())
         .collect(),
     };
@@ -212,10 +238,10 @@ impl proto::AlbumService for AlbumService {
     let reply = proto::GetAggregatedDescriptorsReply {
       descriptors: self
         .album_repository
-        .get_aggregated_descriptors()
+        .get_aggregated_descriptors(None)
         .await
         .map_err(|e| Status::internal(e.to_string()))?
-        .iter()
+        .into_iter()
         .map(|i| i.into())
         .collect(),
     };
@@ -229,10 +255,10 @@ impl proto::AlbumService for AlbumService {
     let reply = proto::GetAggregatedLanguagesReply {
       languages: self
         .album_repository
-        .get_aggregated_languages()
+        .get_aggregated_languages(None)
         .await
         .map_err(|e| Status::internal(e.to_string()))?
-        .iter()
+        .into_iter()
         .map(|i| i.into())
         .collect(),
     };

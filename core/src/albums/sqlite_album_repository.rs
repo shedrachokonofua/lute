@@ -782,6 +782,96 @@ impl AlbumRepository for SqliteAlbumRepository {
       })?
   }
 
+  #[instrument(skip_all, fields(file_name, count = duplicates.len()))]
+  async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()> {
+    match self.find(file_name).await? {
+      Some(_) => {
+        let file_name = file_name.to_string();
+        self
+          .sqlite_connection
+          .write()
+          .await?
+          .interact(move |conn| {
+            let tx = conn.transaction()?;
+            let album_id: i64 = tx.query_row(
+              "SELECT id FROM albums WHERE file_name = ?",
+              params![file_name],
+              |row| row.get(0),
+            )?;
+            tx.execute(
+              "DELETE FROM album_duplicates WHERE original_album_id = ?1",
+              params![album_id],
+            )?;
+            for duplicate in duplicates {
+              let duplicate_id: i64 = tx.query_row(
+                "SELECT id FROM albums WHERE file_name = ?",
+                params![duplicate.to_string()],
+                |row| row.get(0),
+              )?;
+              tx.execute(
+                "
+                INSERT INTO album_duplicates (original_album_id, duplicate_album_id)
+                VALUES (?, ?)
+                ",
+                params![album_id, duplicate_id],
+              )?;
+            }
+            tx.commit()?;
+            Ok(())
+          })
+          .await
+          .map_err(|e| {
+            error!(message = e.to_string(), "Failed to set album duplicates");
+            anyhow!("Failed to set album duplicates")
+          })?
+      }
+      None => Err(anyhow!("Album not found")),
+    }
+  }
+
+  #[instrument(skip(self))]
+  async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()> {
+    match self.find(file_name).await? {
+      Some(_) => {
+        let file_name = file_name.to_string();
+        let duplicate_of = duplicate_of.to_string();
+        self
+          .sqlite_connection
+          .write()
+          .await?
+          .interact(move |conn| {
+            let tx = conn.transaction()?;
+            let album_id: i64 = tx.query_row(
+              "SELECT id FROM albums WHERE file_name = ?",
+              params![file_name],
+              |row| row.get(0),
+            )?;
+            let duplicate_of_id: i64 = tx.query_row(
+              "SELECT id FROM albums WHERE file_name = ?",
+              params![duplicate_of],
+              |row| row.get(0),
+            )?;
+            tx.execute(
+              "
+              INSERT INTO album_duplicates (original_album_id, duplicate_album_id)
+              VALUES (?, ?)
+              ON CONFLICT (duplicate_album_id) DO UPDATE SET original_album_id = excluded.original_album_id
+              ",
+              params![duplicate_of_id, album_id],
+            )?;
+            tx.commit()?;
+            Ok(())
+          })
+          .await
+          .map_err(|e| {
+            error!(message = e.to_string(), "Failed to set album duplicate of");
+            anyhow!("Failed to set album duplicate of")
+          })?
+      }
+      None => Err(anyhow!("Album not found")),
+    }
+  }
+
   #[instrument(skip_all, fields(file_name))]
   async fn delete(&self, file_name: &FileName) -> Result<()> {
     let file_name = file_name.to_string();
@@ -927,7 +1017,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all)]
-  async fn get_aggregated_genres(&self) -> Result<Vec<GenreAggregate>> {
+  async fn get_aggregated_genres(&self, limit: Option<u32>) -> Result<Vec<GenreAggregate>> {
     self
       .sqlite_connection
       .read()
@@ -942,10 +1032,12 @@ impl AlbumRepository for SqliteAlbumRepository {
           FROM genres g
           JOIN album_genres ag ON g.id = ag.genre_id
           GROUP BY g.name
+          ORDER BY primary_genre_count + secondary_genre_count DESC
+          LIMIT COALESCE(?, -1)
           ",
         )?;
         let genres = stmt
-          .query_map([], |row| {
+          .query_map([limit], |row| {
             Ok(GenreAggregate {
               name: row.get(0)?,
               primary_genre_count: row.get(1)?,
@@ -964,7 +1056,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all)]
-  async fn get_aggregated_descriptors(&self) -> Result<Vec<ItemAndCount>> {
+  async fn get_aggregated_descriptors(&self, limit: Option<u32>) -> Result<Vec<ItemAndCount>> {
     self
       .sqlite_connection
       .read()
@@ -976,10 +1068,12 @@ impl AlbumRepository for SqliteAlbumRepository {
           FROM descriptors d
           JOIN album_descriptors ad ON d.id = ad.descriptor_id
           GROUP BY d.name
+          ORDER BY count DESC
+          LIMIT COALESCE(?, -1)
           ",
         )?;
         let descriptors = stmt
-          .query_map([], |row| {
+          .query_map([limit], |row| {
             Ok(ItemAndCount {
               name: row.get(0)?,
               count: row.get(1)?,
@@ -1000,7 +1094,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all)]
-  async fn get_aggregated_languages(&self) -> Result<Vec<ItemAndCount>> {
+  async fn get_aggregated_languages(&self, limit: Option<u32>) -> Result<Vec<ItemAndCount>> {
     self
       .sqlite_connection
       .read()
@@ -1012,10 +1106,12 @@ impl AlbumRepository for SqliteAlbumRepository {
           FROM languages l
           JOIN album_languages al ON l.id = al.language_id
           GROUP BY l.name
+          ORDER BY count DESC
+          LIMIT COALESCE(?, -1)
           ",
         )?;
         let languages = stmt
-          .query_map([], |row| {
+          .query_map([limit], |row| {
             Ok(ItemAndCount {
               name: row.get(0)?,
               count: row.get(1)?,
@@ -1035,93 +1131,187 @@ impl AlbumRepository for SqliteAlbumRepository {
       })?
   }
 
-  #[instrument(skip_all, fields(file_name, count = duplicates.len()))]
-  async fn set_duplicates(&self, file_name: &FileName, duplicates: Vec<FileName>) -> Result<()> {
-    match self.find(file_name).await? {
-      Some(_) => {
-        let file_name = file_name.to_string();
-        self
-          .sqlite_connection
-          .write()
-          .await?
-          .interact(move |conn| {
-            let tx = conn.transaction()?;
-            let album_id: i64 = tx.query_row(
-              "SELECT id FROM albums WHERE file_name = ?",
-              params![file_name],
-              |row| row.get(0),
-            )?;
-            tx.execute(
-              "DELETE FROM album_duplicates WHERE original_album_id = ?1",
-              params![album_id],
-            )?;
-            for duplicate in duplicates {
-              let duplicate_id: i64 = tx.query_row(
-                "SELECT id FROM albums WHERE file_name = ?",
-                params![duplicate.to_string()],
-                |row| row.get(0),
-              )?;
-              tx.execute(
-                "
-                INSERT INTO album_duplicates (original_album_id, duplicate_album_id)
-                VALUES (?, ?)
-                ",
-                params![album_id, duplicate_id],
-              )?;
-            }
-            tx.commit()?;
-            Ok(())
-          })
-          .await
-          .map_err(|e| {
-            error!(message = e.to_string(), "Failed to set album duplicates");
-            anyhow!("Failed to set album duplicates")
+  #[instrument(skip_all)]
+  async fn get_aggregated_years(&self, limit: Option<u32>) -> Result<Vec<ItemAndCount>> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare(
+          "
+          SELECT 
+            strftime('%Y', release_date) AS release_year, 
+            COUNT(*) AS album_count
+          FROM albums
+          GROUP BY release_year
+          ORDER BY release_year DESC
+          LIMIT COALESCE(?, -1)
+          ",
+        )?;
+        let years = stmt
+          .query_map([limit], |row| {
+            Ok(ItemAndCount {
+              name: row.get(0)?,
+              count: row.get(1)?,
+            })
           })?
-      }
-      None => Err(anyhow!("Album not found")),
-    }
+          .filter_map(|r| r.ok())
+          .collect::<Vec<ItemAndCount>>();
+        Ok(years)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get aggregated years");
+        anyhow!("Failed to get aggregated years")
+      })?
   }
 
-  #[instrument(skip(self))]
-  async fn set_duplicate_of(&self, file_name: &FileName, duplicate_of: &FileName) -> Result<()> {
-    match self.find(file_name).await? {
-      Some(_) => {
-        let file_name = file_name.to_string();
-        let duplicate_of = duplicate_of.to_string();
-        self
-          .sqlite_connection
-          .write()
-          .await?
-          .interact(move |conn| {
-            let tx = conn.transaction()?;
-            let album_id: i64 = tx.query_row(
-              "SELECT id FROM albums WHERE file_name = ?",
-              params![file_name],
-              |row| row.get(0),
-            )?;
-            let duplicate_of_id: i64 = tx.query_row(
-              "SELECT id FROM albums WHERE file_name = ?",
-              params![duplicate_of],
-              |row| row.get(0),
-            )?;
-            tx.execute(
-              "
-              INSERT INTO album_duplicates (original_album_id, duplicate_album_id)
-              VALUES (?, ?)
-              ON CONFLICT (duplicate_album_id) DO UPDATE SET original_album_id = excluded.original_album_id
-              ",
-              params![duplicate_of_id, album_id],
-            )?;
-            tx.commit()?;
-            Ok(())
-          })
-          .await
-          .map_err(|e| {
-            error!(message = e.to_string(), "Failed to set album duplicate of");
-            anyhow!("Failed to set album duplicate of")
-          })?
-      }
-      None => Err(anyhow!("Album not found")),
-    }
+  #[instrument(skip_all)]
+  async fn get_album_count(&self) -> Result<u32> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare("SELECT COUNT(*) FROM albums")?;
+        Ok(
+          stmt
+            .query_row([], |row| row.get::<_, u32>(0))
+            .map_err(|e| {
+              error!(message = e.to_string(), "Failed to get album count");
+              anyhow!("Failed to get album count")
+            })?,
+        )
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get album count");
+        anyhow!("Failed to get album count")
+      })?
+  }
+
+  #[instrument(skip_all)]
+  async fn get_artist_count(&self) -> Result<u32> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare("SELECT COUNT(*) FROM artists")?;
+        Ok(
+          stmt
+            .query_row([], |row| row.get::<_, u32>(0))
+            .map_err(|e| {
+              error!(message = e.to_string(), "Failed to get artist count");
+              anyhow!("Failed to get artist count")
+            })?,
+        )
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get artist count");
+        anyhow!("Failed to get artist count")
+      })?
+  }
+
+  #[instrument(skip_all)]
+  async fn get_genre_count(&self) -> Result<u32> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare("SELECT COUNT(*) FROM genres")?;
+        Ok(
+          stmt
+            .query_row([], |row| row.get::<_, u32>(0))
+            .map_err(|e| {
+              error!(message = e.to_string(), "Failed to get genre count");
+              anyhow!("Failed to get genre count")
+            })?,
+        )
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get genre count");
+        anyhow!("Failed to get genre count")
+      })?
+  }
+
+  #[instrument(skip_all)]
+  async fn get_descriptor_count(&self) -> Result<u32> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare("SELECT COUNT(*) FROM descriptors")?;
+        Ok(
+          stmt
+            .query_row([], |row| row.get::<_, u32>(0))
+            .map_err(|e| {
+              error!(message = e.to_string(), "Failed to get descriptor count");
+              anyhow!("Failed to get descriptor count")
+            })?,
+        )
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get descriptor count");
+        anyhow!("Failed to get descriptor count")
+      })?
+  }
+
+  #[instrument(skip_all)]
+  async fn get_language_count(&self) -> Result<u32> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare("SELECT COUNT(*) FROM languages")?;
+        Ok(
+          stmt
+            .query_row([], |row| row.get::<_, u32>(0))
+            .map_err(|e| {
+              error!(message = e.to_string(), "Failed to get language count");
+              anyhow!("Failed to get language count")
+            })?,
+        )
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get language count");
+        anyhow!("Failed to get language count")
+      })?
+  }
+
+  #[instrument(skip_all)]
+  async fn get_duplicate_count(&self) -> Result<u32> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare(
+          "
+            SELECT COUNT(*) FROM album_duplicates
+            ",
+        )?;
+        Ok(
+          stmt
+            .query_row([], |row| row.get::<_, u32>(0))
+            .map_err(|e| {
+              error!(message = e.to_string(), "Failed to get duplicate count");
+              anyhow!("Failed to get duplicate count")
+            })?,
+        )
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get duplicate count");
+        anyhow!("Failed to get duplicate count")
+      })?
   }
 }

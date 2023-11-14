@@ -1,12 +1,27 @@
 use super::{
-  album_read_model::AlbumReadModel, album_repository::AlbumRepository,
+  album_read_model::AlbumReadModel,
+  album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
   album_search_index::AlbumSearchIndex,
 };
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::Result;
 use iter_tools::Itertools;
 use std::sync::Arc;
-use tracing::error;
+use tokio::try_join;
+use tracing::{error, instrument};
+
+pub struct AlbumMonitor {
+  pub album_count: u32,
+  pub artist_count: u32,
+  pub genre_count: u32,
+  pub descriptor_count: u32,
+  pub duplicate_count: u32,
+  pub language_count: u32,
+  pub top_genres: Vec<GenreAggregate>,
+  pub top_descriptors: Vec<ItemAndCount>,
+  pub top_languages: Vec<ItemAndCount>,
+  pub aggregated_years: Vec<ItemAndCount>,
+}
 
 pub struct AlbumInteractor {
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
@@ -24,6 +39,51 @@ impl AlbumInteractor {
     }
   }
 
+  #[instrument(skip(self))]
+  pub async fn get_monitor(&self) -> Result<AlbumMonitor> {
+    let top_count = 10;
+    let (
+      album_count,
+      artist_count,
+      genre_count,
+      descriptor_count,
+      language_count,
+      duplicate_count,
+      top_genres,
+      top_descriptors,
+      top_languages,
+      aggregated_years,
+    ) = try_join!(
+      self.album_repository.get_album_count(),
+      self.album_repository.get_artist_count(),
+      self.album_repository.get_genre_count(),
+      self.album_repository.get_descriptor_count(),
+      self.album_repository.get_language_count(),
+      self.album_repository.get_duplicate_count(),
+      self.album_repository.get_aggregated_genres(Some(top_count)),
+      self
+        .album_repository
+        .get_aggregated_descriptors(Some(top_count)),
+      self
+        .album_repository
+        .get_aggregated_languages(Some(top_count)),
+      self.album_repository.get_aggregated_years(None)
+    )?;
+    Ok(AlbumMonitor {
+      album_count,
+      artist_count,
+      genre_count,
+      descriptor_count,
+      duplicate_count,
+      language_count,
+      top_genres,
+      top_descriptors,
+      top_languages,
+      aggregated_years,
+    })
+  }
+
+  #[instrument(skip(self))]
   async fn process_duplicates(&self, album: &AlbumReadModel) -> Result<()> {
     let potential_duplicates = self
       .album_repository
@@ -92,6 +152,7 @@ impl AlbumInteractor {
     Ok(())
   }
 
+  #[instrument(skip(self), name = "AlbumInteractor::get")]
   pub async fn put(&self, album: AlbumReadModel) -> Result<()> {
     let file_name = album.file_name.clone();
     self.album_repository.put(album.clone()).await?;

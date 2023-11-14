@@ -150,22 +150,17 @@ message GenreAggregate {
 
 message GetAggregatedGenresReply { repeated GenreAggregate genres = 1; }
 
-message DescriptorAggregate {
+message ItemAndCount {
   string name = 1;
   uint32 count = 2;
 }
 
 message GetAggregatedDescriptorsReply {
-  repeated DescriptorAggregate descriptors = 1;
-}
-
-message LanguageAggregate {
-  string name = 1;
-  uint32 count = 2;
+  repeated ItemAndCount descriptors = 1;
 }
 
 message GetAggregatedLanguagesReply {
-  repeated LanguageAggregate languages = 1;
+  repeated ItemAndCount languages = 1;
 }
 
 message GetEmbeddingKeysReply {
@@ -216,7 +211,25 @@ message GetManyAlbumsReply {
   repeated Album albums = 1;
 }
 
+message AlbumMonitor {
+  uint32 album_count = 1;
+  uint32 artist_count = 2;
+  uint32 genre_count = 3;
+  uint32 descriptor_count = 4;
+  uint32 language_count = 5;
+  uint32 duplicate_count = 6;
+  repeated GenreAggregate top_genres = 7;
+  repeated ItemAndCount top_descriptors = 8;
+  repeated ItemAndCount top_languages = 9;
+  repeated ItemAndCount aggregated_years = 10;
+} 
+
+message GetAlbumMonitorReply { 
+  AlbumMonitor monitor = 1; 
+}
+
 service AlbumService {
+  rpc GetMonitor(google.protobuf.Empty) returns (GetAlbumMonitorReply) {}
   rpc GetAlbum(GetAlbumRequest) returns (GetAlbumReply) {}
   rpc GetManyAlbums(GetManyAlbumsRequest) returns (GetManyAlbumsReply) {}
   rpc SearchAlbums(SearchAlbumsRequest) returns (SearchAlbumsReply) {}
