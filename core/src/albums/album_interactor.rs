@@ -17,9 +17,9 @@ pub struct AlbumMonitor {
   pub descriptor_count: u32,
   pub duplicate_count: u32,
   pub language_count: u32,
-  pub top_genres: Vec<GenreAggregate>,
-  pub top_descriptors: Vec<ItemAndCount>,
-  pub top_languages: Vec<ItemAndCount>,
+  pub aggregated_genres: Vec<GenreAggregate>,
+  pub aggregated_descriptors: Vec<ItemAndCount>,
+  pub aggregated_languages: Vec<ItemAndCount>,
   pub aggregated_years: Vec<ItemAndCount>,
 }
 
@@ -41,7 +41,6 @@ impl AlbumInteractor {
 
   #[instrument(skip(self))]
   pub async fn get_monitor(&self) -> Result<AlbumMonitor> {
-    let top_count = 10;
     let (
       album_count,
       artist_count,
@@ -49,9 +48,9 @@ impl AlbumInteractor {
       descriptor_count,
       language_count,
       duplicate_count,
-      top_genres,
-      top_descriptors,
-      top_languages,
+      aggregated_genres,
+      aggregated_descriptors,
+      aggregated_languages,
       aggregated_years,
     ) = try_join!(
       self.album_repository.get_album_count(),
@@ -60,13 +59,9 @@ impl AlbumInteractor {
       self.album_repository.get_descriptor_count(),
       self.album_repository.get_language_count(),
       self.album_repository.get_duplicate_count(),
-      self.album_repository.get_aggregated_genres(Some(top_count)),
-      self
-        .album_repository
-        .get_aggregated_descriptors(Some(top_count)),
-      self
-        .album_repository
-        .get_aggregated_languages(Some(top_count)),
+      self.album_repository.get_aggregated_genres(None),
+      self.album_repository.get_aggregated_descriptors(None),
+      self.album_repository.get_aggregated_languages(None),
       self.album_repository.get_aggregated_years(None)
     )?;
     Ok(AlbumMonitor {
@@ -76,9 +71,9 @@ impl AlbumInteractor {
       descriptor_count,
       duplicate_count,
       language_count,
-      top_genres,
-      top_descriptors,
-      top_languages,
+      aggregated_genres,
+      aggregated_descriptors,
+      aggregated_languages,
       aggregated_years,
     })
   }

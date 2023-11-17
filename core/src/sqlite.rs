@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use rusqlite::vtab;
 use rusqlite_migration::Migrations;
 use std::{path::Path, sync::Arc};
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/migrations");
 
@@ -106,6 +106,7 @@ impl SqliteConnection {
       })?
   }
 
+  #[instrument(skip(self), name = "acquire-sqlite-read-connection")]
   pub async fn read(&self) -> Result<Object> {
     self.read_pool.get().await.map_err(|e| {
       error!("Failed to get SQLite connection: {:?}", e);
@@ -113,6 +114,7 @@ impl SqliteConnection {
     })
   }
 
+  #[instrument(skip(self), name = "acquire-sqlite-write-connection")]
   pub async fn write(&self) -> Result<Object> {
     self.write_pool.get().await.map_err(|e| {
       error!("Failed to get SQLite connection: {:?}", e);

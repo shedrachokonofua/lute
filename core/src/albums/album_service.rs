@@ -27,9 +27,21 @@ impl From<AlbumMonitor> for proto::AlbumMonitor {
       descriptor_count: val.descriptor_count,
       duplicate_count: val.duplicate_count,
       language_count: val.language_count,
-      top_genres: val.top_genres.into_iter().map(|i| i.into()).collect(),
-      top_descriptors: val.top_descriptors.into_iter().map(|i| i.into()).collect(),
-      top_languages: val.top_languages.into_iter().map(|i| i.into()).collect(),
+      aggregated_genres: val
+        .aggregated_genres
+        .into_iter()
+        .map(|i| i.into())
+        .collect(),
+      aggregated_descriptors: val
+        .aggregated_descriptors
+        .into_iter()
+        .map(|i| i.into())
+        .collect(),
+      aggregated_languages: val
+        .aggregated_languages
+        .into_iter()
+        .map(|i| i.into())
+        .collect(),
       aggregated_years: val.aggregated_years.into_iter().map(|i| i.into()).collect(),
     }
   }
@@ -210,57 +222,6 @@ impl proto::AlbumService for AlbumService {
         .get_embedding_keys()
         .await
         .map_err(|e| Status::internal(e.to_string()))?,
-    };
-    Ok(Response::new(reply))
-  }
-
-  async fn get_aggregated_genres(
-    &self,
-    _request: Request<()>,
-  ) -> Result<Response<proto::GetAggregatedGenresReply>, Status> {
-    let reply = proto::GetAggregatedGenresReply {
-      genres: self
-        .album_repository
-        .get_aggregated_genres(None)
-        .await
-        .map_err(|e| Status::internal(e.to_string()))?
-        .into_iter()
-        .map(|i| i.into())
-        .collect(),
-    };
-    Ok(Response::new(reply))
-  }
-
-  async fn get_aggregated_descriptors(
-    &self,
-    _request: Request<()>,
-  ) -> Result<Response<proto::GetAggregatedDescriptorsReply>, Status> {
-    let reply = proto::GetAggregatedDescriptorsReply {
-      descriptors: self
-        .album_repository
-        .get_aggregated_descriptors(None)
-        .await
-        .map_err(|e| Status::internal(e.to_string()))?
-        .into_iter()
-        .map(|i| i.into())
-        .collect(),
-    };
-    Ok(Response::new(reply))
-  }
-
-  async fn get_aggregated_languages(
-    &self,
-    _request: Request<()>,
-  ) -> Result<Response<proto::GetAggregatedLanguagesReply>, Status> {
-    let reply = proto::GetAggregatedLanguagesReply {
-      languages: self
-        .album_repository
-        .get_aggregated_languages(None)
-        .await
-        .map_err(|e| Status::internal(e.to_string()))?
-        .into_iter()
-        .map(|i| i.into())
-        .collect(),
     };
     Ok(Response::new(reply))
   }

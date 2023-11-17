@@ -5,20 +5,18 @@ import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { Layout } from "./components";
 import {
   DashboardPage,
+  NewProfilePage,
   NoProfileSelected,
   ProfileDetails,
   ProfilesPage,
   RecommendationPage,
   SpotifyOAuthCallbackPage,
+  newProfileAction,
   profileDetailsAction,
   profileDetailsLoader,
   profilePageAction,
   recommendationPageLoader,
 } from "./pages";
-import {
-  NewProfilePage,
-  newProfileAction,
-} from "./pages/profiles/NewProfilePage";
 import { getRemoteContext } from "./remote-context";
 
 const queryClient = new QueryClient({

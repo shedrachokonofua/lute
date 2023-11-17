@@ -38,7 +38,7 @@ impl Default for QuantileRankAlbumAssessmentSettings {
       descriptor_weight: 7,
       rating_weight: 2,
       rating_count_weight: 1,
-      novelty_score: 0.5,
+      novelty_score: 0.2,
       descriptor_count_weight: 2,
       credit_tag_weight: 1,
     }

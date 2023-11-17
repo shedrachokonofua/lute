@@ -218,9 +218,9 @@ message AlbumMonitor {
   uint32 descriptor_count = 4;
   uint32 language_count = 5;
   uint32 duplicate_count = 6;
-  repeated GenreAggregate top_genres = 7;
-  repeated ItemAndCount top_descriptors = 8;
-  repeated ItemAndCount top_languages = 9;
+  repeated GenreAggregate aggregated_genres = 7;
+  repeated ItemAndCount aggregated_descriptors = 8;
+  repeated ItemAndCount aggregated_languages = 9;
   repeated ItemAndCount aggregated_years = 10;
 } 
 
@@ -233,12 +233,6 @@ service AlbumService {
   rpc GetAlbum(GetAlbumRequest) returns (GetAlbumReply) {}
   rpc GetManyAlbums(GetManyAlbumsRequest) returns (GetManyAlbumsReply) {}
   rpc SearchAlbums(SearchAlbumsRequest) returns (SearchAlbumsReply) {}
-  rpc GetAggregatedGenres(google.protobuf.Empty)
-      returns (GetAggregatedGenresReply) {}
-  rpc GetAggregatedDescriptors(google.protobuf.Empty)
-      returns (GetAggregatedDescriptorsReply) {}
-  rpc GetAggregatedLanguages(google.protobuf.Empty)
-      returns (GetAggregatedLanguagesReply) {}
   rpc GetEmbeddingKeys(google.protobuf.Empty) returns (GetEmbeddingKeysReply) {}
 }
 

@@ -1,36 +1,27 @@
 import { useRouteLoaderData } from "react-router-dom";
 import {
-  getAggregatedGenres,
-  getAggregatedLanguages,
+  getAlbumMonitor,
   getAllProfiles,
   getIsSpotifyAuthenticated,
 } from "./client";
-import { GenreAggregate, LanguageAggregate, Profile } from "./proto/lute_pb";
+import { AlbumMonitor, Profile } from "./proto/lute_pb";
 
 export interface AppRemoteContext {
   isSpotifyAuthenticated: boolean;
   profiles: Profile[];
-  aggregatedGenres: GenreAggregate[];
-  aggregatedLanguages: LanguageAggregate[];
+  albumMonitor: AlbumMonitor;
 }
 
 export const getRemoteContext = async (): Promise<AppRemoteContext> => {
-  const [
-    isSpotifyAuthenticated,
-    profiles,
-    aggregatedGenres,
-    aggregatedLanguages,
-  ] = await Promise.all([
+  const [isSpotifyAuthenticated, profiles, albumMonitor] = await Promise.all([
     getIsSpotifyAuthenticated(),
     getAllProfiles(),
-    getAggregatedGenres(),
-    getAggregatedLanguages(),
+    getAlbumMonitor(),
   ]);
   return {
     isSpotifyAuthenticated,
     profiles,
-    aggregatedGenres,
-    aggregatedLanguages,
+    albumMonitor,
   };
 };
 

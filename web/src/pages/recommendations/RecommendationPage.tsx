@@ -1,28 +1,28 @@
-import { Grid,Stack,Text } from "@mantine/core";
+import { Grid, Stack, Text } from "@mantine/core";
 import React from "react";
 import {
-Await,
-LoaderFunctionArgs,
-defer,
-useLoaderData,
-useRouteError,
+  Await,
+  LoaderFunctionArgs,
+  defer,
+  useLoaderData,
+  useRouteError,
 } from "react-router-dom";
 import {
-getAlbumRecommendations,
-getDefaultQuantileRankAlbumAssessmentSettings,
-getEmbeddingKeys,
+  getAlbumRecommendations,
+  getDefaultQuantileRankAlbumAssessmentSettings,
+  getEmbeddingKeys,
 } from "../../client";
 import {
-AlbumRecommendation,
-QuantileRankAlbumAssessmentSettings,
+  AlbumRecommendation,
+  QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
 import { useRemoteContext } from "../../remote-context";
 import { AlbumRecommendationItem } from "./AlbumRecommendationItem";
 import { RecommendationSettings } from "./RecommendationSettings";
 import {
-RecommendationMethod,
-RecommendationSettingsForm,
-RecommendationSettingsFormName,
+  RecommendationMethod,
+  RecommendationSettingsForm,
+  RecommendationSettingsFormName,
 } from "./types";
 
 function ErrorBoundary() {
@@ -227,8 +227,7 @@ export const recommendationPageLoader = async ({
 };
 
 export const RecommendationPage = () => {
-  const { profiles, aggregatedGenres, aggregatedLanguages } =
-    useRemoteContext();
+  const { profiles, albumMonitor } = useRemoteContext();
   const {
     embeddingKeys,
     settings,
@@ -253,8 +252,8 @@ export const RecommendationPage = () => {
       >
         <RecommendationSettings
           profiles={profiles}
-          aggregatedGenres={aggregatedGenres}
-          aggregatedLanguages={aggregatedLanguages}
+          aggregatedGenres={albumMonitor.getAggregatedGenresList()}
+          aggregatedLanguages={albumMonitor.getAggregatedLanguagesList()}
           embeddingKeys={embeddingKeys}
           settings={settings}
           defaultQuantileRankAlbumAssessmentSettings={

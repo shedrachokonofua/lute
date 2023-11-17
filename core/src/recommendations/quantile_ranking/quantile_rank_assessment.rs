@@ -150,7 +150,7 @@ impl QuantileRankAlbumAssessmentContext {
           &self.credit_tag_ranking,
           &self.credit_tag_summary_map,
           &album.credit_tags(),
-          0.1,
+          self.settings.novelty_score,
         )
       })?;
     let (rating_rank, mut rating_ranks) = compute_ranks(self.settings.rating_weight, || {

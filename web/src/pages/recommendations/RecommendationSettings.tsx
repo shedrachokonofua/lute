@@ -13,7 +13,7 @@ import { Form } from "react-router-dom";
 import { CollapsibleSection } from "../../components";
 import {
   GenreAggregate,
-  LanguageAggregate,
+  ItemAndCount,
   Profile,
   QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
@@ -34,7 +34,7 @@ export const RecommendationSettings = ({
 }: {
   profiles: Profile[];
   aggregatedGenres: GenreAggregate[];
-  aggregatedLanguages: LanguageAggregate[];
+  aggregatedLanguages: ItemAndCount[];
   embeddingKeys: string[];
   settings: RecommendationSettingsForm | null;
   defaultQuantileRankAlbumAssessmentSettings: QuantileRankAlbumAssessmentSettings;

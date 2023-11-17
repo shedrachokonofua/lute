@@ -9,6 +9,7 @@ import {
 import {
   Album,
   AlbumAssessmentSettings,
+  AlbumMonitor,
   AlbumRecommendation,
   AlbumRecommendationSettings,
   AlbumSearchQuery,
@@ -16,7 +17,6 @@ import {
   CreateProfileRequest,
   DeleteProfileRequest,
   EmbeddingSimilarityAlbumAssessmentSettings,
-  GenreAggregate,
   GetManyAlbumsRequest,
   GetPendingSpotifyImportsReply,
   GetPendingSpotifyImportsRequest,
@@ -25,7 +25,6 @@ import {
   HandleAuthorizationCodeRequest,
   ImportSavedSpotifyTracksRequest,
   ImportSpotifyPlaylistTracksRequest,
-  LanguageAggregate,
   Profile,
   ProfileSummary,
   PutAlbumOnProfileRequest,
@@ -37,7 +36,7 @@ import {
   SearchPagination,
 } from "./proto/lute_pb";
 
-const coreUrl = "http://0.0.0.0:22000";
+const coreUrl = "http://pc:22000";
 const client = {
   spotify: new SpotifyServiceClient(coreUrl),
   profile: new ProfileServiceClient(coreUrl),
@@ -64,18 +63,6 @@ export const handleSpotifyAuthCode = async (code: string): Promise<void> => {
 export const getAllProfiles = async (): Promise<Profile[]> => {
   const response = await client.profile.getAllProfiles(new Empty(), null);
   return response.getProfilesList();
-};
-
-export const getAggregatedGenres = async (): Promise<GenreAggregate[]> => {
-  const response = await client.album.getAggregatedGenres(new Empty(), null);
-  return response.getGenresList();
-};
-
-export const getAggregatedLanguages = async (): Promise<
-  LanguageAggregate[]
-> => {
-  const response = await client.album.getAggregatedLanguages(new Empty(), null);
-  return response.getLanguagesList();
 };
 
 export const getEmbeddingKeys = async (): Promise<string[]> => {
@@ -416,4 +403,9 @@ export const clearPendingSpotifyImports = async (
   const request = new ClearPendingSpotifyImportsRequest();
   request.setProfileId(profileId);
   await client.profile.clearPendingSpotifyImports(request, null);
+};
+
+export const getAlbumMonitor = async (): Promise<AlbumMonitor> => {
+  const response = await client.album.getMonitor(new Empty(), null);
+  return response.getMonitor()!;
 };

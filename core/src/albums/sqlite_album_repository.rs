@@ -15,7 +15,7 @@ use std::{
   sync::Arc,
 };
 use tokio::try_join;
-use tracing::{error, instrument};
+use tracing::{error, instrument, warn};
 
 pub struct SqliteAlbumRepository {
   sqlite_connection: Arc<SqliteConnection>,
@@ -487,7 +487,7 @@ impl SqliteAlbumRepository {
               duplicates.push(duplicate_album_file_name);
             }
             AlbumDuplication::DuplicateOf(_) => {
-              panic!(
+              warn!(
                 "Album {} is both a duplicate and a duplicate of another album",
                 original_album_file_name.to_string()
               );
@@ -503,7 +503,7 @@ impl SqliteAlbumRepository {
       .await
       .map_err(|e| {
         error!(message = e.to_string(), "Failed to find album duplicates");
-        anyhow!("Failed to find album duplicates")
+        anyhow!("Failed to find album duplicates: {}", e)
       })?
   }
 }
