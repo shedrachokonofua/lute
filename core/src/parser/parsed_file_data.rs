@@ -1,6 +1,7 @@
 use crate::files::file_metadata::file_name::FileName;
 use chrono::NaiveDate;
 use serde_derive::{Deserialize, Serialize};
+use unidecode::unidecode;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedArtistReference {
@@ -39,6 +40,12 @@ pub struct ParsedAlbum {
   pub credits: Vec<ParsedCredit>,
   #[serde(default)]
   pub cover_image_url: Option<String>,
+}
+
+impl ParsedAlbum {
+  pub fn ascii_name(&self) -> String {
+    unidecode(self.name.as_str())
+  }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

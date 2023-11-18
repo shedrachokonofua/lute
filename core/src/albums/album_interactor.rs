@@ -147,7 +147,7 @@ impl AlbumInteractor {
     Ok(())
   }
 
-  #[instrument(skip(self), name = "AlbumInteractor::get")]
+  #[instrument(skip(self), name = "AlbumInteractor::put")]
   pub async fn put(&self, album: AlbumReadModel) -> Result<()> {
     let file_name = album.file_name.clone();
     self.album_repository.put(album.clone()).await?;

@@ -257,9 +257,9 @@ pub fn build_album_event_subscribers(
       .settings(Arc::clone(&settings))
       .generate_ordered_processing_group_id(Arc::new(|row| match &row.payload.event {
         Event::FileParsed {
-          data: ParsedFileData::Album(ParsedAlbum { name, .. }),
+          data: ParsedFileData::Album(album),
           ..
-        } => Some(name.clone()), // Ensure potential duplicates are processed sequentially
+        } => Some(album.ascii_name()), // Ensure potential duplicates are processed sequentially
         _ => None,
       }))
       .handle(Arc::new(|context| {
@@ -274,12 +274,10 @@ pub fn build_album_event_subscribers(
       .sqlite_connection(Arc::clone(&sqlite_connection))
       .settings(Arc::clone(&settings))
       .generate_ordered_processing_group_id(Arc::new(|row| match &row.payload.event {
-        Event::FileDeleted { file_name, .. } => {
-          match file_name.page_type() {
-            PageType::Album => Some(file_name.to_string()), // Ensure duplicates are processed sequentially
-            _ => None,
-          }
-        }
+        Event::FileDeleted { file_name, .. } => match file_name.page_type() {
+          PageType::Album => Some(file_name.to_string()),
+          _ => None,
+        },
         _ => None,
       }))
       .handle(Arc::new(|context| {
