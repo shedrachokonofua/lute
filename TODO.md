@@ -12,7 +12,7 @@
       - [ ] Scheduled tasks
       - [ ] Make telemetry optional
     - Files:
-      - [ ] Fix staleness check
+      - [x] Fix staleness check
       - [ ] Support local disk file content storage
       - [ ] Migrate to SQLite
       - [x] Deletion + RPC method

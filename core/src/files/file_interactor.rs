@@ -2,7 +2,7 @@ use super::{
   file_content_store::FileContentStore,
   file_metadata::{
     file_metadata::FileMetadata, file_metadata_repository::FileMetadataRepository,
-    file_name::FileName, file_timestamp::FileTimestamp,
+    file_name::FileName, file_timestamp::FileTimestamp, page_type::PageType,
   },
 };
 use crate::{
@@ -49,12 +49,19 @@ impl FileInteractor {
       .find_by_name(file_name)
       .await?;
 
+    let ttl_days = match file_name.page_type() {
+      PageType::Artist => self.settings.file.ttl_days.artist,
+      PageType::Album => self.settings.file.ttl_days.album,
+      PageType::Chart => self.settings.file.ttl_days.chart,
+      PageType::AlbumSearchResult => self.settings.file.ttl_days.search,
+    };
+
     Ok(
       file_metadata
         .map(|file_metadata| {
           let now: DateTime<Utc> = FileTimestamp::now().into();
           let last_saved_at: DateTime<Utc> = file_metadata.last_saved_at.into();
-          let stale_at = last_saved_at + Duration::days(self.settings.file.ttl_days.album.into());
+          let stale_at = last_saved_at + Duration::days(ttl_days.into());
           now > stale_at
         })
         .unwrap_or(true),
