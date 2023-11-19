@@ -1,7 +1,7 @@
 import { Box, Group, Stack, Text } from "@mantine/core";
 import { ReactNode } from "react";
+import { Card } from "../../../components/Card";
 import { ItemWithFactor, ProfileSummary } from "../../../proto/lute_pb";
-import { ProfileDetailsCard } from "./ProfileDetailsCard";
 
 const OverviewItem = ({
   label,
@@ -47,7 +47,7 @@ export const ProfileOverview = ({
   const topDescriptors = getTopItems(profileSummary.getDescriptorsList(), N);
 
   return (
-    <ProfileDetailsCard label="Overview">
+    <Card label="Overview">
       <Box pt="sm">
         <Stack spacing="sm">
           <Group grow>
@@ -75,6 +75,6 @@ export const ProfileOverview = ({
           />
         </Stack>
       </Box>
-    </ProfileDetailsCard>
+    </Card>
   );
 };

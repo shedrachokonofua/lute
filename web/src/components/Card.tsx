@@ -1,18 +1,28 @@
-import { ActionIcon, Card, Menu, Text } from "@mantine/core";
+import {
+  ActionIcon,
+  Box,
+  Card as MantineCard,
+  Menu,
+  SpacingValue,
+  SystemProp,
+  Text,
+} from "@mantine/core";
 import { IconMenu2 } from "@tabler/icons-react";
 
-export const ProfileDetailsCard = ({
+export const Card = ({
   label,
   children,
+  contentPt,
   footer,
   dropdownMenu,
 }: {
   label: string;
   children?: React.ReactNode;
+  contentPt?: SystemProp<SpacingValue>;
   footer?: React.ReactNode;
   dropdownMenu?: React.ReactNode;
 }) => (
-  <Card
+  <MantineCard
     withBorder
     shadow="xs"
     style={
@@ -23,7 +33,7 @@ export const ProfileDetailsCard = ({
         : {}
     }
   >
-    <Card.Section withBorder inheritPadding py="xs">
+    <MantineCard.Section withBorder inheritPadding py="xs">
       <div style={{ display: "flex" }}>
         <div style={{ flex: 1 }}>
           <Text
@@ -51,12 +61,12 @@ export const ProfileDetailsCard = ({
           </div>
         )}
       </div>
-    </Card.Section>
-    {children}
+    </MantineCard.Section>
+    <Box pt={contentPt}>{children}</Box>
     {footer && (
-      <Card.Section withBorder inheritPadding py="xs">
+      <MantineCard.Section withBorder inheritPadding py="xs">
         {footer}
-      </Card.Section>
+      </MantineCard.Section>
     )}
-  </Card>
+  </MantineCard>
 );

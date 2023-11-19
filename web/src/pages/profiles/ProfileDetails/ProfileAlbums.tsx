@@ -1,6 +1,6 @@
 import {
-  Card,
   Flex,
+  Card as MantineCard,
   Pagination,
   Select,
   Switch,
@@ -9,9 +9,9 @@ import {
 } from "@mantine/core";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Card } from "../../../components";
 import { Profile } from "../../../proto/lute_pb";
 import { ProfileAlbumsListItem } from "./ProfileAlbumsListItem";
-import { ProfileDetailsCard } from "./ProfileDetailsCard";
 import { ProfileAlbumsList } from "./types";
 import { useDebounce } from "./use-debounce";
 import { useUpdateEffect } from "./use-update-effect";
@@ -150,7 +150,7 @@ const SearchModeSwitch = ({ list }: { list: ProfileAlbumsList }) => {
 
 export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
   return (
-    <ProfileDetailsCard
+    <Card
       label="Albums"
       footer={
         <Flex justify="space-between" align="center">
@@ -170,7 +170,7 @@ export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
         </Flex>
       }
     >
-      <Card.Section withBorder inheritPadding py="xs">
+      <MantineCard.Section withBorder inheritPadding py="xs">
         <Flex gap="md" align="center">
           <div
             style={{
@@ -181,7 +181,7 @@ export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
           </div>
           <SearchModeSwitch list={list} />
         </Flex>
-      </Card.Section>
+      </MantineCard.Section>
       <div>
         {list.albums.map((album, i) => (
           <ProfileAlbumsListItem
@@ -194,6 +194,6 @@ export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
           />
         ))}
       </div>
-    </ProfileDetailsCard>
+    </Card>
   );
 };

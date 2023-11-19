@@ -14,12 +14,12 @@ import {
   importSavedSpotifyTracks,
   importSpotifyPlaylistTracks,
 } from "../../../client";
+import { Card } from "../../../components/Card";
 import {
   AggregatedStatus,
   GetPendingSpotifyImportsReply,
   Profile,
 } from "../../../proto/lute_pb";
-import { ProfileDetailsCard } from "./ProfileDetailsCard";
 import { pendingSpotifyImportsQuery, profileDetailsQuery } from "./queries";
 import { useInterval } from "./use-interval";
 
@@ -231,7 +231,7 @@ export const ProfileSpotifyImport = ({
   } = useImportMenu(profile);
 
   return (
-    <ProfileDetailsCard
+    <Card
       label="Spotify Import"
       dropdownMenu={
         <>
@@ -306,6 +306,6 @@ export const ProfileSpotifyImport = ({
           })}
         </div>
       </Stack>
-    </ProfileDetailsCard>
+    </Card>
   );
 };
