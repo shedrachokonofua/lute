@@ -9,7 +9,7 @@ use crate::{
   },
   settings::CrawlerSettings,
 };
-use anyhow::Result;
+use anyhow::{Error, Result};
 use reqwest_middleware::ClientWithMiddleware;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -76,7 +76,12 @@ impl CrawlerWorker {
         item = &queue_item.item_key.to_string(),
         "Processing queue item"
       );
-      self.process_queue_item(queue_item.clone()).await
+      let file_metadata = self.process_queue_item(queue_item.clone()).await?;
+      self
+        .crawler_interactor
+        .increment_window_request_count()
+        .await?;
+      Ok::<_, Error>(file_metadata)
     })
     .await
     .map_err(|e| {
@@ -87,10 +92,6 @@ impl CrawlerWorker {
       );
       anyhow::anyhow!("Failed to process queue item after 5 retries: {:?}", e)
     })?;
-    self
-      .crawler_interactor
-      .increment_window_request_count()
-      .await?;
     Ok(Some(result))
   }
 
