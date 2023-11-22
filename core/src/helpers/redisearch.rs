@@ -1,5 +1,6 @@
 use rustis::{bb8::PooledConnection, client::PooledClientManager, commands::SearchCommands};
 use tracing::warn;
+use unidecode::unidecode;
 
 pub async fn does_ft_index_exist<'a>(
   connection: &PooledConnection<'a, PooledClientManager>,
@@ -12,6 +13,19 @@ pub async fn does_ft_index_exist<'a>(
       !err.to_string().contains("Unknown Index name")
     }
   }
+}
+
+pub fn escape_search_query_text(input: &str) -> String {
+  unidecode(input.trim())
+    .chars()
+    .map(|c| {
+      if c.is_ascii_alphanumeric() {
+        c.to_string()
+      } else {
+        " ".to_string()
+      }
+    })
+    .collect()
 }
 
 pub fn escape_tag_value(input: &str) -> String {

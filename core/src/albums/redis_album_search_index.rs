@@ -11,7 +11,7 @@ use super::{
 };
 use crate::{
   files::file_metadata::file_name::FileName,
-  helpers::redisearch::{does_ft_index_exist, escape_tag_value},
+  helpers::redisearch::{does_ft_index_exist, escape_search_query_text, escape_tag_value},
 };
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
@@ -202,10 +202,7 @@ impl AlbumSearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     let mut ft_search_query = String::from("");
     if let Some(text) = &self.text {
-      ft_search_query.push_str(&format!(
-        "({}*) ",
-        escape_tag_value(text).replace(r"\ ", " ").trim()
-      ));
+      ft_search_query.push_str(&format!("({}) ", escape_search_query_text(&text)));
     }
     if let Some(exact_name) = &self.exact_name {
       ft_search_query.push_str(&get_tag_query("@name_tag", &vec![exact_name]));
