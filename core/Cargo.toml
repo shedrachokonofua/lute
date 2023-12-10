@@ -12,7 +12,7 @@ chrono = { version = "0.4.24", features = ["serde"] }
 config = "0.13.3"
 console-subscriber = "0.2.0"
 data-encoding = "2.4.0"
-deadpool-sqlite = "0.6.0"
+deadpool-sqlite = "0.7.0"
 derive_builder = "0.12.0"
 dotenv = "0.15.0"
 futures = "0.3.28"
@@ -34,10 +34,10 @@ reqwest = "0.11.18"
 reqwest-middleware = "0.2.2"
 reqwest-tracing = "0.4.5"
 rspotify = "0.12.0"
-rusqlite = { version = "0.29.0", features = ["array", "bundled", "chrono"] }
-rusqlite_migration = { git = "https://github.com/cljoly/rusqlite_migration.git", features = [
+rusqlite = { version = "0.30.0", features = ["array", "bundled", "chrono"] }
+rusqlite_migration = { version = "1.1.0-beta.1", features = [
   "from-directory",
-  "async-tokio-rusqlite",
+  "alpha-async-tokio-rusqlite",
 ] }
 rust-s3 = "0.33.0"
 rustis = { version = "0.12.0", features = [
@@ -57,7 +57,7 @@ tokio = { version = "1.28.1", features = [
   "tracing",
 ] }
 tokio-retry = "0.3.0"
-tokio-rusqlite = "0.4.0"
+tokio-rusqlite = "0.5.0"
 tonic = "0.10.0"
 tonic-reflection = "0.10.0"
 tonic-web = "0.10.0"
