@@ -13,6 +13,12 @@ pub struct AlbumReadModelArtist {
   pub file_name: FileName,
 }
 
+impl AlbumReadModelArtist {
+  pub fn ascii_name(&self) -> String {
+    unidecode(&self.name)
+  }
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct AlbumReadModelTrack {
   pub name: String,

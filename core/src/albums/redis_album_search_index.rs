@@ -31,12 +31,39 @@ use std::sync::Arc;
 use tracing::{info, instrument};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
+pub struct RedisAlbumReadModelArtist {
+  pub name: String,
+  pub ascii_name: String,
+  pub file_name: FileName,
+}
+
+impl Into<AlbumReadModelArtist> for RedisAlbumReadModelArtist {
+  fn into(self) -> AlbumReadModelArtist {
+    AlbumReadModelArtist {
+      name: self.name,
+      file_name: self.file_name,
+    }
+  }
+}
+
+impl Into<RedisAlbumReadModelArtist> for AlbumReadModelArtist {
+  fn into(self) -> RedisAlbumReadModelArtist {
+    RedisAlbumReadModelArtist {
+      name: self.name.clone(),
+      ascii_name: self.ascii_name(),
+      file_name: self.file_name,
+    }
+  }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct RedisAlbumReadModel {
   pub name: String,
+  pub ascii_name: String,
   pub file_name: FileName,
   pub rating: f32,
   pub rating_count: u32,
-  pub artists: Vec<AlbumReadModelArtist>,
+  pub artists: Vec<RedisAlbumReadModelArtist>,
   pub artist_count: u32,
   pub primary_genres: Vec<String>,
   pub primary_genre_count: u32,
@@ -76,7 +103,7 @@ impl Into<AlbumReadModel> for RedisAlbumReadModel {
       file_name: self.file_name,
       rating: self.rating,
       rating_count: self.rating_count,
-      artists: self.artists,
+      artists: self.artists.into_iter().map(|a| a.into()).collect(),
       primary_genres: self.primary_genres,
       secondary_genres: self.secondary_genres,
       descriptors: self.descriptors,
@@ -105,11 +132,12 @@ impl Into<RedisAlbumReadModel> for AlbumReadModel {
 
     RedisAlbumReadModel {
       name_tag: self.name.clone(),
-      name: self.name,
+      name: self.name.clone(),
+      ascii_name: self.ascii_name(),
       file_name: self.file_name,
       rating: self.rating,
       rating_count: self.rating_count,
-      artists: self.artists,
+      artists: self.artists.into_iter().map(|a| a.into()).collect(),
       artist_count,
       primary_genres: self.primary_genres,
       primary_genre_count,
@@ -307,6 +335,9 @@ impl RedisAlbumSearchIndex {
             FtFieldSchema::identifier("$.artists[*].name")
               .as_attribute("artist_name")
               .field_type(FtFieldType::Text),
+            FtFieldSchema::identifier("$.artists[*].ascii_name")
+              .as_attribute("artist_ascii_name")
+              .field_type(FtFieldType::Text),
             FtFieldSchema::identifier("$.artists[*].file_name")
               .as_attribute("artist_file_name")
               .field_type(FtFieldType::Tag),
@@ -361,6 +392,9 @@ impl RedisAlbumSearchIndex {
             FtFieldSchema::identifier("$.name_tag")
               .as_attribute("name_tag")
               .field_type(FtFieldType::Tag),
+            FtFieldSchema::identifier("$.ascii_name")
+              .as_attribute("ascii_name")
+              .field_type(FtFieldType::Text),
           ],
         )
         .await?;
