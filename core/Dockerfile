@@ -1,4 +1,4 @@
-FROM rust:1.73-bookworm as builder
+FROM rust:1.74-bookworm as builder
 WORKDIR /usr/src/app
 
 # Install protobuf compiler
