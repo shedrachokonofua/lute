@@ -9,7 +9,7 @@ pub struct BoundedMinHeap<T: Ord> {
 impl<T: Ord> BoundedMinHeap<T> {
   pub fn new(capacity: usize) -> Self {
     Self {
-      heap: BinaryHeap::new(),
+      heap: BinaryHeap::with_capacity(capacity),
       capacity,
     }
   }

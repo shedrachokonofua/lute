@@ -12,9 +12,9 @@ use crate::{
 use anyhow::Result;
 use async_trait::async_trait;
 use derive_builder::Builder;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::{iter::ParallelDrainRange, prelude::ParallelIterator};
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::unbounded_channel;
 use tracing::{instrument, warn};
 
 #[derive(Builder, Clone, Debug)]
@@ -77,7 +77,11 @@ impl
   RecommendationMethodInteractor<QuantileRankAssessableAlbum, QuantileRankAlbumAssessmentSettings>
   for QuantileRankInteractor
 {
-  #[instrument(name = "QuantileRankInteractor::assess_album", skip(self))]
+  #[instrument(
+    name = "QuantileRankInteractor::assess_album",
+    skip(self, profile, profile_albums, album_read_model),
+    fields(profile_id = %profile.id.to_string(), profile_album_count = profile_albums.len())
+  )]
   async fn assess_album(
     &self,
     profile: &Profile,
@@ -89,7 +93,11 @@ impl
       .assess(&album_read_model.0)
   }
 
-  #[instrument(name = "QuantileRankInteractor::recommend_albums", skip(self))]
+  #[instrument(
+    name = "QuantileRankInteractor::recommend_albums",
+    skip(self, profile, profile_albums),
+    fields(profile_id = %profile.id.to_string(), profile_album_count = profile_albums.len())
+  )]
   async fn recommend_albums(
     &self,
     profile: &Profile,
@@ -98,22 +106,20 @@ impl
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
     let search_query = recommendation_settings.to_search_query(profile, profile_albums)?;
-    let search_results = self.album_search_index.search(&search_query, None).await?;
+    let mut search_results = self.album_search_index.search(&search_query, None).await?;
     let context =
       QuantileRankAlbumAssessmentContext::new(profile, profile_albums, assessment_settings);
     let mut result_heap = BoundedMinHeap::new(recommendation_settings.count as usize);
-    let (recommendation_sender, mut recommendation_receiver) = mpsc::unbounded_channel();
+    let (recommendation_sender, mut recommendation_receiver) = unbounded_channel();
     rayon::spawn(move || {
       search_results
         .albums
-        .par_iter()
-        .for_each(|album| match context.assess(album) {
+        .par_drain(..)
+        .for_each(|album| match context.assess(&album) {
           Ok(assessment) => {
-            let recommendation = AlbumRecommendation {
-              album: album.clone(),
-              assessment,
-            };
-            recommendation_sender.send(recommendation).unwrap();
+            if let Err(e) = recommendation_sender.send(AlbumRecommendation { album, assessment }) {
+              warn!("Error sending recommendation: {}", e);
+            }
           }
           Err(error) => {
             warn!("Error assessing album: {}", error);

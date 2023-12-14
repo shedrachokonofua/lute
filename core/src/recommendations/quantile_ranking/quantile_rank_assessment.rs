@@ -14,17 +14,17 @@ use std::collections::HashMap;
 use tracing::{instrument, warn};
 
 #[instrument(skip(items))]
-fn create_item_with_factor_map(items: &[ItemWithFactor]) -> HashMap<String, ItemWithFactor> {
+fn create_item_with_factor_map(items: Vec<ItemWithFactor>) -> HashMap<String, ItemWithFactor> {
   items
-    .iter()
-    .map(|item| (item.item.clone(), item.clone()))
+    .into_iter()
+    .map(|item| (item.item.clone(), item))
     .collect::<HashMap<String, ItemWithFactor>>()
 }
 
 fn calculate_average_rank(
   ranking: &QuantileRanking<ItemWithFactor>,
   profile_tags_map: &HashMap<String, ItemWithFactor>,
-  album_tags: &[String],
+  album_tags: &Vec<String>,
   novelty_score: f64,
 ) -> Result<f64> {
   if album_tags.is_empty() {
@@ -109,10 +109,10 @@ impl QuantileRankAlbumAssessmentContext {
           .collect::<Vec<_>>(),
       ),
       credit_tag_ranking: QuantileRanking::new(&profile_summary.credit_tags),
-      primary_genre_summary_map: create_item_with_factor_map(&profile_summary.primary_genres),
-      secondary_genre_summary_map: create_item_with_factor_map(&profile_summary.secondary_genres),
-      descriptor_summary_map: create_item_with_factor_map(&profile_summary.descriptors),
-      credit_tag_summary_map: create_item_with_factor_map(&profile_summary.credit_tags),
+      primary_genre_summary_map: create_item_with_factor_map(profile_summary.primary_genres),
+      secondary_genre_summary_map: create_item_with_factor_map(profile_summary.secondary_genres),
+      descriptor_summary_map: create_item_with_factor_map(profile_summary.descriptors),
+      credit_tag_summary_map: create_item_with_factor_map(profile_summary.credit_tags),
     }
   }
 
