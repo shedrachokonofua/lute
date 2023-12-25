@@ -11,9 +11,8 @@ use anyhow::{anyhow, Result};
 use num_traits::Zero;
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;
-use tracing::{instrument, warn};
+use tracing::warn;
 
-#[instrument(skip(items))]
 fn create_item_with_factor_map(items: Vec<ItemWithFactor>) -> HashMap<String, ItemWithFactor> {
   items
     .into_iter()
