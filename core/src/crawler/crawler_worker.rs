@@ -26,7 +26,7 @@ pub struct CrawlerWorker {
 
 impl CrawlerWorker {
   fn get_url(&self, file_name: &FileName) -> String {
-    format!("http://www.rateyourmusic.com/{}", file_name.to_string())
+    format!("https://rateyourmusic.com/{}", file_name.to_string())
   }
 
   #[instrument(skip(self))]
