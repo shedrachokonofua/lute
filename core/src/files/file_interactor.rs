@@ -13,7 +13,7 @@ use crate::{
   settings::Settings,
   sqlite::SqliteConnection,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Duration, Utc};
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
@@ -56,12 +56,18 @@ impl FileInteractor {
       PageType::AlbumSearchResult => self.settings.file.ttl_days.search,
     };
 
+    let ttl_days = Duration::try_days(ttl_days.into()).ok_or(anyhow!(
+      "Invalid ttl_days: {} for file_name: {}",
+      ttl_days,
+      file_name.to_string()
+    ))?;
+
     Ok(
       file_metadata
         .map(|file_metadata| {
           let now: DateTime<Utc> = FileTimestamp::now().into();
           let last_saved_at: DateTime<Utc> = file_metadata.last_saved_at.into();
-          let stale_at = last_saved_at + Duration::days(ttl_days.into());
+          let stale_at = last_saved_at + ttl_days;
           now > stale_at
         })
         .unwrap_or(true),
@@ -111,7 +117,7 @@ impl FileInteractor {
       .find_by_name(file_name)
       .await?
       .ok_or_else(|| {
-        anyhow::anyhow!(
+        anyhow!(
           "File metadata not found for file name: {}",
           file_name.to_string()
         )

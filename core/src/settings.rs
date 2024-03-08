@@ -1,7 +1,6 @@
-use std::collections::HashMap;
-
-use chrono::Duration;
+use chrono::TimeDelta;
 use serde_derive::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct RedisSettings {
@@ -115,13 +114,13 @@ impl Settings {
       .set_default("crawler.pool_size", 10)?
       .set_default(
         "crawler.claim_ttl_seconds",
-        Duration::minutes(5).num_seconds(),
+        TimeDelta::try_days(5).unwrap().num_seconds(),
       )?
       .set_default("crawler.max_queue_size", 5000)?
       .set_default("crawler.wait_time_seconds", 5)?
       .set_default(
         "crawler.rate_limit.window_seconds",
-        Duration::days(1).num_seconds(),
+        TimeDelta::try_minutes(1).unwrap().num_seconds(),
       )?
       .set_default("crawler.rate_limit.max_requests", 2000)?
       .set_default("parser.concurrency", 20)?

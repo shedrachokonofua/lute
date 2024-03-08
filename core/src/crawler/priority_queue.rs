@@ -1,6 +1,6 @@
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::{bail, Result};
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime};
 use derive_builder::Builder;
 use futures::future::join_all;
 use rustis::{
@@ -83,7 +83,7 @@ impl ToString for ItemKey {
   fn to_string(&self) -> String {
     format!(
       "{}:DELIMETER:{}",
-      self.enqueue_time.timestamp(),
+      self.enqueue_time.and_utc().timestamp(),
       self.deduplication_key
     )
   }
@@ -97,13 +97,13 @@ impl FromStr for ItemKey {
     if parts.len() != 2 {
       bail!("Invalid queue item member string");
     }
-    let enqueue_time = NaiveDateTime::from_timestamp_opt(parts[0].parse::<i64>()?, 0);
+    let enqueue_time = DateTime::from_timestamp(parts[0].parse::<i64>()?, 0);
     if enqueue_time.is_none() {
       bail!("Invalid queue item member string");
     }
     let deduplication_key = parts[1].to_string();
     Ok(ItemKey {
-      enqueue_time: enqueue_time.unwrap(),
+      enqueue_time: enqueue_time.unwrap().naive_utc(),
       deduplication_key,
     })
   }

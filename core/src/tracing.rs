@@ -1,7 +1,7 @@
 use crate::settings::TracingSettings;
 use anyhow::Result;
-use opentelemetry::sdk::{trace, Resource};
 use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::{trace::Config, Resource};
 use std::io;
 use std::time::Duration;
 use tracing::info;
@@ -31,7 +31,7 @@ pub fn setup_tracing(tracing_settings: &TracingSettings) -> Result<()> {
     )
   }
 
-  let trace_config = trace::Config::default().with_resource(Resource::new(resource_labels));
+  let trace_config = Config::default().with_resource(Resource::new(resource_labels));
 
   let tracer = opentelemetry_otlp::new_pipeline()
     .tracing()
