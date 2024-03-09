@@ -1,7 +1,4 @@
-use super::{
-  crawler_interactor::CrawlerInteractor, crawler_state_repository::CrawlerStatus,
-  priority_queue::QueueItem,
-};
+use super::{crawler_interactor::CrawlerInteractor, crawler_state_repository::CrawlerStatus};
 use crate::{
   files::{
     file_interactor::FileInteractor,
@@ -9,7 +6,7 @@ use crate::{
   },
   settings::CrawlerSettings,
 };
-use anyhow::{Error, Result};
+use anyhow::Result;
 use reqwest_middleware::ClientWithMiddleware;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -31,32 +28,21 @@ impl CrawlerWorker {
 
   #[instrument(skip(self))]
   async fn get_file_content(&self, file_name: &FileName) -> Result<String> {
-    self
+    let result = self
       .client
       .get(&self.get_url(file_name))
       .send()
       .await?
       .text()
       .await
-      .map_err(|e| e.into())
-  }
+      .map_err(|e| e.into());
 
-  #[instrument(skip(self))]
-  async fn process_queue_item(&self, queue_item: QueueItem) -> Result<FileMetadata> {
-    let metadata = self
-      .file_interactor
-      .put_file(
-        &queue_item.file_name,
-        self.get_file_content(&queue_item.file_name).await?,
-        queue_item.correlation_id,
-      )
-      .await?;
     self
       .crawler_interactor
-      .delete_item(queue_item.item_key)
+      .increment_window_request_count()
       .await?;
 
-    Ok(metadata)
+    result
   }
 
   #[instrument(skip(self))]
@@ -71,28 +57,54 @@ impl CrawlerWorker {
       return Ok(None);
     }
     let queue_item = queue_item.unwrap();
-    let result = Retry::spawn(FibonacciBackoff::from_millis(500).take(5), || async {
+
+    let file_content = Retry::spawn(FibonacciBackoff::from_millis(500).take(5), || async {
       info!(
         item = &queue_item.item_key.to_string(),
-        "Processing queue item"
+        "Getting file content for queue item"
       );
-      let file_metadata = self.process_queue_item(queue_item.clone()).await?;
-      self
-        .crawler_interactor
-        .increment_window_request_count()
-        .await?;
-      Ok::<_, Error>(file_metadata)
+      self.get_file_content(&queue_item.file_name).await
     })
     .await
     .map_err(|e| {
       warn!(
         item = &queue_item.item_key.to_string(),
         e = &e.to_string().as_str(),
-        "Failed to process queue item after 5 retries"
+        "Failed to get file content after 5 retries"
       );
-      anyhow::anyhow!("Failed to process queue item after 5 retries: {:?}", e)
+      anyhow::anyhow!("Failed to get file content after 5 retries: {:?}", e)
     })?;
-    Ok(Some(result))
+
+    let file_metadata = Retry::spawn(FibonacciBackoff::from_millis(500).take(5), || async {
+      info!(
+        item = &queue_item.item_key.to_string(),
+        "Putting file content for queue item"
+      );
+      self
+        .file_interactor
+        .put_file(
+          &queue_item.file_name,
+          file_content.clone(),
+          queue_item.correlation_id.clone(),
+        )
+        .await
+    })
+    .await
+    .map_err(|e| {
+      warn!(
+        item = &queue_item.item_key.to_string(),
+        e = &e.to_string().as_str(),
+        "Failed to put file content after 5 retries"
+      );
+      anyhow::anyhow!("Failed to put file content after 5 retries: {:?}", e)
+    })?;
+
+    self
+      .crawler_interactor
+      .delete_item(queue_item.item_key)
+      .await?;
+
+    Ok(Some(file_metadata))
   }
 
   async fn wait(&self) {

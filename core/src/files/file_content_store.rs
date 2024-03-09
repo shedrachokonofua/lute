@@ -34,7 +34,11 @@ impl FileContentStore {
     self
       .bucket
       .put_object(file_name.to_string(), content.as_bytes())
-      .await?;
+      .await
+      .map_err(|e| {
+        error!("Failed to save file to content store: {:?}", e);
+        e
+      })?;
     info!(
       file_name = file_name.to_string().as_str(),
       "File saved to content store"
