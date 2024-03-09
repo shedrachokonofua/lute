@@ -46,9 +46,9 @@ impl Crawler {
       Arc::clone(&sqlite_connection),
     ));
 
-    let proxy_settings = &settings.crawler.proxy;
-    let base_client = reqwest::ClientBuilder::new()
-      .proxy(
+    let mut base_client_builder = reqwest::ClientBuilder::new().danger_accept_invalid_certs(true);
+    if let Some(proxy_settings) = &settings.crawler.proxy {
+      base_client_builder = base_client_builder.proxy(
         Proxy::all(format!(
           "https://{}:{}",
           proxy_settings.host, proxy_settings.port
@@ -57,8 +57,9 @@ impl Crawler {
           proxy_settings.username.as_str(),
           proxy_settings.password.as_str(),
         ),
-      )
-      .danger_accept_invalid_certs(true)
+      );
+    }
+    let base_client = base_client_builder
       .build()
       .map_err(|error| anyhow::Error::msg(error.to_string()))?;
 

@@ -52,7 +52,7 @@ pub struct CrawlerProxySettings {
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct CrawlerSettings {
-  pub proxy: CrawlerProxySettings,
+  pub proxy: Option<CrawlerProxySettings>,
   pub pool_size: u32,
   pub claim_ttl_seconds: u32,
   pub max_queue_size: u32,
