@@ -19,8 +19,10 @@
     - Web:
       - [ ] Add to docker image
     - Crawler:
+      - [ ] Migrate to SQLite
+      - [ ] RYM IP ban detection
       - [ ] Automatic rate limit reset
-      - [ ] Make crawler proxy optional
+      - [x] Make crawler proxy optional
     - Events:
       - [x] Migrate to SQLite
       - [x] Support ordered processing groups

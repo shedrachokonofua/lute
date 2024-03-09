@@ -13,7 +13,6 @@ use tokio::time::{sleep, Duration};
 use tokio_retry::{strategy::FibonacciBackoff, Retry};
 use tracing::{info, instrument, warn};
 
-#[derive(Debug)]
 pub struct CrawlerWorker {
   pub settings: CrawlerSettings,
   pub crawler_interactor: Arc<CrawlerInteractor>,

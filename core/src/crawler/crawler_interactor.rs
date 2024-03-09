@@ -18,12 +18,11 @@ pub struct CrawlerMonitor {
   pub window_request_count: u32,
 }
 
-#[derive(Debug)]
 pub struct CrawlerInteractor {
   settings: Arc<Settings>,
   file_interactor: FileInteractor,
   crawler_state_repository: CrawlerStateRepository,
-  priority_queue: Arc<PriorityQueue>,
+  priority_queue: Arc<dyn PriorityQueue + Send + Sync + 'static>,
   throttle_lock: Mutex<()>,
 }
 
@@ -32,7 +31,7 @@ impl CrawlerInteractor {
     settings: Arc<Settings>,
     file_interactor: FileInteractor,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    priority_queue: Arc<PriorityQueue>,
+    priority_queue: Arc<dyn PriorityQueue + Send + Sync + 'static>,
   ) -> Self {
     Self {
       settings,

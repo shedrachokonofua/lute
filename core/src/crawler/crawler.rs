@@ -1,6 +1,6 @@
 use super::{
   crawler_interactor::CrawlerInteractor, crawler_worker::CrawlerWorker,
-  priority_queue::PriorityQueue,
+  redis_priority_queue::RedisPriorityQueue,
 };
 use crate::{files::file_interactor::FileInteractor, settings::Settings, sqlite::SqliteConnection};
 use anyhow::Result;
@@ -24,7 +24,7 @@ impl Crawler {
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<SqliteConnection>,
   ) -> Result<Self> {
-    let priority_queue = Arc::new(PriorityQueue::new(
+    let priority_queue = Arc::new(RedisPriorityQueue::new(
       Arc::clone(&redis_connection_pool),
       settings.crawler.max_queue_size,
       settings.crawler.claim_ttl_seconds,
