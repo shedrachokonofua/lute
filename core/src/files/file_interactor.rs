@@ -103,6 +103,10 @@ impl FileInteractor {
     content: String,
     correlation_id: Option<String>,
   ) -> Result<FileMetadata> {
+    info!(
+      file_name = file_name.to_string(),
+      "Saving file content and metadata"
+    );
     self.file_content_store.put(file_name, content).await?;
     self.put_file_metadata(file_name, correlation_id).await
   }

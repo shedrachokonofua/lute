@@ -159,4 +159,8 @@ impl CrawlerInteractor {
   pub async fn delete_item(&self, item_key: ItemKey) -> Result<()> {
     self.priority_queue.delete_item(item_key).await
   }
+
+  pub async fn handle_failure(&self, item_key: ItemKey) -> Result<()> {
+    self.priority_queue.delete_item(item_key).await
+  }
 }
