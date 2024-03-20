@@ -1,4 +1,4 @@
-import { Grid, Stack, Text } from "@mantine/core";
+import { Stack, Text } from "@mantine/core";
 import React from "react";
 import {
   Await,
@@ -11,6 +11,7 @@ import {
   getAlbumRecommendations,
   getDefaultQuantileRankAlbumAssessmentSettings,
 } from "../../client";
+import { TwoColumnLayout } from "../../components/TwoColumnLayout";
 import {
   AlbumRecommendation,
   QuantileRankAlbumAssessmentSettings,
@@ -54,7 +55,6 @@ const toNumber = (value: string | null | undefined) => {
 };
 
 interface RecommendationSettingsLoaderData {
-  embeddingKeys: string[];
   settings: RecommendationSettingsForm | null;
   recommendations: AlbumRecommendation[] | null;
   defaultQuantileRankAlbumAssessmentSettings: QuantileRankAlbumAssessmentSettings;
@@ -221,45 +221,22 @@ export const recommendationPageLoader = async ({
 
 export const RecommendationPage = () => {
   const {
-    embeddingKeys,
     settings,
     recommendations,
     defaultQuantileRankAlbumAssessmentSettings,
   } = useLoaderData() as RecommendationSettingsLoaderData;
 
   return (
-    <Grid m={0}>
-      <Grid.Col
-        md={2.75}
-        style={{
-          borderRight: "1px solid #DDD",
-        }}
-        sx={{
-          "@media (min-width: 1024px)": {
-            overflowY: "auto",
-            height: "calc(100vh - 55px)",
-          },
-        }}
-        px="md"
-      >
+    <TwoColumnLayout
+      left={
         <RecommendationSettings
           settings={settings}
           defaultQuantileRankAlbumAssessmentSettings={
             defaultQuantileRankAlbumAssessmentSettings
           }
         />
-      </Grid.Col>
-      <Grid.Col
-        md={9.25}
-        sx={{
-          "@media (min-width: 1024px)": {
-            overflowY: "auto",
-            height: "calc(100vh - 55px)",
-          },
-          background: "#eee",
-        }}
-        px="xs"
-      >
+      }
+      right={
         <React.Suspense fallback={<Text>Loading recommendations...</Text>}>
           <Await resolve={recommendations} errorElement={<ErrorBoundary />}>
             {(recommendations: AlbumRecommendation[] | null) => (
@@ -279,7 +256,7 @@ export const RecommendationPage = () => {
             )}
           </Await>
         </React.Suspense>
-      </Grid.Col>
-    </Grid>
+      }
+    />
   );
 };
