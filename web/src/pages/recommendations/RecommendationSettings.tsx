@@ -3,9 +3,9 @@ import { useState } from "react";
 import { Form } from "react-router-dom";
 import { CollapsibleSection } from "../../components";
 import { AlbumSearchFilters } from "../../components/AlbumSearchFilters";
+import { EmbeddingSimilaritySettings } from "../../components/EmbeddingSimilaritySettings";
 import { QuantileRankAlbumAssessmentSettings } from "../../proto/lute_pb";
 import { useRemoteContext } from "../../remote-context";
-import { EmbeddingSimilaritySettings } from "./EmbeddingSimilaritySettings";
 import { QuantileRankSettings } from "./QuantileRankSettings";
 import {
   RecommendationSettingsForm,
@@ -86,8 +86,10 @@ export const RecommendationSettings = ({
               )}
               {currentMethod === "embedding-similarity" && (
                 <EmbeddingSimilaritySettings
-                  settings={settings}
-                  embbedingKeys={embeddingKeys}
+                  defaultEmbeddingKey={
+                    settings?.assessmentSettings?.embeddingSimilarity
+                      ?.embeddingKey
+                  }
                 />
               )}
             </CollapsibleSection>
