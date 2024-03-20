@@ -16,7 +16,6 @@ import {
   AlbumRecommendation,
   QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
-import { useRemoteContext } from "../../remote-context";
 import { AlbumRecommendationItem } from "./AlbumRecommendationItem";
 import { RecommendationSettings } from "./RecommendationSettings";
 import {
@@ -227,7 +226,6 @@ export const recommendationPageLoader = async ({
 };
 
 export const RecommendationPage = () => {
-  const { profiles, albumMonitor } = useRemoteContext();
   const {
     embeddingKeys,
     settings,
@@ -251,9 +249,6 @@ export const RecommendationPage = () => {
         px="md"
       >
         <RecommendationSettings
-          profiles={profiles}
-          aggregatedGenres={albumMonitor.getAggregatedGenresList()}
-          aggregatedLanguages={albumMonitor.getAggregatedLanguagesList()}
           embeddingKeys={embeddingKeys}
           settings={settings}
           defaultQuantileRankAlbumAssessmentSettings={

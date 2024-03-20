@@ -1,3 +1,5 @@
+import { AlbumSearchFiltersForm } from "../types";
+
 export const RecommendationSettingsFormName = {
   ProfileId: "profileId",
   Count: "recommendationSettings.count",
@@ -33,20 +35,7 @@ export type RecommendationMethod = "quantile-ranking" | "embedding-similarity";
 
 export interface RecommendationSettingsForm {
   profileId: string | undefined;
-  recommendationSettings:
-    | {
-        count: number | undefined;
-        minReleaseYear: number | undefined;
-        maxReleaseYear: number | undefined;
-        includePrimaryGenres: string[] | undefined;
-        excludePrimaryGenres: string[] | undefined;
-        includeSecondaryGenres: string[] | undefined;
-        excludeSecondaryGenres: string[] | undefined;
-        includeLanguages: string[] | undefined;
-        excludeLanguages: string[] | undefined;
-        excludeKnownArtists: number | undefined;
-      }
-    | undefined;
+  recommendationSettings: AlbumSearchFiltersForm | undefined;
   method: RecommendationMethod | undefined;
   assessmentSettings:
     | {
