@@ -669,9 +669,9 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
       )
       .await?;
     let embedding = result
-      .map(|r| serde_json::from_str::<AlbumEmbedding>(&r))
+      .map(|r| serde_json::from_str::<Vec<AlbumEmbedding>>(&r))
       .transpose()?;
-    Ok(embedding)
+    Ok(embedding.map(|mut r| r.remove(0)))
   }
 
   #[instrument(skip(self))]

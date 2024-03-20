@@ -1,7 +1,9 @@
 use super::{
   album_interactor::{AlbumInteractor, AlbumMonitor},
   album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
-  album_search_index::{AlbumSearchIndex, AlbumSearchQuery, SearchPagination},
+  album_search_index::{
+    AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQuery, SearchPagination,
+  },
 };
 use crate::{files::file_metadata::file_name::FileName, proto};
 use anyhow::{Error, Result};
@@ -222,6 +224,50 @@ impl proto::AlbumService for AlbumService {
         .get_embedding_keys()
         .await
         .map_err(|e| Status::internal(e.to_string()))?,
+    };
+    Ok(Response::new(reply))
+  }
+
+  async fn find_similar_albums(
+    &self,
+    request: Request<proto::FindSimilarAlbumsRequest>,
+  ) -> Result<Response<proto::FindSimilarAlbumsReply>, Status> {
+    let inner = request.into_inner();
+    let file_name =
+      FileName::try_from(inner.file_name).map_err(|e| Status::invalid_argument(e.to_string()))?;
+    let embedding_key = inner.embedding_key;
+    let limit = inner.limit.unwrap_or(10) as usize;
+    let mut filters: AlbumSearchQuery = inner
+      .filters
+      .map(|f| f.try_into())
+      .transpose()
+      .map_err(|e: Error| Status::invalid_argument(format!("Invalid filters: {}", e.to_string())))?
+      .unwrap_or_default();
+
+    if !filters.exclude_file_names.contains(&file_name) {
+      filters.exclude_file_names.push(file_name.clone());
+    }
+
+    let embedding = self
+      .album_search_index
+      .find_embedding(&file_name, &embedding_key)
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?
+      .ok_or_else(|| Status::not_found("Album embedding not found"))?
+      .embedding;
+
+    let results = self
+      .album_search_index
+      .embedding_similarity_search(&AlbumEmbeddingSimilarirtySearchQuery {
+        embedding,
+        embedding_key,
+        filters,
+        limit,
+      })
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+    let reply = proto::FindSimilarAlbumsReply {
+      albums: results.into_iter().map(|(album, _)| album.into()).collect(),
     };
     Ok(Response::new(reply))
   }

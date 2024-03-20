@@ -32,9 +32,7 @@ message DeleteFileRequest { string name = 1; }
 
 message GetFilePageTypeRequest { string name = 1; }
 
-message GetFilePageTypeReply {
-  PageType page_type = 1;
-}
+message GetFilePageTypeReply { PageType page_type = 1; }
 
 message GetFileContentRequest { string name = 1; }
 
@@ -155,17 +153,11 @@ message ItemAndCount {
   uint32 count = 2;
 }
 
-message GetAggregatedDescriptorsReply {
-  repeated ItemAndCount descriptors = 1;
-}
+message GetAggregatedDescriptorsReply { repeated ItemAndCount descriptors = 1; }
 
-message GetAggregatedLanguagesReply {
-  repeated ItemAndCount languages = 1;
-}
+message GetAggregatedLanguagesReply { repeated ItemAndCount languages = 1; }
 
-message GetEmbeddingKeysReply {
-  repeated string keys = 1;
-}
+message GetEmbeddingKeysReply { repeated string keys = 1; }
 message AlbumSearchQuery {
   optional string exact_name = 1;
   repeated string include_file_names = 2;
@@ -203,13 +195,9 @@ message SearchAlbumsReply {
   uint32 total = 2;
 }
 
-message GetManyAlbumsRequest {
-  repeated string file_names = 1;
-}
+message GetManyAlbumsRequest { repeated string file_names = 1; }
 
-message GetManyAlbumsReply {
-  repeated Album albums = 1;
-}
+message GetManyAlbumsReply { repeated Album albums = 1; }
 
 message AlbumMonitor {
   uint32 album_count = 1;
@@ -222,11 +210,18 @@ message AlbumMonitor {
   repeated ItemAndCount aggregated_descriptors = 8;
   repeated ItemAndCount aggregated_languages = 9;
   repeated ItemAndCount aggregated_years = 10;
-} 
-
-message GetAlbumMonitorReply { 
-  AlbumMonitor monitor = 1; 
 }
+
+message GetAlbumMonitorReply { AlbumMonitor monitor = 1; }
+
+message FindSimilarAlbumsRequest {
+  string file_name = 1;
+  string embedding_key = 2;
+  optional uint32 limit = 3;
+  optional AlbumSearchQuery filters = 4;
+}
+
+message FindSimilarAlbumsReply { repeated Album albums = 1; }
 
 service AlbumService {
   rpc GetMonitor(google.protobuf.Empty) returns (GetAlbumMonitorReply) {}
@@ -234,6 +229,8 @@ service AlbumService {
   rpc GetManyAlbums(GetManyAlbumsRequest) returns (GetManyAlbumsReply) {}
   rpc SearchAlbums(SearchAlbumsRequest) returns (SearchAlbumsReply) {}
   rpc GetEmbeddingKeys(google.protobuf.Empty) returns (GetEmbeddingKeysReply) {}
+  rpc FindSimilarAlbums(FindSimilarAlbumsRequest)
+      returns (FindSimilarAlbumsReply) {}
 }
 
 message IsAuthorizedReply { bool authorized = 1; }
@@ -285,17 +282,11 @@ service SpotifyService {
 
 message ParseFileContentStoreReply { uint32 count = 1; }
 
-message MigrateSqliteRequest {
-  uint32 version = 1;
-}
+message MigrateSqliteRequest { uint32 version = 1; }
 
-message CrawlParseFailedFilesRequest {
-  optional string error = 1;
-}
+message CrawlParseFailedFilesRequest { optional string error = 1; }
 
-message CrawlParseFailedFilesReply {
-  uint32 count = 1; 
-}
+message CrawlParseFailedFilesReply { uint32 count = 1; }
 
 service OperationsService {
   rpc FlushRedis(google.protobuf.Empty) returns (google.protobuf.Empty) {}
@@ -507,7 +498,6 @@ message PutManyAlbumsOnProfileRequest {
 
 message PutManyAlbumsOnProfileReply { Profile profile = 1; }
 
-
 message PutAlbumOnProfileRequest {
   string profile_id = 1;
   string file_name = 2;
@@ -555,7 +545,8 @@ service ProfileService {
   rpc GetAllProfiles(google.protobuf.Empty) returns (GetAllProfilesReply) {}
   rpc GetProfileSummary(GetProfileSummaryRequest)
       returns (GetProfileSummaryReply) {}
-  rpc PutAlbumOnProfile(PutAlbumOnProfileRequest) returns (PutAlbumOnProfileReply) {}
+  rpc PutAlbumOnProfile(PutAlbumOnProfileRequest)
+      returns (PutAlbumOnProfileReply) {}
   rpc PutManyAlbumsOnProfile(PutManyAlbumsOnProfileRequest)
       returns (PutManyAlbumsOnProfileReply) {}
   rpc RemoveAlbumFromProfile(RemoveAlbumFromProfileRequest)
@@ -581,9 +572,7 @@ message QuantileRankAlbumAssessmentSettings {
   optional float novelty_score = 8;
 }
 
-message EmbeddingSimilarityAlbumAssessmentSettings {
-  string embedding_key = 1;
-}
+message EmbeddingSimilarityAlbumAssessmentSettings { string embedding_key = 1; }
 
 message AlbumAssessment {
   float score = 1;
@@ -595,7 +584,8 @@ message AssessAlbumReply { AlbumAssessment assessment = 1; }
 message AlbumAssessmentSettings {
   oneof settings {
     QuantileRankAlbumAssessmentSettings quantile_rank_settings = 1;
-    EmbeddingSimilarityAlbumAssessmentSettings embedding_similarity_settings = 2;
+    EmbeddingSimilarityAlbumAssessmentSettings embedding_similarity_settings =
+        2;
   }
 }
 
@@ -733,9 +723,7 @@ message EventsMonitor {
   repeated EventStreamSnapshot streams = 3;
 }
 
-message GetEventsMonitorReply {
-  EventsMonitor monitor = 1;
-}
+message GetEventsMonitorReply { EventsMonitor monitor = 1; }
 
 message SetEventCursorRequest {
   string subscriber_id = 1;
