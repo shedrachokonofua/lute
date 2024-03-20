@@ -117,7 +117,7 @@ export const profileDetailsLoader =
     const search = (searchParams.get("search") || "").trim();
     const searchMode = searchParams.get("searchMode") || "existing";
     const fileNames = Array.from(profile.getAlbumsMap().keys());
-    let searchResults =
+    const searchResults =
       (searchMode === "existing" && fileNames.length > 0) ||
       (searchMode === "new" && search !== "")
         ? await searchAlbums(

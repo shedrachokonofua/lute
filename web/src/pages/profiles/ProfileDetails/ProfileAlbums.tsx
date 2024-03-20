@@ -10,11 +10,11 @@ import {
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card } from "../../../components";
+import { useDebounce } from "../../../hooks/use-debounce";
+import { useUpdateEffect } from "../../../hooks/use-update-effect";
 import { Profile } from "../../../proto/lute_pb";
 import { ProfileAlbumsListItem } from "./ProfileAlbumsListItem";
 import { ProfileAlbumsList } from "./types";
-import { useDebounce } from "./use-debounce";
-import { useUpdateEffect } from "./use-update-effect";
 
 interface ProfileAlbumsProps {
   profile: Profile;

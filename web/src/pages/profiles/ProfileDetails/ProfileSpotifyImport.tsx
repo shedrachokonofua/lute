@@ -15,13 +15,13 @@ import {
   importSpotifyPlaylistTracks,
 } from "../../../client";
 import { Card } from "../../../components/Card";
+import { useInterval } from "../../../hooks/use-interval";
 import {
   AggregatedStatus,
   GetPendingSpotifyImportsReply,
   Profile,
 } from "../../../proto/lute_pb";
 import { pendingSpotifyImportsQuery, profileDetailsQuery } from "./queries";
-import { useInterval } from "./use-interval";
 
 type CardMode = "in-progress" | "failures";
 
