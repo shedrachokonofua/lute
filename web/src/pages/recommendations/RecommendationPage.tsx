@@ -10,7 +10,6 @@ import {
 import {
   getAlbumRecommendations,
   getDefaultQuantileRankAlbumAssessmentSettings,
-  getEmbeddingKeys,
 } from "../../client";
 import {
   AlbumRecommendation,
@@ -210,15 +209,10 @@ export const recommendationPageLoader = async ({
     : null;
 
   const recommendations = settings ? getAlbumRecommendations(settings) : null;
-
-  const [embeddingKeys, defaultQuantileRankAlbumAssessmentSettings] =
-    await Promise.all([
-      getEmbeddingKeys(),
-      getDefaultQuantileRankAlbumAssessmentSettings(),
-    ]);
+  const defaultQuantileRankAlbumAssessmentSettings =
+    await getDefaultQuantileRankAlbumAssessmentSettings();
 
   return defer({
-    embeddingKeys,
     settings,
     recommendations,
     defaultQuantileRankAlbumAssessmentSettings,
@@ -249,7 +243,6 @@ export const RecommendationPage = () => {
         px="md"
       >
         <RecommendationSettings
-          embeddingKeys={embeddingKeys}
           settings={settings}
           defaultQuantileRankAlbumAssessmentSettings={
             defaultQuantileRankAlbumAssessmentSettings

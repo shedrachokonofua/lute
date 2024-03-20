@@ -13,15 +13,13 @@ import {
 } from "./types";
 
 export const RecommendationSettings = ({
-  embeddingKeys,
   settings,
   defaultQuantileRankAlbumAssessmentSettings,
 }: {
-  embeddingKeys: string[];
   settings: RecommendationSettingsForm | null;
   defaultQuantileRankAlbumAssessmentSettings: QuantileRankAlbumAssessmentSettings;
 }) => {
-  const { profiles } = useRemoteContext();
+  const { embeddingKeys, profiles } = useRemoteContext();
   const [currentMethod, setCurrentMethod] = useState<string>(
     settings?.method || "quantile-ranking",
   );
