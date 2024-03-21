@@ -10,12 +10,14 @@ import {
   ProfileDetails,
   ProfilesPage,
   RecommendationPage,
+  SimilarAlbumsPage,
   SpotifyOAuthCallbackPage,
   newProfileAction,
   profileDetailsAction,
   profileDetailsLoader,
   profilePageAction,
   recommendationPageLoader,
+  similarAlbumsPageLoader,
 } from "./pages";
 import { getRemoteContext } from "./remote-context";
 
@@ -76,6 +78,11 @@ const router = createBrowserRouter([
         path: "/recommendations",
         element: <RecommendationPage />,
         loader: recommendationPageLoader,
+      },
+      {
+        path: "/similar-albums",
+        element: <SimilarAlbumsPage />,
+        loader: similarAlbumsPageLoader,
       },
     ],
   },

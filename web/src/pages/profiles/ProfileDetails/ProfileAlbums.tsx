@@ -8,10 +8,14 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Card } from "../../../components";
 import { useDebounce } from "../../../hooks/use-debounce";
 import { useUpdateEffect } from "../../../hooks/use-update-effect";
+import {
+  getUpdatedQueryString,
+  useUpdateSearchParams,
+} from "../../../hooks/use-update-search-params";
 import { Profile } from "../../../proto/lute_pb";
 import { ProfileAlbumsListItem } from "./ProfileAlbumsListItem";
 import { ProfileAlbumsList } from "./types";
@@ -21,29 +25,18 @@ interface ProfileAlbumsProps {
   list: ProfileAlbumsList;
 }
 
-const getUpdatedQueryString = (updates: Record<string, any>) => {
-  const url = new URL(window.location.href);
-  const searchParams = new URLSearchParams(url.search);
-  for (const [key, value] of Object.entries(updates)) {
-    if (value !== undefined) {
-      searchParams.set(key, value);
-    }
-  }
-  return "?" + searchParams.toString();
-};
-
 const AlbumSearchInput = ({ value }: { value: string }) => {
   const [searchValue, setSearchValue] = useState(value);
   const debouncedSearchValue = useDebounce(searchValue, 250);
-  const navigate = useNavigate();
+  const updateSearchParams = useUpdateSearchParams();
+
   useUpdateEffect(() => {
-    navigate(
-      getUpdatedQueryString({
-        search: debouncedSearchValue,
-        page: value !== debouncedSearchValue ? 1 : undefined,
-      }),
-    );
+    updateSearchParams({
+      search: debouncedSearchValue,
+      page: value !== debouncedSearchValue ? 1 : undefined,
+    });
   }, [debouncedSearchValue]);
+
   useUpdateEffect(() => {
     if (!value) {
       setSearchValue("");
@@ -63,7 +56,7 @@ const AlbumSearchInput = ({ value }: { value: string }) => {
 };
 
 const PageSizeSelect = ({ list }: { list: ProfileAlbumsList }) => {
-  const navigate = useNavigate();
+  const updateSearchParams = useUpdateSearchParams();
   return (
     <Text>
       Showing{" "}
@@ -85,12 +78,10 @@ const PageSizeSelect = ({ list }: { list: ProfileAlbumsList }) => {
           },
         }}
         onChange={(pageSize) => {
-          navigate(
-            getUpdatedQueryString({
-              pageSize,
-              page: 1,
-            }),
-          );
+          updateSearchParams({
+            pageSize,
+            page: 1,
+          });
         }}
       />{" "}
       of {list.total} albums
@@ -118,7 +109,7 @@ const getControlHref = (control: string, list: ProfileAlbumsProps["list"]) => {
 };
 
 const SearchModeSwitch = ({ list }: { list: ProfileAlbumsList }) => {
-  const navigate = useNavigate();
+  const updateSearchParams = useUpdateSearchParams();
   return (
     <Switch
       onLabel={<Text>New</Text>}
@@ -137,12 +128,10 @@ const SearchModeSwitch = ({ list }: { list: ProfileAlbumsList }) => {
       }}
       checked={list.searchMode === "new"}
       onChange={(e) => {
-        navigate(
-          getUpdatedQueryString({
-            searchMode: e.currentTarget.checked ? "new" : "existing",
-            page: 1,
-          }),
-        );
+        updateSearchParams({
+          searchMode: e.currentTarget.checked ? "new" : "existing",
+          page: 1,
+        });
       }}
     />
   );

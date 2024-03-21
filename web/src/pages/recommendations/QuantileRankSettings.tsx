@@ -1,9 +1,7 @@
 import { Grid, NumberInput, Stack, Title } from "@mantine/core";
+import { FormName } from "../../forms";
 import { QuantileRankAlbumAssessmentSettings } from "../../proto/lute_pb";
-import {
-  RecommendationSettingsForm,
-  RecommendationSettingsFormName,
-} from "./types";
+import { RecommendationSettingsForm } from "./types";
 
 export const QuantileRankSettings = ({
   settings,
@@ -23,9 +21,7 @@ export const QuantileRankSettings = ({
           min={0}
           max={20}
           step={1}
-          name={
-            RecommendationSettingsFormName.QuantileRankingPrimaryGenresWeight
-          }
+          name={FormName.QuantileRankingPrimaryGenresWeight}
           defaultValue={
             settings?.assessmentSettings?.quantileRanking
               ?.primaryGenresWeight ??
@@ -41,9 +37,7 @@ export const QuantileRankSettings = ({
           min={0}
           max={20}
           step={1}
-          name={
-            RecommendationSettingsFormName.QuantileRankingSecondaryGenresWeight
-          }
+          name={FormName.QuantileRankingSecondaryGenresWeight}
           defaultValue={
             settings?.assessmentSettings?.quantileRanking
               ?.secondaryGenresWeight ??
@@ -59,7 +53,7 @@ export const QuantileRankSettings = ({
           min={0}
           max={20}
           step={1}
-          name={RecommendationSettingsFormName.QuantileRankingDescriptorWeight}
+          name={FormName.QuantileRankingDescriptorWeight}
           defaultValue={
             settings?.assessmentSettings?.quantileRanking?.descriptorWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getDescriptorWeight()
@@ -74,7 +68,7 @@ export const QuantileRankSettings = ({
           min={0}
           max={20}
           step={1}
-          name={RecommendationSettingsFormName.QuantileRankingRatingWeight}
+          name={FormName.QuantileRankingRatingWeight}
           defaultValue={
             settings?.assessmentSettings?.quantileRanking?.ratingWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getRatingWeight()
@@ -89,7 +83,7 @@ export const QuantileRankSettings = ({
           min={0}
           max={20}
           step={1}
-          name={RecommendationSettingsFormName.QuantileRankingRatingCountWeight}
+          name={FormName.QuantileRankingRatingCountWeight}
           defaultValue={
             settings?.assessmentSettings?.quantileRanking?.ratingCountWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getRatingCountWeight()
@@ -104,9 +98,7 @@ export const QuantileRankSettings = ({
           min={0}
           max={20}
           step={1}
-          name={
-            RecommendationSettingsFormName.QuantileRankingDescriptorCountWeight
-          }
+          name={FormName.QuantileRankingDescriptorCountWeight}
           defaultValue={
             settings?.assessmentSettings?.quantileRanking
               ?.descriptorCountWeight ??
@@ -122,7 +114,7 @@ export const QuantileRankSettings = ({
           min={0}
           max={20}
           step={1}
-          name={RecommendationSettingsFormName.QuantileRankingCreditTagWeight}
+          name={FormName.QuantileRankingCreditTagWeight}
           defaultValue={
             settings?.assessmentSettings?.quantileRanking?.creditTagWeight ??
             defaultQuantileRankAlbumAssessmentSettings.getCreditTagWeight()

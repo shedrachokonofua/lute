@@ -1,6 +1,6 @@
 import { Popover, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { AlbumCard } from "../../components/AlbumCard";
+import { AlbumCard } from "../../components";
 import { AlbumAssessment, AlbumRecommendation } from "../../proto/lute_pb";
 import { RecommendationMethod } from "./types";
 
@@ -68,10 +68,13 @@ export const AlbumRecommendationItem = ({
   const assessment = recommendation.getAssessment()!;
 
   return (
-    <AlbumCard album={album}>
-      {recommendationMethod === "quantile-ranking" && (
-        <Assessment assessment={assessment} />
-      )}
-    </AlbumCard>
+    <AlbumCard
+      album={album}
+      assessment={
+        recommendationMethod === "quantile-ranking" ? (
+          <Assessment assessment={assessment} />
+        ) : undefined
+      }
+    />
   );
 };

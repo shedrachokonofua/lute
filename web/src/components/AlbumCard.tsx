@@ -3,10 +3,12 @@ import { Album } from "../proto/lute_pb";
 
 export const AlbumCard = ({
   album,
-  children,
+  assessment,
+  actions,
 }: {
   album: Album;
-  children?: React.ReactNode;
+  assessment?: React.ReactNode;
+  actions?: React.ReactNode;
 }) => (
   <Card padding="sm" shadow="xs" withBorder>
     <Flex
@@ -57,7 +59,7 @@ export const AlbumCard = ({
             </Badge>
           </Flex>
 
-          {children}
+          {assessment}
         </Flex>
         <Text weight="bold">
           {album
@@ -75,6 +77,7 @@ export const AlbumCard = ({
         </Text>
         <Text size="md">{album.getSecondaryGenresList().join(", ")}</Text>
         <Text size="sm">{album.getDescriptorsList().join(", ")}</Text>
+        {actions && <Box mt="1rem">{actions}</Box>}
       </div>
     </Flex>
   </Card>

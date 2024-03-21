@@ -2,6 +2,7 @@ import { Group, Select, Text } from "@mantine/core";
 import { forwardRef, useState } from "react";
 import { PromiseFn, useAsync } from "react-async";
 import { searchAlbums } from "../../client";
+import { FormName } from "../../forms";
 import { useDebounce } from "../../hooks/use-debounce";
 import { Album } from "../../proto/lute_pb";
 
@@ -70,13 +71,15 @@ export const AlbumSearchInput = () => {
   return (
     <Select
       searchable
+      name={FormName.FileName}
       onSearchChange={setSearchValue}
       searchValue={searchValue}
       label="Album"
       placeholder="Start typing to see options"
       data={options || []}
       itemComponent={SelectItem}
-      initiallyOpened
+      maxDropdownHeight={350}
+      required
     />
   );
 };

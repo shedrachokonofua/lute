@@ -1,6 +1,5 @@
 import { Checkbox, Grid, MultiSelect, NumberInput, Stack } from "@mantine/core";
-import { RecommendationSettingsFormName } from "../pages/recommendations/types";
-import { AlbumSearchFiltersForm } from "../pages/types";
+import { AlbumSearchFiltersForm, FormName } from "../forms";
 import { useRemoteContext } from "../remote-context";
 
 export const AlbumSearchFilters = ({
@@ -39,7 +38,7 @@ export const AlbumSearchFilters = ({
             min={1900}
             max={2023}
             step={1}
-            name={RecommendationSettingsFormName.MinReleaseYear}
+            name={FormName.MinReleaseYear}
             defaultValue={filters?.minReleaseYear}
             variant="filled"
           />
@@ -51,7 +50,7 @@ export const AlbumSearchFilters = ({
             min={1900}
             max={2023}
             step={1}
-            name={RecommendationSettingsFormName.MaxReleaseYear}
+            name={FormName.MaxReleaseYear}
             defaultValue={filters?.maxReleaseYear}
             variant="filled"
           />
@@ -61,7 +60,7 @@ export const AlbumSearchFilters = ({
         label="Include Primary Genres"
         data={primaryGenreOptions}
         placeholder="Select Genres"
-        name={RecommendationSettingsFormName.IncludePrimaryGenres}
+        name={FormName.IncludePrimaryGenres}
         defaultValue={filters?.includePrimaryGenres}
         variant="filled"
         searchable
@@ -70,7 +69,7 @@ export const AlbumSearchFilters = ({
         label="Exclude Primary Genres"
         data={primaryGenreOptions}
         placeholder="Select Genres"
-        name={RecommendationSettingsFormName.ExcludePrimaryGenres}
+        name={FormName.ExcludePrimaryGenres}
         defaultValue={filters?.excludePrimaryGenres}
         variant="filled"
         searchable
@@ -79,7 +78,7 @@ export const AlbumSearchFilters = ({
         label="Include Secondary Genres"
         data={secondaryGenreOptions}
         placeholder="Select Genres"
-        name={RecommendationSettingsFormName.IncludeSecondaryGenres}
+        name={FormName.IncludeSecondaryGenres}
         defaultValue={filters?.includeSecondaryGenres}
         variant="filled"
         searchable
@@ -88,7 +87,7 @@ export const AlbumSearchFilters = ({
         label="Exclude Secondary Genres"
         data={secondaryGenreOptions}
         placeholder="Select Genres"
-        name={RecommendationSettingsFormName.ExcludeSecondaryGenres}
+        name={FormName.ExcludeSecondaryGenres}
         defaultValue={filters?.excludeSecondaryGenres}
         variant="filled"
         searchable
@@ -97,7 +96,7 @@ export const AlbumSearchFilters = ({
         label="Include Languages"
         data={languageOptions}
         placeholder="Select Languages"
-        name={RecommendationSettingsFormName.IncludeLanguages}
+        name={FormName.IncludeLanguages}
         defaultValue={filters?.includeLanguages}
         variant="filled"
         searchable
@@ -106,14 +105,14 @@ export const AlbumSearchFilters = ({
         label="Exclude Languages"
         data={languageOptions}
         placeholder="Select Languages"
-        name={RecommendationSettingsFormName.ExcludeLanguages}
+        name={FormName.ExcludeLanguages}
         defaultValue={filters?.excludeLanguages}
         variant="filled"
         searchable
       />
       <Checkbox
         label="Exclude artists already on profile"
-        name={RecommendationSettingsFormName.ExcludeKnownArtists}
+        name={FormName.ExcludeKnownArtists}
         defaultValue={filters?.excludeKnownArtists}
         variant="filled"
         value={1}

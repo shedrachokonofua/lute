@@ -1,6 +1,6 @@
 import { Box, Group, Stack, Text } from "@mantine/core";
 import { ReactNode } from "react";
-import { Card } from "../../../components/Card";
+import { Card } from "../../../components";
 import { ItemWithFactor, ProfileSummary } from "../../../proto/lute_pb";
 
 const OverviewItem = ({

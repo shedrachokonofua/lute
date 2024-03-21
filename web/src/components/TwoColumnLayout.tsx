@@ -3,9 +3,11 @@ import { Grid } from "@mantine/core";
 export const TwoColumnLayout = ({
   left,
   right,
+  rightColumnRef,
 }: {
   left: React.ReactNode;
   right: React.ReactNode;
+  rightColumnRef?: React.RefObject<HTMLDivElement>;
 }) => {
   return (
     <Grid m={0}>
@@ -34,6 +36,7 @@ export const TwoColumnLayout = ({
           background: "#eee",
         }}
         px="xs"
+        ref={rightColumnRef}
       >
         {right}
       </Grid.Col>

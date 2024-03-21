@@ -1,16 +1,16 @@
 import { Button, NumberInput, Select, Stack, Title } from "@mantine/core";
 import { useState } from "react";
 import { Form } from "react-router-dom";
-import { CollapsibleSection } from "../../components";
-import { AlbumSearchFilters } from "../../components/AlbumSearchFilters";
-import { EmbeddingSimilaritySettings } from "../../components/EmbeddingSimilaritySettings";
+import {
+  AlbumSearchFilters,
+  CollapsibleSection,
+  EmbeddingSimilaritySettings,
+} from "../../components";
+import { FormName } from "../../forms";
 import { QuantileRankAlbumAssessmentSettings } from "../../proto/lute_pb";
 import { useRemoteContext } from "../../remote-context";
 import { QuantileRankSettings } from "./QuantileRankSettings";
-import {
-  RecommendationSettingsForm,
-  RecommendationSettingsFormName,
-} from "./types";
+import { RecommendationSettingsForm } from "./types";
 
 export const RecommendationSettings = ({
   settings,
@@ -19,14 +19,10 @@ export const RecommendationSettings = ({
   settings: RecommendationSettingsForm | null;
   defaultQuantileRankAlbumAssessmentSettings: QuantileRankAlbumAssessmentSettings;
 }) => {
-  const { embeddingKeys, profiles } = useRemoteContext();
+  const { profiles } = useRemoteContext();
   const [currentMethod, setCurrentMethod] = useState<string>(
     settings?.method || "quantile-ranking",
   );
-  const profileOptions = profiles.map((profile) => ({
-    label: profile.getName(),
-    value: profile.getId(),
-  }));
 
   return (
     <Stack spacing="lg">
@@ -36,9 +32,12 @@ export const RecommendationSettings = ({
           <Stack spacing="sm">
             <Select
               label="Profile"
-              data={profileOptions}
+              data={profiles.map((profile) => ({
+                label: profile.getName(),
+                value: profile.getId(),
+              }))}
               placeholder="Select Profile"
-              name={RecommendationSettingsFormName.ProfileId}
+              name={FormName.ProfileId}
               defaultValue={settings?.profileId}
               variant="filled"
             />
@@ -47,7 +46,7 @@ export const RecommendationSettings = ({
               placeholder="Recommendations Count"
               min={1}
               max={100}
-              name={RecommendationSettingsFormName.Count}
+              name={FormName.Count}
               defaultValue={settings?.recommendationSettings?.count || 40}
               variant="filled"
             />
@@ -72,7 +71,7 @@ export const RecommendationSettings = ({
                 }
               }}
               placeholder="Select Method"
-              name={RecommendationSettingsFormName.Method}
+              name={FormName.Method}
               variant="filled"
             />
             <CollapsibleSection title="Method Settings">

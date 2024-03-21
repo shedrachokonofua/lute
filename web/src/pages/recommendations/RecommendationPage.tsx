@@ -11,47 +11,25 @@ import {
   getAlbumRecommendations,
   getDefaultQuantileRankAlbumAssessmentSettings,
 } from "../../client";
-import { TwoColumnLayout } from "../../components/TwoColumnLayout";
+import { TwoColumnLayout } from "../../components";
+import {
+  FormName,
+  coerceToUndefined,
+  parseAlbumSearchFiltersForm,
+  toNumber,
+} from "../../forms";
 import {
   AlbumRecommendation,
   QuantileRankAlbumAssessmentSettings,
 } from "../../proto/lute_pb";
 import { AlbumRecommendationItem } from "./AlbumRecommendationItem";
 import { RecommendationSettings } from "./RecommendationSettings";
-import {
-  RecommendationMethod,
-  RecommendationSettingsForm,
-  RecommendationSettingsFormName,
-} from "./types";
+import { RecommendationMethod, RecommendationSettingsForm } from "./types";
 
-function ErrorBoundary() {
-  let error = useRouteError();
+const ErrorBoundary = () => {
+  const error = useRouteError();
   console.error(error);
   return <div>Dang! Something went wrong.</div>;
-}
-
-const coerceToUndefined = <
-  T extends string | Record<string, unknown> | null | undefined,
->(
-  value: T,
-): NonNullable<T> | undefined => {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-  if (typeof value === "string") {
-    return value.trim() === "" ? undefined : value;
-  }
-  if (typeof value === "object") {
-    return Object.keys(value).length === 0 ||
-      Object.values(value).every((v) => !v)
-      ? undefined
-      : value;
-  }
-  return value;
-};
-
-const toNumber = (value: string | null | undefined) => {
-  return value ? Number(value) : undefined;
 };
 
 interface RecommendationSettingsLoaderData {
@@ -64,12 +42,9 @@ export const recommendationPageLoader = async ({
   request,
 }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
-  const profileId = url.searchParams.get(
-    RecommendationSettingsFormName.ProfileId,
-  );
+  const profileId = url.searchParams.get(FormName.ProfileId);
   const assessmentMethod =
-    url.searchParams.get(RecommendationSettingsFormName.Method) ||
-    "quantile-ranking";
+    url.searchParams.get(FormName.Method) || "quantile-ranking";
 
   const assessmentSettings =
     assessmentMethod === "quantile-ranking"
@@ -78,50 +53,42 @@ export const recommendationPageLoader = async ({
             primaryGenresWeight: toNumber(
               coerceToUndefined(
                 url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingPrimaryGenresWeight,
+                  FormName.QuantileRankingPrimaryGenresWeight,
                 ),
               ),
             ),
             secondaryGenresWeight: toNumber(
               coerceToUndefined(
                 url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingSecondaryGenresWeight,
+                  FormName.QuantileRankingSecondaryGenresWeight,
                 ),
               ),
             ),
             descriptorWeight: toNumber(
               coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingDescriptorWeight,
-                ),
+                url.searchParams.get(FormName.QuantileRankingDescriptorWeight),
               ),
             ),
             ratingWeight: toNumber(
               coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingRatingWeight,
-                ),
+                url.searchParams.get(FormName.QuantileRankingRatingWeight),
               ),
             ),
             ratingCountWeight: toNumber(
               coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingRatingCountWeight,
-                ),
+                url.searchParams.get(FormName.QuantileRankingRatingCountWeight),
               ),
             ),
             descriptorCountWeight: toNumber(
               coerceToUndefined(
                 url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingDescriptorCountWeight,
+                  FormName.QuantileRankingDescriptorCountWeight,
                 ),
               ),
             ),
             creditTagWeight: toNumber(
               coerceToUndefined(
-                url.searchParams.get(
-                  RecommendationSettingsFormName.QuantileRankingCreditTagWeight,
-                ),
+                url.searchParams.get(FormName.QuantileRankingCreditTagWeight),
               ),
             ),
           },
@@ -132,9 +99,7 @@ export const recommendationPageLoader = async ({
           quantileRanking: undefined,
           embeddingSimilarity: {
             embeddingKey: coerceToUndefined(
-              url.searchParams.get(
-                RecommendationSettingsFormName.EmbeddingSimilarityEmbeddingKey,
-              ),
+              url.searchParams.get(FormName.EmbeddingSimilarityEmbeddingKey),
             ),
           },
         })
@@ -146,64 +111,7 @@ export const recommendationPageLoader = async ({
         method: coerceToUndefined(assessmentMethod) as
           | RecommendationMethod
           | undefined,
-        recommendationSettings: coerceToUndefined({
-          count: toNumber(
-            coerceToUndefined(
-              url.searchParams.get(RecommendationSettingsFormName.Count),
-            ),
-          ),
-          minReleaseYear: toNumber(
-            coerceToUndefined(
-              url.searchParams.get(
-                RecommendationSettingsFormName.MinReleaseYear,
-              ),
-            ),
-          ),
-          maxReleaseYear: toNumber(
-            coerceToUndefined(
-              url.searchParams.get(
-                RecommendationSettingsFormName.MaxReleaseYear,
-              ),
-            ),
-          ),
-          includePrimaryGenres: coerceToUndefined(
-            url.searchParams.get(
-              RecommendationSettingsFormName.IncludePrimaryGenres,
-            ),
-          )?.split(","),
-          excludePrimaryGenres: coerceToUndefined(
-            url.searchParams.get(
-              RecommendationSettingsFormName.ExcludePrimaryGenres,
-            ),
-          )?.split(","),
-          includeSecondaryGenres: coerceToUndefined(
-            url.searchParams.get(
-              RecommendationSettingsFormName.IncludeSecondaryGenres,
-            ),
-          )?.split(","),
-          excludeSecondaryGenres: coerceToUndefined(
-            url.searchParams.get(
-              RecommendationSettingsFormName.ExcludeSecondaryGenres,
-            ),
-          )?.split(","),
-          includeLanguages: coerceToUndefined(
-            url.searchParams.get(
-              RecommendationSettingsFormName.IncludeLanguages,
-            ),
-          )?.split(","),
-          excludeLanguages: coerceToUndefined(
-            url.searchParams.get(
-              RecommendationSettingsFormName.ExcludeLanguages,
-            ),
-          )?.split(","),
-          excludeKnownArtists: toNumber(
-            coerceToUndefined(
-              url.searchParams.get(
-                RecommendationSettingsFormName.ExcludeKnownArtists,
-              ),
-            ),
-          ),
-        }),
+        recommendationSettings: parseAlbumSearchFiltersForm(url),
         assessmentSettings,
       }
     : null;

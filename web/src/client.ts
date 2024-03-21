@@ -1,5 +1,6 @@
 import { Empty } from "google-protobuf/google/protobuf/empty_pb";
 import { RecommendationSettingsForm } from "./pages/recommendations/types";
+import { SimilarAlbumsForm } from "./pages/similar-albums/types";
 import {
   AlbumServiceClient,
   ProfileServiceClient,
@@ -17,6 +18,7 @@ import {
   CreateProfileRequest,
   DeleteProfileRequest,
   EmbeddingSimilarityAlbumAssessmentSettings,
+  FindSimilarAlbumsRequest,
   GetManyAlbumsRequest,
   GetPendingSpotifyImportsReply,
   GetPendingSpotifyImportsRequest,
@@ -408,4 +410,28 @@ export const clearPendingSpotifyImports = async (
 export const getAlbumMonitor = async (): Promise<AlbumMonitor> => {
   const response = await client.album.getMonitor(new Empty(), null);
   return response.getMonitor()!;
+};
+
+export const findSimilarAlbums = async ({
+  fileName,
+  embeddingKey,
+  filters,
+  limit,
+}: SimilarAlbumsForm): Promise<Album[]> => {
+  const request = new FindSimilarAlbumsRequest();
+  if (!fileName || !embeddingKey) {
+    throw new Error("Invalid settings");
+  }
+  request.setFileName(fileName);
+  request.setEmbeddingKey(embeddingKey);
+
+  if (limit) {
+    request.setLimit(limit);
+  }
+
+  if (filters) {
+  }
+
+  const response = await client.album.findSimilarAlbums(request, null);
+  return response.getAlbumsList();
 };

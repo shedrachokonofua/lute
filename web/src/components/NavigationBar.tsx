@@ -33,6 +33,7 @@ const navItems = [
   { label: "Dashboard", href: "/" },
   { label: "Profiles", href: "/profiles", activePath: "/profiles/*" },
   { label: "Recommendations", href: "/recommendations" },
+  { label: "Find Similar Albums", href: "/similar-albums" },
 ];
 
 export const NavigationBar = ({ isOpen }: { isOpen: boolean }) => (
