@@ -54,7 +54,7 @@ impl AlbumEmbeddingProvider for OpenAIAlbumEmbeddingProvider {
   #[tracing::instrument(name = "OpenAIAlbumEmbeddingProvider::generate", skip(self))]
   async fn generate(&self, album: &AlbumReadModel) -> Result<Vec<(&str, Vec<f32>)>> {
     let request = CreateEmbeddingRequestArgs::default()
-      .model("text-embedding-ada-002")
+      .model("text-embedding-3-large")
       .input([self.get_input(album)])
       .build()?;
     let mut response = self.client.embeddings().create(request).await?;
