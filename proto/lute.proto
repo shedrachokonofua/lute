@@ -730,8 +730,11 @@ message SetEventCursorRequest {
   string cursor = 2;
 }
 
+message DeleteEventCursorRequest { string subscriber_id = 1; }
+
 service EventService {
   rpc Stream(stream EventStreamRequest) returns (stream EventStreamReply) {}
   rpc GetMonitor(google.protobuf.Empty) returns (GetEventsMonitorReply) {}
   rpc SetCursor(SetEventCursorRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteCursor(DeleteEventCursorRequest) returns (google.protobuf.Empty) {}
 }

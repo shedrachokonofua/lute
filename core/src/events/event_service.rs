@@ -57,6 +57,19 @@ impl proto::EventService for EventService {
     Ok(Response::new(()))
   }
 
+  async fn delete_cursor(
+    &self,
+    request: Request<proto::DeleteEventCursorRequest>,
+  ) -> Result<Response<()>, Status> {
+    let request = request.into_inner();
+    self
+      .event_subscriber_repository
+      .delete_cursor(&request.subscriber_id)
+      .await
+      .map_err(|err| Status::internal(err.to_string()))?;
+    Ok(Response::new(()))
+  }
+
   async fn get_monitor(
     &self,
     _: Request<()>,
