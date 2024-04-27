@@ -88,6 +88,11 @@ pub struct OpenAISettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct EmbeddingProviderSettings {
+  pub openai: Option<OpenAISettings>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Settings {
   pub crawler: CrawlerSettings,
   pub file: FileSettings,
@@ -97,7 +102,7 @@ pub struct Settings {
   pub spotify: SpotifySettings,
   pub tracing: TracingSettings,
   pub parser: ParserSettings,
-  pub openai: Option<OpenAISettings>,
+  pub embedding_provider: EmbeddingProviderSettings,
 }
 
 impl Settings {

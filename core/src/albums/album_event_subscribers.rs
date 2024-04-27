@@ -4,7 +4,7 @@ use super::{
     AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack,
   },
   album_search_index::{AlbumEmbedding, AlbumSearchIndex},
-  embedding_provider::{AlbumEmbeddingProvider, OpenAIAlbumEmbeddingProvider},
+  embedding_provider::{AlbumEmbeddingProvider, AlbumEmbeddingProvidersInteractor},
   redis_album_search_index::RedisAlbumSearchIndex,
   sqlite_album_repository::SqliteAlbumRepository,
 };
@@ -100,7 +100,10 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
   {
     let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
     let album_repository = SqliteAlbumRepository::new(Arc::clone(&context.sqlite_connection));
-    let album_search_index = RedisAlbumSearchIndex::new(Arc::clone(&context.redis_connection_pool));
+    let album_search_index = RedisAlbumSearchIndex::new(
+      Arc::clone(&context.redis_connection_pool),
+      Arc::clone(&context.settings),
+    );
     let album_interactor =
       AlbumInteractor::new(Arc::new(album_repository), Arc::new(album_search_index));
     album_interactor.put(album_read_model).await?;
@@ -111,7 +114,10 @@ async fn update_album_read_models(context: SubscriberContext) -> Result<()> {
 async fn delete_album_read_models(context: SubscriberContext) -> Result<()> {
   if let Event::FileDeleted { file_name, .. } = context.payload.event {
     let album_repository = SqliteAlbumRepository::new(Arc::clone(&context.sqlite_connection));
-    let album_search_index = RedisAlbumSearchIndex::new(Arc::clone(&context.redis_connection_pool));
+    let album_search_index = RedisAlbumSearchIndex::new(
+      Arc::clone(&context.redis_connection_pool),
+      Arc::clone(&context.settings),
+    );
     let album_interactor =
       AlbumInteractor::new(Arc::new(album_repository), Arc::new(album_search_index));
     album_interactor.delete(&file_name).await?;
@@ -191,18 +197,19 @@ async fn update_album_embedding(
     data: ParsedFileData::Album(parsed_album),
   } = context.payload.event
   {
-    let album_search_index = RedisAlbumSearchIndex::new(Arc::clone(&context.redis_connection_pool));
+    let album_search_index = RedisAlbumSearchIndex::new(
+      Arc::clone(&context.redis_connection_pool),
+      Arc::clone(&context.settings),
+    );
     let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
-    let embeddings = provider.generate(&album_read_model).await?;
-    for (key, embedding) in embeddings {
-      album_search_index
-        .put_embedding(&AlbumEmbedding {
-          file_name: file_name.clone(),
-          key: key.to_string(),
-          embedding,
-        })
-        .await?;
-    }
+    let embedding = provider.generate(&album_read_model).await?;
+    album_search_index
+      .put_embedding(&AlbumEmbedding {
+        file_name: file_name.clone(),
+        key: provider.name().to_string(),
+        embedding,
+      })
+      .await?;
   }
   Ok(())
 }
@@ -212,13 +219,10 @@ fn build_embedding_provider_event_subscribers(
   sqlite_connection: Arc<SqliteConnection>,
   settings: Arc<Settings>,
 ) -> Result<Vec<EventSubscriber>> {
-  let mut providers = vec![];
-  if settings.openai.is_some() {
-    providers.push(Arc::new(OpenAIAlbumEmbeddingProvider::new(Arc::clone(
-      &settings,
-    ))?));
-  }
-  let subscribers = providers
+  let album_embedding_providers_interactor =
+    AlbumEmbeddingProvidersInteractor::new(Arc::clone(&settings));
+  let subscribers = album_embedding_providers_interactor
+    .providers
     .into_iter()
     .filter_map(|provider| {
       EventSubscriberBuilder::default()

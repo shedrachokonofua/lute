@@ -83,7 +83,7 @@ pub trait AlbumSearchIndex {
   async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<AlbumEmbedding>>;
   async fn find_many_embeddings(
     &self,
-    file_name: Vec<FileName>,
+    file_names: Vec<FileName>,
     key: &str,
   ) -> Result<Vec<AlbumEmbedding>>;
   async fn find_embedding(&self, file_name: &FileName, key: &str)
@@ -94,5 +94,4 @@ pub trait AlbumSearchIndex {
     &self,
     query: &AlbumEmbeddingSimilarirtySearchQuery,
   ) -> Result<Vec<(AlbumReadModel, f32)>>;
-  async fn get_embedding_keys(&self) -> Result<Vec<String>>;
 }

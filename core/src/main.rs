@@ -104,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let sqlite_connection = Arc::new(SqliteConnection::new(Arc::clone(&settings)).await?);
 
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
-  setup_redis_indexes(redis_connection_pool.clone()).await?;
+  setup_redis_indexes(Arc::clone(&redis_connection_pool), Arc::clone(&settings)).await?;
 
   let parser_retry_queue: Arc<FifoQueue<FileName>> = Arc::new(FifoQueue::new(
     Arc::clone(&redis_connection_pool),
@@ -132,9 +132,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   )?;
 
   let album_repository = Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection)));
-  let album_search_index = Arc::new(RedisAlbumSearchIndex::new(Arc::clone(
-    &redis_connection_pool,
-  )));
+  let album_search_index = Arc::new(RedisAlbumSearchIndex::new(
+    Arc::clone(&redis_connection_pool),
+    Arc::clone(&settings),
+  ));
   run_rpc_server(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),

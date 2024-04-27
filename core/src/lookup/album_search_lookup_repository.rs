@@ -54,7 +54,7 @@ pub struct AlbumSearchLookupRepository {
 impl AlbumSearchLookupRepository {
   pub async fn setup_index(&self) -> Result<()> {
     let connection = self.redis_connection_pool.get().await?;
-    if !does_ft_index_exist(&connection, INDEX_NAME).await {
+    if !does_ft_index_exist(&connection, &INDEX_NAME.to_string()).await {
       connection
         .ft_create(
           INDEX_NAME,

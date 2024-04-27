@@ -4,8 +4,9 @@ use super::{
   album_search_index::{
     AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQuery, SearchPagination,
   },
+  embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
-use crate::{files::file_metadata::file_name::FileName, proto};
+use crate::{files::file_metadata::file_name::FileName, proto, settings::Settings};
 use anyhow::{Error, Result};
 use std::sync::Arc;
 use tonic::{async_trait, Request, Response, Status};
@@ -106,6 +107,7 @@ impl TryFrom<proto::SearchPagination> for SearchPagination {
 }
 
 pub struct AlbumService {
+  album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
   album_interactor: Arc<AlbumInteractor>,
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
@@ -113,10 +115,14 @@ pub struct AlbumService {
 
 impl AlbumService {
   pub fn new(
+    settings: Arc<Settings>,
     album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   ) -> Self {
     Self {
+      album_embedding_providers_interactor: Arc::new(AlbumEmbeddingProvidersInteractor::new(
+        Arc::clone(&settings),
+      )),
       album_repository: Arc::clone(&album_repository),
       album_search_index: Arc::clone(&album_search_index),
       album_interactor: Arc::new(AlbumInteractor::new(album_repository, album_search_index)),
@@ -220,10 +226,11 @@ impl proto::AlbumService for AlbumService {
   ) -> Result<Response<proto::GetEmbeddingKeysReply>, Status> {
     let reply = proto::GetEmbeddingKeysReply {
       keys: self
-        .album_search_index
-        .get_embedding_keys()
-        .await
-        .map_err(|e| Status::internal(e.to_string()))?,
+        .album_embedding_providers_interactor
+        .providers
+        .iter()
+        .map(|provider| provider.name().to_string())
+        .collect(),
     };
     Ok(Response::new(reply))
   }

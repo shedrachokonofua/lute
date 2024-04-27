@@ -38,9 +38,7 @@ pub fn average_embedding(embeddings: Vec<(&Vec<f32>, u32)>) -> Vec<f32> {
   let mut average_embedding = vec![0.0; embeddings[0].0.len()];
   for (embedding, weight) in embeddings {
     for (i, value) in embedding.iter().enumerate() {
-      for _ in 0..weight {
-        average_embedding[i] += value;
-      }
+      average_embedding[i] += value * weight as f32;
       len += weight;
     }
   }

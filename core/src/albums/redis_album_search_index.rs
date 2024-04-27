@@ -8,14 +8,17 @@ use super::{
     embedding_to_bytes, AlbumEmbedding, AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex,
     AlbumSearchQuery, AlbumSearchResult, SearchPagination,
   },
+  embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
 use crate::{
   files::file_metadata::file_name::FileName,
-  helpers::redisearch::{does_ft_index_exist, escape_search_query_text, escape_tag_value},
+  helpers::redisearch::{escape_search_query_text, escape_tag_value, SearchIndexVersionManager},
+  settings::Settings,
 };
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
+use futures::future::join_all;
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
@@ -28,7 +31,7 @@ use rustis::{
 };
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{info, instrument};
+use tracing::instrument;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct RedisAlbumReadModelArtist {
@@ -285,10 +288,10 @@ impl AlbumSearchQuery {
 impl AlbumEmbeddingSimilarirtySearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     format!(
-      "({} {})=>[KNN {} @embedding $BLOB as distance]",
-      get_tag_query("@embedding_key", &vec![self.embedding_key.clone()]),
+      "({})=>[KNN {} {} $BLOB as distance]",
       self.filters.to_ft_search_query(),
-      self.limit
+      self.limit,
+      format!("@{}", embedding_json_key(&self.embedding_key))
     )
   }
 }
@@ -299,107 +302,140 @@ pub struct RedisAlbumRepository {
 
 pub struct RedisAlbumSearchIndex {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  version_manager: SearchIndexVersionManager,
+  album_embedding_providers_interactor: AlbumEmbeddingProvidersInteractor,
 }
 
 const NAMESPACE: &str = "album";
-const INDEX_NAME: &str = "album_idx";
+const INDEX_VERSION: u32 = 2;
 
 fn redis_key(file_name: &FileName) -> String {
   format!("{}:{}", NAMESPACE, file_name.to_string())
 }
 
+fn embedding_json_key(key: &str) -> String {
+  let normalized_key = key.replace("-", "_");
+  format!("embedding_{}", normalized_key)
+}
+
+fn embedding_json_path(key: &str) -> String {
+  format!("$.{}", embedding_json_key(key))
+}
+
 impl RedisAlbumSearchIndex {
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+  fn get_schema(
+    album_embedding_providers_interactor: &AlbumEmbeddingProvidersInteractor,
+  ) -> Vec<FtFieldSchema> {
+    let mut schema = vec![
+      FtFieldSchema::identifier("$.name")
+        .as_attribute("name")
+        .field_type(FtFieldType::Text),
+      FtFieldSchema::identifier("$.file_name")
+        .as_attribute("file_name")
+        .field_type(FtFieldType::Tag),
+      FtFieldSchema::identifier("$.artists[*].name")
+        .as_attribute("artist_name")
+        .field_type(FtFieldType::Text),
+      FtFieldSchema::identifier("$.artists[*].ascii_name")
+        .as_attribute("artist_ascii_name")
+        .field_type(FtFieldType::Text),
+      FtFieldSchema::identifier("$.artists[*].file_name")
+        .as_attribute("artist_file_name")
+        .field_type(FtFieldType::Tag),
+      FtFieldSchema::identifier("$.rating")
+        .as_attribute("rating")
+        .field_type(FtFieldType::Numeric),
+      FtFieldSchema::identifier("$.rating_count")
+        .as_attribute("rating_count")
+        .field_type(FtFieldType::Numeric),
+      FtFieldSchema::identifier("$.primary_genres.*")
+        .as_attribute("primary_genre")
+        .field_type(FtFieldType::Tag),
+      FtFieldSchema::identifier("$.primary_genre_count")
+        .as_attribute("primary_genre_count")
+        .field_type(FtFieldType::Numeric),
+      FtFieldSchema::identifier("$.secondary_genres.*")
+        .as_attribute("secondary_genre")
+        .field_type(FtFieldType::Tag),
+      FtFieldSchema::identifier("$.secondary_genre_count")
+        .as_attribute("secondary_genre_count")
+        .field_type(FtFieldType::Numeric),
+      FtFieldSchema::identifier("$.descriptors.*")
+        .as_attribute("descriptor")
+        .field_type(FtFieldType::Tag),
+      FtFieldSchema::identifier("$.descriptor_count")
+        .as_attribute("descriptor_count")
+        .field_type(FtFieldType::Numeric),
+      FtFieldSchema::identifier("$.release_year")
+        .as_attribute("release_year")
+        .field_type(FtFieldType::Numeric),
+      FtFieldSchema::identifier("$.languages.*")
+        .as_attribute("language")
+        .field_type(FtFieldType::Tag),
+      FtFieldSchema::identifier("$.language_count")
+        .as_attribute("language_count")
+        .field_type(FtFieldType::Numeric),
+      FtFieldSchema::identifier("$.is_duplicate")
+        .as_attribute("is_duplicate")
+        .field_type(FtFieldType::Numeric),
+      FtFieldSchema::identifier("$.name_tag")
+        .as_attribute("name_tag")
+        .field_type(FtFieldType::Tag),
+      FtFieldSchema::identifier("$.ascii_name")
+        .as_attribute("ascii_name")
+        .field_type(FtFieldType::Text),
+    ];
+    schema.extend(
+      album_embedding_providers_interactor
+        .providers
+        .iter()
+        .map(|provider| {
+          FtFieldSchema::identifier(embedding_json_path(provider.name()))
+            .as_attribute(embedding_json_key(provider.name()))
+            .field_type(FtFieldType::Vector(Some(FtVectorFieldAlgorithm::Flat(
+              FtFlatVectorFieldAttributes::new(
+                FtVectorType::Float32,
+                provider.dimensions(),
+                FtVectorDistanceMetric::Cosine,
+              ),
+            ))))
+        })
+        .collect::<Vec<FtFieldSchema>>(),
+    );
+    schema
+  }
+
+  pub fn new(
+    redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    settings: Arc<Settings>,
+  ) -> Self {
     Self {
+      version_manager: SearchIndexVersionManager::new(
+        redis_connection_pool.clone(),
+        INDEX_VERSION,
+        "album-idx".to_string(),
+      ),
       redis_connection_pool,
+      album_embedding_providers_interactor: AlbumEmbeddingProvidersInteractor::new(Arc::clone(
+        &settings,
+      )),
     }
   }
 
   pub async fn setup_index(&self) -> Result<()> {
-    let connection = self.redis_connection_pool.get().await?;
-    if !does_ft_index_exist(&connection, INDEX_NAME).await {
-      info!("Creating index {}", INDEX_NAME);
-      connection
-        .ft_create(
-          INDEX_NAME,
-          FtCreateOptions::default()
-            .on(FtIndexDataType::Json)
-            .prefix(format!("{}:", NAMESPACE)),
-          [
-            FtFieldSchema::identifier("$.name")
-              .as_attribute("name")
-              .field_type(FtFieldType::Text),
-            FtFieldSchema::identifier("$.file_name")
-              .as_attribute("file_name")
-              .field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.artists[*].name")
-              .as_attribute("artist_name")
-              .field_type(FtFieldType::Text),
-            FtFieldSchema::identifier("$.artists[*].ascii_name")
-              .as_attribute("artist_ascii_name")
-              .field_type(FtFieldType::Text),
-            FtFieldSchema::identifier("$.artists[*].file_name")
-              .as_attribute("artist_file_name")
-              .field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.rating")
-              .as_attribute("rating")
-              .field_type(FtFieldType::Numeric),
-            FtFieldSchema::identifier("$.rating_count")
-              .as_attribute("rating_count")
-              .field_type(FtFieldType::Numeric),
-            FtFieldSchema::identifier("$.primary_genres.*")
-              .as_attribute("primary_genre")
-              .field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.primary_genre_count")
-              .as_attribute("primary_genre_count")
-              .field_type(FtFieldType::Numeric),
-            FtFieldSchema::identifier("$.secondary_genres.*")
-              .as_attribute("secondary_genre")
-              .field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.secondary_genre_count")
-              .as_attribute("secondary_genre_count")
-              .field_type(FtFieldType::Numeric),
-            FtFieldSchema::identifier("$.descriptors.*")
-              .as_attribute("descriptor")
-              .field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.descriptor_count")
-              .as_attribute("descriptor_count")
-              .field_type(FtFieldType::Numeric),
-            FtFieldSchema::identifier("$.release_year")
-              .as_attribute("release_year")
-              .field_type(FtFieldType::Numeric),
-            FtFieldSchema::identifier("$.languages.*")
-              .as_attribute("language")
-              .field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.language_count")
-              .as_attribute("language_count")
-              .field_type(FtFieldType::Numeric),
-            FtFieldSchema::identifier("$.embeddings..key")
-              .as_attribute("embedding_key")
-              .field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.embeddings..embedding")
-              .as_attribute("embedding")
-              .field_type(FtFieldType::Vector(Some(FtVectorFieldAlgorithm::Flat(
-                FtFlatVectorFieldAttributes::new(
-                  FtVectorType::Float32,
-                  1536,
-                  FtVectorDistanceMetric::Cosine,
-                ),
-              )))),
-            FtFieldSchema::identifier("$.is_duplicate")
-              .as_attribute("is_duplicate")
-              .field_type(FtFieldType::Numeric),
-            FtFieldSchema::identifier("$.name_tag")
-              .as_attribute("name_tag")
-              .field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.ascii_name")
-              .as_attribute("ascii_name")
-              .field_type(FtFieldType::Text),
-          ],
-        )
-        .await?;
-    }
-    Ok(())
+    self
+      .version_manager
+      .setup_index(
+        FtCreateOptions::default()
+          .on(FtIndexDataType::Json)
+          .prefix(format!("{}:", NAMESPACE)),
+        RedisAlbumSearchIndex::get_schema(&self.album_embedding_providers_interactor),
+      )
+      .await
+  }
+
+  fn index_name(&self) -> String {
+    self.version_manager.latest_index_name()
   }
 
   pub async fn ensure_album_root(&self, file_name: &FileName) -> Result<()> {
@@ -415,26 +451,22 @@ impl RedisAlbumSearchIndex {
     Ok(())
   }
 
-  pub async fn ensure_embeddings_field(&self, file_name: &FileName) -> Result<()> {
-    self.ensure_album_root(file_name).await?;
-    let connection = self.redis_connection_pool.get().await?;
-    let result: Option<String> = connection
+  async fn get_legacy_embeddings(&self, file_name: &FileName) -> Result<Vec<AlbumEmbedding>> {
+    let result: Option<String> = self
+      .redis_connection_pool
+      .get()
+      .await?
       .json_get(
         redis_key(file_name),
-        JsonGetOptions::default().path("$.embeddings"),
+        JsonGetOptions::default().path("$.embeddings[*]"),
       )
       .await?;
-    if result.is_none() || result.is_some_and(|r| r == "[]") {
-      connection
-        .json_set(
-          redis_key(file_name),
-          "$.embeddings",
-          "{}",
-          SetCondition::default(),
-        )
-        .await?;
-    }
-    Ok(())
+    let embeddings = result
+      .map(|r| serde_json::from_str::<Vec<AlbumEmbedding>>(&r))
+      .transpose()?
+      .unwrap_or_default();
+
+    Ok(embeddings)
   }
 }
 
@@ -492,7 +524,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     let connection = self.redis_connection_pool.get().await?;
     let result = connection
       .ft_search(
-        INDEX_NAME,
+        self.index_name(),
         query.to_ft_search_query(),
         FtSearchOptions::default().limit(offset, limit)._return([
           FtSearchReturnAttribute::identifier("$.name"),
@@ -588,15 +620,15 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
 
   #[instrument(skip(self))]
   async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()> {
-    self.ensure_embeddings_field(&embedding.file_name).await?;
+    self.ensure_album_root(&embedding.file_name).await?;
     self
       .redis_connection_pool
       .get()
       .await?
       .json_set(
         redis_key(&embedding.file_name),
-        format!("$.embeddings.{}", embedding.key),
-        serde_json::to_string(embedding)?,
+        embedding_json_path(&embedding.key),
+        serde_json::to_string(&embedding.embedding)?,
         SetCondition::default(),
       )
       .await?;
@@ -604,20 +636,27 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
   }
 
   async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<AlbumEmbedding>> {
-    let result: Option<String> = self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_get(
-        redis_key(file_name),
-        JsonGetOptions::default().path("$.embeddings[*]"),
-      )
-      .await?;
-    let embeddings = result
-      .map(|r| serde_json::from_str::<Vec<AlbumEmbedding>>(&r))
-      .transpose()?
-      .unwrap_or_default();
-    Ok(embeddings)
+    let legacy_embeddings = self.get_legacy_embeddings(file_name).await?;
+    let embeddings = join_all(
+      self
+        .album_embedding_providers_interactor
+        .providers
+        .iter()
+        .map(|provider| async {
+          let embedding = self.find_embedding(file_name, provider.name()).await?;
+          Ok(embedding.map(|embedding| AlbumEmbedding {
+            file_name: file_name.clone(),
+            key: provider.name().to_string(),
+            embedding: embedding.embedding,
+          }))
+        }),
+    )
+    .await
+    .into_iter()
+    .filter_map(|result| result.transpose())
+    .collect::<Result<Vec<AlbumEmbedding>>>()?;
+
+    Ok([legacy_embeddings, embeddings].concat())
   }
 
   async fn find_many_embeddings(
@@ -625,22 +664,15 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     file_names: Vec<FileName>,
     key: &str,
   ) -> Result<Vec<AlbumEmbedding>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let keys: Vec<String> = file_names
-      .iter()
-      .map(|file_name| redis_key(file_name))
-      .collect();
-    let result: Vec<String> = connection
-      .json_mget(keys, format!("$.embeddings.{}", key))
-      .await?;
-    let embeddings = result
-      .into_iter()
-      .filter_map(|r| {
-        serde_json::from_str::<Vec<AlbumEmbedding>>(&r)
-          .ok()
-          .and_then(|r| r.into_iter().next())
-      })
-      .collect::<Vec<AlbumEmbedding>>();
+    let embeddings = join_all(
+      file_names
+        .iter()
+        .map(|file_name| self.find_embedding(file_name, key)),
+    )
+    .await
+    .into_iter()
+    .filter_map(|result| result.transpose())
+    .collect::<Result<Vec<AlbumEmbedding>>>()?;
     Ok(embeddings)
   }
 
@@ -649,7 +681,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
       .redis_connection_pool
       .get()
       .await?
-      .json_del(redis_key(file_name), format!("$.embeddings.{}", key))
+      .json_del(redis_key(file_name), embedding_json_path(key))
       .await?;
     Ok(())
   }
@@ -665,13 +697,18 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
       .await?
       .json_get(
         redis_key(file_name),
-        JsonGetOptions::default().path(format!("$.embeddings.{}", key)),
+        JsonGetOptions::default().path(embedding_json_key(key)),
       )
       .await?;
     let embedding = result
-      .map(|r| serde_json::from_str::<Vec<AlbumEmbedding>>(&r))
-      .transpose()?;
-    Ok(embedding.map(|mut r| r.remove(0)))
+      .map(|r| serde_json::from_str::<Vec<f32>>(&r))
+      .transpose()?
+      .map(|embedding| AlbumEmbedding {
+        file_name: file_name.clone(),
+        key: key.to_string(),
+        embedding,
+      });
+    Ok(embedding)
   }
 
   #[instrument(skip(self))]
@@ -682,7 +719,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     let connection = self.redis_connection_pool.get().await?;
     let result = connection
       .ft_search(
-        INDEX_NAME,
+        self.index_name(),
         query.to_ft_search_query(),
         FtSearchOptions::default()
           .params(("BLOB", embedding_to_bytes(&query.embedding)))
@@ -708,11 +745,5 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
       })
       .collect::<Vec<(AlbumReadModel, f32)>>();
     Ok(albums)
-  }
-
-  async fn get_embedding_keys(&self) -> Result<Vec<String>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let result: Vec<String> = connection.ft_tagvals(INDEX_NAME, "embedding_key").await?;
-    Ok(result)
   }
 }

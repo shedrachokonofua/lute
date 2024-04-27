@@ -2,7 +2,8 @@ use crate::{
   albums::redis_album_search_index::RedisAlbumSearchIndex,
   lookup::album_search_lookup_repository::AlbumSearchLookupRepository,
   parser::failed_parse_files_repository::FailedParseFilesRepository,
-  profile::spotify_import_repository::SpotifyImportRepository, settings::RedisSettings,
+  profile::spotify_import_repository::SpotifyImportRepository,
+  settings::{RedisSettings, Settings},
 };
 use anyhow::Result;
 use rustis::{
@@ -41,6 +42,7 @@ pub async fn build_redis_connection_pool(
 
 pub async fn setup_redis_indexes(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  settings: Arc<Settings>,
 ) -> Result<()> {
   FailedParseFilesRepository {
     redis_connection_pool: Arc::clone(&redis_connection_pool),
@@ -60,7 +62,7 @@ pub async fn setup_redis_indexes(
   .setup_index()
   .await?;
 
-  RedisAlbumSearchIndex::new(Arc::clone(&redis_connection_pool))
+  RedisAlbumSearchIndex::new(Arc::clone(&redis_connection_pool), Arc::clone(&settings))
     .setup_index()
     .await?;
 

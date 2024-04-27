@@ -76,6 +76,7 @@ impl RpcServer {
         crawler_interactor: Arc::clone(&crawler_interactor),
       }),
       album_service: Arc::new(AlbumService::new(
+        Arc::clone(&settings),
         Arc::clone(&album_repository),
         Arc::clone(&album_search_index),
       )),
