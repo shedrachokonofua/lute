@@ -468,6 +468,16 @@ impl RedisAlbumSearchIndex {
 
     Ok(embeddings)
   }
+
+  async fn delete_legacy_embeddings(&self, file_name: &FileName) -> Result<()> {
+    self
+      .redis_connection_pool
+      .get()
+      .await?
+      .json_del(redis_key(file_name), "$.embeddings")
+      .await?;
+    Ok(())
+  }
 }
 
 #[async_trait]
@@ -632,6 +642,12 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
         SetCondition::default(),
       )
       .await?;
+    match self.delete_legacy_embeddings(&embedding.file_name).await {
+      Ok(_) => {}
+      Err(e) => {
+        tracing::warn!("failed to delete legacy embeddings: {:?}", e);
+      }
+    };
     Ok(())
   }
 
