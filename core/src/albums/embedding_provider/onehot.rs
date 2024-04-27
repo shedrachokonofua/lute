@@ -3,7 +3,11 @@ use crate::albums::album_read_model::AlbumReadModel;
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Datelike;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use rayon::{iter::IntoParallelIterator, prelude::ParallelIterator};
+use std::{
+  hash::{DefaultHasher, Hash, Hasher},
+  sync::mpsc::channel,
+};
 
 pub struct OneHotAlbumEmbeddingProvider;
 
@@ -22,7 +26,7 @@ fn to_index(tag: String) -> usize {
 }
 
 fn one_hot_encode(album: &AlbumReadModel) -> Vec<f32> {
-  let mut embedding = vec![0.0; 3072];
+  let mut embedding = vec![0.0; DIMENSIONS];
   let mut tags = [
     album.artists.iter().map(|a| a.name.clone()).collect(),
     album
@@ -49,8 +53,14 @@ fn one_hot_encode(album: &AlbumReadModel) -> Vec<f32> {
   if let Some(release_date) = album.release_date {
     tags.push(release_date.year().to_string());
   }
-  for tag in tags {
-    let index = to_index(tag);
+  let (tx, rx) = channel();
+  rayon::spawn(move || {
+    tags.into_par_iter().for_each(|tag| {
+      let index = to_index(tag);
+      tx.send(index).unwrap();
+    });
+  });
+  while let Ok(index) = rx.recv() {
     embedding[index] = 1.0;
   }
   embedding
