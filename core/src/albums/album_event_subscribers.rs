@@ -4,7 +4,7 @@ use super::{
     AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack,
   },
   album_search_index::{AlbumEmbedding, AlbumSearchIndex},
-  embedding_provider::{AlbumEmbeddingProvider, AlbumEmbeddingProvidersInteractor},
+  embedding_provider::{provider::AlbumEmbeddingProvider, AlbumEmbeddingProvidersInteractor},
   redis_album_search_index::RedisAlbumSearchIndex,
   sqlite_album_repository::SqliteAlbumRepository,
 };

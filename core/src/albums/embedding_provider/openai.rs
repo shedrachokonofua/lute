@@ -1,35 +1,8 @@
-use crate::{
-  albums::album_read_model::AlbumReadModel,
-  settings::{OpenAISettings, Settings},
-};
+use super::provider::AlbumEmbeddingProvider;
+use crate::{albums::album_read_model::AlbumReadModel, settings::OpenAISettings};
 use anyhow::Result;
 use async_openai::{config::OpenAIConfig, types::CreateEmbeddingRequestArgs, Client};
 use async_trait::async_trait;
-use std::sync::Arc;
-
-pub struct AlbumEmbeddingProvidersInteractor {
-  pub providers: Vec<Arc<dyn AlbumEmbeddingProvider + Send + Sync>>,
-}
-
-impl AlbumEmbeddingProvidersInteractor {
-  pub fn new(settings: Arc<Settings>) -> Self {
-    let mut providers: Vec<Arc<dyn AlbumEmbeddingProvider + Send + Sync>> = Vec::new();
-    if let Some(openai_settings) = &settings.embedding_provider.openai {
-      providers.push(Arc::new(OpenAIAlbumEmbeddingProvider::new(openai_settings)));
-    }
-    Self { providers }
-  }
-}
-
-#[async_trait]
-pub trait AlbumEmbeddingProvider {
-  fn name(&self) -> &str;
-  fn dimensions(&self) -> usize;
-  /**
-   * Returns a mapping of embedding keys to embeddings for the given album.
-   */
-  async fn generate(&self, album: &AlbumReadModel) -> Result<Vec<f32>>;
-}
 
 pub struct OpenAIAlbumEmbeddingProvider {
   client: Client<OpenAIConfig>,
