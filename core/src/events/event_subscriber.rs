@@ -1,3 +1,4 @@
+use crate::helpers::key_value_store::KeyValueStore;
 use crate::settings::Settings;
 use crate::sqlite::SqliteConnection;
 
@@ -20,6 +21,7 @@ pub struct SubscriberContext {
   pub sqlite_connection: Arc<SqliteConnection>,
   pub settings: Arc<Settings>,
   pub payload: EventPayload,
+  pub kv: Arc<KeyValueStore>,
 }
 
 #[derive(Builder)]
@@ -39,6 +41,8 @@ pub struct EventSubscriber {
     default = "self.get_default_event_subscriber_repository()?"
   )]
   event_subscriber_repository: EventSubscriberRepository,
+  #[builder(default = "self.get_kv()?", setter(skip))]
+  kv: Arc<KeyValueStore>,
   /**
    * A function that returns a processing group ID for the given event. Events with the same processing group ID will be processed in order.
    */
@@ -58,6 +62,13 @@ impl EventSubscriberBuilder {
       Some(sqlite_connection) => Ok(EventSubscriberRepository::new(Arc::clone(
         sqlite_connection,
       ))),
+      None => Err("SQLite connection is required".to_string()),
+    }
+  }
+
+  pub fn get_kv(&self) -> Result<Arc<KeyValueStore>, String> {
+    match &self.sqlite_connection {
+      Some(sqlite_connection) => Ok(Arc::new(KeyValueStore::new(Arc::clone(sqlite_connection)))),
       None => Err("SQLite connection is required".to_string()),
     }
   }
@@ -123,6 +134,7 @@ impl EventSubscriber {
           let redis_pool = Arc::clone(&self.redis_connection_pool);
           let sqlite_pool = Arc::clone(&self.sqlite_connection);
           let settings = Arc::clone(&self.settings);
+          let kv = Arc::clone(&self.kv);
           let handle = self.handle.clone();
           let subscriber_id = self.id.clone();
           let stream_tags = stream_tags.clone();
@@ -151,6 +163,7 @@ impl EventSubscriber {
                 redis_connection_pool: Arc::clone(&redis_pool),
                 sqlite_connection: Arc::clone(&sqlite_pool),
                 settings: Arc::clone(&settings),
+                kv: Arc::clone(&kv),
                 entry_id: entry_id.clone(),
                 payload: payload.clone(),
                 stream: row.stream.clone(),

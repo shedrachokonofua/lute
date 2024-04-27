@@ -1,5 +1,9 @@
 use crate::{
-  albums::redis_album_search_index::RedisAlbumSearchIndex,
+  albums::{
+    embedding_provider::AlbumEmbeddingProvidersInteractor,
+    redis_album_search_index::RedisAlbumSearchIndex,
+  },
+  helpers::key_value_store::KeyValueStore,
   lookup::album_search_lookup_repository::AlbumSearchLookupRepository,
   parser::failed_parse_files_repository::FailedParseFilesRepository,
   profile::spotify_import_repository::SpotifyImportRepository,
@@ -43,6 +47,7 @@ pub async fn build_redis_connection_pool(
 pub async fn setup_redis_indexes(
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   settings: Arc<Settings>,
+  kv: Arc<KeyValueStore>,
 ) -> Result<()> {
   FailedParseFilesRepository {
     redis_connection_pool: Arc::clone(&redis_connection_pool),
@@ -62,9 +67,15 @@ pub async fn setup_redis_indexes(
   .setup_index()
   .await?;
 
-  RedisAlbumSearchIndex::new(Arc::clone(&redis_connection_pool), Arc::clone(&settings))
-    .setup_index()
-    .await?;
+  RedisAlbumSearchIndex::new(
+    Arc::clone(&redis_connection_pool),
+    Arc::new(AlbumEmbeddingProvidersInteractor::new(
+      Arc::clone(&settings),
+      Arc::clone(&kv),
+    )),
+  )
+  .setup_index()
+  .await?;
 
   Ok(())
 }

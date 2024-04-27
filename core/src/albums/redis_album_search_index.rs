@@ -13,7 +13,6 @@ use super::{
 use crate::{
   files::file_metadata::file_name::FileName,
   helpers::redisearch::{escape_search_query_text, escape_tag_value, SearchIndexVersionManager},
-  settings::Settings,
 };
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
@@ -303,7 +302,7 @@ pub struct RedisAlbumRepository {
 pub struct RedisAlbumSearchIndex {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   version_manager: SearchIndexVersionManager,
-  album_embedding_providers_interactor: AlbumEmbeddingProvidersInteractor,
+  album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
 }
 
 const NAMESPACE: &str = "album";
@@ -407,7 +406,7 @@ impl RedisAlbumSearchIndex {
 
   pub fn new(
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    settings: Arc<Settings>,
+    album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
   ) -> Self {
     Self {
       version_manager: SearchIndexVersionManager::new(
@@ -416,9 +415,7 @@ impl RedisAlbumSearchIndex {
         "album-idx".to_string(),
       ),
       redis_connection_pool,
-      album_embedding_providers_interactor: AlbumEmbeddingProvidersInteractor::new(Arc::clone(
-        &settings,
-      )),
+      album_embedding_providers_interactor,
     }
   }
 

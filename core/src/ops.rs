@@ -4,10 +4,11 @@ use crate::{
     priority_queue::{Priority, QueuePushParametersBuilder},
   },
   files::file_interactor::FileInteractor,
+  helpers::key_value_store::KeyValueStore,
   parser::failed_parse_files_repository::FailedParseFilesRepository,
   proto::{
-    self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest, MigrateSqliteRequest,
-    ParseFileContentStoreReply,
+    self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest, KeyValueStoreSizeReply,
+    MigrateSqliteRequest, ParseFileContentStoreReply,
   },
   settings::Settings,
   sqlite::SqliteConnection,
@@ -29,6 +30,7 @@ pub struct OperationsService {
   crawler_interactor: Arc<CrawlerInteractor>,
   file_interactor: FileInteractor,
   failed_parse_files_repository: FailedParseFilesRepository,
+  kv: Arc<KeyValueStore>,
 }
 
 impl OperationsService {
@@ -41,6 +43,7 @@ impl OperationsService {
     Self {
       crawler_interactor,
       sqlite_connection: Arc::clone(&sqlite_connection),
+      kv: Arc::new(KeyValueStore::new(Arc::clone(&sqlite_connection))),
       redis_connection_pool: Arc::clone(&redis_connection_pool),
       file_interactor: FileInteractor::new(
         settings,
@@ -56,6 +59,26 @@ impl OperationsService {
 
 #[tonic::async_trait]
 impl proto::OperationsService for OperationsService {
+  async fn get_key_value_store_size(
+    &self,
+    _: Request<()>,
+  ) -> Result<Response<KeyValueStoreSizeReply>, Status> {
+    let size = self.kv.size().await.map_err(|e| {
+      error!("Error: {:?}", e);
+      Status::internal("Failed to get key value store size")
+    })? as u32;
+    let reply = KeyValueStoreSizeReply { size };
+    Ok(Response::new(reply))
+  }
+
+  async fn clear_key_value_store(&self, _: Request<()>) -> Result<Response<()>, Status> {
+    self.kv.clear().await.map_err(|e| {
+      error!("Error: {:?}", e);
+      Status::internal("Failed to clear key value store")
+    })?;
+    Ok(Response::new(()))
+  }
+
   async fn flush_redis(&self, _: Request<()>) -> Result<Response<()>, Status> {
     let connection = self.redis_connection_pool.get().await.map_err(|e| {
       error!("Error: {:?}", e);

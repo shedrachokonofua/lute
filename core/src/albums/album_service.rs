@@ -6,7 +6,10 @@ use super::{
   },
   embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
-use crate::{files::file_metadata::file_name::FileName, proto, settings::Settings};
+use crate::{
+  files::file_metadata::file_name::FileName, helpers::key_value_store::KeyValueStore, proto,
+  settings::Settings,
+};
 use anyhow::{Error, Result};
 use std::sync::Arc;
 use tonic::{async_trait, Request, Response, Status};
@@ -116,12 +119,14 @@ pub struct AlbumService {
 impl AlbumService {
   pub fn new(
     settings: Arc<Settings>,
+    kv: Arc<KeyValueStore>,
     album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   ) -> Self {
     Self {
       album_embedding_providers_interactor: Arc::new(AlbumEmbeddingProvidersInteractor::new(
         Arc::clone(&settings),
+        Arc::clone(&kv),
       )),
       album_repository: Arc::clone(&album_repository),
       album_search_index: Arc::clone(&album_search_index),

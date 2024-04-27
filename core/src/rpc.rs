@@ -8,7 +8,7 @@ use crate::{
   files::{
     file_interactor::FileInteractor, file_metadata::file_name::FileName, file_service::FileService,
   },
-  helpers::fifo_queue::FifoQueue,
+  helpers::{fifo_queue::FifoQueue, key_value_store::KeyValueStore},
   lookup::lookup_service::LookupService,
   ops::OperationsService,
   parser::parser_service::ParserService,
@@ -62,6 +62,7 @@ impl RpcServer {
     parser_retry_queue: Arc<FifoQueue<FileName>>,
     album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
+    kv: Arc<KeyValueStore>,
   ) -> Self {
     Self {
       settings: Arc::clone(&settings),
@@ -77,6 +78,7 @@ impl RpcServer {
       }),
       album_service: Arc::new(AlbumService::new(
         Arc::clone(&settings),
+        Arc::clone(&kv),
         Arc::clone(&album_repository),
         Arc::clone(&album_search_index),
       )),

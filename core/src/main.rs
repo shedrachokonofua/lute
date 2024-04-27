@@ -2,13 +2,14 @@ use anyhow::Result;
 use core::{
   albums::{
     album_event_subscribers::build_album_event_subscribers,
+    embedding_provider::AlbumEmbeddingProvidersInteractor,
     redis_album_search_index::RedisAlbumSearchIndex,
     sqlite_album_repository::SqliteAlbumRepository,
   },
   crawler::{crawler::Crawler, crawler_interactor::CrawlerInteractor},
   events::event_subscriber::EventSubscriber,
   files::file_metadata::file_name::FileName,
-  helpers::fifo_queue::FifoQueue,
+  helpers::{fifo_queue::FifoQueue, key_value_store::KeyValueStore},
   lookup::lookup_event_subscribers::build_lookup_event_subscribers,
   parser::{
     parser_event_subscribers::build_parser_event_subscribers, retry::start_parser_retry_consumer,
@@ -36,9 +37,16 @@ fn run_rpc_server(
   sqlite_connection: Arc<SqliteConnection>,
   crawler_interactor: Arc<CrawlerInteractor>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
-  album_repository: Arc<SqliteAlbumRepository>,
-  album_search_index: Arc<RedisAlbumSearchIndex>,
+  kv: Arc<KeyValueStore>,
 ) -> task::JoinHandle<()> {
+  let album_repository = Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection)));
+  let album_search_index = Arc::new(RedisAlbumSearchIndex::new(
+    Arc::clone(&redis_connection_pool),
+    Arc::new(AlbumEmbeddingProvidersInteractor::new(
+      Arc::clone(&settings),
+      Arc::clone(&kv),
+    )),
+  ));
   let rpc_server = RpcServer::new(
     settings,
     redis_connection_pool,
@@ -47,6 +55,7 @@ fn run_rpc_server(
     parser_retry_queue,
     album_repository,
     album_search_index,
+    kv,
   );
 
   task::spawn(async move {
@@ -102,9 +111,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   setup_tracing(&settings.tracing)?;
 
   let sqlite_connection = Arc::new(SqliteConnection::new(Arc::clone(&settings)).await?);
-
+  let kv = Arc::new(KeyValueStore::new(Arc::clone(&sqlite_connection)));
   let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
-  setup_redis_indexes(Arc::clone(&redis_connection_pool), Arc::clone(&settings)).await?;
+  setup_redis_indexes(
+    Arc::clone(&redis_connection_pool),
+    Arc::clone(&settings),
+    Arc::clone(&kv),
+  )
+  .await?;
 
   let parser_retry_queue: Arc<FifoQueue<FileName>> = Arc::new(FifoQueue::new(
     Arc::clone(&redis_connection_pool),
@@ -131,19 +145,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Arc::clone(&crawler.crawler_interactor),
   )?;
 
-  let album_repository = Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection)));
-  let album_search_index = Arc::new(RedisAlbumSearchIndex::new(
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&settings),
-  ));
   run_rpc_server(
     Arc::clone(&settings),
     Arc::clone(&redis_connection_pool),
     Arc::clone(&sqlite_connection),
     Arc::clone(&crawler.crawler_interactor),
     Arc::clone(&parser_retry_queue),
-    Arc::clone(&album_repository),
-    Arc::clone(&album_search_index),
+    Arc::clone(&kv),
   )
   .await?;
 

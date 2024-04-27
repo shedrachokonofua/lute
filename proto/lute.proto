@@ -288,6 +288,8 @@ message CrawlParseFailedFilesRequest { optional string error = 1; }
 
 message CrawlParseFailedFilesReply { uint32 count = 1; }
 
+message KeyValueStoreSizeReply { uint32 size = 1; }
+
 service OperationsService {
   rpc FlushRedis(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc ParseFileContentStore(google.protobuf.Empty)
@@ -297,6 +299,10 @@ service OperationsService {
   rpc MigrateSqliteToLatest(google.protobuf.Empty)
       returns (google.protobuf.Empty) {}
   rpc MigrateSqlite(MigrateSqliteRequest) returns (google.protobuf.Empty) {}
+  rpc GetKeyValueStoreSize(google.protobuf.Empty)
+      returns (KeyValueStoreSizeReply) {}
+  rpc ClearKeyValueStore(google.protobuf.Empty)
+      returns (google.protobuf.Empty) {}
 }
 
 message AggregatedFailureError {
