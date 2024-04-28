@@ -1,7 +1,11 @@
 use super::{helpers::get_embedding_api_input, provider::AlbumEmbeddingProvider};
 use crate::{
-  albums::album_read_model::AlbumReadModel, helpers::key_value_store::KeyValueStore,
-  settings::VoyageAISettings,
+  albums::album_read_model::AlbumReadModel,
+  helpers::{
+    batch_loader::{BatchLoader, BatchLoaderConfig, Loader, LoaderError},
+    key_value_store::KeyValueStore,
+  },
+  settings::{Settings, VoyageAISettings},
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -11,27 +15,108 @@ use governor::{DefaultDirectRateLimiter, Jitter, Quota, RateLimiter};
 use lazy_static::lazy_static;
 use nonzero::nonzero;
 use reqwest::Client;
-use serde_json::Value;
-use std::{collections::HashMap, sync::Arc};
+use serde_json::{json, Value};
+use std::sync::Arc;
 use tracing::error;
+
+struct VoyageAILoader {
+  client: Client,
+  settings: Option<VoyageAISettings>,
+}
+
+#[async_trait]
+impl Loader for VoyageAILoader {
+  type Key = String;
+  type Value = Vec<f32>;
+
+  #[tracing::instrument(name = "VoyageAILoader::load", skip(self))]
+  async fn load(&self, keys: &[String]) -> Vec<Result<Vec<f32>, LoaderError>> {
+    RATE_LIMITER
+      .until_ready_with_jitter(Jitter::up_to(time::Duration::from_secs(1)))
+      .await;
+    let res = self
+      .client
+      .post("https://api.voyageai.com/v1/embeddings")
+      .header(
+        "Authorization",
+        format!("Bearer {}", self.settings.clone().unwrap().api_key),
+      )
+      .json(&json!({
+        "input": keys,
+        "model": "voyage-large-2"
+      }))
+      .send()
+      .await
+      .map_err(|e| {
+        error!("Failed to get embedding: {}", e);
+        LoaderError {
+          msg: format!("Failed to get embedding: {}", e),
+        }
+      });
+
+    match res {
+      Err(e) => return vec![Err(e); keys.len().clone()],
+      Ok(res) => {
+        if !res.status().is_success() {
+          return vec![
+            Err(LoaderError {
+              msg: format!("Failed to get embedding: {}", res.text().await.unwrap()),
+            });
+            keys.len()
+          ];
+        }
+
+        match res.json::<Value>().await.map_err(|e| {
+          error!("Failed to parse response: {}", e);
+          LoaderError {
+            msg: format!("Failed to parse response: {}", e),
+          }
+        }) {
+          Err(e) => return vec![Err(e); keys.len().clone()],
+          Ok(response) => {
+            let embeddings: Vec<Vec<f32>> = response["data"]
+              .as_array()
+              .unwrap()
+              .iter()
+              .map(|v| {
+                v["embedding"]
+                  .as_array()
+                  .unwrap()
+                  .iter()
+                  .map(|v| v.as_f64().unwrap() as f32)
+                  .collect()
+              })
+              .collect();
+
+            return embeddings.into_iter().map(|e| Ok(e)).collect();
+          }
+        }
+      }
+    }
+  }
+}
 
 lazy_static! {
   static ref RATE_LIMITER: DefaultDirectRateLimiter = RateLimiter::direct(Quota::per_second(nonzero!(4u32))); // API limit is 300/min
+  static ref BATCH_LOADER: BatchLoader<VoyageAILoader> = BatchLoader::new(
+    VoyageAILoader {
+      client: Client::new(),
+      settings: Settings::new().unwrap().embedding_provider.voyageai,
+    },
+    BatchLoaderConfig {
+      batch_size: 128,
+      time_limit: time::Duration::from_secs(1),
+    }
+  );
 }
 
 pub struct VoyageAIAlbumEmbeddingProvider {
   kv: Arc<KeyValueStore>,
-  client: Client,
-  settings: VoyageAISettings,
 }
 
 impl VoyageAIAlbumEmbeddingProvider {
-  pub fn new(settings: &VoyageAISettings, kv: Arc<KeyValueStore>) -> Self {
-    Self {
-      kv,
-      client: Client::new(),
-      settings: settings.clone(),
-    }
+  pub fn new(kv: Arc<KeyValueStore>) -> Self {
+    Self { kv }
   }
 }
 
@@ -50,7 +135,7 @@ impl AlbumEmbeddingProvider for VoyageAIAlbumEmbeddingProvider {
   }
 
   fn concurrency(&self) -> usize {
-    3
+    250
   }
 
   #[tracing::instrument(name = "VoyageAIAlbumEmbeddingProvider::generate", skip(self))]
@@ -60,37 +145,7 @@ impl AlbumEmbeddingProvider for VoyageAIAlbumEmbeddingProvider {
       return Ok(embedding);
     }
 
-    let mut body = HashMap::new();
-    body.insert("input", input);
-    body.insert("model", "voyage-large-2".to_string());
-
-    let _ = &RATE_LIMITER
-      .until_ready_with_jitter(Jitter::up_to(time::Duration::from_secs(4)))
-      .await;
-    let res = self
-      .client
-      .post("https://api.voyageai.com/v1/embeddings")
-      .header("Authorization", format!("Bearer {}", self.settings.api_key))
-      .json(&body)
-      .send()
-      .await?;
-
-    if !res.status().is_success() {
-      return Err(anyhow::anyhow!(format!(
-        "Failed to get embedding: {}",
-        res.text().await?
-      )));
-    }
-    let response: Value = res.json().await.map_err(|e| {
-      error!("Failed to parse response: {}", e);
-      anyhow::anyhow!(format!("Failed to parse response: {}", e))
-    })?;
-    let embedding: Vec<f32> = response["data"][0]["embedding"]
-      .as_array()
-      .unwrap()
-      .iter()
-      .map(|v| v.as_f64().unwrap() as f32)
-      .collect();
+    let embedding = BATCH_LOADER.load(input).await?;
 
     self
       .kv

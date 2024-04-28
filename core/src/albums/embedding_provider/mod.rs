@@ -25,11 +25,8 @@ impl AlbumEmbeddingProvidersInteractor {
         Arc::clone(&kv),
       )));
     }
-    if let Some(voyageai_settings) = &settings.embedding_provider.voyageai {
-      providers.push(Arc::new(VoyageAIAlbumEmbeddingProvider::new(
-        voyageai_settings,
-        kv,
-      )));
+    if let Some(_) = &settings.embedding_provider.voyageai {
+      providers.push(Arc::new(VoyageAIAlbumEmbeddingProvider::new(kv)));
     }
     providers.push(Arc::new(OneHotAlbumEmbeddingProvider::new()));
     Self { providers }
