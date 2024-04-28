@@ -16,6 +16,7 @@ impl KeyValueStore {
     Self { sqlite_connection }
   }
 
+  #[tracing::instrument(name = "KeyValueStore::clear", skip(self))]
   pub async fn clear(&self) -> Result<()> {
     self
       .sqlite_connection
@@ -37,6 +38,7 @@ impl KeyValueStore {
     Ok(())
   }
 
+  #[tracing::instrument(name = "KeyValueStore::size", skip(self))]
   pub async fn size(&self) -> Result<usize> {
     let size: usize = self
       .sqlite_connection
@@ -66,6 +68,7 @@ impl KeyValueStore {
     Ok(size)
   }
 
+  #[tracing::instrument(name = "KeyValueStore::get", skip(self))]
   pub async fn get<T: DeserializeOwned + Send + Sync>(&self, key: &str) -> Result<Option<T>> {
     let key = key.to_string();
     let req_key = key.clone();
@@ -111,6 +114,7 @@ impl KeyValueStore {
     }
   }
 
+  #[tracing::instrument(name = "KeyValueStore::set", skip_all)]
   pub async fn set<T: Serialize + Send + Sync>(
     &self,
     key: &str,
@@ -145,6 +149,7 @@ impl KeyValueStore {
       })?
   }
 
+  #[tracing::instrument(name = "KeyValueStore::delete", skip(self))]
   pub async fn delete(&self, key: &str) -> Result<()> {
     let key = key.to_string();
     self
@@ -161,5 +166,51 @@ impl KeyValueStore {
         error!(message = e.to_string(), "Failed to delete key value");
         anyhow!("Failed to delete key value")
       })?
+  }
+
+  #[tracing::instrument(name = "KeyValueStore::delete_matching", skip(self))]
+  pub async fn delete_matching(&self, pattern: &str) -> Result<()> {
+    let pattern = pattern.to_string();
+    self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        let mut statement = conn.prepare("DELETE FROM key_value_store WHERE key LIKE ?1")?;
+        statement.execute(params![pattern])?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to delete key value");
+        anyhow!("Failed to delete key value")
+      })?
+  }
+
+  #[tracing::instrument(name = "KeyValueStore::count_matching", skip(self))]
+  pub async fn count_matching(&self, pattern: &str) -> Result<usize> {
+    let pattern = pattern.to_string();
+    let count: usize = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(|conn| {
+        conn
+          .query_row(
+            "SELECT COUNT(*) FROM key_value_store WHERE key LIKE ?1",
+            [pattern],
+            |row| row.get::<_, usize>(0),
+          )
+          .map_err(|e| {
+            error!(message = e.to_string(), "Failed to count key value");
+            rusqlite::Error::ExecuteReturnedResults
+          })
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to count key value");
+        anyhow!("Failed to count key value")
+      })??;
+    Ok(count)
   }
 }
