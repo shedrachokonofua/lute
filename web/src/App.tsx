@@ -82,7 +82,7 @@ const router = createBrowserRouter([
       {
         path: "/similar-albums",
         element: <SimilarAlbumsPage />,
-        loader: similarAlbumsPageLoader,
+        loader: similarAlbumsPageLoader(queryClient),
       },
     ],
   },

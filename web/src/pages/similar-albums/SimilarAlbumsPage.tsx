@@ -1,14 +1,16 @@
 import { Button, Stack, Text, Title } from "@mantine/core";
+import { QueryClient, useQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useRef } from "react";
 import {
   Await,
   Form,
+  LoaderFunction,
   LoaderFunctionArgs,
   defer,
   useLoaderData,
   useRouteError,
 } from "react-router-dom";
-import { findSimilarAlbums } from "../../client";
+import { findSimilarAlbums, getAlbum } from "../../client";
 import {
   AlbumCard,
   AlbumSearchFilters,
@@ -29,38 +31,51 @@ const ErrorBoundary = () => {
 };
 
 export interface SimilarAlbumsPageLoaderData {
-  settings: SimilarAlbumsForm | null;
-  similarAlbums: Album[] | null;
+  currentAlbum?: Album;
+  settings?: SimilarAlbumsForm;
+  similarAlbums?: Album[];
 }
 
-export const similarAlbumsPageLoader = async ({
-  request,
-}: LoaderFunctionArgs) => {
-  const url = new URL(request.url);
-  const fileName = url.searchParams.get(FormName.FileName);
-  const embeddingKey = url.searchParams.get(
-    FormName.EmbeddingSimilarityEmbeddingKey,
-  );
-  const settings =
-    fileName && embeddingKey
-      ? {
-          fileName,
-          embeddingKey,
-          filters: parseAlbumSearchFiltersForm(url),
-          limit: 50,
-        }
-      : null;
-  const similarAlbums = settings ? findSimilarAlbums(settings) : null;
+const getAlbumQuery = (fileName: string | undefined) => ({
+  queryKey: ["album", fileName],
+  queryFn: async () => (fileName ? await getAlbum(fileName) : undefined),
+});
 
-  return defer({
-    settings,
-    similarAlbums,
-  });
-};
+export const similarAlbumsPageLoader =
+  (queryClient: QueryClient): LoaderFunction =>
+  async ({ request }: LoaderFunctionArgs) => {
+    const url = new URL(request.url);
+    const fileName = url.searchParams.get(FormName.FileName);
+    const embeddingKey = url.searchParams.get(
+      FormName.EmbeddingSimilarityEmbeddingKey,
+    );
+    const settings =
+      fileName && embeddingKey
+        ? {
+            fileName,
+            embeddingKey,
+            filters: parseAlbumSearchFiltersForm(url),
+            limit: 50,
+          }
+        : undefined;
+    const currentAlbum = fileName
+      ? await queryClient.ensureQueryData(getAlbumQuery(fileName))
+      : undefined;
+    const similarAlbums = settings ? findSimilarAlbums(settings) : undefined;
+
+    return defer({
+      currentAlbum,
+      settings,
+      similarAlbums,
+    });
+  };
 
 export const SimilarAlbumsPage = () => {
-  const { settings, similarAlbums } =
-    useLoaderData() as SimilarAlbumsPageLoaderData;
+  const {
+    currentAlbum: initialAlbum,
+    settings,
+    similarAlbums,
+  } = useLoaderData() as SimilarAlbumsPageLoaderData;
   const updateSearchParams = useUpdateSearchParams();
   const rightColumnRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -68,6 +83,11 @@ export const SimilarAlbumsPage = () => {
       rightColumnRef.current.scrollTop = 0;
     }
   }, [settings?.fileName]);
+  const { data: currentAlbum } = useQuery({
+    ...getAlbumQuery(settings?.fileName),
+    initialData: initialAlbum,
+    enabled: !!settings?.fileName,
+  });
 
   return (
     <TwoColumnLayout
@@ -76,7 +96,7 @@ export const SimilarAlbumsPage = () => {
           <Title order={4}>Settings</Title>
           <Form role="search">
             <Stack spacing="md">
-              <AlbumSearchInput />
+              <AlbumSearchInput initialAlbum={currentAlbum} />
               <EmbeddingSimilaritySettings />
               <CollapsibleSection title="Filters">
                 <AlbumSearchFilters />
@@ -94,9 +114,9 @@ export const SimilarAlbumsPage = () => {
       right={
         <Suspense fallback={<Text>Loading recommendations...</Text>}>
           <Await resolve={similarAlbums} errorElement={<ErrorBoundary />}>
-            {(similarAlbums: Album[] | null) => (
+            {(similarAlbums?: Album[]) => (
               <Stack spacing="md">
-                {similarAlbums === null ? (
+                {!similarAlbums ? (
                   <Text>Select an album to get started</Text>
                 ) : (
                   similarAlbums.map((album) => (
@@ -105,14 +125,9 @@ export const SimilarAlbumsPage = () => {
                       actions={
                         <Button
                           onClick={() =>
-                            updateSearchParams(
-                              {
-                                [FormName.FileName]: album.getFileName(),
-                              },
-                              {
-                                preventScrollReset: false,
-                              },
-                            )
+                            updateSearchParams({
+                              [FormName.FileName]: album.getFileName(),
+                            })
                           }
                         >
                           View similar albums

@@ -19,6 +19,7 @@ import {
   DeleteProfileRequest,
   EmbeddingSimilarityAlbumAssessmentSettings,
   FindSimilarAlbumsRequest,
+  GetAlbumRequest,
   GetManyAlbumsRequest,
   GetPendingSpotifyImportsReply,
   GetPendingSpotifyImportsRequest,
@@ -38,7 +39,7 @@ import {
   SearchPagination,
 } from "./proto/lute_pb";
 
-const coreUrl = "http://pc:22000";
+const coreUrl = "http://localhost:22000";
 const client = {
   spotify: new SpotifyServiceClient(coreUrl),
   profile: new ProfileServiceClient(coreUrl),
@@ -218,7 +219,7 @@ export const getProfileSummary = async (
   const request = new GetProfileSummaryRequest();
   request.setId(id);
   const response = await client.profile.getProfileSummary(request, null);
-  return response.getSummary()!;
+  return response.getSummary();
 };
 
 export const createProfile = async (
@@ -236,6 +237,13 @@ export const deleteProfile = async (id: string): Promise<void> => {
   const request = new DeleteProfileRequest();
   request.setId(id);
   await client.profile.deleteProfile(request, null);
+};
+
+export const getAlbum = async (fileName: string): Promise<Album> => {
+  const request = new GetAlbumRequest();
+  request.setFileName(fileName);
+  const response = await client.album.getAlbum(request, null);
+  return response.getAlbum()!;
 };
 
 export const getManyAlbums = async (fileNames: string[]): Promise<Album[]> => {
