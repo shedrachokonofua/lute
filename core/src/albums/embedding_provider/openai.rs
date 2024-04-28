@@ -1,4 +1,4 @@
-use super::provider::AlbumEmbeddingProvider;
+use super::{helpers::get_embedding_api_input, provider::AlbumEmbeddingProvider};
 use crate::{
   albums::album_read_model::AlbumReadModel, helpers::key_value_store::KeyValueStore,
   settings::OpenAISettings,
@@ -7,19 +7,11 @@ use anyhow::Result;
 use async_openai::{config::OpenAIConfig, types::CreateEmbeddingRequestArgs, Client};
 use async_trait::async_trait;
 use chrono::Duration;
-use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
 pub struct OpenAIAlbumEmbeddingProvider {
   client: Client<OpenAIConfig>,
   kv: Arc<KeyValueStore>,
-}
-
-fn get_document_id(content: String) -> String {
-  let mut hasher = Sha256::new();
-  hasher.update(content);
-  let result = hasher.finalize();
-  format!("{:x}", result)
 }
 
 fn document_kv_key(id: &str) -> String {
@@ -33,24 +25,6 @@ impl OpenAIAlbumEmbeddingProvider {
       kv,
     }
   }
-
-  fn get_input(&self, album: &AlbumReadModel) -> (String, String) {
-    let mut body = vec![];
-    body.push(album.rating.to_string());
-    body.push(album.rating_count.to_string());
-    if let Some(release_date) = album.release_date {
-      body.push(release_date.to_string());
-    }
-    body.extend(album.artists.clone().into_iter().map(|artist| artist.name));
-    body.extend(album.primary_genres.clone());
-    body.extend(album.secondary_genres.clone());
-    body.extend(album.descriptors.clone());
-    body.extend(album.languages.clone());
-    body.extend(album.credits.clone().into_iter().map(|c| c.artist.name));
-    let body = body.join(", ");
-    let id = get_document_id(body.clone());
-    (id, body)
-  }
 }
 
 #[async_trait]
@@ -63,9 +37,13 @@ impl AlbumEmbeddingProvider for OpenAIAlbumEmbeddingProvider {
     3072
   }
 
+  fn concurrency(&self) -> usize {
+    25
+  }
+
   #[tracing::instrument(name = "OpenAIAlbumEmbeddingProvider::generate", skip(self))]
   async fn generate(&self, album: &AlbumReadModel) -> Result<Vec<f32>> {
-    let (id, body) = self.get_input(album);
+    let (id, body) = get_embedding_api_input(album);
     if let Some(embedding) = self.kv.get::<Vec<f32>>(&document_kv_key(&id)).await? {
       return Ok(embedding);
     }

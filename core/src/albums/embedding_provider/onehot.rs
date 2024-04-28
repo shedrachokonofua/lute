@@ -76,6 +76,10 @@ impl AlbumEmbeddingProvider for OneHotAlbumEmbeddingProvider {
     DIMENSIONS
   }
 
+  fn concurrency(&self) -> usize {
+    250
+  }
+
   #[tracing::instrument(name = "OneHotAlbumEmbeddingProvider::generate", skip(self))]
   async fn generate(&self, album: &AlbumReadModel) -> Result<Vec<f32>> {
     Ok(one_hot_encode(album))

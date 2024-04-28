@@ -88,8 +88,14 @@ pub struct OpenAISettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct VoyageAISettings {
+  pub api_key: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct EmbeddingProviderSettings {
   pub openai: Option<OpenAISettings>,
+  pub voyageai: Option<VoyageAISettings>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
