@@ -7,7 +7,7 @@ use crate::{
   helpers::key_value_store::KeyValueStore,
   parser::failed_parse_files_repository::FailedParseFilesRepository,
   proto::{
-    self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest, KeyValueStoreSizeReply,
+    self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest, KeyCountReply,
     MigrateSqliteRequest, ParseFileContentStoreReply,
   },
   settings::Settings,
@@ -62,12 +62,37 @@ impl proto::OperationsService for OperationsService {
   async fn get_key_value_store_size(
     &self,
     _: Request<()>,
-  ) -> Result<Response<KeyValueStoreSizeReply>, Status> {
-    let size = self.kv.size().await.map_err(|e| {
+  ) -> Result<Response<KeyCountReply>, Status> {
+    let count = self.kv.size().await.map_err(|e| {
       error!("Error: {:?}", e);
       Status::internal("Failed to get key value store size")
     })? as u32;
-    let reply = KeyValueStoreSizeReply { size };
+    let reply = KeyCountReply { count };
+    Ok(Response::new(reply))
+  }
+
+  async fn delete_keys_matching(
+    &self,
+    request: Request<proto::KeysMatchingRequest>,
+  ) -> Result<Response<()>, Status> {
+    let pattern = request.into_inner().pattern;
+    self.kv.delete_matching(&pattern).await.map_err(|e| {
+      error!("Error: {:?}", e);
+      Status::internal("Failed to delete keys matching pattern")
+    })?;
+    Ok(Response::new(()))
+  }
+
+  async fn count_keys_matching(
+    &self,
+    request: Request<proto::KeysMatchingRequest>,
+  ) -> Result<Response<proto::KeyCountReply>, Status> {
+    let pattern = request.into_inner().pattern;
+    let count = self.kv.count_matching(&pattern).await.map_err(|e| {
+      error!("Error: {:?}", e);
+      Status::internal("Failed to count keys matching pattern")
+    })? as u32;
+    let reply = proto::KeyCountReply { count };
     Ok(Response::new(reply))
   }
 
