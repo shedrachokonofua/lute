@@ -1,7 +1,7 @@
 use super::spotify_credential_repository::{
   SpotifyCredentialRepository, SpotifyCredentials, SCOPES,
 };
-use crate::settings::SpotifySettings;
+use crate::{helpers::key_value_store::KeyValueStore, settings::SpotifySettings};
 use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
 use futures::stream::TryStreamExt;
@@ -10,8 +10,6 @@ use rspotify::{
   prelude::{BaseClient, OAuthClient},
   AuthCodeSpotify, Credentials, OAuth, Token,
 };
-use rustis::bb8::Pool;
-use rustis::client::PooledClientManager;
 use std::sync::Arc;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::warn;
@@ -196,15 +194,10 @@ async fn set_client_token(client: &AuthCodeSpotify, token: Token) {
 }
 
 impl SpotifyClient {
-  pub fn new(
-    settings: &SpotifySettings,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  ) -> Self {
+  pub fn new(settings: &SpotifySettings, kv: Arc<KeyValueStore>) -> Self {
     Self {
       settings: settings.clone(),
-      spotify_credential_repository: SpotifyCredentialRepository {
-        redis_connection_pool,
-      },
+      spotify_credential_repository: SpotifyCredentialRepository::new(kv),
     }
   }
 
@@ -223,8 +216,10 @@ impl SpotifyClient {
   }
 
   pub async fn is_authorized(&self) -> bool {
-    let creds = self.spotify_credential_repository.get_credentials().await;
-    creds.is_ok() && creds.unwrap().is_some()
+    match self.spotify_credential_repository.get().await {
+      Ok(Some(_)) => true,
+      _ => false,
+    }
   }
 
   pub fn get_authorize_url(&self) -> Result<String> {
@@ -250,7 +245,7 @@ impl SpotifyClient {
   async fn client(&self) -> Result<AuthCodeSpotify> {
     let credentials = self
       .spotify_credential_repository
-      .get_credentials()
+      .get()
       .await?
       .ok_or(anyhow::anyhow!("Credentials not found"))?;
     let client = self.base_client();

@@ -83,7 +83,7 @@ impl RpcServer {
         Arc::clone(&album_search_index),
       )),
       spotify_service: Arc::new(SpotifyService {
-        spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
+        spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&kv)),
       }),
       operations_service: Arc::new(OperationsService::new(
         Arc::clone(&settings),

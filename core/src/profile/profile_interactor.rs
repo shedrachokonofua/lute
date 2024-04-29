@@ -14,6 +14,7 @@ use crate::{
     event_publisher::EventPublisher,
   },
   files::file_metadata::file_name::FileName,
+  helpers::key_value_store::KeyValueStore,
   lookup::{
     album_search_lookup::{AlbumSearchLookup, AlbumSearchLookupQuery, AlbumSearchLookupStatus},
     lookup_interactor::LookupInteractor,
@@ -56,7 +57,10 @@ impl ProfileInteractor {
       },
       album_repository: Arc::clone(&album_repository),
       event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
-      spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&redis_connection_pool)),
+      spotify_client: SpotifyClient::new(
+        &settings.spotify,
+        Arc::new(KeyValueStore::new(Arc::clone(&sqlite_connection))),
+      ),
       lookup_interactor: LookupInteractor::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),
