@@ -1,12 +1,14 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::{hash::Hash, sync::Arc, time::Duration};
 use thiserror::Error;
 use tokio::{
   spawn,
   sync::mpsc::{unbounded_channel, UnboundedSender},
-  time::{sleep, Instant},
+  time::{timeout, Instant},
 };
+use tracing::error;
+
 #[derive(Error, Debug, Clone)]
 #[error("Loader error: {msg}")]
 pub struct LoaderError {
@@ -35,45 +37,43 @@ impl<T: Loader + Send + Sync + 'static> BatchLoader<T> {
     let (sender, mut receiver) =
       unbounded_channel::<(T::Key, UnboundedSender<Result<T::Value, LoaderError>>)>();
     let loader = Arc::new(loader);
-
-    let loader_clone = loader.clone();
-    let config_clone = config.clone();
     spawn(async move {
-      let mut batch = Vec::new();
+      let mut next_batch = Vec::new();
       let mut last_execution = Instant::now();
 
       loop {
-        // Collect incoming requests
-        while let Ok((key, sender)) = receiver.try_recv() {
-          batch.push((key, sender));
+        let mut last_received = Instant::now();
+        while let Ok(Some((key, sender))) =
+          timeout(config.time_limit - last_received.elapsed(), receiver.recv()).await
+        {
+          last_received = Instant::now();
+          next_batch.push((key, sender));
 
-          // Check if the batch size or time limit is reached
-          if batch.len() >= config_clone.batch_size
-            || last_execution.elapsed() >= config_clone.time_limit
+          if next_batch.len() >= config.batch_size || last_execution.elapsed() >= config.time_limit
           {
             break;
           }
         }
 
-        // Execute the batch if there are any requests
-        if !batch.is_empty() {
-          let keys: Vec<T::Key> = batch
-            .iter()
-            .map(|(key, _): &(T::Key, _)| key.clone())
-            .collect();
-          let values = loader_clone.load(&keys).await;
-
-          // Send the loaded values back to the corresponding senders
-          for ((_, sender), value) in batch.clone().into_iter().zip(values.into_iter()) {
-            sender.send(value).unwrap();
-          }
-
+        if !next_batch.is_empty() {
+          let batch = next_batch.drain(..).collect::<Vec<_>>();
+          let loader = loader.clone();
           last_execution = Instant::now();
-          batch.clear();
-        }
 
-        // Sleep for a short duration to avoid busy waiting
-        sleep(Duration::from_millis(10)).await;
+          spawn(async move {
+            let keys: Vec<T::Key> = batch
+              .iter()
+              .map(|(key, _): &(T::Key, _)| key.clone())
+              .collect();
+            let values = loader.load(&keys).await;
+
+            for ((_, sender), value) in batch.into_iter().zip(values.into_iter()) {
+              if let Err(e) = sender.send(value) {
+                error!("Failed to send value: {}", e);
+              }
+            }
+          });
+        }
       }
     });
 
@@ -82,7 +82,13 @@ impl<T: Loader + Send + Sync + 'static> BatchLoader<T> {
 
   pub async fn load(&self, key: T::Key) -> Result<T::Value> {
     let (sender, mut receiver) = unbounded_channel::<Result<T::Value, LoaderError>>();
-    self.sender.send((key, sender)).unwrap();
-    receiver.recv().await.unwrap().map_err(|e| e.into())
+    self.sender.send((key, sender))?;
+    receiver
+      .recv()
+      .await
+      .unwrap_or(Err(LoaderError {
+        msg: "Failed to receive value".to_string(),
+      }))
+      .map_err(|e| anyhow!("Failed to receive value: {}", e))
   }
 }

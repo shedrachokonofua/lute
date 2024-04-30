@@ -9,15 +9,17 @@ use crate::{
 };
 use anyhow::Result;
 use async_trait::async_trait;
-use chrono::Duration;
-use core::time;
+use chrono::Duration as ChronoDuration;
 use governor::{DefaultDirectRateLimiter, Jitter, Quota, RateLimiter};
 use lazy_static::lazy_static;
 use nonzero::nonzero;
 use reqwest::Client;
 use serde_json::{json, Value};
-use std::sync::Arc;
-use tracing::error;
+use std::{
+  sync::Arc,
+  time::{Duration, Instant},
+};
+use tracing::{error, info};
 
 struct VoyageAILoader {
   client: Client,
@@ -29,11 +31,12 @@ impl Loader for VoyageAILoader {
   type Key = String;
   type Value = Vec<f32>;
 
-  #[tracing::instrument(name = "VoyageAILoader::load", skip(self))]
+  #[tracing::instrument(name = "VoyageAILoader::load", skip_all, fields(keys = keys.len()))]
   async fn load(&self, keys: &[String]) -> Vec<Result<Vec<f32>, LoaderError>> {
     RATE_LIMITER
-      .until_ready_with_jitter(Jitter::up_to(time::Duration::from_secs(1)))
+      .until_ready_with_jitter(Jitter::up_to(Duration::from_secs(1)))
       .await;
+    let start = Instant::now();
     let res = self
       .client
       .post("https://api.voyageai.com/v1/embeddings")
@@ -53,6 +56,8 @@ impl Loader for VoyageAILoader {
           msg: format!("Failed to get embedding: {}", e),
         }
       });
+    let elapsed = start.elapsed();
+    info!("VoyageAI request took {:?}", elapsed);
 
     match res {
       Err(e) => return vec![Err(e); keys.len().clone()],
@@ -105,7 +110,7 @@ lazy_static! {
     },
     BatchLoaderConfig {
       batch_size: 128,
-      time_limit: time::Duration::from_secs(1),
+      time_limit: Duration::from_millis(250),
     }
   );
 }
@@ -135,7 +140,7 @@ impl AlbumEmbeddingProvider for VoyageAIAlbumEmbeddingProvider {
   }
 
   fn concurrency(&self) -> usize {
-    250
+    500
   }
 
   #[tracing::instrument(name = "VoyageAIAlbumEmbeddingProvider::generate", skip(self))]
@@ -149,7 +154,13 @@ impl AlbumEmbeddingProvider for VoyageAIAlbumEmbeddingProvider {
 
     self
       .kv
-      .set(&document_kv_key(&id), &embedding, Duration::try_weeks(8))
+      .set(
+        &document_kv_key(&id),
+        &embedding,
+        ChronoDuration::try_weeks(6)
+          .map(|d| d.to_std())
+          .transpose()?,
+      )
       .await?;
     Ok(embedding)
   }

@@ -6,7 +6,7 @@ use crate::{
 use anyhow::Result;
 use async_openai::{config::OpenAIConfig, types::CreateEmbeddingRequestArgs, Client};
 use async_trait::async_trait;
-use chrono::Duration;
+use chrono::Duration as ChronoDuration;
 use std::sync::Arc;
 
 pub struct OpenAIAlbumEmbeddingProvider {
@@ -59,7 +59,13 @@ impl AlbumEmbeddingProvider for OpenAIAlbumEmbeddingProvider {
       .ok_or(anyhow::anyhow!("No embeddings found"))?;
     self
       .kv
-      .set(&document_kv_key(&id), &embedding, Duration::try_weeks(8))
+      .set(
+        &document_kv_key(&id),
+        &embedding,
+        ChronoDuration::try_weeks(6)
+          .map(|d| d.to_std())
+          .transpose()?,
+      )
       .await?;
     Ok(embedding)
   }

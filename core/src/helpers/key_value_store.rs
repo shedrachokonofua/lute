@@ -1,9 +1,9 @@
 use crate::sqlite::SqliteConnection;
 use anyhow::{anyhow, Result};
-use chrono::{Duration, NaiveDateTime};
+use chrono::{NaiveDateTime, Utc};
 use rusqlite::{params, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tracing::{error, info};
 
 #[derive(Debug, Clone)]
@@ -101,7 +101,7 @@ impl KeyValueStore {
 
     if let Some((blob, expires_at)) = result {
       if let Some(expires_at) = expires_at {
-        if expires_at < chrono::Utc::now().naive_utc() {
+        if expires_at < Utc::now().naive_utc() {
           info!("Key value expired: {}", key);
           self.delete(&key).await?;
           return Ok(None);
@@ -121,7 +121,7 @@ impl KeyValueStore {
     value: T,
     ttl: Option<Duration>,
   ) -> Result<()> {
-    let expires_at = ttl.map(|ttl| chrono::Utc::now().naive_utc() + ttl);
+    let expires_at = ttl.map(|ttl| Utc::now().naive_utc() + ttl);
     let key = key.to_string();
     let value = serde_json::to_vec(&value)?;
     self
