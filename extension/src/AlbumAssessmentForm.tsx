@@ -3,6 +3,7 @@ import { Async } from "react-async";
 import { assessAlbum } from "./core";
 import { AppContextValue } from "./types";
 import { AlbumAssessment } from "./proto/lute_pb";
+import { VStack } from "./components";
 
 const loadAlbumAssessment = async ({
   profileId,
@@ -20,24 +21,6 @@ const loadAlbumAssessment = async ({
 const formatScore = (score: number) => {
   return `${(score * 100).toFixed(3)}%`;
 };
-
-const VStack = ({
-  gap = "0.5rem",
-  children,
-}: {
-  gap?: string;
-  children: React.ReactNode;
-}) => (
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      gap,
-    }}
-  >
-    {children}
-  </div>
-);
 
 export const AlbumAssessmentForm = ({
   context,

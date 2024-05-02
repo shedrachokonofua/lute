@@ -7,6 +7,7 @@ import { pageTypeToString } from "./helpers";
 import { AppContextValue } from "./types";
 import { getAllProfiles } from "./core";
 import { AlbumAssessmentForm } from "./AlbumAssessmentForm";
+import { SimilarAlbums } from "./SimilarAlbums";
 
 const getAppContextValue: DeferFn<AppContextValue> = async ([url]) => {
   const [page, profiles] = await Promise.all([
@@ -71,6 +72,8 @@ export const App = () => {
       </div>
       <hr />
       <AlbumAssessmentForm context={appContextValue} />
+      <hr />
+      <SimilarAlbums context={appContextValue} />
     </div>
   );
 };
