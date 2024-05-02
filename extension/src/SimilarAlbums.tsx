@@ -13,7 +13,7 @@ const loadSimilarAlbums = async ({ fileName }: { fileName: string }) => {
 
 export const SimilarAlbums = ({ context }: { context: AppContextValue }) => {
   return (
-    <VStack gap="1rem">
+    <VStack gap="0.25rem">
       <div>
         <div>Similar Albums</div>
       </div>
