@@ -76,7 +76,7 @@ export const findAlbum = async (
 
 export const findSimilarAlbums = async (
   fileName: string,
-  limit = 5
+  limit = 10
 ): Promise<Album[]> => {
   const request = new FindSimilarAlbumsRequest();
   if (!fileName) {
