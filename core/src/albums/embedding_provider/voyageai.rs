@@ -1,4 +1,6 @@
-use super::{helpers::get_embedding_api_input, provider::AlbumEmbeddingProvider};
+use super::{
+  cache::EmbeddingProviderCache, helpers::get_embedding_api_input, provider::AlbumEmbeddingProvider,
+};
 use crate::{
   albums::album_read_model::AlbumReadModel,
   helpers::{
@@ -9,7 +11,6 @@ use crate::{
 };
 use anyhow::Result;
 use async_trait::async_trait;
-use chrono::Duration as ChronoDuration;
 use governor::{DefaultDirectRateLimiter, Jitter, Quota, RateLimiter};
 use lazy_static::lazy_static;
 use nonzero::nonzero;
@@ -115,13 +116,17 @@ lazy_static! {
   );
 }
 
+const NAME: &str = "voyageai-default";
+
 pub struct VoyageAIAlbumEmbeddingProvider {
-  kv: Arc<KeyValueStore>,
+  cache: EmbeddingProviderCache,
 }
 
 impl VoyageAIAlbumEmbeddingProvider {
   pub fn new(kv: Arc<KeyValueStore>) -> Self {
-    Self { kv }
+    Self {
+      cache: EmbeddingProviderCache::new(NAME, kv),
+    }
   }
 }
 
@@ -132,7 +137,7 @@ fn document_kv_key(id: &str) -> String {
 #[async_trait]
 impl AlbumEmbeddingProvider for VoyageAIAlbumEmbeddingProvider {
   fn name(&self) -> &str {
-    "voyageai-default"
+    NAME
   }
 
   fn dimensions(&self) -> usize {
@@ -146,22 +151,20 @@ impl AlbumEmbeddingProvider for VoyageAIAlbumEmbeddingProvider {
   #[tracing::instrument(name = "VoyageAIAlbumEmbeddingProvider::generate", skip(self))]
   async fn generate(&self, album: &AlbumReadModel) -> Result<Vec<f32>> {
     let (id, input) = get_embedding_api_input(album);
-    if let Some(embedding) = self.kv.get::<Vec<f32>>(&document_kv_key(&id)).await? {
+    // Migrate from old cache key
+    if let Some(embedding) = self.cache.kv.get::<Vec<f32>>(&document_kv_key(&id)).await? {
+      self.cache.set(album, id.clone(), embedding.clone()).await?;
+      self.cache.kv.delete(&document_kv_key(&id)).await?;
+      return Ok(embedding);
+    }
+
+    if let Some(embedding) = self.cache.get(album, id.clone()).await? {
       return Ok(embedding);
     }
 
     let embedding = BATCH_LOADER.load(input).await?;
 
-    self
-      .kv
-      .set(
-        &document_kv_key(&id),
-        &embedding,
-        ChronoDuration::try_weeks(6)
-          .map(|d| d.to_std())
-          .transpose()?,
-      )
-      .await?;
+    self.cache.set(album, id, embedding.clone()).await?;
     Ok(embedding)
   }
 }

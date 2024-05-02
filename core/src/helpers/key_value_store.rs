@@ -68,6 +68,33 @@ impl KeyValueStore {
     Ok(size)
   }
 
+  #[tracing::instrument(name = "KeyValueStore::exists", skip(self))]
+  pub async fn exists(&self, key: &str) -> Result<bool> {
+    let key = key.to_string();
+    let exists: bool = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(|conn| {
+        conn
+          .query_row(
+            "SELECT EXISTS(SELECT 1 FROM key_value_store WHERE key = ?1)",
+            [key],
+            |row| row.get::<_, bool>(0),
+          )
+          .map_err(|e| {
+            error!(message = e.to_string(), "Failed to check if key exists");
+            rusqlite::Error::ExecuteReturnedResults
+          })
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to check if key exists");
+        anyhow!("Failed to check if key exists")
+      })??;
+    Ok(exists)
+  }
+
   #[tracing::instrument(name = "KeyValueStore::get", skip(self))]
   pub async fn get<T: DeserializeOwned + Send + Sync>(&self, key: &str) -> Result<Option<T>> {
     let key = key.to_string();

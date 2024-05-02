@@ -1,3 +1,4 @@
+mod cache;
 mod helpers;
 pub mod onehot;
 pub mod openai;
