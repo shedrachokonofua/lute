@@ -64,6 +64,11 @@ impl RpcServer {
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
     kv: Arc<KeyValueStore>,
   ) -> Self {
+    let spotify_client = Arc::new(SpotifyClient::new(
+      &settings.spotify.clone(),
+      Arc::clone(&kv),
+    ));
+
     Self {
       settings: Arc::clone(&settings),
       file_service: Arc::new(FileService {
@@ -81,9 +86,10 @@ impl RpcServer {
         Arc::clone(&kv),
         Arc::clone(&album_repository),
         Arc::clone(&album_search_index),
+        Arc::clone(&spotify_client),
       )),
       spotify_service: Arc::new(SpotifyService {
-        spotify_client: SpotifyClient::new(&settings.spotify, Arc::clone(&kv)),
+        spotify_client: Arc::clone(&spotify_client),
       }),
       operations_service: Arc::new(OperationsService::new(
         Arc::clone(&settings),

@@ -223,6 +223,10 @@ message FindSimilarAlbumsRequest {
 
 message FindSimilarAlbumsReply { repeated Album albums = 1; }
 
+message FindSpotifyAlbumRequest { string file_name = 1; }
+
+message FindSpotifyAlbumReply { optional SpotifyAlbum album = 1; }
+
 service AlbumService {
   rpc GetMonitor(google.protobuf.Empty) returns (GetAlbumMonitorReply) {}
   rpc GetAlbum(GetAlbumRequest) returns (GetAlbumReply) {}
@@ -231,6 +235,8 @@ service AlbumService {
   rpc GetEmbeddingKeys(google.protobuf.Empty) returns (GetEmbeddingKeysReply) {}
   rpc FindSimilarAlbums(FindSimilarAlbumsRequest)
       returns (FindSimilarAlbumsReply) {}
+  rpc FindSpotifyAlbum(FindSpotifyAlbumRequest)
+      returns (FindSpotifyAlbumReply) {}
 }
 
 message IsAuthorizedReply { bool authorized = 1; }
@@ -261,6 +267,20 @@ message SpotifyTrack {
   string name = 2;
   repeated SpotifyArtistReference artists = 3;
   SpotifyAlbumReference album = 4;
+}
+
+message SpotifyTrackReference {
+  string spotify_id = 1;
+  string name = 2;
+  repeated SpotifyArtistReference artists = 3;
+}
+
+message SpotifyAlbum {
+  string spotify_id = 1;
+  string name = 2;
+  SpotifyAlbumType album_type = 3;
+  repeated SpotifyArtistReference artists = 4;
+  repeated SpotifyTrackReference tracks = 5;
 }
 
 message GetSavedTracksReply { repeated SpotifyTrack tracks = 1; }

@@ -7,8 +7,11 @@ use super::{
   embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
 use crate::{
-  files::file_metadata::file_name::FileName, helpers::key_value_store::KeyValueStore, proto,
+  files::file_metadata::file_name::FileName,
+  helpers::key_value_store::KeyValueStore,
+  proto,
   settings::Settings,
+  spotify::spotify_client::{SpotifyAlbum, SpotifyAlbumType, SpotifyClient},
 };
 use anyhow::{Error, Result};
 use std::sync::Arc;
@@ -109,11 +112,51 @@ impl TryFrom<proto::SearchPagination> for SearchPagination {
   }
 }
 
+impl TryFrom<SpotifyAlbum> for proto::SpotifyAlbum {
+  type Error = anyhow::Error;
+
+  fn try_from(value: SpotifyAlbum) -> Result<Self> {
+    Ok(proto::SpotifyAlbum {
+      spotify_id: value.spotify_id,
+      name: value.name,
+      artists: value
+        .artists
+        .into_iter()
+        .map(|artist| proto::SpotifyArtistReference {
+          spotify_id: artist.spotify_id,
+          name: artist.name,
+        })
+        .collect(),
+      album_type: match value.album_type {
+        SpotifyAlbumType::Album => proto::SpotifyAlbumType::Album.into(),
+        SpotifyAlbumType::Single => proto::SpotifyAlbumType::Single.into(),
+        SpotifyAlbumType::Compilation => proto::SpotifyAlbumType::Compilation.into(),
+      },
+      tracks: value
+        .tracks
+        .into_iter()
+        .map(|track| proto::SpotifyTrackReference {
+          spotify_id: track.spotify_id,
+          name: track.name,
+          artists: track
+            .artists
+            .into_iter()
+            .map(|artist| proto::SpotifyArtistReference {
+              spotify_id: artist.spotify_id,
+              name: artist.name,
+            })
+            .collect(),
+        })
+        .collect(),
+    })
+  }
+}
 pub struct AlbumService {
   album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
   album_interactor: Arc<AlbumInteractor>,
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
+  spotify_client: Arc<SpotifyClient>,
 }
 
 impl AlbumService {
@@ -122,6 +165,7 @@ impl AlbumService {
     kv: Arc<KeyValueStore>,
     album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
+    spotify_client: Arc<SpotifyClient>,
   ) -> Self {
     Self {
       album_embedding_providers_interactor: Arc::new(AlbumEmbeddingProvidersInteractor::new(
@@ -131,6 +175,7 @@ impl AlbumService {
       album_repository: Arc::clone(&album_repository),
       album_search_index: Arc::clone(&album_search_index),
       album_interactor: Arc::new(AlbumInteractor::new(album_repository, album_search_index)),
+      spotify_client,
     }
   }
 }
@@ -280,6 +325,29 @@ impl proto::AlbumService for AlbumService {
       .map_err(|e| Status::internal(e.to_string()))?;
     let reply = proto::FindSimilarAlbumsReply {
       albums: results.into_iter().map(|(album, _)| album.into()).collect(),
+    };
+    Ok(Response::new(reply))
+  }
+
+  async fn find_spotify_album(
+    &self,
+    request: Request<proto::FindSpotifyAlbumRequest>,
+  ) -> Result<Response<proto::FindSpotifyAlbumReply>, Status> {
+    let request = request.into_inner();
+    let file_name =
+      FileName::try_from(request.file_name).map_err(|e| Status::invalid_argument(e.to_string()))?;
+    let album = self
+      .album_repository
+      .get(&file_name)
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+    let spotify_album = self
+      .spotify_client
+      .find_album(&album)
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+    let reply = proto::FindSpotifyAlbumReply {
+      album: spotify_album.map(|a| a.try_into().unwrap()),
     };
     Ok(Response::new(reply))
   }

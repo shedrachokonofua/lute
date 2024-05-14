@@ -1,18 +1,26 @@
 use super::spotify_credential_repository::{
   SpotifyCredentialRepository, SpotifyCredentials, SCOPES,
 };
-use crate::{helpers::key_value_store::KeyValueStore, settings::SpotifySettings};
+use crate::{
+  albums::album_read_model::AlbumReadModel, helpers::key_value_store::KeyValueStore,
+  settings::SpotifySettings,
+};
 use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
 use futures::stream::TryStreamExt;
 use rspotify::{
-  model::{FullTrack, PlayableItem, PlaylistId, SavedTrack, SimplifiedAlbum, SimplifiedArtist},
+  model::{
+    AudioFeatures, FullTrack, PlayableItem, PlaylistId, SavedTrack, SearchResult, SearchType,
+    SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack,
+  },
   prelude::{BaseClient, OAuthClient},
   AuthCodeSpotify, Credentials, OAuth, Token,
 };
 use std::sync::Arc;
+use strsim::jaro_winkler;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::warn;
+use unidecode::unidecode;
 
 impl From<Token> for SpotifyCredentials {
   fn from(token: Token) -> Self {
@@ -52,6 +60,20 @@ pub enum SpotifyAlbumType {
   Compilation,
 }
 
+pub struct SpotifyTrackReference {
+  pub spotify_id: String,
+  pub name: String,
+  pub artists: Vec<SpotifyArtistReference>,
+}
+
+pub struct SpotifyAlbum {
+  pub spotify_id: String,
+  pub name: String,
+  pub album_type: SpotifyAlbumType,
+  pub artists: Vec<SpotifyArtistReference>,
+  pub tracks: Vec<SpotifyTrackReference>,
+}
+
 pub struct SpotifyAlbumReference {
   pub spotify_id: String,
   pub name: String,
@@ -63,6 +85,45 @@ pub struct SpotifyTrack {
   pub name: String,
   pub artists: Vec<SpotifyArtistReference>,
   pub album: SpotifyAlbumReference,
+}
+
+fn get_spotify_album(
+  simplified_album: SimplifiedAlbum,
+  tracks: Vec<SimplifiedTrack>,
+) -> SpotifyAlbum {
+  SpotifyAlbum {
+    spotify_id: simplified_album.id.unwrap().to_string(),
+    name: simplified_album.name,
+    album_type: match simplified_album.album_type.unwrap().as_str() {
+      "album" => SpotifyAlbumType::Album,
+      "single" => SpotifyAlbumType::Single,
+      "compilation" => SpotifyAlbumType::Compilation,
+      _ => panic!("Unknown album type"),
+    },
+    artists: simplified_album
+      .artists
+      .iter()
+      .map(|artist| SpotifyArtistReference {
+        spotify_id: artist.id.clone().expect("Artist ID is missing").to_string(),
+        name: artist.name.clone(),
+      })
+      .collect(),
+    tracks: tracks
+      .iter()
+      .map(|track| SpotifyTrackReference {
+        spotify_id: track.id.clone().expect("Track ID is missing").to_string(),
+        name: track.name.clone(),
+        artists: track
+          .artists
+          .iter()
+          .map(|artist| SpotifyArtistReference {
+            spotify_id: artist.id.clone().expect("Artist ID is missing").to_string(),
+            name: artist.name.clone(),
+          })
+          .collect(),
+      })
+      .collect(),
+  }
 }
 
 impl TryFrom<SimplifiedAlbum> for SpotifyAlbumReference {
@@ -178,6 +239,20 @@ impl TryFrom<FullTrack> for SpotifyTrack {
       album: full_track.album.try_into()?,
     })
   }
+}
+
+fn get_features_embedding(features: AudioFeatures) -> Vec<f32> {
+  vec![
+    features.acousticness,
+    features.danceability,
+    features.energy,
+    features.instrumentalness,
+    features.liveness,
+    features.loudness,
+    features.speechiness,
+    features.tempo,
+    features.valence,
+  ]
 }
 
 pub struct SpotifyClient {
@@ -309,5 +384,46 @@ impl SpotifyClient {
       }
     }
     Ok(tracks)
+  }
+
+  pub async fn find_album(&self, album: &AlbumReadModel) -> Result<Option<SpotifyAlbum>> {
+    let client = self.client().await?;
+    let query = format!(
+      "{} {}",
+      album
+        .artists
+        .first()
+        .map(|a| a.name.clone())
+        .unwrap_or("".to_string()),
+      album.name.clone()
+    );
+    match client
+      .search(query.as_str(), SearchType::Album, None, None, Some(1), None)
+      .await?
+    {
+      SearchResult::Albums(mut page) => {
+        if let Some(simplified_album) = page.items.pop() {
+          let name_similarity =
+            jaro_winkler(&unidecode(&simplified_album.name), &album.ascii_name());
+          if name_similarity < 0.9 {
+            warn!(
+              "Album name similarity({}) is too low: {} vs {}",
+              name_similarity, simplified_album.name, album.name
+            );
+            return Ok(None);
+          }
+
+          let tracks = client
+            .album_track(simplified_album.id.clone().unwrap(), None)
+            .try_collect::<Vec<SimplifiedTrack>>()
+            .await?;
+
+          Ok(Some(get_spotify_album(simplified_album, tracks)))
+        } else {
+          Ok(None)
+        }
+      }
+      _ => Ok(None),
+    }
   }
 }
