@@ -92,13 +92,8 @@ impl SpotifyImportRepository {
 
     let result = search_result
       .results
-      .iter()
-      .map(|result| {
-        let subscription: Result<SpotifyImportLookupSubscription> =
-          result.values.clone().try_into();
-        subscription
-      })
-      .filter_map(|r| match r {
+      .into_iter()
+      .filter_map(|r| match r.values.try_into() {
         Ok(subscription) => Some(subscription),
         Err(e) => {
           warn!(

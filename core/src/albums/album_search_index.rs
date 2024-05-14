@@ -1,4 +1,4 @@
-use crate::files::file_metadata::file_name::FileName;
+use crate::{files::file_metadata::file_name::FileName, helpers::redisearch::SearchPagination};
 use anyhow::Result;
 use async_trait::async_trait;
 use derive_builder::Builder;
@@ -28,12 +28,6 @@ pub struct AlbumSearchQuery {
   pub min_release_year: Option<u32>,
   pub max_release_year: Option<u32>,
   pub include_duplicates: Option<bool>,
-}
-
-#[derive(Debug)]
-pub struct SearchPagination {
-  pub offset: Option<usize>,
-  pub limit: Option<usize>,
 }
 
 #[derive(Debug)]

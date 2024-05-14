@@ -8,6 +8,12 @@ use std::sync::Arc;
 use tracing::warn;
 use unidecode::unidecode;
 
+#[derive(Debug)]
+pub struct SearchPagination {
+  pub offset: Option<usize>,
+  pub limit: Option<usize>,
+}
+
 pub async fn does_ft_index_exist<'a>(
   connection: &PooledConnection<'a, PooledClientManager>,
   index_name: &String,
@@ -106,5 +112,38 @@ impl SearchIndexVersionManager {
       self.delete_old_indexes().await?
     };
     Ok(())
+  }
+}
+
+pub fn get_tag_query<T: ToString>(tag: &str, items: &Vec<T>) -> String {
+  if !items.is_empty() {
+    format!(
+      "{}:{{{}}} ",
+      tag,
+      items
+        .iter()
+        .map(|item| escape_tag_value(item.to_string().as_str()))
+        .collect::<Vec<String>>()
+        .join("|")
+    )
+  } else {
+    String::from("")
+  }
+}
+
+pub fn get_min_num_query(tag: &str, min: Option<usize>) -> String {
+  if let Some(min) = min {
+    format!("{}:[{}, +inf] ", tag, min)
+  } else {
+    String::from("")
+  }
+}
+
+pub fn get_num_range_query(tag: &str, min: Option<u32>, max: Option<u32>) -> String {
+  match (min, max) {
+    (Some(min), Some(max)) => format!("{}:[{}, {}] ", tag, min, max),
+    (Some(min), None) => format!("{}:[{}, +inf] ", tag, min),
+    (None, Some(max)) => format!("{}:[-inf, {}] ", tag, max),
+    (None, None) => String::from(""),
   }
 }

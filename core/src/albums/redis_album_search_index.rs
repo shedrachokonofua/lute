@@ -6,13 +6,16 @@ use super::{
   album_repository::ItemAndCount,
   album_search_index::{
     embedding_to_bytes, AlbumEmbedding, AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex,
-    AlbumSearchQuery, AlbumSearchResult, SearchPagination,
+    AlbumSearchQuery, AlbumSearchResult,
   },
   embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
 use crate::{
   files::file_metadata::file_name::FileName,
-  helpers::redisearch::{escape_search_query_text, escape_tag_value, SearchIndexVersionManager},
+  helpers::redisearch::{
+    escape_search_query_text, get_min_num_query, get_num_range_query, get_tag_query,
+    SearchIndexVersionManager, SearchPagination,
+  },
 };
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
@@ -195,39 +198,6 @@ impl TryFrom<&Vec<(String, String)>> for ItemAndCount {
   }
 }
 
-fn get_tag_query<T: ToString>(tag: &str, items: &Vec<T>) -> String {
-  if !items.is_empty() {
-    format!(
-      "{}:{{{}}} ",
-      tag,
-      items
-        .iter()
-        .map(|item| escape_tag_value(item.to_string().as_str()))
-        .collect::<Vec<String>>()
-        .join("|")
-    )
-  } else {
-    String::from("")
-  }
-}
-
-fn get_min_num_query(tag: &str, min: Option<usize>) -> String {
-  if let Some(min) = min {
-    format!("{}:[{}, +inf] ", tag, min)
-  } else {
-    String::from("")
-  }
-}
-
-fn get_num_range_query(tag: &str, min: Option<u32>, max: Option<u32>) -> String {
-  match (min, max) {
-    (Some(min), Some(max)) => format!("{}:[{}, {}] ", tag, min, max),
-    (Some(min), None) => format!("{}:[{}, +inf] ", tag, min),
-    (None, Some(max)) => format!("{}:[-inf, {}] ", tag, max),
-    (None, None) => String::from(""),
-  }
-}
-
 impl AlbumSearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     let mut ft_search_query = String::from("");
@@ -280,7 +250,7 @@ impl AlbumSearchQuery {
       &self.exclude_secondary_genres,
     ));
     ft_search_query.push_str(&get_tag_query("-@language", &self.exclude_languages));
-    return ft_search_query.trim().to_string();
+    ft_search_query.trim().to_string()
   }
 }
 
@@ -295,12 +265,8 @@ impl AlbumEmbeddingSimilarirtySearchQuery {
   }
 }
 
-pub struct RedisAlbumRepository {
-  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-}
-
 pub struct RedisAlbumSearchIndex {
-  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  redis_connection_pool: Arc<Pool<PooledClientManager>>,
   version_manager: SearchIndexVersionManager,
   album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
 }
@@ -410,7 +376,7 @@ impl RedisAlbumSearchIndex {
   ) -> Self {
     Self {
       version_manager: SearchIndexVersionManager::new(
-        redis_connection_pool.clone(),
+        Arc::clone(&redis_connection_pool),
         INDEX_VERSION,
         "album-idx".to_string(),
       ),
@@ -525,11 +491,13 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     query: &AlbumSearchQuery,
     pagination: Option<&SearchPagination>,
   ) -> Result<AlbumSearchResult> {
-    let limit = pagination.and_then(|p| p.limit).unwrap_or_else(|| 100000);
-    let offset = pagination.and_then(|p| p.offset).unwrap_or_else(|| 0);
+    let limit = pagination.and_then(|p| p.limit).unwrap_or(100000);
+    let offset = pagination.and_then(|p| p.offset).unwrap_or(0);
 
-    let connection = self.redis_connection_pool.get().await?;
-    let result = connection
+    let result = self
+      .redis_connection_pool
+      .get()
+      .await?
       .ft_search(
         self.index_name(),
         query.to_ft_search_query(),

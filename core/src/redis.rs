@@ -7,6 +7,7 @@ use crate::{
   lookup::album_search_lookup_repository::AlbumSearchLookupRepository,
   parser::failed_parse_files_repository::FailedParseFilesRepository,
   profile::spotify_import_repository::SpotifyImportRepository,
+  recommendations::spotify_track_search_index::SpotifyTrackSearchIndex,
   settings::{RedisSettings, Settings},
 };
 use anyhow::Result;
@@ -76,6 +77,10 @@ pub async fn setup_redis_indexes(
   )
   .setup_index()
   .await?;
+
+  SpotifyTrackSearchIndex::new(Arc::clone(&redis_connection_pool))
+    .setup_index()
+    .await?;
 
   Ok(())
 }

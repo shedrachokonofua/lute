@@ -1,4 +1,8 @@
-use crate::{files::file_metadata::file_name::FileName, proto};
+use crate::{
+  files::file_metadata::file_name::FileName,
+  parser::parsed_file_data::{ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedTrack},
+  proto,
+};
 use anyhow::Result;
 use chrono::NaiveDate;
 use data_encoding::BASE64;
@@ -78,6 +82,38 @@ impl AlbumReadModel {
   pub fn ascii_name(&self) -> String {
     unidecode(&self.name)
   }
+
+  pub fn from_parsed_album(file_name: &FileName, parsed_album: ParsedAlbum) -> Self {
+    Self {
+      name: parsed_album.name.clone(),
+      file_name: file_name.clone(),
+      rating: parsed_album.rating,
+      rating_count: parsed_album.rating_count,
+      artists: parsed_album
+        .artists
+        .iter()
+        .map(AlbumReadModelArtist::from)
+        .collect::<Vec<AlbumReadModelArtist>>(),
+      primary_genres: parsed_album.primary_genres.clone(),
+      secondary_genres: parsed_album.secondary_genres.clone(),
+      descriptors: parsed_album.descriptors.clone(),
+      tracks: parsed_album
+        .tracks
+        .iter()
+        .map(AlbumReadModelTrack::from)
+        .collect::<Vec<AlbumReadModelTrack>>(),
+      release_date: parsed_album.release_date,
+      languages: parsed_album.languages.clone(),
+      credits: parsed_album
+        .credits
+        .iter()
+        .map(AlbumReadModelCredit::from)
+        .collect::<Vec<AlbumReadModelCredit>>(),
+      duplicates: vec![],
+      duplicate_of: None,
+      cover_image_url: parsed_album.cover_image_url,
+    }
+  }
 }
 
 impl From<AlbumReadModelTrack> for proto::Track {
@@ -125,6 +161,51 @@ impl From<AlbumReadModel> for proto::Album {
         .into_iter()
         .map(|file_name| file_name.to_string())
         .collect(),
+    }
+  }
+}
+
+impl From<AlbumReadModel> for ParsedAlbum {
+  fn from(album: AlbumReadModel) -> Self {
+    Self {
+      name: album.name,
+      rating: album.rating,
+      rating_count: album.rating_count,
+      artists: album
+        .artists
+        .iter()
+        .map(|artist| ParsedArtistReference {
+          name: artist.name.clone(),
+          file_name: artist.file_name.clone(),
+        })
+        .collect::<Vec<ParsedArtistReference>>(),
+      primary_genres: album.primary_genres,
+      secondary_genres: album.secondary_genres,
+      descriptors: album.descriptors,
+      tracks: album
+        .tracks
+        .iter()
+        .map(|track| ParsedTrack {
+          name: track.name.clone(),
+          duration_seconds: track.duration_seconds,
+          rating: track.rating,
+          position: track.position.clone(),
+        })
+        .collect::<Vec<ParsedTrack>>(),
+      release_date: album.release_date,
+      languages: album.languages,
+      credits: album
+        .credits
+        .iter()
+        .map(|credit| ParsedCredit {
+          artist: ParsedArtistReference {
+            name: credit.artist.name.clone(),
+            file_name: credit.artist.file_name.clone(),
+          },
+          roles: credit.roles.clone(),
+        })
+        .collect::<Vec<ParsedCredit>>(),
+      cover_image_url: album.cover_image_url,
     }
   }
 }

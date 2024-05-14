@@ -18,11 +18,9 @@ use crate::{
     event::{Event, Stream},
     event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
-  files::file_metadata::{file_name::FileName, page_type::PageType},
+  files::file_metadata::page_type::PageType,
   helpers::key_value_store::KeyValueStore,
-  parser::parsed_file_data::{
-    ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack,
-  },
+  parser::parsed_file_data::{ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack},
   settings::Settings,
   sqlite::SqliteConnection,
 };
@@ -55,40 +53,6 @@ impl From<&ParsedCredit> for AlbumReadModelCredit {
     Self {
       artist: (&parsed_credit.artist).into(),
       roles: parsed_credit.roles.clone(),
-    }
-  }
-}
-
-impl AlbumReadModel {
-  pub fn from_parsed_album(file_name: &FileName, parsed_album: ParsedAlbum) -> Self {
-    Self {
-      name: parsed_album.name.clone(),
-      file_name: file_name.clone(),
-      rating: parsed_album.rating,
-      rating_count: parsed_album.rating_count,
-      artists: parsed_album
-        .artists
-        .iter()
-        .map(AlbumReadModelArtist::from)
-        .collect::<Vec<AlbumReadModelArtist>>(),
-      primary_genres: parsed_album.primary_genres.clone(),
-      secondary_genres: parsed_album.secondary_genres.clone(),
-      descriptors: parsed_album.descriptors.clone(),
-      tracks: parsed_album
-        .tracks
-        .iter()
-        .map(AlbumReadModelTrack::from)
-        .collect::<Vec<AlbumReadModelTrack>>(),
-      release_date: parsed_album.release_date,
-      languages: parsed_album.languages.clone(),
-      credits: parsed_album
-        .credits
-        .iter()
-        .map(AlbumReadModelCredit::from)
-        .collect::<Vec<AlbumReadModelCredit>>(),
-      duplicates: vec![],
-      duplicate_of: None,
-      cover_image_url: parsed_album.cover_image_url,
     }
   }
 }

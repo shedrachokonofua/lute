@@ -1,14 +1,12 @@
 use super::{
   album_interactor::{AlbumInteractor, AlbumMonitor},
   album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
-  album_search_index::{
-    AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQuery, SearchPagination,
-  },
+  album_search_index::{AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQuery},
   embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
 use crate::{
   files::file_metadata::file_name::FileName,
-  helpers::key_value_store::KeyValueStore,
+  helpers::{key_value_store::KeyValueStore, redisearch::SearchPagination},
   proto,
   settings::Settings,
   spotify::spotify_client::{SpotifyAlbum, SpotifyAlbumType, SpotifyClient},

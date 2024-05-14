@@ -6,10 +6,7 @@ use super::{
   lookup_interactor::LookupInteractor,
 };
 use crate::{
-  albums::{
-    album_read_model::AlbumReadModel, album_repository::AlbumRepository,
-    sqlite_album_repository::SqliteAlbumRepository,
-  },
+  albums::{album_repository::AlbumRepository, sqlite_album_repository::SqliteAlbumRepository},
   crawler::{
     crawler_interactor::CrawlerInteractor,
     priority_queue::{Priority, QueuePushParameters},
@@ -20,9 +17,7 @@ use crate::{
     event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
   },
   files::file_metadata::{file_name::FileName, page_type::PageType},
-  parser::parsed_file_data::{
-    ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack,
-  },
+  parser::parsed_file_data::ParsedFileData,
   settings::Settings,
   sqlite::SqliteConnection,
 };
@@ -31,51 +26,6 @@ use chrono::Utc;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::{info, instrument, warn};
-
-impl From<AlbumReadModel> for ParsedAlbum {
-  fn from(album: AlbumReadModel) -> Self {
-    Self {
-      name: album.name,
-      rating: album.rating,
-      rating_count: album.rating_count,
-      artists: album
-        .artists
-        .iter()
-        .map(|artist| ParsedArtistReference {
-          name: artist.name.clone(),
-          file_name: artist.file_name.clone(),
-        })
-        .collect::<Vec<ParsedArtistReference>>(),
-      primary_genres: album.primary_genres,
-      secondary_genres: album.secondary_genres,
-      descriptors: album.descriptors,
-      tracks: album
-        .tracks
-        .iter()
-        .map(|track| ParsedTrack {
-          name: track.name.clone(),
-          duration_seconds: track.duration_seconds,
-          rating: track.rating,
-          position: track.position.clone(),
-        })
-        .collect::<Vec<ParsedTrack>>(),
-      release_date: album.release_date,
-      languages: album.languages,
-      credits: album
-        .credits
-        .iter()
-        .map(|credit| ParsedCredit {
-          artist: ParsedArtistReference {
-            name: credit.artist.name.clone(),
-            file_name: credit.artist.file_name.clone(),
-          },
-          roles: credit.roles.clone(),
-        })
-        .collect::<Vec<ParsedCredit>>(),
-      cover_image_url: album.cover_image_url,
-    }
-  }
-}
 
 impl AlbumSearchLookup {
   #[instrument(skip(self))]

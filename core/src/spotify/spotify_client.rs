@@ -9,14 +9,16 @@ use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
 use futures::stream::TryStreamExt;
 use rspotify::{
+  http::HttpError,
   model::{
     AudioFeatures, FullTrack, PlayableItem, PlaylistId, SavedTrack, SearchResult, SearchType,
-    SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack,
+    SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, TrackId,
   },
   prelude::{BaseClient, OAuthClient},
-  AuthCodeSpotify, Credentials, OAuth, Token,
+  AuthCodeSpotify, ClientError, Credentials, OAuth, Token,
 };
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, sync::Arc};
 use strsim::jaro_winkler;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::warn;
@@ -48,24 +50,27 @@ impl From<SpotifyCredentials> for Token {
   }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpotifyArtistReference {
   pub spotify_id: String,
   pub name: String,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum SpotifyAlbumType {
   Album,
   Single,
   Compilation,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpotifyTrackReference {
   pub spotify_id: String,
   pub name: String,
   pub artists: Vec<SpotifyArtistReference>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpotifyAlbum {
   pub spotify_id: String,
   pub name: String,
@@ -74,10 +79,21 @@ pub struct SpotifyAlbum {
   pub tracks: Vec<SpotifyTrackReference>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpotifyAlbumReference {
   pub spotify_id: String,
   pub name: String,
   pub album_type: SpotifyAlbumType,
+}
+
+impl From<SpotifyAlbum> for SpotifyAlbumReference {
+  fn from(album: SpotifyAlbum) -> Self {
+    Self {
+      spotify_id: album.spotify_id,
+      name: album.name,
+      album_type: album.album_type,
+    }
+  }
 }
 
 pub struct SpotifyTrack {
@@ -255,6 +271,16 @@ fn get_features_embedding(features: AudioFeatures) -> Vec<f32> {
   ]
 }
 
+fn inspect_client_error(err: &ClientError) {
+  warn!(error = err.to_string(), "Spotify client error");
+  if let ClientError::Http(http_error) = err {
+    if let HttpError::StatusCode(response) = http_error.as_ref() {
+      let headers_string = format!("{:?}", response.headers());
+      warn!(headers = headers_string, "Error response headers");
+    }
+  }
+}
+
 pub struct SpotifyClient {
   pub settings: SpotifySettings,
   pub spotify_credential_repository: SpotifyCredentialRepository,
@@ -399,13 +425,16 @@ impl SpotifyClient {
     );
     match client
       .search(query.as_str(), SearchType::Album, None, None, Some(1), None)
-      .await?
+      .await
+      .inspect_err(inspect_client_error)?
     {
       SearchResult::Albums(mut page) => {
         if let Some(simplified_album) = page.items.pop() {
-          let name_similarity =
-            jaro_winkler(&unidecode(&simplified_album.name), &album.ascii_name());
-          if name_similarity < 0.9 {
+          let name_similarity = jaro_winkler(
+            &unidecode(&simplified_album.name).to_ascii_lowercase(),
+            &album.ascii_name().to_ascii_lowercase(),
+          );
+          if name_similarity < 0.85 {
             warn!(
               "Album name similarity({}) is too low: {} vs {}",
               name_similarity, simplified_album.name, album.name
@@ -416,7 +445,8 @@ impl SpotifyClient {
           let tracks = client
             .album_track(simplified_album.id.clone().unwrap(), None)
             .try_collect::<Vec<SimplifiedTrack>>()
-            .await?;
+            .await
+            .inspect_err(inspect_client_error)?;
 
           Ok(Some(get_spotify_album(simplified_album, tracks)))
         } else {
@@ -425,5 +455,29 @@ impl SpotifyClient {
       }
       _ => Ok(None),
     }
+  }
+
+  pub async fn get_track_feature_embeddings(
+    &self,
+    track_spotify_ids: Vec<String>,
+  ) -> Result<HashMap<String, Vec<f32>>> {
+    let client = self.client().await?;
+    let mut features = HashMap::new();
+    if let Some(results) = client
+      .tracks_features(
+        track_spotify_ids
+          .into_iter()
+          .filter_map(|id| TrackId::from_id(id.replace("spotify:track:", "")).ok())
+          .collect::<Vec<_>>(),
+      )
+      .await
+      .inspect_err(inspect_client_error)?
+    {
+      features = results.into_iter().fold(HashMap::new(), |mut acc, f| {
+        acc.insert(f.id.to_string(), get_features_embedding(f));
+        acc
+      });
+    }
+    Ok(features)
   }
 }
