@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::TimeDelta;
 use core::{
   albums::{
     album_event_subscribers::build_album_event_subscribers,
@@ -18,6 +19,7 @@ use core::{
   recommendations::recommendation_event_subscribers::build_recommendation_event_subscribers,
   redis::{build_redis_connection_pool, setup_redis_indexes},
   rpc::RpcServer,
+  scheduler::scheduler::Scheduler,
   settings::Settings,
   sqlite::SqliteConnection,
   tracing::setup_tracing,

@@ -11,6 +11,7 @@ pub mod proto;
 pub mod recommendations;
 pub mod redis;
 pub mod rpc;
+pub mod scheduler;
 pub mod settings;
 pub mod spotify;
 pub mod sqlite;

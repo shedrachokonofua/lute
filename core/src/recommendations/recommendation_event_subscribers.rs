@@ -184,16 +184,16 @@ pub fn build_recommendation_event_subscribers(
         })
       }))
       .build()?,
-    EventSubscriberBuilder::default()
-      .id("save_album_spotify_tracks".to_string())
-      .stream(Stream::Parser)
-      .batch_size(1)
-      .redis_connection_pool(Arc::clone(&redis_connection_pool))
-      .sqlite_connection(Arc::clone(&sqlite_connection))
-      .settings(Arc::clone(&settings))
-      .handle(Arc::new(move |context| {
-        Box::pin(save_album_spotify_tracks(context))
-      }))
-      .build()?,
+    // EventSubscriberBuilder::default()
+    //   .id("save_album_spotify_tracks".to_string())
+    //   .stream(Stream::Parser)
+    //   .batch_size(1)
+    //   .redis_connection_pool(Arc::clone(&redis_connection_pool))
+    //   .sqlite_connection(Arc::clone(&sqlite_connection))
+    //   .settings(Arc::clone(&settings))
+    //   .handle(Arc::new(move |context| {
+    //     Box::pin(save_album_spotify_tracks(context))
+    //   }))
+    //   .build()?,
   ])
 }
