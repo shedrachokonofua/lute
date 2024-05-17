@@ -9,8 +9,8 @@
     - [ ] Example docker compose file, simple setup
   - Features:
     - Misc:
-      - [ ] Scheduled tasks
-      - [ ] Make telemetry optional
+      - [x] Scheduled tasks
+      - [x] Make telemetry optional
     - Files:
       - [x] Fix staleness check
       - [ ] Support local disk file content storage
@@ -21,7 +21,7 @@
     - Crawler:
       - [ ] Migrate to SQLite
       - [ ] RYM IP ban detection
-      - [ ] Automatic rate limit reset
+      - [x] Automatic rate limit reset
       - [x] Make crawler proxy optional
     - Events:
       - [x] Migrate to SQLite
@@ -38,7 +38,6 @@
   - [ ] Files: File content not found event. Should trigger crawling.
   - [ ] Connector: P2P
   - [ ] SSL support
-  - [ ] Recommendation: Recommendation generated event
   - [x] Events: Subscriber monitor(status, etc)
   - [ ] Events: Subscriber statuses, iterator reset
   - [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile

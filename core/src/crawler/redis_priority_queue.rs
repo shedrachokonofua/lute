@@ -241,11 +241,9 @@ impl PriorityQueue for RedisPriorityQueue {
       .del([self.redis_key(), self.item_set_key().as_str()])
       .await?;
     let claims: Vec<String> = connection.keys(self.claimed_item_key_str("*")).await?;
-    let mut transaction = connection.create_transaction();
     for claim in claims {
-      transaction.del(claim).forget();
+      connection.del(claim).await?;
     }
-    transaction.execute().await?;
 
     Ok(())
   }

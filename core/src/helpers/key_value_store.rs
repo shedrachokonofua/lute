@@ -1,6 +1,10 @@
-use crate::sqlite::SqliteConnection;
+use crate::{
+  context::ApplicationContext,
+  scheduler::{job_name::JobName, scheduler::JobParametersBuilder},
+  sqlite::SqliteConnection,
+};
 use anyhow::{anyhow, Result};
-use chrono::{NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, TimeDelta, Utc};
 use rusqlite::{params, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{sync::Arc, time::Duration};
@@ -214,6 +218,28 @@ impl KeyValueStore {
       })?
   }
 
+  #[tracing::instrument(name = "KeyValueStore::delete_expired", skip(self))]
+  pub async fn delete_expired(&self) -> Result<()> {
+    self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        let mut statement =
+          conn.prepare("DELETE FROM key_value_store WHERE expires_at < CURRENT_TIMESTAMP")?;
+        statement.execute([])?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(
+          message = e.to_string(),
+          "Failed to delete expired key value"
+        );
+        anyhow!("Failed to delete expired key value")
+      })?
+  }
+
   #[tracing::instrument(name = "KeyValueStore::count_matching", skip(self))]
   pub async fn count_matching(&self, pattern: &str) -> Result<usize> {
     let pattern = pattern.to_string();
@@ -240,4 +266,31 @@ impl KeyValueStore {
       })??;
     Ok(count)
   }
+}
+
+pub async fn setup_kv_jobs(app_context: Arc<ApplicationContext>) -> Result<()> {
+  app_context
+    .scheduler
+    .register(
+      JobName::DeleteExpiredKVItems,
+      Arc::new(|ctx| {
+        Box::pin(async move {
+          info!("Executing job, deleting expired key value items");
+          ctx.app_context.kv.delete_expired().await
+        })
+      }),
+    )
+    .await;
+
+  app_context
+    .scheduler
+    .put(
+      JobParametersBuilder::default()
+        .name(JobName::DeleteExpiredKVItems)
+        .interval(TimeDelta::try_hours(1).unwrap())
+        .build()?,
+    )
+    .await?;
+
+  Ok(())
 }

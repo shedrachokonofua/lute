@@ -1,9 +1,10 @@
 use anyhow::Result;
-use chrono::TimeDelta;
 use core::{
   albums::album_event_subscribers::build_album_event_subscribers,
   context::ApplicationContext,
-  events::event_subscriber::EventSubscriber,
+  crawler::crawler_jobs::setup_crawler_jobs,
+  events::{event_subscriber::EventSubscriber, event_subscriber_jobs::setup_event_subscriber_jobs},
+  helpers::key_value_store::setup_kv_jobs,
   lookup::lookup_event_subscribers::build_lookup_event_subscribers,
   parser::{
     parser_event_subscribers::build_parser_event_subscribers, retry::start_parser_retry_consumer,
@@ -12,10 +13,6 @@ use core::{
   recommendations::recommendation_event_subscribers::build_recommendation_event_subscribers,
   redis::setup_redis_indexes,
   rpc::RpcServer,
-  scheduler::{
-    job_name::JobName,
-    scheduler::{JobParametersBuilder, Scheduler},
-  },
 };
 use mimalloc::MiMalloc;
 use std::sync::Arc;
@@ -39,31 +36,10 @@ fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   Ok(())
 }
 
-async fn setup_jobs(scheduler: Arc<Scheduler>) -> Result<()> {
-  scheduler
-    .register(
-      JobName::HelloWorld,
-      Arc::new(|_| {
-        Box::pin(async move {
-          println!(
-            "Hello, world! {}",
-            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
-          );
-          Ok(())
-        })
-      }),
-    )
-    .await;
-
-  scheduler
-    .put(
-      JobParametersBuilder::default()
-        .name(JobName::HelloWorld)
-        .interval(TimeDelta::try_seconds(15))
-        .build()?,
-    )
-    .await?;
-
+async fn setup_jobs(context: Arc<ApplicationContext>) -> Result<()> {
+  setup_crawler_jobs(Arc::clone(&context)).await?;
+  setup_event_subscriber_jobs(Arc::clone(&context)).await?;
+  setup_kv_jobs(Arc::clone(&context)).await?;
   Ok(())
 }
 
@@ -73,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   setup_redis_indexes(Arc::clone(&context)).await?;
   start_parser_retry_consumer(Arc::clone(&context))?;
   start_event_subscribers(Arc::clone(&context))?;
-  setup_jobs(Arc::clone(&context.scheduler)).await?;
+  setup_jobs(Arc::clone(&context)).await?;
   context.scheduler.run(Arc::clone(&context)).await?;
   context.crawler.run()?;
   RpcServer::new(context).run().await?;

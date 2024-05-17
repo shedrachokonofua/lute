@@ -2,6 +2,7 @@ use super::event::{Event, EventPayload, EventPayloadBuilder, Stream, StreamKind}
 use crate::sqlite::SqliteConnection;
 use anyhow::{anyhow, Result};
 use rusqlite::{params, types::Value};
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 use tracing::{error, instrument};
 
@@ -10,7 +11,7 @@ pub struct EventSubscriberRepository {
   sqlite_connection: Arc<SqliteConnection>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EventSubscriberStatus {
   Paused = 0,
   Running = 1,
@@ -297,6 +298,35 @@ impl EventSubscriberRepository {
       .map_err(|e| {
         error!(message = e.to_string(), "Failed to get events after cursor");
         anyhow!("Failed to get events after cursor")
+      })?
+  }
+
+  #[instrument(skip(self))]
+  pub async fn set_subscriber_status(
+    &self,
+    subscriber_id: &str,
+    status: EventSubscriberStatus,
+  ) -> Result<()> {
+    let subscriber_id = subscriber_id.to_string();
+    self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        let mut statement = conn.prepare(
+          "
+          UPDATE event_subscribers
+          SET status = ?2
+          WHERE id = ?1
+          ",
+        )?;
+        statement.execute(params![subscriber_id, status as u32])?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to set subscriber status");
+        anyhow!("Failed to set subscriber status")
       })?
   }
 }

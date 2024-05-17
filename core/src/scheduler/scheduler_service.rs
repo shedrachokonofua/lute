@@ -58,11 +58,6 @@ impl proto::SchedulerService for SchedulerService {
     builder
       .id(params.id)
       .name(JobName::from_str(&params.name).map_err(|e| Status::invalid_argument(e.to_string()))?)
-      .interval(
-        params
-          .interval_seconds
-          .and_then(|s| TimeDelta::try_seconds(s as i64)),
-      )
       .payload(params.payload);
 
     if let Some(next_execution) = params.next_execution {
@@ -70,6 +65,10 @@ impl proto::SchedulerService for SchedulerService {
         NaiveDateTime::parse_from_str(&next_execution, "%Y-%m-%dT%H:%M:%S")
           .map_err(|e| Status::invalid_argument(e.to_string()))?,
       );
+    }
+
+    if let Some(interval) = params.interval_seconds {
+      builder.interval(TimeDelta::try_seconds(interval as i64).unwrap());
     }
 
     self

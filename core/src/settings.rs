@@ -131,7 +131,7 @@ impl Settings {
       .set_default("crawler.wait_time_seconds", 5)?
       .set_default(
         "crawler.rate_limit.window_seconds",
-        TimeDelta::try_minutes(1).unwrap().num_seconds(),
+        TimeDelta::try_days(1).unwrap().num_seconds(),
       )?
       .set_default("crawler.rate_limit.max_requests", 2000)?
       .set_default("parser.concurrency", 20)?

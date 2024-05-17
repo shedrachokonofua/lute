@@ -15,7 +15,7 @@ pub struct JobParameters {
   name: JobName,
   #[builder(default = "None", setter(into))]
   id: Option<String>,
-  #[builder(default = "None")]
+  #[builder(default = "None", setter(strip_option))]
   interval: Option<TimeDelta>,
   #[builder(default = "chrono::Utc::now().naive_utc()")]
   next_execution: NaiveDateTime,

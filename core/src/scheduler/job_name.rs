@@ -5,4 +5,8 @@ use strum_macros;
 #[strum(serialize_all = "snake_case")]
 pub enum JobName {
   HelloWorld,
+  ResetCrawlerRequestWindow,
+  CrawlNewAlbums,
+  ChangeEventSubscriberStatus,
+  DeleteExpiredKVItems,
 }
