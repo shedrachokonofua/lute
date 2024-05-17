@@ -6,8 +6,12 @@ use crate::{context::ApplicationContext, helpers::ThreadSafeAsyncFn, sqlite::Sql
 use anyhow::Result;
 use chrono::{NaiveDateTime, TimeDelta};
 use derive_builder::Builder;
-use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::{spawn, sync::Mutex, time::sleep};
+use std::{
+  collections::{HashMap, HashSet},
+  sync::Arc,
+  time::Duration,
+};
+use tokio::{spawn, sync::RwLock, time::sleep};
 use tracing::{error, info};
 
 #[derive(Builder)]
@@ -47,14 +51,16 @@ type JobProcessor = ThreadSafeAsyncFn<JobProcessorContext>;
 
 pub struct Scheduler {
   scheduler_repository: Arc<SchedulerRepository>,
-  processor_registry: Arc<Mutex<HashMap<JobName, JobProcessor>>>,
+  processor_registry: Arc<RwLock<HashMap<JobName, JobProcessor>>>,
+  active_jobs: Arc<RwLock<HashSet<String>>>,
 }
 
 impl Scheduler {
   pub fn new(sqlite_connection: Arc<SqliteConnection>) -> Self {
     Self {
       scheduler_repository: Arc::new(SchedulerRepository::new(sqlite_connection)),
-      processor_registry: Arc::new(Mutex::new(HashMap::new())),
+      processor_registry: Arc::new(RwLock::new(HashMap::new())),
+      active_jobs: Arc::new(RwLock::new(HashSet::new())),
     }
   }
 
@@ -69,7 +75,7 @@ impl Scheduler {
   pub async fn get_registered_processors(&self) -> Vec<JobName> {
     self
       .processor_registry
-      .lock()
+      .read()
       .await
       .keys()
       .cloned()
@@ -79,7 +85,7 @@ impl Scheduler {
   pub async fn register(&self, job_name: JobName, processor: JobProcessor) -> () {
     self
       .processor_registry
-      .lock()
+      .write()
       .await
       .insert(job_name, processor);
   }
@@ -107,17 +113,27 @@ impl Scheduler {
   pub async fn run(&self, app_context: Arc<ApplicationContext>) -> Result<()> {
     let scheduler_repository = Arc::clone(&self.scheduler_repository);
     let processor_registry = Arc::clone(&self.processor_registry);
+    let active_jobs = Arc::clone(&self.active_jobs);
 
     spawn(async move {
       loop {
         match scheduler_repository.get_pending_jobs().await {
           Ok(pending_jobs) => {
-            for job in pending_jobs {
-              if let Some(processor) = processor_registry.lock().await.get(&job.name) {
+            let inactive_pending_jobs = {
+              let active_jobs = active_jobs.read().await;
+              pending_jobs
+                .into_iter()
+                .filter(|job| !active_jobs.contains(&job.id.to_string()))
+                .collect::<Vec<_>>()
+            };
+            for job in inactive_pending_jobs {
+              if let Some(processor) = processor_registry.write().await.get(&job.name) {
                 let processor = Arc::clone(&processor);
                 let scheduler_repository = Arc::clone(&scheduler_repository);
                 let app_context = Arc::clone(&app_context);
+                let active_jobs = Arc::clone(&active_jobs);
                 spawn(async move {
+                  active_jobs.write().await.insert(job.id.to_string());
                   match processor(JobProcessorContext {
                     payload: job.payload,
                     app_context,
@@ -138,7 +154,8 @@ impl Scheduler {
                     Err(e) => {
                       error!(message = e.to_string(), "Failed to execute job");
                     }
-                  }
+                  };
+                  active_jobs.write().await.remove(&job.id.to_string());
                 });
               } else {
                 if job.interval_seconds.is_none() {
