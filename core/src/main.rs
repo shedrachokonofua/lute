@@ -11,7 +11,6 @@ use core::{
   recommendations::recommendation_event_subscribers::build_recommendation_event_subscribers,
   redis::setup_redis_indexes,
   rpc::RpcServer,
-  tracing::setup_tracing,
 };
 use mimalloc::MiMalloc;
 use std::sync::Arc;
@@ -19,14 +18,6 @@ use tokio::task;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
-
-fn run_rpc_server(app_context: Arc<ApplicationContext>) -> task::JoinHandle<()> {
-  let rpc_server = RpcServer::new(Arc::clone(&app_context));
-
-  task::spawn(async move {
-    rpc_server.run().await.unwrap();
-  })
-}
 
 fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
@@ -46,13 +37,11 @@ fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let context = ApplicationContext::init().await?;
-  setup_tracing(&context.settings.tracing)?;
-
   setup_redis_indexes(Arc::clone(&context)).await?;
   start_parser_retry_consumer(Arc::clone(&context))?;
   context.crawler.run()?;
   start_event_subscribers(Arc::clone(&context))?;
-  run_rpc_server(Arc::clone(&context)).await?;
+  RpcServer::new(context).run().await?;
 
   Ok(())
 }

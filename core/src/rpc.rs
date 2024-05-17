@@ -20,6 +20,7 @@ use crate::{
 };
 use anyhow::Result;
 use std::{net::SocketAddr, sync::Arc};
+use tokio::{task::spawn, task::JoinHandle};
 use tonic::{transport::Server, Request, Response, Status};
 use tracing::info;
 
@@ -67,7 +68,7 @@ impl RpcServer {
     format!("0.0.0.0:{}", &self.settings.port).parse().unwrap()
   }
 
-  pub async fn run(&self) -> Result<()> {
+  pub fn run(&self) -> JoinHandle<()> {
     let reflection_service = tonic_reflection::server::Builder::configure()
       .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
       .build()
@@ -75,45 +76,58 @@ impl RpcServer {
     let lute_service = LuteService {};
     let addr = self.addr();
     info!(address = addr.to_string(), "Starting RPC server");
+    let file_service = Arc::clone(&self.file_service);
+    let crawler_service = Arc::clone(&self.crawler_service);
+    let album_service = Arc::clone(&self.album_service);
+    let spotify_service = Arc::clone(&self.spotify_service);
+    let operations_service = Arc::clone(&self.operations_service);
+    let parser_service = Arc::clone(&self.parser_service);
+    let profile_service = Arc::clone(&self.profile_service);
+    let lookup_service = Arc::clone(&self.lookup_service);
+    let recommendation_service = Arc::clone(&self.recommendation_service);
+    let event_service = Arc::clone(&self.event_service);
 
-    Server::builder()
-      .trace_fn(|_| tracing::info_span!("core::rpc"))
-      .accept_http1(true)
-      .add_service(reflection_service)
-      .add_service(tonic_web::enable(LuteServer::new(lute_service)))
-      .add_service(tonic_web::enable(FileServiceServer::from_arc(Arc::clone(
-        &self.file_service,
-      ))))
-      .add_service(tonic_web::enable(CrawlerServiceServer::from_arc(
-        Arc::clone(&self.crawler_service),
-      )))
-      .add_service(tonic_web::enable(AlbumServiceServer::from_arc(Arc::clone(
-        &self.album_service,
-      ))))
-      .add_service(tonic_web::enable(SpotifyServiceServer::from_arc(
-        Arc::clone(&self.spotify_service),
-      )))
-      .add_service(tonic_web::enable(OperationsServiceServer::from_arc(
-        Arc::clone(&self.operations_service),
-      )))
-      .add_service(tonic_web::enable(ParserServiceServer::from_arc(
-        Arc::clone(&self.parser_service),
-      )))
-      .add_service(tonic_web::enable(ProfileServiceServer::from_arc(
-        Arc::clone(&self.profile_service),
-      )))
-      .add_service(tonic_web::enable(LookupServiceServer::from_arc(
-        Arc::clone(&self.lookup_service),
-      )))
-      .add_service(tonic_web::enable(RecommendationServiceServer::from_arc(
-        Arc::clone(&self.recommendation_service),
-      )))
-      .add_service(tonic_web::enable(EventServiceServer::from_arc(Arc::clone(
-        &self.event_service,
-      ))))
-      .serve(addr)
-      .await?;
+    spawn(async move {
+      if let Err(e) = Server::builder()
+        .trace_fn(|_| tracing::info_span!("core::rpc"))
+        .accept_http1(true)
+        .add_service(reflection_service)
+        .add_service(tonic_web::enable(LuteServer::new(lute_service)))
+        .add_service(tonic_web::enable(FileServiceServer::from_arc(file_service)))
+        .add_service(tonic_web::enable(CrawlerServiceServer::from_arc(
+          crawler_service,
+        )))
+        .add_service(tonic_web::enable(AlbumServiceServer::from_arc(
+          album_service,
+        )))
+        .add_service(tonic_web::enable(SpotifyServiceServer::from_arc(
+          spotify_service,
+        )))
+        .add_service(tonic_web::enable(OperationsServiceServer::from_arc(
+          operations_service,
+        )))
+        .add_service(tonic_web::enable(ParserServiceServer::from_arc(
+          parser_service,
+        )))
+        .add_service(tonic_web::enable(ProfileServiceServer::from_arc(
+          profile_service,
+        )))
+        .add_service(tonic_web::enable(LookupServiceServer::from_arc(
+          lookup_service,
+        )))
+        .add_service(tonic_web::enable(RecommendationServiceServer::from_arc(
+          recommendation_service,
+        )))
+        .add_service(tonic_web::enable(EventServiceServer::from_arc(Arc::clone(
+          &event_service,
+        ))))
+        .serve(addr)
+        .await
+      {
+        eprintln!("Error running RPC server: {:?}", e);
+      }
 
-    Ok(())
+      ()
+    })
   }
 }
