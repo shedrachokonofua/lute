@@ -166,19 +166,17 @@ pub fn build_recommendation_event_subscribers(
       .batch_size(250)
       .app_context(Arc::clone(&app_context))
       .handle(Arc::new(move |event_data, app_context| {
-        Box::pin(async move { crawl_similar_albums(event_data, app_context).await })
+        Box::pin(crawl_similar_albums(event_data, app_context))
       }))
       .build()?,
-    // EventSubscriberBuilder::default()
-    //   .id("save_album_spotify_tracks".to_string())
-    //   .stream(Stream::Parser)
-    //   .batch_size(1)
-    //   .redis_connection_pool(Arc::clone(&redis_connection_pool))
-    //   .sqlite_connection(Arc::clone(&sqlite_connection))
-    //   .settings(Arc::clone(&settings))
-    //   .handle(Arc::new(move |context| {
-    //     Box::pin(save_album_spotify_tracks(context))
-    //   }))
-    //   .build()?,
+    EventSubscriberBuilder::default()
+      .id("save_album_spotify_tracks".to_string())
+      .stream(Stream::Parser)
+      .batch_size(1)
+      .app_context(Arc::clone(&app_context))
+      .handle(Arc::new(move |event_data, app_context| {
+        Box::pin(save_album_spotify_tracks(event_data, app_context))
+      }))
+      .build()?,
   ])
 }

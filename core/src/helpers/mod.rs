@@ -1,4 +1,3 @@
-use anyhow::Result;
 use futures::future::BoxFuture;
 use std::sync::Arc;
 
@@ -8,5 +7,5 @@ pub mod key_value_store;
 pub mod math;
 pub mod redisearch;
 
-pub type ThreadSafeAsyncFn<A = (), R = ()> =
-  Arc<dyn Fn(A) -> BoxFuture<'static, Result<R>> + Send + Sync>;
+pub type ThreadSafeAsyncFn<A = (), R = (), E = anyhow::Error> =
+  Arc<dyn Fn(A) -> BoxFuture<'static, Result<R, E>> + Send + Sync>;

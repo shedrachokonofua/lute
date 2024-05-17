@@ -8,11 +8,14 @@ use crate::{
 use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
 use futures::stream::TryStreamExt;
+use governor::{DefaultDirectRateLimiter, Jitter, Quota, RateLimiter};
+use lazy_static::lazy_static;
+use nonzero::nonzero;
 use rspotify::{
   http::HttpError,
   model::{
-    AudioFeatures, FullTrack, PlayableItem, PlaylistId, SavedTrack, SearchResult, SearchType,
-    SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, TrackId,
+    AlbumId, AudioFeatures, FullTrack, PlayableItem, PlaylistId, SavedTrack, SearchResult,
+    SearchType, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, TrackId,
   },
   prelude::{BaseClient, OAuthClient},
   AuthCodeSpotify, ClientError, Credentials, OAuth, Token,
@@ -21,8 +24,12 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use strsim::jaro_winkler;
 use tokio::sync::mpsc::unbounded_channel;
-use tracing::warn;
+use tracing::{error, warn};
 use unidecode::unidecode;
+
+lazy_static! {
+  static ref RATE_LIMITER: DefaultDirectRateLimiter = RateLimiter::direct(Quota::per_second(nonzero!(2u32))); // API limit is 180/min
+}
 
 impl From<Token> for SpotifyCredentials {
   fn from(token: Token) -> Self {
@@ -271,13 +278,41 @@ fn get_features_embedding(features: AudioFeatures) -> Vec<f32> {
   ]
 }
 
-fn inspect_client_error(err: &ClientError) {
-  warn!(error = err.to_string(), "Spotify client error");
+// fn inspect_client_error(err: &ClientError) {
+//   warn!(error = err.to_string(), "Spotify client error");
+//   if let ClientError::Http(http_error) = err {
+//     if let HttpError::StatusCode(response) = http_error.as_ref() {
+//       let headers_string = format!("{:?}", response.headers());
+//       warn!(headers = headers_string, "Error response headers");
+//     }
+//   }
+// }
+
+fn check_spotify_throttle(err: &ClientError) -> Option<usize> {
   if let ClientError::Http(http_error) = err {
     if let HttpError::StatusCode(response) = http_error.as_ref() {
-      let headers_string = format!("{:?}", response.headers());
-      warn!(headers = headers_string, "Error response headers");
+      if response.status().as_u16() == 429 {
+        if let Some(retry_after) = response.headers().get("Retry-After") {
+          return retry_after
+            .to_str()
+            .ok()
+            .and_then(|retry_after| retry_after.parse::<usize>().ok());
+        }
+      }
     }
+  }
+  None
+}
+
+fn map_spotify_error(err: ClientError) -> Error {
+  if let Some(retry_after) = check_spotify_throttle(&err) {
+    error!(error = err.to_string(), "Spotify API rate limit exceeded");
+    anyhow!(
+      "Spotify API rate limit exceeded. Retry after {} seconds",
+      retry_after
+    )
+  } else {
+    anyhow!(err)
   }
 }
 
@@ -412,8 +447,43 @@ impl SpotifyClient {
     Ok(tracks)
   }
 
-  pub async fn find_album(&self, album: &AlbumReadModel) -> Result<Option<SpotifyAlbum>> {
+  async fn wait_for_rate_limit(&self) {
+    RATE_LIMITER
+      .until_ready_with_jitter(Jitter::up_to(std::time::Duration::from_secs(1)))
+      .await;
+  }
+
+  async fn search(&self, query: String) -> Result<SearchResult> {
+    self.wait_for_rate_limit().await;
     let client = self.client().await?;
+    client
+      .search(query.as_str(), SearchType::Album, None, None, Some(1), None)
+      .await
+      .map_err(map_spotify_error)
+  }
+
+  async fn album_track(&self, album_id: AlbumId<'static>) -> Result<Vec<SimplifiedTrack>> {
+    self.wait_for_rate_limit().await;
+    let client = self.client().await?;
+    client
+      .album_track(album_id, None)
+      .try_collect::<Vec<SimplifiedTrack>>()
+      .await
+      .map_err(map_spotify_error)
+  }
+
+  async fn tracks_features(
+    &self,
+    track_ids: Vec<TrackId<'static>>,
+  ) -> Result<Option<Vec<AudioFeatures>>> {
+    let client = self.client().await?;
+    client
+      .tracks_features(track_ids)
+      .await
+      .map_err(map_spotify_error)
+  }
+
+  pub async fn find_album(&self, album: &AlbumReadModel) -> Result<Option<SpotifyAlbum>> {
     let query = format!(
       "{} {}",
       album
@@ -423,11 +493,7 @@ impl SpotifyClient {
         .unwrap_or("".to_string()),
       album.name.clone()
     );
-    match client
-      .search(query.as_str(), SearchType::Album, None, None, Some(1), None)
-      .await
-      .inspect_err(inspect_client_error)?
-    {
+    match self.search(query).await? {
       SearchResult::Albums(mut page) => {
         if let Some(simplified_album) = page.items.pop() {
           let name_similarity = jaro_winkler(
@@ -442,11 +508,9 @@ impl SpotifyClient {
             return Ok(None);
           }
 
-          let tracks = client
-            .album_track(simplified_album.id.clone().unwrap(), None)
-            .try_collect::<Vec<SimplifiedTrack>>()
-            .await
-            .inspect_err(inspect_client_error)?;
+          let tracks = self
+            .album_track(simplified_album.id.clone().unwrap())
+            .await?;
 
           Ok(Some(get_spotify_album(simplified_album, tracks)))
         } else {
@@ -461,17 +525,15 @@ impl SpotifyClient {
     &self,
     track_spotify_ids: Vec<String>,
   ) -> Result<HashMap<String, Vec<f32>>> {
-    let client = self.client().await?;
     let mut features = HashMap::new();
-    if let Some(results) = client
+    if let Some(results) = self
       .tracks_features(
         track_spotify_ids
           .into_iter()
           .filter_map(|id| TrackId::from_id(id.replace("spotify:track:", "")).ok())
           .collect::<Vec<_>>(),
       )
-      .await
-      .inspect_err(inspect_client_error)?
+      .await?
     {
       features = results.into_iter().fold(HashMap::new(), |mut acc, f| {
         acc.insert(f.id.to_string(), get_features_embedding(f));

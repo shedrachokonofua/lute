@@ -22,6 +22,20 @@ use std::{
 };
 use tracing::{error, info};
 
+lazy_static! {
+  static ref RATE_LIMITER: DefaultDirectRateLimiter = RateLimiter::direct(Quota::per_second(nonzero!(4u32))); // API limit is 300/min
+  static ref BATCH_LOADER: BatchLoader<VoyageAILoader> = BatchLoader::new(
+    VoyageAILoader {
+      client: Client::new(),
+      settings: Settings::new().unwrap().embedding_provider.voyageai,
+    },
+    BatchLoaderConfig {
+      batch_size: 128,
+      time_limit: Duration::from_millis(250),
+    }
+  );
+}
+
 struct VoyageAILoader {
   client: Client,
   settings: Option<VoyageAISettings>,
@@ -100,20 +114,6 @@ impl Loader for VoyageAILoader {
       }
     }
   }
-}
-
-lazy_static! {
-  static ref RATE_LIMITER: DefaultDirectRateLimiter = RateLimiter::direct(Quota::per_second(nonzero!(4u32))); // API limit is 300/min
-  static ref BATCH_LOADER: BatchLoader<VoyageAILoader> = BatchLoader::new(
-    VoyageAILoader {
-      client: Client::new(),
-      settings: Settings::new().unwrap().embedding_provider.voyageai,
-    },
-    BatchLoaderConfig {
-      batch_size: 128,
-      time_limit: Duration::from_millis(250),
-    }
-  );
 }
 
 const NAME: &str = "voyageai-default";

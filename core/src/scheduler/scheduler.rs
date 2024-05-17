@@ -94,6 +94,7 @@ impl Scheduler {
         }
         _ => false,
       };
+      // Force overwrite if interval has changed
       if !overwrite_existing && !interval_changed {
         info!(job_id = record.id.as_str(), "Job already exists, skipping");
         return Ok(());
