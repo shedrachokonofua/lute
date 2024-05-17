@@ -35,6 +35,7 @@ pub async fn setup_crawler_jobs(app_context: Arc<ApplicationContext>) -> Result<
         .name(JobName::ResetCrawlerRequestWindow)
         .interval(window)
         .next_execution(Utc::now().naive_utc() + window)
+        .overwrite_existing(false)
         .build()?,
     )
     .await?;
