@@ -1,6 +1,6 @@
 use super::{
   job_name::JobName,
-  scheduler_repository::{SchedulerJobRecord, SchedulerRepository},
+  scheduler_repository::{Job, SchedulerRepository},
 };
 use crate::{context::ApplicationContext, helpers::ThreadSafeAsyncFn, sqlite::SqliteConnection};
 use anyhow::Result;
@@ -13,7 +13,7 @@ use tracing::{error, info};
 #[derive(Builder)]
 pub struct JobParameters {
   name: JobName,
-  #[builder(default = "None", setter(into, strip_option))]
+  #[builder(default = "None", setter(into))]
   id: Option<String>,
   #[builder(default = "None")]
   interval: Option<TimeDelta>,
@@ -25,9 +25,9 @@ pub struct JobParameters {
   payload: Option<Vec<u8>>,
 }
 
-impl Into<SchedulerJobRecord> for JobParameters {
-  fn into(self) -> SchedulerJobRecord {
-    SchedulerJobRecord {
+impl Into<Job> for JobParameters {
+  fn into(self) -> Job {
+    Job {
       id: self.id.unwrap_or(self.name.to_string()),
       name: self.name,
       next_execution: self.next_execution,
@@ -58,6 +58,24 @@ impl Scheduler {
     }
   }
 
+  pub async fn get_jobs(&self) -> Result<Vec<Job>> {
+    self.scheduler_repository.get_jobs().await
+  }
+
+  pub async fn delete_job(&self, job_id: &str) -> Result<()> {
+    self.scheduler_repository.delete_job(job_id).await
+  }
+
+  pub async fn get_registered_processors(&self) -> Vec<JobName> {
+    self
+      .processor_registry
+      .lock()
+      .await
+      .keys()
+      .cloned()
+      .collect()
+  }
+
   pub async fn register(&self, job_name: JobName, processor: JobProcessor) -> () {
     self
       .processor_registry
@@ -68,7 +86,7 @@ impl Scheduler {
 
   pub async fn put(&self, params: JobParameters) -> Result<()> {
     let overwrite_existing = params.overwrite_existing;
-    let record: SchedulerJobRecord = params.into();
+    let record: Job = params.into();
     if !overwrite_existing {
       if let Some(_) = self.scheduler_repository.find_job(&record.id).await? {
         info!(job_id = record.id.as_str(), "Job already exists, skipping");

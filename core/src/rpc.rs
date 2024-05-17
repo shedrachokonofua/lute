@@ -11,10 +11,11 @@ use crate::{
   proto::{
     AlbumServiceServer, CrawlerServiceServer, EventServiceServer, FileServiceServer,
     HealthCheckReply, LookupServiceServer, Lute, LuteServer, OperationsServiceServer,
-    ParserServiceServer, ProfileServiceServer, RecommendationServiceServer, SpotifyServiceServer,
-    FILE_DESCRIPTOR_SET,
+    ParserServiceServer, ProfileServiceServer, RecommendationServiceServer, SchedulerServiceServer,
+    SpotifyServiceServer, FILE_DESCRIPTOR_SET,
   },
   recommendations::recommendation_service::RecommendationService,
+  scheduler::scheduler_service::SchedulerService,
   settings::Settings,
   spotify::spotify_service::SpotifyService,
 };
@@ -45,6 +46,7 @@ pub struct RpcServer {
   lookup_service: Arc<LookupService>,
   recommendation_service: Arc<RecommendationService>,
   event_service: Arc<EventService>,
+  scheduler_service: Arc<SchedulerService>,
 }
 
 impl RpcServer {
@@ -61,6 +63,7 @@ impl RpcServer {
       lookup_service: Arc::new(LookupService::new(Arc::clone(&app_context))),
       recommendation_service: Arc::new(RecommendationService::new(Arc::clone(&app_context))),
       event_service: Arc::new(EventService::new(Arc::clone(&app_context))),
+      scheduler_service: Arc::new(SchedulerService::new(Arc::clone(&app_context))),
     }
   }
 
@@ -86,6 +89,7 @@ impl RpcServer {
     let lookup_service = Arc::clone(&self.lookup_service);
     let recommendation_service = Arc::clone(&self.recommendation_service);
     let event_service = Arc::clone(&self.event_service);
+    let scheduler_service = Arc::clone(&self.scheduler_service);
 
     spawn(async move {
       if let Err(e) = Server::builder()
@@ -121,6 +125,9 @@ impl RpcServer {
         .add_service(tonic_web::enable(EventServiceServer::from_arc(Arc::clone(
           &event_service,
         ))))
+        .add_service(tonic_web::enable(SchedulerServiceServer::from_arc(
+          scheduler_service,
+        )))
         .serve(addr)
         .await
       {

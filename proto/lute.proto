@@ -767,3 +767,35 @@ service EventService {
   rpc SetCursor(SetEventCursorRequest) returns (google.protobuf.Empty) {}
   rpc DeleteCursor(DeleteEventCursorRequest) returns (google.protobuf.Empty) {}
 }
+
+message GetRegisteredProcessorsReply { repeated string processors = 1; }
+
+message Job {
+  string id = 1;
+  string name = 2;
+  string next_execution = 3;
+  optional string last_execution = 4;
+  optional uint32 interval_seconds = 5;
+  optional bytes payload = 6;
+}
+
+message GetJobsReply { repeated Job jobs = 1; }
+
+message DeleteJobRequest { string id = 1; }
+
+message PutJobRequest {
+  optional string id = 1;
+  string name = 2;
+  optional string next_execution = 3;
+  optional uint32 interval_seconds = 4;
+  optional bytes payload = 5;
+  optional bool overwrite_existing = 6;
+}
+
+service SchedulerService {
+  rpc GetRegisteredProcessors(google.protobuf.Empty)
+      returns (GetRegisteredProcessorsReply) {}
+  rpc GetJobs(google.protobuf.Empty) returns (GetJobsReply) {}
+  rpc PutJob(PutJobRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
+}

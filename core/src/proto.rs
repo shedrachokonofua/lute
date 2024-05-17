@@ -10,5 +10,6 @@ pub use operations_service_server::{OperationsService, OperationsServiceServer};
 pub use parser_service_server::{ParserService, ParserServiceServer};
 pub use profile_service_server::{ProfileService, ProfileServiceServer};
 pub use recommendation_service_server::{RecommendationService, RecommendationServiceServer};
+pub use scheduler_service_server::{SchedulerService, SchedulerServiceServer};
 pub use spotify_service_server::{SpotifyService, SpotifyServiceServer};
 pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("lute_descriptor");

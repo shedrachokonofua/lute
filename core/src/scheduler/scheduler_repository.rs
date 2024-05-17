@@ -12,7 +12,7 @@ pub struct SchedulerRepository {
 }
 
 #[derive(Debug)]
-pub struct SchedulerJobRecord {
+pub struct Job {
   pub id: String,
   pub name: JobName,
   pub next_execution: NaiveDateTime,
@@ -26,7 +26,7 @@ impl SchedulerRepository {
     Self { sqlite_connection }
   }
 
-  pub async fn put(&self, record: SchedulerJobRecord) -> Result<()> {
+  pub async fn put(&self, record: Job) -> Result<()> {
     self
       .sqlite_connection
       .write()
@@ -61,7 +61,40 @@ impl SchedulerRepository {
       })?
   }
 
-  pub async fn get_pending_jobs(&self) -> Result<Vec<SchedulerJobRecord>> {
+  pub async fn get_jobs(&self) -> Result<Vec<Job>> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut statement = conn.prepare(
+          "
+          SELECT id, name, next_execution, last_execution, interval_seconds, payload
+          FROM scheduler_jobs
+          ",
+        )?;
+        let rows = statement
+          .query_map([], |row| {
+            Ok(Job {
+              id: row.get(0)?,
+              name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
+              next_execution: row.get(2)?,
+              last_execution: row.get(3)?,
+              interval_seconds: row.get(4)?,
+              payload: row.get(5)?,
+            })
+          })?
+          .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get all jobs");
+        anyhow!("Failed to get all jobs")
+      })?
+  }
+
+  pub async fn get_pending_jobs(&self) -> Result<Vec<Job>> {
     self
       .sqlite_connection
       .read()
@@ -76,7 +109,7 @@ impl SchedulerRepository {
         )?;
         let rows = statement
           .query_map([], |row| {
-            Ok(SchedulerJobRecord {
+            Ok(Job {
               id: row.get(0)?,
               name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
               next_execution: row.get(2)?,
@@ -95,7 +128,7 @@ impl SchedulerRepository {
       })?
   }
 
-  pub async fn find_job(&self, job_id: &str) -> Result<Option<SchedulerJobRecord>> {
+  pub async fn find_job(&self, job_id: &str) -> Result<Option<Job>> {
     let job_id = job_id.to_string();
     self
       .sqlite_connection
@@ -110,7 +143,7 @@ impl SchedulerRepository {
           ",
         )?;
         let mut rows = statement.query_map([job_id], |row| {
-          Ok(SchedulerJobRecord {
+          Ok(Job {
             id: row.get(0)?,
             name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
             next_execution: row.get(2)?,

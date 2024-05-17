@@ -39,7 +39,7 @@ fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   Ok(())
 }
 
-async fn register_job_processors(scheduler: Arc<Scheduler>) -> Result<()> {
+async fn setup_jobs(scheduler: Arc<Scheduler>) -> Result<()> {
   scheduler
     .register(
       JobName::HelloWorld,
@@ -73,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   setup_redis_indexes(Arc::clone(&context)).await?;
   start_parser_retry_consumer(Arc::clone(&context))?;
   start_event_subscribers(Arc::clone(&context))?;
-  register_job_processors(Arc::clone(&context.scheduler)).await?;
+  setup_jobs(Arc::clone(&context.scheduler)).await?;
   context.scheduler.run(Arc::clone(&context)).await?;
   context.crawler.run()?;
   RpcServer::new(context).run().await?;
