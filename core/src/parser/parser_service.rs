@@ -21,7 +21,6 @@ use crate::{
     ParseFileOnContentStoreRequest,
   },
   settings::Settings,
-  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -30,11 +29,11 @@ use tracing::error;
 use ulid::Ulid;
 
 pub struct ParserService {
-  sqlite_connection: Arc<SqliteConnection>,
   failed_parse_files_repository: FailedParseFilesRepository,
   file_interactor: Arc<FileInteractor>,
   settings: Arc<Settings>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
+  event_publisher: Arc<EventPublisher>,
 }
 
 impl TryFrom<i32> for PageType {
@@ -199,8 +198,8 @@ impl ParserService {
       },
       file_interactor: Arc::clone(&app_context.file_interactor),
       parser_retry_queue: Arc::clone(&app_context.parser_retry_queue),
-      sqlite_connection: Arc::clone(&app_context.sqlite_connection),
       settings: Arc::clone(&app_context.settings),
+      event_publisher: Arc::clone(&app_context.event_publisher),
     }
   }
 }
@@ -262,10 +261,7 @@ impl proto::ParserService for ParserService {
     })?;
     let parsed_data = parse_file_on_store(
       content_store,
-      EventPublisher::new(
-        Arc::clone(&self.settings),
-        Arc::clone(&self.sqlite_connection),
-      ),
+      Arc::clone(&self.event_publisher),
       file_metadata.id,
       file_name,
       Some(format!("rpc:{}", Ulid::new().to_string())),

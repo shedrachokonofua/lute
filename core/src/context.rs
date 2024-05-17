@@ -6,6 +6,7 @@ use crate::{
     sqlite_album_repository::SqliteAlbumRepository,
   },
   crawler::crawler::Crawler,
+  events::event_publisher::EventPublisher,
   files::{file_interactor::FileInteractor, file_metadata::file_name::FileName},
   helpers::{fifo_queue::FifoQueue, key_value_store::KeyValueStore},
   redis::build_redis_connection_pool,
@@ -31,6 +32,7 @@ pub struct ApplicationContext {
   pub album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
   pub spotify_client: Arc<SpotifyClient>,
   pub file_interactor: Arc<FileInteractor>,
+  pub event_publisher: Arc<EventPublisher>,
 }
 
 impl ApplicationContext {
@@ -47,10 +49,14 @@ impl ApplicationContext {
       Arc::clone(&redis_connection_pool),
       "parser:retry",
     ));
+    let event_publisher = Arc::new(EventPublisher::new(
+      Arc::clone(&settings),
+      Arc::clone(&sqlite_connection),
+    ));
     let file_interactor = Arc::new(FileInteractor::new(
       Arc::clone(&settings),
       Arc::clone(&redis_connection_pool),
-      Arc::clone(&sqlite_connection),
+      Arc::clone(&event_publisher),
     ));
     let crawler = Arc::new(Crawler::new(
       Arc::clone(&settings),
@@ -83,6 +89,7 @@ impl ApplicationContext {
       spotify_client,
       album_embedding_providers_interactor,
       file_interactor,
+      event_publisher,
     }))
   }
 }

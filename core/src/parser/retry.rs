@@ -1,6 +1,6 @@
 use crate::{
-  context::ApplicationContext, events::event_publisher::EventPublisher,
-  files::file_content_store::FileContentStore, parser::parser::parse_file_on_store,
+  context::ApplicationContext, files::file_content_store::FileContentStore,
+  parser::parser::parse_file_on_store,
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -10,10 +10,6 @@ use ulid::Ulid;
 
 pub fn start_parser_retry_consumer(app_context: Arc<ApplicationContext>) -> Result<()> {
   let file_content_store = FileContentStore::new(&app_context.settings.file.content_store)?;
-  let event_publisher = EventPublisher::new(
-    Arc::clone(&app_context.settings),
-    Arc::clone(&app_context.sqlite_connection),
-  );
 
   spawn(async move {
     loop {
@@ -32,7 +28,7 @@ pub fn start_parser_retry_consumer(app_context: Arc<ApplicationContext>) -> Resu
             Ok(file_metadata) => {
               if let Err(e) = parse_file_on_store(
                 file_content_store.clone(),
-                event_publisher.clone(),
+                Arc::clone(&app_context.event_publisher),
                 file_metadata.id,
                 file_name,
                 Some(format!("retry:{}", Ulid::new().to_string())),

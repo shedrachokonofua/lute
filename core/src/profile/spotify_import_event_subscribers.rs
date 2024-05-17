@@ -1,23 +1,27 @@
 use crate::{
-  albums::album_repository::AlbumRepository,
+  context::ApplicationContext,
   events::{
     event::{Event, Stream},
-    event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
+    event_subscriber::{EventData, EventSubscriber, EventSubscriberBuilder},
   },
   lookup::album_search_lookup::AlbumSearchLookup,
-  settings::Settings,
-  sqlite::SqliteConnection,
 };
 use anyhow::Result;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
 use super::profile_interactor::ProfileInteractor;
 
 pub async fn process_lookup_subscriptions(
-  context: SubscriberContext,
-  profile_interactor: ProfileInteractor,
+  event_data: EventData,
+  app_context: Arc<ApplicationContext>,
 ) -> Result<()> {
+  let profile_interactor = ProfileInteractor::new(
+    Arc::clone(&app_context.settings),
+    Arc::clone(&app_context.redis_connection_pool),
+    Arc::clone(&app_context.sqlite_connection),
+    Arc::clone(&app_context.album_repository),
+    Arc::clone(&app_context.spotify_client),
+  );
   if let Event::LookupAlbumSearchUpdated {
     lookup:
       AlbumSearchLookup::AlbumParsed {
@@ -25,7 +29,7 @@ pub async fn process_lookup_subscriptions(
         parsed_album_search_result,
         ..
       },
-  } = context.payload.event
+  } = event_data.payload.event
   {
     let subscriptions = profile_interactor
       .find_spotify_import_subscriptions_by_query(&query)
@@ -47,19 +51,13 @@ pub async fn process_lookup_subscriptions(
 }
 
 pub fn build_spotify_import_event_subscribers(
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<SqliteConnection>,
-  settings: Arc<Settings>,
-  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  app_context: Arc<ApplicationContext>,
 ) -> Result<Vec<EventSubscriber>> {
-  let album_repository = Arc::clone(&album_repository);
   Ok(vec![EventSubscriberBuilder::default()
     .id("profile_spotify_import".to_string())
     .stream(Stream::Lookup)
     .batch_size(250)
-    .redis_connection_pool(Arc::clone(&redis_connection_pool))
-    .sqlite_connection(Arc::clone(&sqlite_connection))
-    .settings(Arc::clone(&settings))
+    .app_context(Arc::clone(&app_context))
     .generate_ordered_processing_group_id(Arc::new(|row| {
       if let Some(correlation_id) = &row.payload.correlation_id {
         Some(correlation_id.clone())
@@ -67,14 +65,8 @@ pub fn build_spotify_import_event_subscribers(
         None
       }
     }))
-    .handle(Arc::new(move |context| {
-      let profile_interactor = ProfileInteractor::new(
-        Arc::clone(&context.settings),
-        Arc::clone(&context.redis_connection_pool),
-        Arc::clone(&context.sqlite_connection),
-        Arc::clone(&album_repository),
-      );
-      Box::pin(async move { process_lookup_subscriptions(context, profile_interactor).await })
+    .handle(Arc::new(move |event_data, app_context| {
+      Box::pin(async move { process_lookup_subscriptions(event_data, app_context).await })
     }))
     .build()?])
 }

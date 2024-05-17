@@ -6,7 +6,8 @@ use super::{
   lookup_interactor::LookupInteractor,
 };
 use crate::{
-  albums::{album_repository::AlbumRepository, sqlite_album_repository::SqliteAlbumRepository},
+  albums::album_repository::AlbumRepository,
+  context::ApplicationContext,
   crawler::{
     crawler_interactor::CrawlerInteractor,
     priority_queue::{Priority, QueuePushParameters},
@@ -14,16 +15,13 @@ use crate::{
   events::{
     event::{Event, EventPayloadBuilder, Stream},
     event_publisher::EventPublisher,
-    event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
+    event_subscriber::{EventData, EventSubscriber, EventSubscriberBuilder},
   },
   files::file_metadata::{file_name::FileName, page_type::PageType},
   parser::parsed_file_data::ParsedFileData,
-  settings::Settings,
-  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use chrono::Utc;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::{info, instrument, warn};
 
@@ -135,11 +133,24 @@ impl AlbumSearchLookup {
 struct AlbumSearchLookupOrchestrator {
   crawler_interactor: Arc<CrawlerInteractor>,
   lookup_interactor: LookupInteractor,
-  event_publisher: EventPublisher,
+  event_publisher: Arc<EventPublisher>,
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
 }
 
 impl AlbumSearchLookupOrchestrator {
+  fn new(app_context: Arc<ApplicationContext>) -> Self {
+    Self {
+      crawler_interactor: Arc::clone(&app_context.crawler.crawler_interactor),
+      lookup_interactor: LookupInteractor::new(
+        Arc::clone(&app_context.settings),
+        Arc::clone(&app_context.redis_connection_pool),
+        Arc::clone(&app_context.sqlite_connection),
+      ),
+      event_publisher: Arc::clone(&app_context.event_publisher),
+      album_repository: Arc::clone(&app_context.album_repository),
+    }
+  }
+
   #[instrument(skip(self))]
   async fn save_lookup(&self, lookup: &AlbumSearchLookup) -> Result<()> {
     info!("Saving album search lookup");
@@ -320,15 +331,15 @@ impl AlbumSearchLookupOrchestrator {
     Ok(())
   }
 
-  async fn handle_event(&self, context: SubscriberContext) -> Result<()> {
-    if context.payload.correlation_id.is_none() {
+  async fn handle_event(&self, event_data: EventData) -> Result<()> {
+    if event_data.payload.correlation_id.is_none() {
       return Ok(());
     }
-    let correlation_id = context.payload.correlation_id.unwrap();
+    let correlation_id = event_data.payload.correlation_id.unwrap();
 
     if is_album_search_correlation_id(&correlation_id) {
-      let event = context.payload.event;
-      match context.stream {
+      let event = event_data.payload.event;
+      match event_data.stream {
         Stream::Lookup => {
           self
             .handle_lookup_event(event, correlation_id.clone())
@@ -342,7 +353,9 @@ impl AlbumSearchLookupOrchestrator {
         _ => (),
       }
     } else {
-      self.handle_non_related_event(context.payload.event).await?;
+      self
+        .handle_non_related_event(event_data.payload.event)
+        .await?;
     }
 
     Ok(())
@@ -350,31 +363,17 @@ impl AlbumSearchLookupOrchestrator {
 }
 
 pub fn build_album_search_lookup_event_subscribers(
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<SqliteConnection>,
-  settings: Arc<Settings>,
-  crawler_interactor: Arc<CrawlerInteractor>,
+  app_context: Arc<ApplicationContext>,
 ) -> Result<Vec<EventSubscriber>> {
-  let orchestrator = Arc::new(AlbumSearchLookupOrchestrator {
-    crawler_interactor: Arc::clone(&crawler_interactor),
-    lookup_interactor: LookupInteractor::new(
-      Arc::clone(&settings),
-      Arc::clone(&redis_connection_pool),
-      Arc::clone(&sqlite_connection),
-    ),
-    event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
-    album_repository: Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection))),
-  });
+  let orchestrator = Arc::new(AlbumSearchLookupOrchestrator::new(Arc::clone(&app_context)));
   Ok(vec![EventSubscriberBuilder::default()
     .id("album_search_lookup")
     .streams(vec![Stream::File, Stream::Parser, Stream::Lookup])
     .batch_size(250)
-    .redis_connection_pool(Arc::clone(&redis_connection_pool))
-    .sqlite_connection(Arc::clone(&sqlite_connection))
-    .settings(Arc::clone(&settings))
-    .handle(Arc::new(move |context| {
+    .app_context(Arc::clone(&app_context))
+    .handle(Arc::new(move |event_data, _| {
       let orchestrator = Arc::clone(&orchestrator);
-      Box::pin(async move { orchestrator.handle_event(context).await })
+      Box::pin(async move { orchestrator.handle_event(event_data).await })
     }))
     .generate_ordered_processing_group_id(Arc::new(|row| {
       if let Some(correlation_id) = &row.payload.correlation_id {

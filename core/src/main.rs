@@ -30,34 +30,13 @@ fn run_rpc_server(app_context: Arc<ApplicationContext>) -> task::JoinHandle<()> 
 
 fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
-  event_subscribers.extend(build_album_event_subscribers(
-    Arc::clone(&app_context.redis_connection_pool),
-    Arc::clone(&app_context.sqlite_connection),
-    app_context.settings.clone(),
-    Arc::clone(&app_context.crawler.crawler_interactor),
-  )?);
-  event_subscribers.extend(build_parser_event_subscribers(
-    Arc::clone(&app_context.redis_connection_pool),
-    Arc::clone(&app_context.sqlite_connection),
-    app_context.settings.clone(),
-  )?);
-  event_subscribers.extend(build_lookup_event_subscribers(
-    Arc::clone(&app_context.redis_connection_pool),
-    Arc::clone(&app_context.sqlite_connection),
-    app_context.settings.clone(),
-    Arc::clone(&app_context.crawler.crawler_interactor),
-  )?);
-  event_subscribers.extend(build_profile_event_subscribers(
-    Arc::clone(&app_context.redis_connection_pool),
-    Arc::clone(&app_context.sqlite_connection),
-    app_context.settings.clone(),
-  )?);
-  event_subscribers.extend(build_recommendation_event_subscribers(
-    Arc::clone(&app_context.redis_connection_pool),
-    Arc::clone(&app_context.sqlite_connection),
-    Arc::clone(&app_context.settings),
-    Arc::clone(&app_context.crawler.crawler_interactor),
-  )?);
+  event_subscribers.extend(build_album_event_subscribers(Arc::clone(&app_context))?);
+  event_subscribers.extend(build_parser_event_subscribers(Arc::clone(&app_context))?);
+  event_subscribers.extend(build_lookup_event_subscribers(Arc::clone(&app_context))?);
+  event_subscribers.extend(build_profile_event_subscribers(Arc::clone(&app_context))?);
+  event_subscribers.extend(build_recommendation_event_subscribers(Arc::clone(
+    &app_context,
+  ))?);
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });
   });

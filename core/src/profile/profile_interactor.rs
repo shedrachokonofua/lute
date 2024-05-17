@@ -14,7 +14,6 @@ use crate::{
     event_publisher::EventPublisher,
   },
   files::file_metadata::file_name::FileName,
-  helpers::key_value_store::KeyValueStore,
   lookup::{
     album_search_lookup::{AlbumSearchLookup, AlbumSearchLookupQuery, AlbumSearchLookupStatus},
     lookup_interactor::LookupInteractor,
@@ -39,7 +38,7 @@ pub struct ProfileInteractor {
   profile_repository: ProfileRepository,
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   event_publisher: EventPublisher,
-  spotify_client: SpotifyClient,
+  spotify_client: Arc<SpotifyClient>,
   lookup_interactor: LookupInteractor,
   spotify_import_repository: SpotifyImportRepository,
 }
@@ -50,6 +49,7 @@ impl ProfileInteractor {
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<SqliteConnection>,
     album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    spotify_client: Arc<SpotifyClient>,
   ) -> Self {
     Self {
       profile_repository: ProfileRepository {
@@ -57,10 +57,7 @@ impl ProfileInteractor {
       },
       album_repository: Arc::clone(&album_repository),
       event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
-      spotify_client: SpotifyClient::new(
-        &settings.spotify,
-        Arc::new(KeyValueStore::new(Arc::clone(&sqlite_connection))),
-      ),
+      spotify_client,
       lookup_interactor: LookupInteractor::new(
         Arc::clone(&settings),
         Arc::clone(&redis_connection_pool),

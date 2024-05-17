@@ -16,6 +16,7 @@ use crate::{
   files::file_metadata::file_name::FileName,
   profile::{profile::ProfileId, profile_interactor::ProfileInteractor},
   settings::Settings,
+  spotify::spotify_client::SpotifyClient,
   sqlite::SqliteConnection,
 };
 use anyhow::Result;
@@ -41,6 +42,7 @@ impl RecommendationInteractor {
     sqlite_connection: Arc<SqliteConnection>,
     album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
+    spotify_client: Arc<SpotifyClient>,
   ) -> Self {
     Self {
       quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(&album_search_index)),
@@ -53,6 +55,7 @@ impl RecommendationInteractor {
         redis_connection_pool,
         sqlite_connection,
         Arc::clone(&album_repository),
+        spotify_client,
       ),
     }
   }

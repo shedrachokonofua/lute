@@ -73,6 +73,7 @@ impl ProfileService {
         Arc::clone(&app_context.redis_connection_pool),
         Arc::clone(&app_context.sqlite_connection),
         Arc::clone(&app_context.album_repository),
+        Arc::clone(&app_context.spotify_client),
       ),
     }
   }

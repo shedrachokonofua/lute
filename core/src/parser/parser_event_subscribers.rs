@@ -3,44 +3,43 @@ use super::{
   parser::parse_file_on_store,
 };
 use crate::{
+  context::ApplicationContext,
   events::{
     event::{Event, Stream},
-    event_publisher::EventPublisher,
-    event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
+    event_subscriber::{EventData, EventSubscriber, EventSubscriberBuilder},
   },
   files::file_content_store::FileContentStore,
-  settings::Settings,
-  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use chrono::Utc;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
-async fn parse_saved_file(context: SubscriberContext) -> Result<()> {
-  if let Event::FileSaved { file_id, file_name } = context.payload.event {
-    let file_content_store = FileContentStore::new(&context.settings.file.content_store)?;
-    let event_publisher = EventPublisher::new(
-      Arc::clone(&context.settings),
-      Arc::clone(&context.sqlite_connection),
-    );
+async fn parse_saved_file(
+  event_data: EventData,
+  app_context: Arc<ApplicationContext>,
+) -> Result<()> {
+  if let Event::FileSaved { file_id, file_name } = event_data.payload.event {
+    let file_content_store = FileContentStore::new(&app_context.settings.file.content_store)?;
     parse_file_on_store(
       file_content_store,
-      event_publisher,
+      Arc::clone(&app_context.event_publisher),
       file_id,
       file_name,
-      context.payload.correlation_id,
+      event_data.payload.correlation_id,
     )
     .await?;
   }
   Ok(())
 }
 
-async fn populate_failed_parse_files_repository(context: SubscriberContext) -> Result<()> {
+async fn populate_failed_parse_files_repository(
+  event_data: EventData,
+  app_context: Arc<ApplicationContext>,
+) -> Result<()> {
   let failed_parse_files_repository = FailedParseFilesRepository {
-    redis_connection_pool: Arc::clone(&context.redis_connection_pool),
+    redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
   };
-  match context.payload.event {
+  match event_data.payload.event {
     Event::FileParseFailed {
       file_id: _,
       file_name,
@@ -67,31 +66,27 @@ async fn populate_failed_parse_files_repository(context: SubscriberContext) -> R
 }
 
 pub fn build_parser_event_subscribers(
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<SqliteConnection>,
-  settings: Arc<Settings>,
+  app_context: Arc<ApplicationContext>,
 ) -> Result<Vec<EventSubscriber>> {
   Ok(vec![
     EventSubscriberBuilder::default()
       .id("parse_saved_file")
-      .redis_connection_pool(Arc::clone(&redis_connection_pool))
-      .sqlite_connection(Arc::clone(&sqlite_connection))
-      .settings(Arc::clone(&settings))
-      .batch_size(settings.parser.concurrency as usize)
+      .app_context(Arc::clone(&app_context))
+      .batch_size(app_context.settings.parser.concurrency as usize)
       .stream(Stream::File)
-      .handle(Arc::new(|context| {
-        Box::pin(async move { parse_saved_file(context).await })
+      .handle(Arc::new(|event_data, app_context| {
+        Box::pin(async move { parse_saved_file(event_data, app_context).await })
       }))
       .build()?,
     EventSubscriberBuilder::default()
       .id("populate_failed_parse_files_repository")
-      .redis_connection_pool(Arc::clone(&redis_connection_pool))
-      .sqlite_connection(Arc::clone(&sqlite_connection))
-      .settings(Arc::clone(&settings))
+      .app_context(Arc::clone(&app_context))
       .batch_size(1)
       .stream(Stream::Parser)
-      .handle(Arc::new(|context| {
-        Box::pin(async move { populate_failed_parse_files_repository(context).await })
+      .handle(Arc::new(|event_data, app_context| {
+        Box::pin(
+          async move { populate_failed_parse_files_repository(event_data, app_context).await },
+        )
       }))
       .build()?,
   ])

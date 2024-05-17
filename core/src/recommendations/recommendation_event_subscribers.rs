@@ -1,44 +1,36 @@
 use crate::{
-  albums::{
-    album_read_model::AlbumReadModel, album_repository::AlbumRepository,
-    sqlite_album_repository::SqliteAlbumRepository,
-  },
-  crawler::{
-    crawler_interactor::CrawlerInteractor,
-    priority_queue::{Priority, QueuePushParameters},
-  },
+  albums::album_read_model::AlbumReadModel,
+  context::ApplicationContext,
+  crawler::priority_queue::{Priority, QueuePushParameters},
   events::{
     event::{Event, Stream},
-    event_subscriber::{EventSubscriber, EventSubscriberBuilder, SubscriberContext},
+    event_subscriber::{EventData, EventSubscriber, EventSubscriberBuilder},
   },
   files::file_metadata::file_name::ChartParameters,
   parser::parsed_file_data::ParsedFileData,
-  settings::Settings,
-  spotify::spotify_client::SpotifyClient,
-  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use chrono::{Datelike, Local};
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tracing::warn;
 
 use super::spotify_track_search_index::{SpotifyTrackSearchIndex, SpotifyTrackSearchRecord};
 
 async fn crawl_similar_albums(
-  context: SubscriberContext,
-  crawler_interactor: Arc<CrawlerInteractor>,
-  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  event_data: EventData,
+  app_context: Arc<ApplicationContext>,
 ) -> Result<()> {
-  if let Event::ProfileAlbumAdded { file_name, .. } = context.payload.event {
-    let album = album_repository.get(&file_name).await?;
+  if let Event::ProfileAlbumAdded { file_name, .. } = event_data.payload.event {
+    let album = app_context.album_repository.get(&file_name).await?;
     if let Some(release_date) = album.release_date {
       let file_name_string = file_name.to_string();
       let release_type = file_name_string.split('/').collect::<Vec<&str>>()[1];
 
       // Artists
       for artist in album.artists {
-        if let Err(e) = crawler_interactor
+        if let Err(e) = app_context
+          .crawler
+          .crawler_interactor
           .enqueue_if_stale(QueuePushParameters {
             file_name: artist.file_name,
             correlation_id: Some(format!("crawl_similar_albums:{}", file_name.to_string())),
@@ -58,7 +50,9 @@ async fn crawl_similar_albums(
       // Same genres, same year
       let mut primary_genres = album.primary_genres.clone();
       primary_genres.insert(0, "all".to_string());
-      if let Err(e) = crawler_interactor
+      if let Err(e) = app_context
+        .crawler
+        .crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
           file_name: ChartParameters {
             release_type: release_type.to_string(),
@@ -83,7 +77,9 @@ async fn crawl_similar_albums(
       }
 
       // Same genres, same descriptors
-      if let Err(e) = crawler_interactor
+      if let Err(e) = app_context
+        .crawler
+        .crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
           file_name: ChartParameters {
             release_type: release_type.to_string(),
@@ -112,19 +108,21 @@ async fn crawl_similar_albums(
   Ok(())
 }
 
-pub async fn save_album_spotify_tracks(context: SubscriberContext) -> Result<()> {
+pub async fn save_album_spotify_tracks(
+  event_data: EventData,
+  app_context: Arc<ApplicationContext>,
+) -> Result<()> {
   if let Event::FileParsed {
     file_id: _,
     file_name,
     data: ParsedFileData::Album(parsed_album),
-  } = context.payload.event
+  } = event_data.payload.event
   {
-    let spotify_client = SpotifyClient::new(&context.settings.spotify, Arc::clone(&context.kv));
     let spotify_track_search_index =
-      SpotifyTrackSearchIndex::new(Arc::clone(&context.redis_connection_pool));
+      SpotifyTrackSearchIndex::new(Arc::clone(&app_context.redis_connection_pool));
 
     let album = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
-    let spotify_album = spotify_client.find_album(&album).await?;
+    let spotify_album = app_context.spotify_client.find_album(&album).await?;
 
     if let Some(spotify_album) = spotify_album {
       let track_spotify_ids = spotify_album
@@ -132,7 +130,8 @@ pub async fn save_album_spotify_tracks(context: SubscriberContext) -> Result<()>
         .iter()
         .map(|track| track.spotify_id.clone())
         .collect::<Vec<String>>();
-      let mut embeddings = spotify_client
+      let mut embeddings = app_context
+        .spotify_client
         .get_track_feature_embeddings(track_spotify_ids)
         .await?;
       let records = spotify_album
@@ -158,30 +157,16 @@ pub async fn save_album_spotify_tracks(context: SubscriberContext) -> Result<()>
 }
 
 pub fn build_recommendation_event_subscribers(
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<SqliteConnection>,
-  settings: Arc<Settings>,
-  crawler_interactor: Arc<CrawlerInteractor>,
+  app_context: Arc<ApplicationContext>,
 ) -> Result<Vec<EventSubscriber>> {
   Ok(vec![
     EventSubscriberBuilder::default()
       .id("crawl_similar_albums".to_string())
       .stream(Stream::Profile)
       .batch_size(250)
-      .redis_connection_pool(Arc::clone(&redis_connection_pool))
-      .sqlite_connection(Arc::clone(&sqlite_connection))
-      .settings(Arc::clone(&settings))
-      .handle(Arc::new(move |context| {
-        let crawler_interactor = Arc::clone(&crawler_interactor);
-        let album_repository = SqliteAlbumRepository::new(Arc::clone(&context.sqlite_connection));
-        Box::pin(async move {
-          crawl_similar_albums(
-            context,
-            Arc::clone(&crawler_interactor),
-            Arc::new(album_repository),
-          )
-          .await
-        })
+      .app_context(Arc::clone(&app_context))
+      .handle(Arc::new(move |event_data, app_context| {
+        Box::pin(async move { crawl_similar_albums(event_data, app_context).await })
       }))
       .build()?,
     // EventSubscriberBuilder::default()

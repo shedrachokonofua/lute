@@ -1,48 +1,37 @@
-use crate::helpers::key_value_store::KeyValueStore;
-use crate::settings::Settings;
-use crate::sqlite::SqliteConnection;
-
 use super::event::{EventPayload, Stream};
 use super::event_subscriber_repository::{EventRow, EventSubscriberRepository};
+use crate::context::ApplicationContext;
 use anyhow::Result;
 use derive_builder::Builder;
 use futures::future::{join_all, BoxFuture};
 use iter_tools::Itertools;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::collections::HashMap;
 use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
 use tracing::{debug, error};
 
-pub struct SubscriberContext {
+pub struct EventData {
   pub entry_id: String,
   pub stream: Stream,
-  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  pub sqlite_connection: Arc<SqliteConnection>,
-  pub settings: Arc<Settings>,
   pub payload: EventPayload,
-  pub kv: Arc<KeyValueStore>,
 }
 
 #[derive(Builder)]
 pub struct EventSubscriber {
   #[builder(default = "10")]
   pub batch_size: usize,
-  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  pub sqlite_connection: Arc<SqliteConnection>,
-  pub settings: Arc<Settings>,
+  pub app_context: Arc<ApplicationContext>,
   #[builder(setter(into))]
   pub id: String,
   #[builder(setter(each(name = "stream")))]
   pub streams: Vec<Stream>,
-  pub handle: Arc<dyn Fn(SubscriberContext) -> BoxFuture<'static, Result<()>> + Send + Sync>,
+  pub handle:
+    Arc<dyn Fn(EventData, Arc<ApplicationContext>) -> BoxFuture<'static, Result<()>> + Send + Sync>,
   #[builder(
     setter(skip),
     default = "self.get_default_event_subscriber_repository()?"
   )]
   event_subscriber_repository: EventSubscriberRepository,
-  #[builder(default = "self.get_kv()?", setter(skip))]
-  kv: Arc<KeyValueStore>,
   /**
    * A function that returns a processing group ID for the given event. Events with the same processing group ID will be processed in order.
    */
@@ -58,17 +47,10 @@ impl EventSubscriberBuilder {
   pub fn get_default_event_subscriber_repository(
     &self,
   ) -> Result<EventSubscriberRepository, String> {
-    match &self.sqlite_connection {
-      Some(sqlite_connection) => Ok(EventSubscriberRepository::new(Arc::clone(
-        sqlite_connection,
+    match &self.app_context {
+      Some(app_context) => Ok(EventSubscriberRepository::new(Arc::clone(
+        &app_context.sqlite_connection,
       ))),
-      None => Err("SQLite connection is required".to_string()),
-    }
-  }
-
-  pub fn get_kv(&self) -> Result<Arc<KeyValueStore>, String> {
-    match &self.sqlite_connection {
-      Some(sqlite_connection) => Ok(Arc::new(KeyValueStore::new(Arc::clone(sqlite_connection)))),
       None => Err("SQLite connection is required".to_string()),
     }
   }
@@ -131,10 +113,7 @@ impl EventSubscriber {
       ordered_processing_groups
         .into_iter()
         .map(|(group_id, group)| {
-          let redis_pool = Arc::clone(&self.redis_connection_pool);
-          let sqlite_pool = Arc::clone(&self.sqlite_connection);
-          let settings = Arc::clone(&self.settings);
-          let kv = Arc::clone(&self.kv);
+          let app_context = Arc::clone(&self.app_context);
           let handle = self.handle.clone();
           let subscriber_id = self.id.clone();
           let stream_tags = stream_tags.clone();
@@ -159,15 +138,14 @@ impl EventSubscriber {
                 causation_id = payload.causation_id.clone(),
                 "Processing event"
               );
-              handle(SubscriberContext {
-                redis_connection_pool: Arc::clone(&redis_pool),
-                sqlite_connection: Arc::clone(&sqlite_pool),
-                settings: Arc::clone(&settings),
-                kv: Arc::clone(&kv),
-                entry_id: entry_id.clone(),
-                payload: payload.clone(),
-                stream: row.stream.clone(),
-              })
+              handle(
+                EventData {
+                  entry_id: entry_id.clone(),
+                  payload: payload.clone(),
+                  stream: row.stream.clone(),
+                },
+                Arc::clone(&app_context),
+              )
               .await
               .map_err(|err| {
                 error!(
