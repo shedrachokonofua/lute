@@ -278,16 +278,6 @@ fn get_features_embedding(features: AudioFeatures) -> Vec<f32> {
   ]
 }
 
-// fn inspect_client_error(err: &ClientError) {
-//   warn!(error = err.to_string(), "Spotify client error");
-//   if let ClientError::Http(http_error) = err {
-//     if let HttpError::StatusCode(response) = http_error.as_ref() {
-//       let headers_string = format!("{:?}", response.headers());
-//       warn!(headers = headers_string, "Error response headers");
-//     }
-//   }
-// }
-
 fn check_spotify_throttle(err: &ClientError) -> Option<usize> {
   if let ClientError::Http(http_error) = err {
     if let HttpError::StatusCode(response) = http_error.as_ref() {
@@ -500,7 +490,7 @@ impl SpotifyClient {
             &unidecode(&simplified_album.name).to_ascii_lowercase(),
             &album.ascii_name().to_ascii_lowercase(),
           );
-          if name_similarity < 0.85 {
+          if name_similarity < 0.8 {
             warn!(
               "Album name similarity({}) is too low: {} vs {}",
               name_similarity, simplified_album.name, album.name
