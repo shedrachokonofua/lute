@@ -87,8 +87,14 @@ impl Scheduler {
   pub async fn put(&self, params: JobParameters) -> Result<()> {
     let overwrite_existing = params.overwrite_existing;
     let record: Job = params.into();
-    if !overwrite_existing {
-      if let Some(_) = self.scheduler_repository.find_job(&record.id).await? {
+    if let Some(existing_job) = self.scheduler_repository.find_job(&record.id).await? {
+      let interval_changed = match (record.interval_seconds, existing_job.interval_seconds) {
+        (Some(interval_seconds), Some(existing_interval_seconds)) => {
+          interval_seconds != existing_interval_seconds
+        }
+        _ => false,
+      };
+      if !overwrite_existing && !interval_changed {
         info!(job_id = record.id.as_str(), "Job already exists, skipping");
         return Ok(());
       }
