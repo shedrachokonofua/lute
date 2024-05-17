@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::TimeDelta;
 use core::{
   albums::album_event_subscribers::build_album_event_subscribers,
   context::ApplicationContext,
@@ -11,6 +12,10 @@ use core::{
   recommendations::recommendation_event_subscribers::build_recommendation_event_subscribers,
   redis::setup_redis_indexes,
   rpc::RpcServer,
+  scheduler::{
+    job_name::JobName,
+    scheduler::{JobParametersBuilder, Scheduler},
+  },
 };
 use mimalloc::MiMalloc;
 use std::sync::Arc;
@@ -34,13 +39,43 @@ fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   Ok(())
 }
 
+async fn register_job_processors(scheduler: Arc<Scheduler>) -> Result<()> {
+  scheduler
+    .register(
+      JobName::HelloWorld,
+      Arc::new(|_| {
+        Box::pin(async move {
+          println!(
+            "Hello, world! {}",
+            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+          );
+          Ok(())
+        })
+      }),
+    )
+    .await;
+
+  scheduler
+    .put(
+      JobParametersBuilder::default()
+        .name(JobName::HelloWorld)
+        .interval(TimeDelta::try_seconds(15))
+        .build()?,
+    )
+    .await?;
+
+  Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let context = ApplicationContext::init().await?;
   setup_redis_indexes(Arc::clone(&context)).await?;
   start_parser_retry_consumer(Arc::clone(&context))?;
-  context.crawler.run()?;
   start_event_subscribers(Arc::clone(&context))?;
+  register_job_processors(Arc::clone(&context.scheduler)).await?;
+  context.scheduler.run(Arc::clone(&context)).await?;
+  context.crawler.run()?;
   RpcServer::new(context).run().await?;
 
   Ok(())

@@ -10,6 +10,7 @@ use crate::{
   files::{file_interactor::FileInteractor, file_metadata::file_name::FileName},
   helpers::{fifo_queue::FifoQueue, key_value_store::KeyValueStore},
   redis::build_redis_connection_pool,
+  scheduler::scheduler::Scheduler,
   settings::Settings,
   spotify::spotify_client::SpotifyClient,
   sqlite::SqliteConnection,
@@ -33,6 +34,7 @@ pub struct ApplicationContext {
   pub spotify_client: Arc<SpotifyClient>,
   pub file_interactor: Arc<FileInteractor>,
   pub event_publisher: Arc<EventPublisher>,
+  pub scheduler: Arc<Scheduler>,
 }
 
 impl ApplicationContext {
@@ -76,6 +78,7 @@ impl ApplicationContext {
       &settings.spotify.clone(),
       Arc::clone(&kv),
     ));
+    let scheduler = Arc::new(Scheduler::new(Arc::clone(&sqlite_connection)));
 
     Ok(Arc::new(ApplicationContext {
       settings,
@@ -90,6 +93,7 @@ impl ApplicationContext {
       album_embedding_providers_interactor,
       file_interactor,
       event_publisher,
+      scheduler,
     }))
   }
 }

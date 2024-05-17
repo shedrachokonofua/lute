@@ -2,7 +2,7 @@ use super::{
   job_name::JobName,
   scheduler_repository::{SchedulerJobRecord, SchedulerRepository},
 };
-use crate::{helpers::ThreadSafeAsyncFn, sqlite::SqliteConnection};
+use crate::{context::ApplicationContext, helpers::ThreadSafeAsyncFn, sqlite::SqliteConnection};
 use anyhow::Result;
 use chrono::{NaiveDateTime, TimeDelta};
 use derive_builder::Builder;
@@ -13,7 +13,7 @@ use tracing::{error, info};
 #[derive(Builder)]
 pub struct JobParameters {
   name: JobName,
-  #[builder(setter(into, strip_option))]
+  #[builder(default = "None", setter(into, strip_option))]
   id: Option<String>,
   #[builder(default = "None")]
   interval: Option<TimeDelta>,
@@ -38,10 +38,14 @@ impl Into<SchedulerJobRecord> for JobParameters {
   }
 }
 
-type JobProcessor = ThreadSafeAsyncFn<Arc<SqliteConnection>>;
+pub struct JobProcessorContext {
+  pub payload: Option<Vec<u8>>,
+  pub app_context: Arc<ApplicationContext>,
+}
+
+type JobProcessor = ThreadSafeAsyncFn<JobProcessorContext>;
 
 pub struct Scheduler {
-  sqlite_connection: Arc<SqliteConnection>,
   scheduler_repository: Arc<SchedulerRepository>,
   processor_registry: Arc<Mutex<HashMap<JobName, JobProcessor>>>,
 }
@@ -49,7 +53,6 @@ pub struct Scheduler {
 impl Scheduler {
   pub fn new(sqlite_connection: Arc<SqliteConnection>) -> Self {
     Self {
-      sqlite_connection: Arc::clone(&sqlite_connection),
       scheduler_repository: Arc::new(SchedulerRepository::new(sqlite_connection)),
       processor_registry: Arc::new(Mutex::new(HashMap::new())),
     }
@@ -65,24 +68,20 @@ impl Scheduler {
 
   pub async fn put(&self, params: JobParameters) -> Result<()> {
     let overwrite_existing = params.overwrite_existing;
-    let mut record: SchedulerJobRecord = params.into();
+    let record: SchedulerJobRecord = params.into();
     if !overwrite_existing {
-      if let Some(existing_record) = self.scheduler_repository.find_job(&record.id).await? {
-        record.name = existing_record.name;
-        record.last_execution = existing_record.last_execution;
-        record.next_execution = existing_record.next_execution;
-        record.interval_seconds = existing_record.interval_seconds;
-        record.payload = existing_record.payload;
+      if let Some(_) = self.scheduler_repository.find_job(&record.id).await? {
+        info!(job_id = record.id.as_str(), "Job already exists, skipping");
+        return Ok(());
       }
     }
     self.scheduler_repository.put(record).await?;
     Ok(())
   }
 
-  pub async fn run(&self) -> Result<()> {
+  pub async fn run(&self, app_context: Arc<ApplicationContext>) -> Result<()> {
     let scheduler_repository = Arc::clone(&self.scheduler_repository);
     let processor_registry = Arc::clone(&self.processor_registry);
-    let sqlite_connection = Arc::clone(&self.sqlite_connection);
 
     spawn(async move {
       loop {
@@ -92,9 +91,14 @@ impl Scheduler {
               if let Some(processor) = processor_registry.lock().await.get(&job.name) {
                 let processor = Arc::clone(&processor);
                 let scheduler_repository = Arc::clone(&scheduler_repository);
-                let sqlite_connection = Arc::clone(&sqlite_connection);
+                let app_context = Arc::clone(&app_context);
                 spawn(async move {
-                  match processor(Arc::clone(&sqlite_connection)).await {
+                  match processor(JobProcessorContext {
+                    payload: job.payload,
+                    app_context,
+                  })
+                  .await
+                  {
                     Ok(_) => {
                       if let Err(e) = scheduler_repository
                         .update_job_after_execution(&job.id)

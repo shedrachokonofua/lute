@@ -18,13 +18,13 @@ tasks:
     env:
       RUST_LOG: warn,core=info,lute-postgres-connector=debug
     cmds:
-      - cargo run
+      - cargo run --release
 
   "core:lint":
     dir: core
     cmds:
       - cargo clippy
-  
+
   "core:lint:fix":
     dir: core
     env:
@@ -36,7 +36,7 @@ tasks:
     dir: core
     cmds:
       - cargo fmt
-  
+
   "core:release":
     dir: core
     env:
@@ -63,7 +63,7 @@ tasks:
       - rm -rf ./dist
       - npm i
       - npm run build
-  
+
   "web:fmt":
     dir: web
     cmds:
@@ -98,15 +98,15 @@ tasks:
     cmds:
       - task: "core:fmt"
       - task: "web:fmt"
-        
+
   "redis:up":
     cmds:
       - docker-compose -f ./infra/dev/redis.docker-compose.yml up -d
-  
+
   "openobserve:up":
     cmds:
       - docker-compose -f ./infra/dev/openobserve/docker-compose.yml up -d
-  
+
   "openobserve:down":
     cmds:
       - docker-compose -f ./infra/dev/openobserve/docker-compose.yml down
@@ -115,31 +115,31 @@ tasks:
     cmds:
       - docker-compose -f ./infra/dev/redis.docker-compose.yml -f ./infra/dev/openobserve/docker-compose.yml up -d
       - task: "core:run"
-  
+
   "core:up":
     cmds:
       - task: "redis:up"
       - docker-compose -f ./infra/dev/core/docker-compose.yml up -d
-    
+
   "core:up:build":
     cmds:
       - task: "redis:up"
       - docker-compose -f ./infra/dev/core/docker-compose.yml up -d --build
-  
+
   "core:run-with-redis":
     cmds:
       - task: "redis:up"
-      - task: "core:run" 
+      - task: "core:run"
 
   "postgres:up":
     cmds:
       - docker-compose -f ./infra/dev/postgres.docker-compose.yml up -d
-  
+
   "pg-connector:run":
     dir: connector/postgres
     cmds:
       - cargo run -- --postgres-url postgres://lute:password@localhost:25432/lute --subscriber-id dev-pg-connector --stream-id global
-  
+
   "pg-connector:up":
     cmds:
       - task: "postgres:up"
@@ -148,12 +148,12 @@ tasks:
   "memgraph:up":
     cmds:
       - docker-compose -f ./infra/dev/memgraph.docker-compose.yml up -d
-  
+
   "bolt-connector:run":
     dir: connector/bolt
     cmds:
       - cargo run -- --subscriber-id dev-mg-connector --stream-id parser --db-name memgraph
-  
+
   "bolt-connector:up":
     cmds:
       - task: "memgraph:up"
