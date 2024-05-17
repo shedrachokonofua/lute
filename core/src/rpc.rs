@@ -1,14 +1,9 @@
 use crate::{
-  albums::{
-    album_repository::AlbumRepository, album_search_index::AlbumSearchIndex,
-    album_service::AlbumService,
-  },
-  crawler::{crawler_interactor::CrawlerInteractor, crawler_service::CrawlerService},
+  albums::album_service::AlbumService,
+  context::ApplicationContext,
+  crawler::crawler_service::CrawlerService,
   events::event_service::EventService,
-  files::{
-    file_interactor::FileInteractor, file_metadata::file_name::FileName, file_service::FileService,
-  },
-  helpers::{fifo_queue::FifoQueue, key_value_store::KeyValueStore},
+  files::file_service::FileService,
   lookup::lookup_service::LookupService,
   ops::OperationsService,
   parser::parser_service::ParserService,
@@ -21,11 +16,9 @@ use crate::{
   },
   recommendations::recommendation_service::RecommendationService,
   settings::Settings,
-  spotify::{spotify_client::SpotifyClient, spotify_service::SpotifyService},
-  sqlite::SqliteConnection,
+  spotify::spotify_service::SpotifyService,
 };
 use anyhow::Result;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{net::SocketAddr, sync::Arc};
 use tonic::{transport::Server, Request, Response, Status};
 use tracing::info;
@@ -54,74 +47,19 @@ pub struct RpcServer {
 }
 
 impl RpcServer {
-  pub fn new(
-    settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
-    crawler_interactor: Arc<CrawlerInteractor>,
-    parser_retry_queue: Arc<FifoQueue<FileName>>,
-    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
-    album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
-    kv: Arc<KeyValueStore>,
-  ) -> Self {
-    let spotify_client = Arc::new(SpotifyClient::new(
-      &settings.spotify.clone(),
-      Arc::clone(&kv),
-    ));
-
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      settings: Arc::clone(&settings),
-      file_service: Arc::new(FileService {
-        file_interactor: FileInteractor::new(
-          Arc::clone(&settings),
-          Arc::clone(&redis_connection_pool),
-          Arc::clone(&sqlite_connection),
-        ),
-      }),
-      crawler_service: Arc::new(CrawlerService {
-        crawler_interactor: Arc::clone(&crawler_interactor),
-      }),
-      album_service: Arc::new(AlbumService::new(
-        Arc::clone(&settings),
-        Arc::clone(&kv),
-        Arc::clone(&album_repository),
-        Arc::clone(&album_search_index),
-        Arc::clone(&spotify_client),
-      )),
-      spotify_service: Arc::new(SpotifyService {
-        spotify_client: Arc::clone(&spotify_client),
-      }),
-      operations_service: Arc::new(OperationsService::new(
-        Arc::clone(&settings),
-        Arc::clone(&redis_connection_pool),
-        Arc::clone(&sqlite_connection),
-        Arc::clone(&crawler_interactor),
-      )),
-      parser_service: Arc::new(ParserService::new(
-        Arc::clone(&settings),
-        Arc::clone(&redis_connection_pool),
-        Arc::clone(&sqlite_connection),
-        Arc::clone(&parser_retry_queue),
-      )),
-      profile_service: Arc::new(ProfileService::new(
-        Arc::clone(&settings),
-        Arc::clone(&redis_connection_pool),
-        Arc::clone(&sqlite_connection),
-        Arc::clone(&album_repository),
-      )),
-      lookup_service: Arc::new(LookupService::new(
-        Arc::clone(&settings),
-        Arc::clone(&redis_connection_pool),
-        Arc::clone(&sqlite_connection),
-      )),
-      recommendation_service: Arc::new(RecommendationService::new(
-        Arc::clone(&settings),
-        Arc::clone(&redis_connection_pool),
-        Arc::clone(&sqlite_connection),
-        Arc::clone(&album_repository),
-        Arc::clone(&album_search_index),
-      )),
-      event_service: Arc::new(EventService::new(Arc::clone(&sqlite_connection))),
+      settings: Arc::clone(&app_context.settings),
+      file_service: Arc::new(FileService::new(Arc::clone(&app_context))),
+      crawler_service: Arc::new(CrawlerService::new(Arc::clone(&app_context))),
+      album_service: Arc::new(AlbumService::new(Arc::clone(&app_context))),
+      spotify_service: Arc::new(SpotifyService::new(Arc::clone(&app_context))),
+      operations_service: Arc::new(OperationsService::new(Arc::clone(&app_context))),
+      parser_service: Arc::new(ParserService::new(Arc::clone(&app_context))),
+      profile_service: Arc::new(ProfileService::new(Arc::clone(&app_context))),
+      lookup_service: Arc::new(LookupService::new(Arc::clone(&app_context))),
+      recommendation_service: Arc::new(RecommendationService::new(Arc::clone(&app_context))),
+      event_service: Arc::new(EventService::new(Arc::clone(&app_context))),
     }
   }
 

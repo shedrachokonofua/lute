@@ -4,6 +4,7 @@ use super::{
   priority_queue::{ClaimedQueueItem, Priority, QueueItem, QueuePushParameters},
 };
 use crate::{
+  context::ApplicationContext,
   files::file_metadata::file_name::FileName,
   proto::{self, EnqueueRequest, GetCrawlerMonitorReply, SetCrawlerStatusReply, SetStatusRequest},
 };
@@ -111,6 +112,14 @@ impl TryFrom<EnqueueRequest> for QueuePushParameters {
 
 pub struct CrawlerService {
   pub crawler_interactor: Arc<CrawlerInteractor>,
+}
+
+impl CrawlerService {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
+    Self {
+      crawler_interactor: Arc::clone(&app_context.crawler.crawler_interactor),
+    }
+  }
 }
 
 #[tonic::async_trait]

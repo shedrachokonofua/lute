@@ -1,14 +1,26 @@
 use super::{file_interactor::FileInteractor, file_metadata::file_name::FileName};
-use crate::proto::{
-  self, GetFileContentReply, GetFilePageTypeReply, GetFilePageTypeRequest, IsFileStaleReply,
-  IsFileStaleRequest, PutFileReply, PutFileRequest,
+use crate::{
+  context::ApplicationContext,
+  proto::{
+    self, GetFileContentReply, GetFilePageTypeReply, GetFilePageTypeRequest, IsFileStaleReply,
+    IsFileStaleRequest, PutFileReply, PutFileRequest,
+  },
 };
 use anyhow::Result;
+use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::error;
 
 pub struct FileService {
-  pub file_interactor: FileInteractor,
+  pub file_interactor: Arc<FileInteractor>,
+}
+
+impl FileService {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
+    Self {
+      file_interactor: Arc::clone(&app_context.file_interactor),
+    }
+  }
 }
 
 #[tonic::async_trait]

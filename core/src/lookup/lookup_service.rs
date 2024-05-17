@@ -1,11 +1,9 @@
 use super::{album_search_lookup::AlbumSearchLookup, lookup_interactor::LookupInteractor};
 use crate::{
   albums::album_read_model::{AlbumReadModel, AlbumReadModelArtist},
-  proto::{self},
-  settings::Settings,
-  sqlite::SqliteConnection,
+  context::ApplicationContext,
+  proto,
 };
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -51,13 +49,13 @@ pub struct LookupService {
 }
 
 impl LookupService {
-  pub fn new(
-    settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
-  ) -> Self {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      lookup_interactor: LookupInteractor::new(settings, redis_connection_pool, sqlite_connection),
+      lookup_interactor: LookupInteractor::new(
+        Arc::clone(&app_context.settings),
+        Arc::clone(&app_context.redis_connection_pool),
+        Arc::clone(&app_context.sqlite_connection),
+      ),
     }
   }
 }

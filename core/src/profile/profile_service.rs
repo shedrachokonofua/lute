@@ -4,18 +4,15 @@ use super::{
   profile_summary::{ItemWithFactor, ProfileSummary},
 };
 use crate::{
-  albums::album_repository::AlbumRepository,
+  context::ApplicationContext,
   files::file_metadata::file_name::FileName,
   proto::{
     self, CreateProfileReply, CreateProfileRequest, DeleteProfileRequest, GetProfileReply,
     GetProfileRequest, GetProfileSummaryReply, GetProfileSummaryRequest,
     ImportSavedSpotifyTracksRequest, PutManyAlbumsOnProfileReply, PutManyAlbumsOnProfileRequest,
   },
-  settings::Settings,
-  sqlite::SqliteConnection,
 };
 use anyhow::Result;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{collections::HashMap, sync::Arc};
 use tonic::{Request, Response, Status};
 use tracing::error;
@@ -69,18 +66,13 @@ pub struct ProfileService {
 }
 
 impl ProfileService {
-  pub fn new(
-    settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
-    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
-  ) -> Self {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
       profile_interactor: ProfileInteractor::new(
-        settings,
-        redis_connection_pool,
-        sqlite_connection,
-        album_repository,
+        Arc::clone(&app_context.settings),
+        Arc::clone(&app_context.redis_connection_pool),
+        Arc::clone(&app_context.sqlite_connection),
+        Arc::clone(&app_context.album_repository),
       ),
     }
   }

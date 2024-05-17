@@ -1,4 +1,5 @@
 use crate::{
+  context::ApplicationContext,
   crawler::{
     crawler_interactor::CrawlerInteractor,
     priority_queue::{Priority, QueuePushParametersBuilder},
@@ -10,7 +11,6 @@ use crate::{
     self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest, KeyCountReply,
     MigrateSqliteRequest, ParseFileContentStoreReply,
   },
-  settings::Settings,
   sqlite::SqliteConnection,
 };
 use futures::future::join_all;
@@ -28,30 +28,21 @@ pub struct OperationsService {
   sqlite_connection: Arc<SqliteConnection>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   crawler_interactor: Arc<CrawlerInteractor>,
-  file_interactor: FileInteractor,
+  file_interactor: Arc<FileInteractor>,
   failed_parse_files_repository: FailedParseFilesRepository,
   kv: Arc<KeyValueStore>,
 }
 
 impl OperationsService {
-  pub fn new(
-    settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
-    crawler_interactor: Arc<CrawlerInteractor>,
-  ) -> Self {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      crawler_interactor,
-      sqlite_connection: Arc::clone(&sqlite_connection),
-      kv: Arc::new(KeyValueStore::new(Arc::clone(&sqlite_connection))),
-      redis_connection_pool: Arc::clone(&redis_connection_pool),
-      file_interactor: FileInteractor::new(
-        settings,
-        Arc::clone(&redis_connection_pool),
-        sqlite_connection,
-      ),
+      crawler_interactor: Arc::clone(&app_context.crawler.crawler_interactor),
+      sqlite_connection: Arc::clone(&app_context.sqlite_connection),
+      kv: Arc::clone(&app_context.kv),
+      redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
+      file_interactor: Arc::clone(&app_context.file_interactor),
       failed_parse_files_repository: FailedParseFilesRepository {
-        redis_connection_pool: Arc::clone(&redis_connection_pool),
+        redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
       },
     }
   }

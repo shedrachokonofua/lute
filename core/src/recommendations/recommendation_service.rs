@@ -7,16 +7,11 @@ use super::{
   types::{AlbumRecommendation, AlbumRecommendationSettings},
 };
 use crate::{
-  albums::{album_repository::AlbumRepository, album_search_index::AlbumSearchIndex},
-  files::file_metadata::file_name::FileName,
-  profile::profile::ProfileId,
-  proto::{self},
-  settings::Settings,
-  sqlite::SqliteConnection,
+  context::ApplicationContext, files::file_metadata::file_name::FileName,
+  profile::profile::ProfileId, proto,
 };
 use anyhow::Error;
 use num_traits::Num;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::{collections::HashMap, sync::Arc};
 use tonic::{async_trait, Request, Response, Status};
 use tracing::error;
@@ -26,20 +21,14 @@ pub struct RecommendationService {
 }
 
 impl RecommendationService {
-  pub fn new(
-    settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
-    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
-    album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
-  ) -> Self {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
       recommendation_interactor: RecommendationInteractor::new(
-        settings,
-        redis_connection_pool,
-        sqlite_connection,
-        album_repository,
-        album_search_index,
+        Arc::clone(&app_context.settings),
+        Arc::clone(&app_context.redis_connection_pool),
+        Arc::clone(&app_context.sqlite_connection),
+        Arc::clone(&app_context.album_repository),
+        Arc::clone(&app_context.album_search_index),
       ),
     }
   }

@@ -7,6 +7,7 @@ use super::{
   parser::parse_file_on_store,
 };
 use crate::{
+  context::ApplicationContext,
   events::event_publisher::EventPublisher,
   files::{
     file_content_store::FileContentStore,
@@ -23,7 +24,6 @@ use crate::{
   sqlite::SqliteConnection,
 };
 use anyhow::Result;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::error;
@@ -32,7 +32,7 @@ use ulid::Ulid;
 pub struct ParserService {
   sqlite_connection: Arc<SqliteConnection>,
   failed_parse_files_repository: FailedParseFilesRepository,
-  file_interactor: FileInteractor,
+  file_interactor: Arc<FileInteractor>,
   settings: Arc<Settings>,
   parser_retry_queue: Arc<FifoQueue<FileName>>,
 }
@@ -192,24 +192,15 @@ impl From<ParsedFileData> for proto::ParsedFileData {
 }
 
 impl ParserService {
-  pub fn new(
-    settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
-    parser_retry_queue: Arc<FifoQueue<FileName>>,
-  ) -> Self {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
       failed_parse_files_repository: FailedParseFilesRepository {
-        redis_connection_pool: Arc::clone(&redis_connection_pool),
+        redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
       },
-      file_interactor: FileInteractor::new(
-        Arc::clone(&settings),
-        Arc::clone(&redis_connection_pool),
-        Arc::clone(&sqlite_connection),
-      ),
-      parser_retry_queue,
-      sqlite_connection,
-      settings,
+      file_interactor: Arc::clone(&app_context.file_interactor),
+      parser_retry_queue: Arc::clone(&app_context.parser_retry_queue),
+      sqlite_connection: Arc::clone(&app_context.sqlite_connection),
+      settings: Arc::clone(&app_context.settings),
     }
   }
 }

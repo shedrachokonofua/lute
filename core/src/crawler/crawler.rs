@@ -2,7 +2,7 @@ use super::{
   crawler_interactor::CrawlerInteractor, crawler_worker::CrawlerWorker,
   redis_priority_queue::RedisPriorityQueue,
 };
-use crate::{files::file_interactor::FileInteractor, settings::Settings, sqlite::SqliteConnection};
+use crate::{files::file_interactor::FileInteractor, settings::Settings};
 use anyhow::Result;
 use reqwest::Proxy;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -22,28 +22,18 @@ impl Crawler {
   pub fn new(
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
+    file_interactor: Arc<FileInteractor>,
   ) -> Result<Self> {
     let priority_queue = Arc::new(RedisPriorityQueue::new(
       Arc::clone(&redis_connection_pool),
       settings.crawler.max_queue_size,
       settings.crawler.claim_ttl_seconds,
     ));
-    let file_interactor = FileInteractor::new(
-      Arc::clone(&settings),
-      Arc::clone(&redis_connection_pool),
-      Arc::clone(&sqlite_connection),
-    );
     let crawler_interactor = Arc::new(CrawlerInteractor::new(
       Arc::clone(&settings),
-      file_interactor,
+      Arc::clone(&file_interactor),
       Arc::clone(&redis_connection_pool),
       priority_queue,
-    ));
-    let file_interactor = Arc::new(FileInteractor::new(
-      Arc::clone(&settings),
-      Arc::clone(&redis_connection_pool),
-      Arc::clone(&sqlite_connection),
     ));
 
     let mut base_client_builder = reqwest::ClientBuilder::new().danger_accept_invalid_certs(true);

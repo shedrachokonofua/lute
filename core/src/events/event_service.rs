@@ -1,7 +1,7 @@
 use super::event_subscriber_repository::{
   EventSubscriberRepository, EventSubscriberRow, EventSubscriberStatus,
 };
-use crate::{proto, sqlite::SqliteConnection};
+use crate::{context::ApplicationContext, proto};
 use futures::{try_join, Stream};
 use std::{pin::Pin, sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -32,9 +32,11 @@ pub struct EventService {
 }
 
 impl EventService {
-  pub fn new(sqlite_connection: Arc<SqliteConnection>) -> Self {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      event_subscriber_repository: EventSubscriberRepository::new(sqlite_connection),
+      event_subscriber_repository: EventSubscriberRepository::new(Arc::clone(
+        &app_context.sqlite_connection,
+      )),
     }
   }
 }

@@ -5,10 +5,10 @@ use super::{
   embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
 use crate::{
+  context::ApplicationContext,
   files::file_metadata::file_name::FileName,
-  helpers::{key_value_store::KeyValueStore, redisearch::SearchPagination},
+  helpers::redisearch::SearchPagination,
   proto,
-  settings::Settings,
   spotify::spotify_client::{SpotifyAlbum, SpotifyAlbumType, SpotifyClient},
 };
 use anyhow::{Error, Result};
@@ -158,22 +158,18 @@ pub struct AlbumService {
 }
 
 impl AlbumService {
-  pub fn new(
-    settings: Arc<Settings>,
-    kv: Arc<KeyValueStore>,
-    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
-    album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
-    spotify_client: Arc<SpotifyClient>,
-  ) -> Self {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      album_embedding_providers_interactor: Arc::new(AlbumEmbeddingProvidersInteractor::new(
-        Arc::clone(&settings),
-        Arc::clone(&kv),
+      album_embedding_providers_interactor: Arc::clone(
+        &app_context.album_embedding_providers_interactor,
+      ),
+      album_repository: Arc::clone(&app_context.album_repository),
+      album_search_index: Arc::clone(&app_context.album_search_index),
+      album_interactor: Arc::new(AlbumInteractor::new(
+        Arc::clone(&app_context.album_repository),
+        Arc::clone(&app_context.album_search_index),
       )),
-      album_repository: Arc::clone(&album_repository),
-      album_search_index: Arc::clone(&album_search_index),
-      album_interactor: Arc::new(AlbumInteractor::new(album_repository, album_search_index)),
-      spotify_client,
+      spotify_client: Arc::clone(&app_context.spotify_client),
     }
   }
 }

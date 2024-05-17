@@ -1,104 +1,62 @@
 use anyhow::Result;
-use chrono::TimeDelta;
 use core::{
-  albums::{
-    album_event_subscribers::build_album_event_subscribers,
-    embedding_provider::AlbumEmbeddingProvidersInteractor,
-    redis_album_search_index::RedisAlbumSearchIndex,
-    sqlite_album_repository::SqliteAlbumRepository,
-  },
-  crawler::{crawler::Crawler, crawler_interactor::CrawlerInteractor},
+  albums::album_event_subscribers::build_album_event_subscribers,
+  context::ApplicationContext,
   events::event_subscriber::EventSubscriber,
-  files::file_metadata::file_name::FileName,
-  helpers::{fifo_queue::FifoQueue, key_value_store::KeyValueStore},
   lookup::lookup_event_subscribers::build_lookup_event_subscribers,
   parser::{
     parser_event_subscribers::build_parser_event_subscribers, retry::start_parser_retry_consumer,
   },
   profile::profile_event_subscribers::build_profile_event_subscribers,
   recommendations::recommendation_event_subscribers::build_recommendation_event_subscribers,
-  redis::{build_redis_connection_pool, setup_redis_indexes},
+  redis::setup_redis_indexes,
   rpc::RpcServer,
-  scheduler::scheduler::Scheduler,
-  settings::Settings,
-  sqlite::SqliteConnection,
   tracing::setup_tracing,
 };
-use dotenv::dotenv;
 use mimalloc::MiMalloc;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 use tokio::task;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-fn run_rpc_server(
-  settings: Arc<Settings>,
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<SqliteConnection>,
-  crawler_interactor: Arc<CrawlerInteractor>,
-  parser_retry_queue: Arc<FifoQueue<FileName>>,
-  kv: Arc<KeyValueStore>,
-) -> task::JoinHandle<()> {
-  let album_repository = Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection)));
-  let album_search_index = Arc::new(RedisAlbumSearchIndex::new(
-    Arc::clone(&redis_connection_pool),
-    Arc::new(AlbumEmbeddingProvidersInteractor::new(
-      Arc::clone(&settings),
-      Arc::clone(&kv),
-    )),
-  ));
-  let rpc_server = RpcServer::new(
-    settings,
-    redis_connection_pool,
-    sqlite_connection,
-    crawler_interactor,
-    parser_retry_queue,
-    album_repository,
-    album_search_index,
-    kv,
-  );
+fn run_rpc_server(app_context: Arc<ApplicationContext>) -> task::JoinHandle<()> {
+  let rpc_server = RpcServer::new(Arc::clone(&app_context));
 
   task::spawn(async move {
     rpc_server.run().await.unwrap();
   })
 }
 
-fn start_event_subscribers(
-  settings: Arc<Settings>,
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  sqlite_connection: Arc<SqliteConnection>,
-  crawler_interactor: Arc<CrawlerInteractor>,
-) -> Result<()> {
+fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
   event_subscribers.extend(build_album_event_subscribers(
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection),
-    settings.clone(),
-    Arc::clone(&crawler_interactor),
+    Arc::clone(&app_context.redis_connection_pool),
+    Arc::clone(&app_context.sqlite_connection),
+    app_context.settings.clone(),
+    Arc::clone(&app_context.crawler.crawler_interactor),
   )?);
   event_subscribers.extend(build_parser_event_subscribers(
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection),
-    settings.clone(),
+    Arc::clone(&app_context.redis_connection_pool),
+    Arc::clone(&app_context.sqlite_connection),
+    app_context.settings.clone(),
   )?);
   event_subscribers.extend(build_lookup_event_subscribers(
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection),
-    settings.clone(),
-    Arc::clone(&crawler_interactor),
+    Arc::clone(&app_context.redis_connection_pool),
+    Arc::clone(&app_context.sqlite_connection),
+    app_context.settings.clone(),
+    Arc::clone(&app_context.crawler.crawler_interactor),
   )?);
   event_subscribers.extend(build_profile_event_subscribers(
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection),
-    settings.clone(),
+    Arc::clone(&app_context.redis_connection_pool),
+    Arc::clone(&app_context.sqlite_connection),
+    app_context.settings.clone(),
   )?);
   event_subscribers.extend(build_recommendation_event_subscribers(
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection),
-    settings,
-    Arc::clone(&crawler_interactor),
+    Arc::clone(&app_context.redis_connection_pool),
+    Arc::clone(&app_context.sqlite_connection),
+    Arc::clone(&app_context.settings),
+    Arc::clone(&app_context.crawler.crawler_interactor),
   )?);
   event_subscribers.into_iter().for_each(|subscriber| {
     task::spawn(async move { subscriber.run().await });
@@ -108,54 +66,14 @@ fn start_event_subscribers(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-  dotenv().ok();
-  let settings = Arc::new(Settings::new()?);
-  setup_tracing(&settings.tracing)?;
+  let context = ApplicationContext::init().await?;
+  setup_tracing(&context.settings.tracing)?;
 
-  let sqlite_connection = Arc::new(SqliteConnection::new(Arc::clone(&settings)).await?);
-  let kv = Arc::new(KeyValueStore::new(Arc::clone(&sqlite_connection)));
-  let redis_connection_pool = Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
-  setup_redis_indexes(
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&settings),
-    Arc::clone(&kv),
-  )
-  .await?;
-
-  let parser_retry_queue: Arc<FifoQueue<FileName>> = Arc::new(FifoQueue::new(
-    Arc::clone(&redis_connection_pool),
-    "parser:retry",
-  ));
-  start_parser_retry_consumer(
-    Arc::clone(&parser_retry_queue),
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection),
-    Arc::clone(&settings),
-  )?;
-
-  let crawler = Arc::new(Crawler::new(
-    Arc::clone(&settings),
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection),
-  )?);
-  crawler.run()?;
-
-  start_event_subscribers(
-    Arc::clone(&settings),
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection),
-    Arc::clone(&crawler.crawler_interactor),
-  )?;
-
-  run_rpc_server(
-    Arc::clone(&settings),
-    Arc::clone(&redis_connection_pool),
-    Arc::clone(&sqlite_connection),
-    Arc::clone(&crawler.crawler_interactor),
-    Arc::clone(&parser_retry_queue),
-    Arc::clone(&kv),
-  )
-  .await?;
+  setup_redis_indexes(Arc::clone(&context)).await?;
+  start_parser_retry_consumer(Arc::clone(&context))?;
+  context.crawler.run()?;
+  start_event_subscribers(Arc::clone(&context))?;
+  run_rpc_server(Arc::clone(&context)).await?;
 
   Ok(())
 }

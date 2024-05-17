@@ -1,11 +1,22 @@
 use super::spotify_client::{SpotifyAlbumType, SpotifyClient, SpotifyTrack};
-use crate::proto::{self, HandleAuthorizationCodeRequest, IsAuthorizedReply};
+use crate::{
+  context::ApplicationContext,
+  proto::{self, HandleAuthorizationCodeRequest, IsAuthorizedReply},
+};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::error;
 
 pub struct SpotifyService {
   pub spotify_client: Arc<SpotifyClient>,
+}
+
+impl SpotifyService {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
+    Self {
+      spotify_client: Arc::clone(&app_context.spotify_client),
+    }
+  }
 }
 
 impl From<SpotifyTrack> for proto::SpotifyTrack {
