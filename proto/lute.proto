@@ -760,11 +760,18 @@ message SetEventCursorRequest {
 
 message DeleteEventCursorRequest { string subscriber_id = 1; }
 
+message SetEventSubscriberStatusRequest {
+  string subscriber_id = 1;
+  EventSubscriberStatus status = 2;
+}
+
 service EventService {
   rpc Stream(stream EventStreamRequest) returns (stream EventStreamReply) {}
   rpc GetMonitor(google.protobuf.Empty) returns (GetEventsMonitorReply) {}
   rpc SetCursor(SetEventCursorRequest) returns (google.protobuf.Empty) {}
   rpc DeleteCursor(DeleteEventCursorRequest) returns (google.protobuf.Empty) {}
+  rpc SetSubscriberStatus(SetEventSubscriberStatusRequest)
+      returns (google.protobuf.Empty) {}
 }
 
 message GetRegisteredProcessorsReply { repeated string processors = 1; }

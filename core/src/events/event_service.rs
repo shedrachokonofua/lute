@@ -16,6 +16,15 @@ impl Into<proto::EventSubscriberStatus> for EventSubscriberStatus {
   }
 }
 
+impl Into<EventSubscriberStatus> for proto::EventSubscriberStatus {
+  fn into(self) -> EventSubscriberStatus {
+    match self {
+      proto::EventSubscriberStatus::SubscriberPaused => EventSubscriberStatus::Paused,
+      proto::EventSubscriberStatus::SubscriberRunning => EventSubscriberStatus::Running,
+    }
+  }
+}
+
 impl Into<proto::EventSubscriberSnapshot> for EventSubscriberRow {
   fn into(self) -> proto::EventSubscriberSnapshot {
     proto::EventSubscriberSnapshot {
@@ -100,6 +109,28 @@ impl proto::EventService for EventService {
       monitor: Some(monitor.into()),
     };
     Ok(Response::new(reply))
+  }
+
+  async fn set_subscriber_status(
+    &self,
+    request: Request<proto::SetEventSubscriberStatusRequest>,
+  ) -> Result<Response<()>, Status> {
+    let request = request.into_inner();
+    let status = match request.status {
+      0 => EventSubscriberStatus::Paused,
+      1 => EventSubscriberStatus::Running,
+      _ => {
+        return Err(Status::invalid_argument(
+          "Invalid subscriber status".to_string(),
+        ))
+      }
+    };
+    self
+      .event_subscriber_repository
+      .set_status(&request.subscriber_id, status)
+      .await
+      .map_err(|err| Status::internal(err.to_string()))?;
+    Ok(Response::new(()))
   }
 
   async fn stream(
