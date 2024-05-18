@@ -65,7 +65,7 @@ pub fn build_spotify_import_event_subscribers(
         None
       }
     }))
-    .handle(Arc::new(move |event_data, app_context| {
+    .handle(Arc::new(move |(event_data, app_context, _)| {
       Box::pin(async move { process_lookup_subscriptions(event_data, app_context).await })
     }))
     .build()?])

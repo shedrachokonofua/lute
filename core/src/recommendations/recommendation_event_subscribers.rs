@@ -1,20 +1,22 @@
+use super::spotify_track_search_index::SpotifyTrackSearchRecord;
 use crate::{
   albums::album_read_model::AlbumReadModel,
   context::ApplicationContext,
   crawler::priority_queue::{Priority, QueuePushParameters},
   events::{
     event::{Event, Stream},
-    event_subscriber::{EventData, EventSubscriber, EventSubscriberBuilder},
+    event_subscriber::{
+      EventData, EventSubscriber, EventSubscriberBuilder, EventSubscriberInteractor,
+    },
   },
   files::file_metadata::file_name::ChartParameters,
   parser::parsed_file_data::ParsedFileData,
+  spotify::spotify_client::SpotifyClientError,
 };
 use anyhow::Result;
-use chrono::{Datelike, Local};
+use chrono::{Datelike, Local, TimeDelta};
 use std::sync::Arc;
-use tracing::warn;
-
-use super::spotify_track_search_index::{SpotifyTrackSearchIndex, SpotifyTrackSearchRecord};
+use tracing::{error, info, warn};
 
 async fn crawl_similar_albums(
   event_data: EventData,
@@ -108,9 +110,47 @@ async fn crawl_similar_albums(
   Ok(())
 }
 
+async fn get_spotify_track_search_records(
+  app_context: Arc<ApplicationContext>,
+  album: AlbumReadModel,
+) -> Result<Vec<SpotifyTrackSearchRecord>> {
+  let spotify_album = app_context.spotify_client.find_album(&album).await?;
+
+  let records = if let Some(spotify_album) = spotify_album {
+    let track_spotify_ids = spotify_album
+      .tracks
+      .iter()
+      .map(|track| track.spotify_id.clone())
+      .collect::<Vec<String>>();
+    let mut embeddings = app_context
+      .spotify_client
+      .get_track_feature_embeddings(track_spotify_ids)
+      .await?;
+    spotify_album
+      .tracks
+      .iter()
+      .filter_map(|track| {
+        embeddings.remove(&track.spotify_id).map(|e| {
+          SpotifyTrackSearchRecord::new(
+            track.clone(),
+            spotify_album.clone().into(),
+            album.file_name.clone(),
+            e,
+          )
+        })
+      })
+      .collect::<Vec<SpotifyTrackSearchRecord>>()
+  } else {
+    vec![]
+  };
+
+  Ok(records)
+}
+
 pub async fn save_album_spotify_tracks(
   event_data: EventData,
   app_context: Arc<ApplicationContext>,
+  subscriber_interactor: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::FileParsed {
     file_id: _,
@@ -118,39 +158,29 @@ pub async fn save_album_spotify_tracks(
     data: ParsedFileData::Album(parsed_album),
   } = event_data.payload.event
   {
-    let spotify_track_search_index =
-      SpotifyTrackSearchIndex::new(Arc::clone(&app_context.redis_connection_pool));
-
     let album = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
-    let spotify_album = app_context.spotify_client.find_album(&album).await?;
 
-    if let Some(spotify_album) = spotify_album {
-      let track_spotify_ids = spotify_album
-        .tracks
-        .iter()
-        .map(|track| track.spotify_id.clone())
-        .collect::<Vec<String>>();
-      let mut embeddings = app_context
-        .spotify_client
-        .get_track_feature_embeddings(track_spotify_ids)
-        .await?;
-      let records = spotify_album
-        .tracks
-        .iter()
-        .filter_map(|track| {
-          embeddings.remove(&track.spotify_id).map(|e| {
-            SpotifyTrackSearchRecord::new(
-              track.clone(),
-              spotify_album.clone().into(),
-              file_name.clone(),
-              e,
-            )
-          })
-        })
-        .collect::<Vec<SpotifyTrackSearchRecord>>();
-      for record in records {
-        spotify_track_search_index.put(record).await?;
+    match get_spotify_track_search_records(Arc::clone(&app_context), album).await {
+      Ok(records) => {
+        for record in records {
+          app_context.spotify_track_search_index.put(record).await?;
+        }
       }
+      Err(e) => match e.downcast_ref::<SpotifyClientError>() {
+        Some(SpotifyClientError::TooManyRequests(retry_after)) => {
+          let duration = retry_after
+            .and_then(|s| TimeDelta::try_seconds(s as i64 * 2))
+            .unwrap_or(TimeDelta::try_hours(1).unwrap());
+          info!(
+            seconds = duration.num_seconds(),
+            "Pausing event subscriber due to spotify rate limit"
+          );
+          let _ = subscriber_interactor.pause_for(duration).await?;
+        }
+        _ => {
+          error!(e = e.to_string(), "Failed to get spotify track records");
+        }
+      },
     }
   }
   Ok(())
@@ -165,7 +195,7 @@ pub fn build_recommendation_event_subscribers(
       .stream(Stream::Profile)
       .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handle(Arc::new(move |event_data, app_context| {
+      .handle(Arc::new(move |(event_data, app_context, _)| {
         Box::pin(crawl_similar_albums(event_data, app_context))
       }))
       .build()?,
@@ -174,9 +204,15 @@ pub fn build_recommendation_event_subscribers(
       .stream(Stream::Parser)
       .batch_size(1)
       .app_context(Arc::clone(&app_context))
-      .handle(Arc::new(move |event_data, app_context| {
-        Box::pin(save_album_spotify_tracks(event_data, app_context))
-      }))
+      .handle(Arc::new(
+        move |(event_data, app_context, subscriber_interactor)| {
+          Box::pin(save_album_spotify_tracks(
+            event_data,
+            app_context,
+            subscriber_interactor,
+          ))
+        },
+      ))
       .build()?,
   ])
 }

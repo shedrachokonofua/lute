@@ -371,7 +371,7 @@ pub fn build_album_search_lookup_event_subscribers(
     .streams(vec![Stream::File, Stream::Parser, Stream::Lookup])
     .batch_size(250)
     .app_context(Arc::clone(&app_context))
-    .handle(Arc::new(move |event_data, _| {
+    .handle(Arc::new(move |(event_data, _, _)| {
       let orchestrator = Arc::clone(&orchestrator);
       Box::pin(async move { orchestrator.handle_event(event_data).await })
     }))

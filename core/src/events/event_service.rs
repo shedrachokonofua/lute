@@ -12,7 +12,6 @@ impl Into<proto::EventSubscriberStatus> for EventSubscriberStatus {
     match self {
       EventSubscriberStatus::Paused => proto::EventSubscriberStatus::SubscriberPaused,
       EventSubscriberStatus::Running => proto::EventSubscriberStatus::SubscriberRunning,
-      EventSubscriberStatus::Draining => proto::EventSubscriberStatus::SubscriberDraining,
     }
   }
 }

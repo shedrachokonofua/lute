@@ -737,7 +737,6 @@ message EventStreamSnapshot {
 enum EventSubscriberStatus {
   SubscriberPaused = 0;
   SubscriberRunning = 1;
-  SubscriberDraining = 2;
 }
 
 message EventSubscriberSnapshot {

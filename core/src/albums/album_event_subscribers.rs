@@ -200,7 +200,7 @@ fn build_embedding_provider_event_subscribers(
         .stream(Stream::Parser)
         .batch_size(provider.concurrency())
         .app_context(Arc::clone(&app_context))
-        .handle(Arc::new(move |event_data, app_context| {
+        .handle(Arc::new(move |(event_data, app_context, _)| {
           let provider = Arc::clone(&provider);
           Box::pin(async move { update_album_embedding(provider, event_data, app_context).await })
         }))
@@ -227,7 +227,7 @@ pub fn build_album_event_subscribers(
         } => Some(album.ascii_name()), // Ensure potential duplicates are processed sequentially
         _ => None,
       }))
-      .handle(Arc::new(|event_data, app_context| {
+      .handle(Arc::new(|(event_data, app_context, _)| {
         Box::pin(async move { update_album_read_models(event_data, app_context).await })
       }))
       .build()?,
@@ -243,7 +243,7 @@ pub fn build_album_event_subscribers(
         },
         _ => None,
       }))
-      .handle(Arc::new(|event_data, app_context| {
+      .handle(Arc::new(|(event_data, app_context, _)| {
         Box::pin(async move { delete_album_read_models(event_data, app_context).await })
       }))
       .build()?,
@@ -252,7 +252,7 @@ pub fn build_album_event_subscribers(
       .stream(Stream::Parser)
       .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handle(Arc::new(|event_data, app_context| {
+      .handle(Arc::new(|(event_data, app_context, _)| {
         Box::pin(async move { crawl_chart_albums(event_data, app_context).await })
       }))
       .build()?,
@@ -261,7 +261,7 @@ pub fn build_album_event_subscribers(
       .stream(Stream::Parser)
       .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handle(Arc::new(|event_data, app_context| {
+      .handle(Arc::new(|(event_data, app_context, _)| {
         Box::pin(async move { crawl_artist_albums(event_data, app_context).await })
       }))
       .build()?,

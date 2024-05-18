@@ -9,6 +9,7 @@ use crate::{
   events::event_publisher::EventPublisher,
   files::{file_interactor::FileInteractor, file_metadata::file_name::FileName},
   helpers::{fifo_queue::FifoQueue, key_value_store::KeyValueStore},
+  recommendations::spotify_track_search_index::SpotifyTrackSearchIndex,
   redis::build_redis_connection_pool,
   scheduler::scheduler::Scheduler,
   settings::Settings,
@@ -35,6 +36,7 @@ pub struct ApplicationContext {
   pub file_interactor: Arc<FileInteractor>,
   pub event_publisher: Arc<EventPublisher>,
   pub scheduler: Arc<Scheduler>,
+  pub spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
 }
 
 impl ApplicationContext {
@@ -79,6 +81,9 @@ impl ApplicationContext {
       Arc::clone(&kv),
     ));
     let scheduler = Arc::new(Scheduler::new(Arc::clone(&sqlite_connection)));
+    let spotify_track_search_index = Arc::new(SpotifyTrackSearchIndex::new(Arc::clone(
+      &redis_connection_pool,
+    )));
 
     Ok(Arc::new(ApplicationContext {
       settings,
@@ -94,6 +99,7 @@ impl ApplicationContext {
       file_interactor,
       event_publisher,
       scheduler,
+      spotify_track_search_index,
     }))
   }
 }

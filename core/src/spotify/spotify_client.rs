@@ -23,12 +23,21 @@ use rspotify::{
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use strsim::jaro_winkler;
+use thiserror::Error;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, warn};
 use unidecode::unidecode;
 
 lazy_static! {
   static ref RATE_LIMITER: DefaultDirectRateLimiter = RateLimiter::direct(Quota::per_second(nonzero!(2u32))); // API limit is 180/min
+}
+
+#[derive(Error, Debug)]
+pub enum SpotifyClientError {
+  #[error("Spotify API rate limit exceeded.")]
+  TooManyRequests(Option<usize>),
+  #[error("Spotify client error: {0}")]
+  Unknown(#[from] ClientError),
 }
 
 impl From<Token> for SpotifyCredentials {
@@ -278,32 +287,27 @@ fn get_features_embedding(features: AudioFeatures) -> Vec<f32> {
   ]
 }
 
-fn check_spotify_throttle(err: &ClientError) -> Option<usize> {
-  if let ClientError::Http(http_error) = err {
+fn map_spotify_error(err: ClientError) -> SpotifyClientError {
+  if let ClientError::Http(http_error) = &err {
     if let HttpError::StatusCode(response) = http_error.as_ref() {
       if response.status().as_u16() == 429 {
-        if let Some(retry_after) = response.headers().get("Retry-After") {
-          return retry_after
-            .to_str()
-            .ok()
-            .and_then(|retry_after| retry_after.parse::<usize>().ok());
-        }
+        let headers_string = format!("{:?}", response.headers());
+        warn!(headers = headers_string, "Error response headers");
+        let retry_after = response
+          .headers()
+          .get("Retry-After")
+          .and_then(|retry_after| {
+            retry_after
+              .to_str()
+              .ok()
+              .and_then(|retry_after| retry_after.parse::<usize>().ok())
+          });
+
+        return SpotifyClientError::TooManyRequests(retry_after);
       }
     }
   }
-  None
-}
-
-fn map_spotify_error(err: ClientError) -> Error {
-  if let Some(retry_after) = check_spotify_throttle(&err) {
-    error!(error = err.to_string(), "Spotify API rate limit exceeded");
-    anyhow!(
-      "Spotify API rate limit exceeded. Retry after {} seconds",
-      retry_after
-    )
-  } else {
-    anyhow!(err)
-  }
+  SpotifyClientError::Unknown(err)
 }
 
 pub struct SpotifyClient {
@@ -446,20 +450,22 @@ impl SpotifyClient {
   async fn search(&self, query: String) -> Result<SearchResult> {
     self.wait_for_rate_limit().await;
     let client = self.client().await?;
-    client
+    let result = client
       .search(query.as_str(), SearchType::Album, None, None, Some(1), None)
       .await
-      .map_err(map_spotify_error)
+      .map_err(map_spotify_error)?;
+    Ok(result)
   }
 
   async fn album_track(&self, album_id: AlbumId<'static>) -> Result<Vec<SimplifiedTrack>> {
     self.wait_for_rate_limit().await;
     let client = self.client().await?;
-    client
+    let result = client
       .album_track(album_id, None)
       .try_collect::<Vec<SimplifiedTrack>>()
       .await
-      .map_err(map_spotify_error)
+      .map_err(map_spotify_error)?;
+    Ok(result)
   }
 
   async fn tracks_features(
@@ -467,10 +473,11 @@ impl SpotifyClient {
     track_ids: Vec<TrackId<'static>>,
   ) -> Result<Option<Vec<AudioFeatures>>> {
     let client = self.client().await?;
-    client
+    let result = client
       .tracks_features(track_ids)
       .await
-      .map_err(map_spotify_error)
+      .map_err(map_spotify_error)?;
+    Ok(result)
   }
 
   pub async fn find_album(&self, album: &AlbumReadModel) -> Result<Option<SpotifyAlbum>> {

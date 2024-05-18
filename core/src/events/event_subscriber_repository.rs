@@ -11,14 +11,10 @@ pub struct EventSubscriberRepository {
   sqlite_connection: Arc<SqliteConnection>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EventSubscriberStatus {
   Paused = 0,
   Running = 1,
-  /**
-   * Draining means that the subscriber is running, but will not process any new events.
-   */
-  Draining = 2,
 }
 
 impl TryFrom<u32> for EventSubscriberStatus {
@@ -28,7 +24,6 @@ impl TryFrom<u32> for EventSubscriberStatus {
     match value {
       0 => Ok(EventSubscriberStatus::Paused),
       1 => Ok(EventSubscriberStatus::Running),
-      2 => Ok(EventSubscriberStatus::Draining),
       _ => Err(anyhow!("Invalid event subscriber status")),
     }
   }
@@ -302,11 +297,7 @@ impl EventSubscriberRepository {
   }
 
   #[instrument(skip(self))]
-  pub async fn set_subscriber_status(
-    &self,
-    subscriber_id: &str,
-    status: EventSubscriberStatus,
-  ) -> Result<()> {
+  pub async fn set_status(&self, subscriber_id: &str, status: EventSubscriberStatus) -> Result<()> {
     let subscriber_id = subscriber_id.to_string();
     self
       .sqlite_connection
@@ -328,5 +319,37 @@ impl EventSubscriberRepository {
         error!(message = e.to_string(), "Failed to set subscriber status");
         anyhow!("Failed to set subscriber status")
       })?
+  }
+
+  #[instrument(skip(self))]
+  pub async fn get_status(&self, subscriber_id: &str) -> Result<Option<EventSubscriberStatus>> {
+    let subscriber_id = subscriber_id.to_string();
+    let status = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(|conn| {
+        conn
+          .query_row(
+            "SELECT status FROM event_subscribers WHERE id = ?1",
+            [subscriber_id],
+            |row| row.get::<_, Option<u32>>(0),
+          )
+          .map_err(|e| {
+            error!(message = e.to_string(), "Failed to check if key exists");
+            rusqlite::Error::ExecuteReturnedResults
+          })
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to check status");
+        anyhow!("Failed to check status")
+      })??;
+
+    let status = status
+      .map(|s| EventSubscriberStatus::try_from(s))
+      .transpose()?;
+
+    Ok(status)
   }
 }

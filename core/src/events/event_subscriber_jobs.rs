@@ -24,7 +24,7 @@ pub async fn setup_event_subscriber_jobs(app_context: Arc<ApplicationContext>) -
             let event_subscriber_repository =
               EventSubscriberRepository::new(Arc::clone(&ctx.app_context.sqlite_connection));
             event_subscriber_repository
-              .set_subscriber_status(&params.subscriber_id, params.status)
+              .set_status(&params.subscriber_id, params.status)
               .await?;
           } else {
             error!("No payload provided for ChangeEventSubscriberStatus job, skipping");
