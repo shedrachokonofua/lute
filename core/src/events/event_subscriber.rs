@@ -135,7 +135,7 @@ pub struct EventData {
 #[derive(Builder)]
 pub struct EventSubscriber {
   #[builder(default = "10")]
-  pub batch_size: usize,
+  pub concurrency: usize,
   pub app_context: Arc<ApplicationContext>,
   #[builder(setter(into))]
   pub id: String,
@@ -182,7 +182,7 @@ impl EventSubscriber {
   pub async fn poll(&self) -> Result<Option<String>> {
     let event_list = self
       .interactor
-      .get_events_after_cursor(&self.streams, self.batch_size)
+      .get_events_after_cursor(&self.streams, self.concurrency)
       .await?;
     let stream_tags = self.streams.iter().map(|s| s.tag()).join(",");
     debug!(

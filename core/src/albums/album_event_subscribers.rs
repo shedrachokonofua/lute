@@ -198,7 +198,7 @@ fn build_embedding_provider_event_subscribers(
       EventSubscriberBuilder::default()
         .id(format!("update_album_embedding:{}", provider.name()))
         .stream(Stream::Parser)
-        .batch_size(provider.concurrency())
+        .concurrency(provider.concurrency())
         .app_context(Arc::clone(&app_context))
         .handle(Arc::new(move |(event_data, app_context, _)| {
           let provider = Arc::clone(&provider);
@@ -218,7 +218,7 @@ pub fn build_album_event_subscribers(
     EventSubscriberBuilder::default()
       .id("update_album_read_models")
       .stream(Stream::Parser)
-      .batch_size(250)
+      .concurrency(250)
       .app_context(Arc::clone(&app_context))
       .generate_ordered_processing_group_id(Arc::new(|row| match &row.payload.event {
         Event::FileParsed {
@@ -234,7 +234,7 @@ pub fn build_album_event_subscribers(
     EventSubscriberBuilder::default()
       .id("delete_album_read_models")
       .stream(Stream::File)
-      .batch_size(250)
+      .concurrency(250)
       .app_context(Arc::clone(&app_context))
       .generate_ordered_processing_group_id(Arc::new(|row| match &row.payload.event {
         Event::FileDeleted { file_name, .. } => match file_name.page_type() {
@@ -250,7 +250,7 @@ pub fn build_album_event_subscribers(
     EventSubscriberBuilder::default()
       .id("crawl_chart_albums")
       .stream(Stream::Parser)
-      .batch_size(250)
+      .concurrency(250)
       .app_context(Arc::clone(&app_context))
       .handle(Arc::new(|(event_data, app_context, _)| {
         Box::pin(async move { crawl_chart_albums(event_data, app_context).await })
@@ -259,7 +259,7 @@ pub fn build_album_event_subscribers(
     EventSubscriberBuilder::default()
       .id("crawl_artist_albums")
       .stream(Stream::Parser)
-      .batch_size(250)
+      .concurrency(250)
       .app_context(Arc::clone(&app_context))
       .handle(Arc::new(|(event_data, app_context, _)| {
         Box::pin(async move { crawl_artist_albums(event_data, app_context).await })

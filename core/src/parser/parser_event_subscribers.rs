@@ -72,7 +72,7 @@ pub fn build_parser_event_subscribers(
     EventSubscriberBuilder::default()
       .id("parse_saved_file")
       .app_context(Arc::clone(&app_context))
-      .batch_size(app_context.settings.parser.concurrency as usize)
+      .concurrency(app_context.settings.parser.concurrency as usize)
       .stream(Stream::File)
       .handle(Arc::new(|(event_data, app_context, _)| {
         Box::pin(async move { parse_saved_file(event_data, app_context).await })
@@ -81,7 +81,7 @@ pub fn build_parser_event_subscribers(
     EventSubscriberBuilder::default()
       .id("populate_failed_parse_files_repository")
       .app_context(Arc::clone(&app_context))
-      .batch_size(1)
+      .concurrency(1)
       .stream(Stream::Parser)
       .handle(Arc::new(|(event_data, app_context, _)| {
         Box::pin(

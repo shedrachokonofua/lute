@@ -56,7 +56,7 @@ pub fn build_spotify_import_event_subscribers(
   Ok(vec![EventSubscriberBuilder::default()
     .id("profile_spotify_import".to_string())
     .stream(Stream::Lookup)
-    .batch_size(250)
+    .concurrency(250)
     .app_context(Arc::clone(&app_context))
     .generate_ordered_processing_group_id(Arc::new(|row| {
       if let Some(correlation_id) = &row.payload.correlation_id {
