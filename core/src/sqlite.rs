@@ -53,7 +53,7 @@ impl SqliteConnection {
   pub async fn new(settings: Arc<Settings>) -> Result<Self> {
     let config = Config::new(Path::new(&settings.sqlite.dir).join("lute.db"));
     let write_pool = get_pool_builder(&config)?
-      .max_size(1)
+      .max_size(1) // SQLite doesn't support concurrent writes
       .build()
       .map_err(|e| {
         error!("Failed to initialize SQLite connection: {:?}", e);
