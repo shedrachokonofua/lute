@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use rusqlite::{params, types::Value};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, rc::Rc, sync::Arc};
+use strum::EnumString;
 use tracing::{error, instrument};
 
 #[derive(Debug, Clone)]
@@ -11,7 +12,9 @@ pub struct EventSubscriberRepository {
   sqlite_connection: Arc<SqliteConnection>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, PartialEq, Eq, strum_macros::Display, EnumString,
+)]
 pub enum EventSubscriberStatus {
   Paused = 0,
   Running = 1,

@@ -114,14 +114,15 @@ impl EventSubscriberInteractor {
     Ok(id.to_string())
   }
 
-  pub async fn pause_for(&self, duration: TimeDelta) -> Result<String> {
+  pub async fn pause_until(&self, until: NaiveDateTime) -> Result<String> {
     self.set_status(EventSubscriberStatus::Paused).await?;
     self
-      .schedule_status_change(
-        EventSubscriberStatus::Running,
-        Utc::now().naive_utc() + duration,
-      )
+      .schedule_status_change(EventSubscriberStatus::Running, until)
       .await
+  }
+
+  pub async fn pause_for(&self, duration: TimeDelta) -> Result<String> {
+    self.pause_until(Utc::now().naive_utc() + duration).await
   }
 }
 

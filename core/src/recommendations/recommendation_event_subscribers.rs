@@ -166,8 +166,9 @@ pub async fn save_album_spotify_tracks(
           app_context.spotify_track_search_index.put(record).await?;
         }
       }
-      Err(e) => match e.downcast_ref::<SpotifyClientError>() {
-        Some(SpotifyClientError::TooManyRequests(retry_after)) => {
+      Err(e) => {
+        error!(e = e.to_string(), "Failed to get spotify track records");
+        if let Some(SpotifyClientError::TooManyRequests(retry_after)) = e.downcast_ref() {
           let duration = retry_after
             .and_then(|s| TimeDelta::try_seconds(s as i64 * 2))
             .unwrap_or(TimeDelta::try_hours(1).unwrap());
@@ -177,10 +178,8 @@ pub async fn save_album_spotify_tracks(
           );
           let _ = subscriber_interactor.pause_for(duration).await?;
         }
-        _ => {
-          error!(e = e.to_string(), "Failed to get spotify track records");
-        }
-      },
+        return Err(e);
+      }
     }
   }
   Ok(())

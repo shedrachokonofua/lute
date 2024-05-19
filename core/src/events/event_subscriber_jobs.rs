@@ -3,7 +3,7 @@ use crate::{context::ApplicationContext, scheduler::job_name::JobName};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::error;
+use tracing::{error, info};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChangeEventSubscriberStatusJobParameters {
@@ -21,6 +21,11 @@ pub async fn setup_event_subscriber_jobs(app_context: Arc<ApplicationContext>) -
           if let Some(payload) = ctx.payload {
             let params =
               serde_json::from_slice::<ChangeEventSubscriberStatusJobParameters>(&payload)?;
+            info!(
+              subscriber_id = &params.subscriber_id,
+              next_status = params.status.to_string(),
+              "Changing event subscriber status"
+            );
             let event_subscriber_repository =
               EventSubscriberRepository::new(Arc::clone(&ctx.app_context.sqlite_connection));
             event_subscriber_repository
