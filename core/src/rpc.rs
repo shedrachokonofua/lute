@@ -16,7 +16,6 @@ use crate::{
   },
   recommendations::recommendation_service::RecommendationService,
   scheduler::scheduler_service::SchedulerService,
-  settings::Settings,
   spotify::spotify_service::SpotifyService,
 };
 use anyhow::Result;
@@ -35,40 +34,18 @@ impl Lute for LuteService {
 }
 
 pub struct RpcServer {
-  settings: Arc<Settings>,
-  file_service: Arc<FileService>,
-  crawler_service: Arc<CrawlerService>,
-  album_service: Arc<AlbumService>,
-  spotify_service: Arc<SpotifyService>,
-  operations_service: Arc<OperationsService>,
-  parser_service: Arc<ParserService>,
-  profile_service: Arc<ProfileService>,
-  lookup_service: Arc<LookupService>,
-  recommendation_service: Arc<RecommendationService>,
-  event_service: Arc<EventService>,
-  scheduler_service: Arc<SchedulerService>,
+  app_context: Arc<ApplicationContext>,
 }
 
 impl RpcServer {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
-    Self {
-      settings: Arc::clone(&app_context.settings),
-      file_service: Arc::new(FileService::new(Arc::clone(&app_context))),
-      crawler_service: Arc::new(CrawlerService::new(Arc::clone(&app_context))),
-      album_service: Arc::new(AlbumService::new(Arc::clone(&app_context))),
-      spotify_service: Arc::new(SpotifyService::new(Arc::clone(&app_context))),
-      operations_service: Arc::new(OperationsService::new(Arc::clone(&app_context))),
-      parser_service: Arc::new(ParserService::new(Arc::clone(&app_context))),
-      profile_service: Arc::new(ProfileService::new(Arc::clone(&app_context))),
-      lookup_service: Arc::new(LookupService::new(Arc::clone(&app_context))),
-      recommendation_service: Arc::new(RecommendationService::new(Arc::clone(&app_context))),
-      event_service: Arc::new(EventService::new(Arc::clone(&app_context))),
-      scheduler_service: Arc::new(SchedulerService::new(Arc::clone(&app_context))),
-    }
+    Self { app_context }
   }
 
   pub fn addr(&self) -> SocketAddr {
-    format!("0.0.0.0:{}", &self.settings.port).parse().unwrap()
+    format!("0.0.0.0:{}", &self.app_context.settings.port)
+      .parse()
+      .unwrap()
   }
 
   pub fn run(&self) -> JoinHandle<()> {
@@ -76,65 +53,51 @@ impl RpcServer {
       .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
       .build()
       .unwrap();
-    let lute_service = LuteService {};
     let addr = self.addr();
     info!(address = addr.to_string(), "Starting RPC server");
-    let file_service = Arc::clone(&self.file_service);
-    let crawler_service = Arc::clone(&self.crawler_service);
-    let album_service = Arc::clone(&self.album_service);
-    let spotify_service = Arc::clone(&self.spotify_service);
-    let operations_service = Arc::clone(&self.operations_service);
-    let parser_service = Arc::clone(&self.parser_service);
-    let profile_service = Arc::clone(&self.profile_service);
-    let lookup_service = Arc::clone(&self.lookup_service);
-    let recommendation_service = Arc::clone(&self.recommendation_service);
-    let event_service = Arc::clone(&self.event_service);
-    let scheduler_service = Arc::clone(&self.scheduler_service);
+    let server = Server::builder()
+      .trace_fn(|_| tracing::info_span!("core::rpc"))
+      .accept_http1(true)
+      .add_service(reflection_service)
+      .add_service(tonic_web::enable(LuteServer::new(LuteService {})))
+      .add_service(tonic_web::enable(FileServiceServer::new(FileService::new(
+        Arc::clone(&self.app_context),
+      ))))
+      .add_service(tonic_web::enable(CrawlerServiceServer::new(
+        CrawlerService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(AlbumServiceServer::new(
+        AlbumService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(SpotifyServiceServer::new(
+        SpotifyService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(OperationsServiceServer::new(
+        OperationsService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(ParserServiceServer::new(
+        ParserService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(ProfileServiceServer::new(
+        ProfileService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(LookupServiceServer::new(
+        LookupService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(RecommendationServiceServer::new(
+        RecommendationService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(EventServiceServer::new(
+        EventService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(SchedulerServiceServer::new(
+        SchedulerService::new(Arc::clone(&self.app_context)),
+      )));
 
     spawn(async move {
-      if let Err(e) = Server::builder()
-        .trace_fn(|_| tracing::info_span!("core::rpc"))
-        .accept_http1(true)
-        .add_service(reflection_service)
-        .add_service(tonic_web::enable(LuteServer::new(lute_service)))
-        .add_service(tonic_web::enable(FileServiceServer::from_arc(file_service)))
-        .add_service(tonic_web::enable(CrawlerServiceServer::from_arc(
-          crawler_service,
-        )))
-        .add_service(tonic_web::enable(AlbumServiceServer::from_arc(
-          album_service,
-        )))
-        .add_service(tonic_web::enable(SpotifyServiceServer::from_arc(
-          spotify_service,
-        )))
-        .add_service(tonic_web::enable(OperationsServiceServer::from_arc(
-          operations_service,
-        )))
-        .add_service(tonic_web::enable(ParserServiceServer::from_arc(
-          parser_service,
-        )))
-        .add_service(tonic_web::enable(ProfileServiceServer::from_arc(
-          profile_service,
-        )))
-        .add_service(tonic_web::enable(LookupServiceServer::from_arc(
-          lookup_service,
-        )))
-        .add_service(tonic_web::enable(RecommendationServiceServer::from_arc(
-          recommendation_service,
-        )))
-        .add_service(tonic_web::enable(EventServiceServer::from_arc(Arc::clone(
-          &event_service,
-        ))))
-        .add_service(tonic_web::enable(SchedulerServiceServer::from_arc(
-          scheduler_service,
-        )))
-        .serve(addr)
-        .await
-      {
+      if let Err(e) = server.serve(addr).await {
         eprintln!("Error running RPC server: {:?}", e);
       }
-
-      ()
     })
   }
 }
