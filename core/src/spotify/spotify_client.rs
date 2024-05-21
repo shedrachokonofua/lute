@@ -14,8 +14,8 @@ use nonzero::nonzero;
 use rspotify::{
   http::HttpError,
   model::{
-    AlbumId, AudioFeatures, FullTrack, PlayableItem, PlaylistId, SavedTrack, SearchResult,
-    SearchType, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, TrackId,
+    AlbumId, AudioFeatures, FullTrack, PlayableId, PlayableItem, PlaylistId, SavedTrack,
+    SearchResult, SearchType, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, TrackId,
   },
   prelude::{BaseClient, OAuthClient},
   AuthCodeSpotify, ClientError, Credentials, OAuth, Token,
@@ -539,12 +539,12 @@ impl SpotifyClient {
 
   pub async fn get_tracks_feature_embeddings(
     &self,
-    track_spotify_ids: Vec<String>,
+    track_uris: Vec<String>,
   ) -> Result<HashMap<String, Vec<f32>>> {
     let mut features = HashMap::new();
     if let Some(results) = self
       .tracks_features(
-        track_spotify_ids
+        track_uris
           .into_iter()
           .filter_map(|id| TrackId::from_id(id.replace("spotify:track:", "")).ok())
           .collect::<Vec<_>>(),
@@ -563,5 +563,35 @@ impl SpotifyClient {
     let track_id = TrackId::from_id(id.replace("spotify:track:", ""))?;
     let results = self.client().await?.track_features(track_id).await?;
     Ok(get_features_embedding(results))
+  }
+
+  pub async fn create_playlist(
+    &self,
+    name: String,
+    description: Option<String>,
+    track_uris: Vec<String>,
+  ) -> Result<String> {
+    let client = self.client().await?;
+    let current_user = client.current_user().await?;
+    let playlist = client
+      .user_playlist_create(
+        current_user.id,
+        name.as_str(),
+        Some(true),
+        None,
+        description.as_deref(),
+      )
+      .await?;
+    client
+      .playlist_add_items(
+        playlist.id.clone(),
+        track_uris
+          .iter()
+          .filter_map(|uri| TrackId::from_uri(uri).ok().map(|id| PlayableId::Track(id)))
+          .collect::<Vec<_>>(),
+        None,
+      )
+      .await?;
+    Ok(playlist.id.to_string())
   }
 }

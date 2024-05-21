@@ -266,4 +266,50 @@ impl proto::RecommendationService for RecommendationService {
       tracks: tracks.into_iter().map(Into::into).collect(),
     }))
   }
+
+  async fn create_spotify_playlist(
+    &self,
+    request: Request<proto::CreateSpotifyPlaylistRequest>,
+  ) -> Result<Response<proto::CreateSpotifyPlaylistReply>, Status> {
+    let request = request.into_inner();
+    let profile_id = ProfileId::try_from(request.profile_id).map_err(|e| {
+      error!(error = e.to_string(), "Invalid profile ID");
+      Status::invalid_argument(e.to_string())
+    })?;
+    let assessment_settings = match request.assessment_settings {
+      Some(settings) => AlbumAssessmentSettings::try_from(settings).map_err(|e| {
+        error!(error = e.to_string(), "Invalid settings");
+        Status::invalid_argument(e.to_string())
+      })?,
+      None => AlbumAssessmentSettings::QuantileRank(QuantileRankAlbumAssessmentSettings::default()),
+    };
+    let recommendation_settings = match request.recommendation_settings {
+      Some(settings) => AlbumRecommendationSettings::try_from(settings).map_err(|e| {
+        error!(error = e.to_string(), "Invalid settings");
+        Status::invalid_argument(e.to_string())
+      })?,
+      None => AlbumRecommendationSettings::default(),
+    };
+    let name = request.name;
+    let description = request.description;
+    let (playlist_id, tracks) = self
+      .recommendation_interactor
+      .create_spotify_playlist(
+        &profile_id,
+        assessment_settings,
+        recommendation_settings,
+        name,
+        description,
+      )
+      .await
+      .map_err(|e| {
+        error!(error = e.to_string(), "Failed to create Spotify playlist");
+        Status::internal(e.to_string())
+      })?;
+
+    Ok(Response::new(proto::CreateSpotifyPlaylistReply {
+      playlist_id,
+      tracks: tracks.into_iter().map(Into::into).collect(),
+    }))
+  }
 }

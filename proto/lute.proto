@@ -664,6 +664,19 @@ message DraftSpotifyPlaylistRequest {
 
 message DraftSpotifyPlaylistReply { repeated SpotifyTrackReference tracks = 1; }
 
+message CreateSpotifyPlaylistRequest {
+  string profile_id = 1;
+  optional AlbumRecommendationSettings recommendation_settings = 2;
+  optional AlbumAssessmentSettings assessment_settings = 3;
+  string name = 4;
+  optional string description = 5;
+}
+
+message CreateSpotifyPlaylistReply {
+  string playlist_id = 1;
+  repeated SpotifyTrackReference tracks = 2;
+}
+
 service RecommendationService {
   rpc AssessAlbum(AssessAlbumRequest) returns (AssessAlbumReply) {}
   rpc RecommendAlbums(RecommendAlbumsRequest) returns (RecommendAlbumsReply) {}
@@ -671,6 +684,8 @@ service RecommendationService {
       returns (DefaultQuantileRankAlbumAssessmentSettingsReply) {}
   rpc DraftSpotifyPlaylist(DraftSpotifyPlaylistRequest)
       returns (DraftSpotifyPlaylistReply) {}
+  rpc CreateSpotifyPlaylist(CreateSpotifyPlaylistRequest)
+      returns (CreateSpotifyPlaylistReply) {}
 }
 
 message FileSavedEvent {

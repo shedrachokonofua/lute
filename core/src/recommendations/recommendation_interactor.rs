@@ -23,7 +23,7 @@ use crate::{
     profile::{Profile, ProfileId},
     profile_interactor::ProfileInteractor,
   },
-  spotify::spotify_client::SpotifyTrackReference,
+  spotify::spotify_client::{SpotifyClient, SpotifyTrackReference},
 };
 use anyhow::Result;
 use futures::future::join_all;
@@ -40,6 +40,7 @@ pub struct RecommendationInteractor {
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   profile_interactor: ProfileInteractor,
   spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
+  spotify_client: Arc<SpotifyClient>,
 }
 
 impl RecommendationInteractor {
@@ -60,6 +61,7 @@ impl RecommendationInteractor {
         Arc::clone(&app_context.spotify_client),
       ),
       spotify_track_search_index: Arc::clone(&app_context.spotify_track_search_index),
+      spotify_client: Arc::clone(&app_context.spotify_client),
     }
   }
 
@@ -213,5 +215,31 @@ impl RecommendationInteractor {
     .collect::<Result<Vec<SpotifyTrackReference>>>()?;
 
     Ok(recommendation_tracks)
+  }
+
+  pub async fn create_spotify_playlist(
+    &self,
+    profile_id: &ProfileId,
+    assessment_settings: AlbumAssessmentSettings,
+    recommendation_settings: AlbumRecommendationSettings,
+    name: String,
+    description: Option<String>,
+  ) -> Result<(String, Vec<SpotifyTrackReference>)> {
+    let playlist_draft = self
+      .draft_spotify_playlist(profile_id, assessment_settings, recommendation_settings)
+      .await?;
+    let playlist_id = self
+      .spotify_client
+      .create_playlist(
+        name,
+        description,
+        playlist_draft
+          .iter()
+          .map(|t| t.spotify_id.clone())
+          .collect(),
+      )
+      .await?;
+
+    Ok((playlist_id, playlist_draft))
   }
 }

@@ -18,7 +18,12 @@ pub struct SpotifyCredentials {
 }
 
 lazy_static! {
-  pub static ref SCOPES: HashSet<String> = scopes!("user-library-read", "user-top-read");
+  pub static ref SCOPES: HashSet<String> = scopes!(
+    "user-library-read",
+    "user-top-read",
+    "playlist-modify-public",
+    "playlist-modify-private"
+  );
 }
 
 const KEY: &str = "spotify:credentials";
