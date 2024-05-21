@@ -1,8 +1,10 @@
 use crate::{
   context::ApplicationContext,
   events::{
-    event::{Event, Stream},
-    event_subscriber::{EventData, EventSubscriber, EventSubscriberBuilder},
+    event::{Event, Topic},
+    event_subscriber::{
+      EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, GroupingStrategy,
+    },
   },
   lookup::album_search_lookup::AlbumSearchLookup,
 };
@@ -55,18 +57,14 @@ pub fn build_spotify_import_event_subscribers(
 ) -> Result<Vec<EventSubscriber>> {
   Ok(vec![EventSubscriberBuilder::default()
     .id("profile_spotify_import".to_string())
-    .stream(Stream::Lookup)
-    .concurrency(250)
+    .topic(Topic::Lookup)
+    .batch_size(250)
     .app_context(Arc::clone(&app_context))
-    .generate_ordered_processing_group_id(Arc::new(|row| {
-      if let Some(correlation_id) = &row.payload.correlation_id {
-        Some(correlation_id.clone())
-      } else {
-        None
-      }
-    }))
-    .handle(Arc::new(move |(event_data, app_context, _)| {
-      Box::pin(async move { process_lookup_subscriptions(event_data, app_context).await })
-    }))
+    .grouping_strategy(GroupingStrategy::GroupByCorrelationId)
+    .handle(EventHandler::Single(Arc::new(
+      move |(event_data, app_context, _)| {
+        Box::pin(async move { process_lookup_subscriptions(event_data, app_context).await })
+      },
+    )))
     .build()?])
 }

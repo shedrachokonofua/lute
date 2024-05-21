@@ -172,7 +172,7 @@ impl TryFrom<&HashMap<String, String>> for EventPayload {
 
 #[derive(Clone, Kinded, Debug, PartialEq, Eq)]
 #[kinded(display = "kebab-case")]
-pub enum Stream {
+pub enum Topic {
   File,
   Parser,
   Profile,
@@ -180,7 +180,7 @@ pub enum Stream {
   Global,
 }
 
-impl Stream {
+impl Topic {
   pub fn tag(&self) -> String {
     self.kind().to_string()
   }
@@ -194,17 +194,17 @@ impl Stream {
   }
 }
 
-impl TryFrom<String> for Stream {
+impl TryFrom<String> for Topic {
   type Error = anyhow::Error;
 
   fn try_from(value: String) -> Result<Self> {
-    let kind = value.parse::<StreamKind>()?;
+    let kind = value.parse::<TopicKind>()?;
     match kind {
-      StreamKind::File => Ok(Stream::File),
-      StreamKind::Parser => Ok(Stream::Parser),
-      StreamKind::Profile => Ok(Stream::Profile),
-      StreamKind::Lookup => Ok(Stream::Lookup),
-      StreamKind::Global => Ok(Stream::Global),
+      TopicKind::File => Ok(Topic::File),
+      TopicKind::Parser => Ok(Topic::Parser),
+      TopicKind::Profile => Ok(Topic::Profile),
+      TopicKind::Lookup => Ok(Topic::Lookup),
+      TopicKind::Global => Ok(Topic::Global),
     }
   }
 }

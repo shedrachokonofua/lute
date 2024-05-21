@@ -142,7 +142,7 @@ impl proto::EventService for EventService {
     let output_stream = async_stream::try_stream! {
       while let Ok(Some(event_stream_request)) = input_stream.message().await {
         loop {
-          let stream_id = super::event::Stream::try_from(event_stream_request.stream_id.clone())
+          let stream_id = super::event::Topic::try_from(event_stream_request.stream_id.clone())
             .map_err(|err| Status::invalid_argument(err.to_string()))?;
           if let Some(cursor) = event_stream_request.cursor.clone() {
             event_subscriber_repository.set_cursor(

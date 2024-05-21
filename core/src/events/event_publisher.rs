@@ -1,4 +1,4 @@
-use super::event::{EventPayload, Stream};
+use super::event::{EventPayload, Topic};
 use crate::{settings::Settings, sqlite::SqliteConnection};
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
@@ -18,7 +18,7 @@ impl EventPublisher {
     }
   }
 
-  pub async fn publish(&self, stream: Stream, payload: EventPayload) -> Result<()> {
+  pub async fn publish(&self, stream: Topic, payload: EventPayload) -> Result<()> {
     self.sqlite_connection.write().await?.interact(move |conn| {
       conn.execute(
         "INSERT INTO events (correlation_id, causation_id, event, metadata, stream) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -41,7 +41,7 @@ impl EventPublisher {
     })?
   }
 
-  pub async fn batch_publish(&self, stream: Stream, payloads: Vec<EventPayload>) -> Result<()> {
+  pub async fn batch_publish(&self, stream: Topic, payloads: Vec<EventPayload>) -> Result<()> {
     self.sqlite_connection.write().await?.interact(move |conn| {
       let transaction = conn.transaction()?;
       for payload in payloads {

@@ -1,4 +1,4 @@
-use super::event::{EventPayload, Stream};
+use super::event::{EventPayload, Topic};
 use super::event_subscriber_repository::{
   EventList, EventRow, EventSubscriberRepository, EventSubscriberStatus,
 };
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 use ulid::Ulid;
 
 #[derive(Serialize, Deserialize)]
@@ -66,12 +66,12 @@ impl EventSubscriberInteractor {
 
   pub async fn get_events_after_cursor(
     &self,
-    streams: &Vec<Stream>,
+    topics: &Vec<Topic>,
     count: usize,
   ) -> Result<EventList> {
     self
       .event_subscriber_repository
-      .get_events_after_cursor(streams, &self.subscriber_id, count)
+      .get_events_after_cursor(topics, &self.subscriber_id, count)
       .await
   }
 
@@ -128,35 +128,118 @@ impl EventSubscriberInteractor {
 
 pub struct EventData {
   pub entry_id: String,
-  pub stream: Stream,
+  pub stream: Topic,
   pub payload: EventPayload,
+}
+
+#[derive(Clone, Default)]
+pub enum GroupingStrategy {
+  /**
+   * Every event in the batch will be processed in parallel.
+   */
+  #[default]
+  Individual,
+  Chunks(usize),
+  GroupByKey(Arc<dyn Fn(&EventRow) -> String + Send + Sync>),
+  GroupByCorrelationId,
+  All,
+}
+
+impl GroupingStrategy {
+  pub fn group(&self, events: Vec<EventRow>) -> Vec<(String, Vec<EventRow>)> {
+    match self {
+      GroupingStrategy::Individual => events
+        .into_iter()
+        .map(|e| (e.id.clone(), vec![e]))
+        .collect(),
+      GroupingStrategy::Chunks(size) => events
+        .into_iter()
+        .chunks(*size)
+        .into_iter()
+        .map(|c| (Ulid::new().to_string(), c.collect()))
+        .collect(),
+      GroupingStrategy::GroupByKey(f) => {
+        let mut groups = HashMap::new();
+        for event in events {
+          let key = f(&event);
+          groups.entry(key).or_insert_with(Vec::new).push(event);
+        }
+        groups.into_iter().collect()
+      }
+      GroupingStrategy::GroupByCorrelationId => {
+        let mut groups = HashMap::new();
+        for event in events {
+          let key = event
+            .payload
+            .correlation_id
+            .clone()
+            .unwrap_or_else(|| event.id.clone());
+          groups.entry(key).or_insert_with(Vec::new).push(event);
+        }
+        groups.into_iter().collect()
+      }
+      GroupingStrategy::All => vec![("*".to_string(), events)],
+    }
+  }
+}
+
+type EventHandlerFn<T> =
+  ThreadSafeAsyncFn<(T, Arc<ApplicationContext>, Arc<EventSubscriberInteractor>)>;
+
+#[derive(Clone)]
+pub enum EventHandler {
+  /**
+   * The handler will be called in order for each event in the group.
+   */
+  Single(EventHandlerFn<EventData>),
+  /**
+   * The handler will be called once with all the events in the group.
+   */
+  Group(EventHandlerFn<Vec<EventData>>),
+}
+
+impl EventHandler {
+  pub async fn handle(
+    &self,
+    event_data: Vec<EventData>,
+    app_context: Arc<ApplicationContext>,
+    interactor: Arc<EventSubscriberInteractor>,
+  ) -> Result<()> {
+    match self {
+      EventHandler::Single(f) => {
+        for event in event_data {
+          f((event, Arc::clone(&app_context), Arc::clone(&interactor))).await?;
+        }
+        Ok(())
+      }
+      EventHandler::Group(f) => f((event_data, app_context, interactor)).await,
+    }
+  }
 }
 
 #[derive(Builder)]
 pub struct EventSubscriber {
-  #[builder(default = "10")]
-  pub concurrency: usize,
+  /**
+   * A batch is the maximum number of events that will be pulled from the event store in one iteration.
+   */
+  #[builder(default = "1")]
+  pub batch_size: usize,
+  /*
+   * A group is a set of events in a batch that will be passed to the handler together.
+   * Items in the same group will be passed to the handler in the same call.
+   * The handler will be called in parallel for each group in the batch.
+   */
+  #[builder(default)]
+  pub grouping_strategy: GroupingStrategy,
   pub app_context: Arc<ApplicationContext>,
   #[builder(setter(into))]
   pub id: String,
-  #[builder(setter(each(name = "stream")))]
-  pub streams: Vec<Stream>,
-  pub handle: ThreadSafeAsyncFn<(
-    EventData,
-    Arc<ApplicationContext>,
-    Arc<EventSubscriberInteractor>,
-  )>,
+  #[builder(setter(each(name = "topic")))]
+  pub topics: Vec<Topic>,
+
+  pub handle: EventHandler,
   #[builder(setter(skip), default = "self.get_default_interactor()?")]
   interactor: Arc<EventSubscriberInteractor>,
-  /**
-   * A function that returns a processing group ID for the given event. Events with the same processing group ID will be processed in order.
-   */
-  #[builder(
-    default = "self.generate_default_ordered_processing_group_id()",
-    setter(strip_option)
-  )]
-  generate_ordered_processing_group_id:
-    Option<Arc<dyn Fn(&EventRow) -> Option<String> + Send + Sync>>,
 }
 
 impl EventSubscriberBuilder {
@@ -170,100 +253,69 @@ impl EventSubscriberBuilder {
       _ => Err("SQLite connection and ID are required".to_string()),
     }
   }
-
-  pub fn generate_default_ordered_processing_group_id(
-    &self,
-  ) -> Option<Arc<dyn Fn(&EventRow) -> Option<String> + Send + Sync>> {
-    None
-  }
 }
 
 impl EventSubscriber {
   pub async fn poll(&self) -> Result<Option<String>> {
     let event_list = self
       .interactor
-      .get_events_after_cursor(&self.streams, self.concurrency)
+      .get_events_after_cursor(&self.topics, self.batch_size)
       .await?;
-    let stream_tags = self.streams.iter().map(|s| s.tag()).join(",");
+    let topic_tags = self.topics.iter().map(|s| s.tag()).join(",");
     debug!(
-      streams = stream_tags.as_str(),
+      topics = topic_tags.as_str(),
       subscriber_id = self.id,
       count = &event_list.rows.len(),
       "Subscriber polled"
     );
     let tail_cursor = event_list.tail_cursor();
+    let groups = self
+      .grouping_strategy
+      .group(event_list.rows.into_iter().collect());
 
-    let mut ordered_processing_groups: HashMap<String, Vec<EventRow>> = HashMap::new();
-    for (key, group) in &event_list.rows.into_iter().group_by(|row| {
-      self
-        .generate_ordered_processing_group_id
-        .as_ref()
-        .and_then(|f| f(row))
-        .unwrap_or(row.id.clone())
-    }) {
-      ordered_processing_groups
-        .entry(key.clone())
-        .or_default()
-        .extend(group);
-    }
+    join_all(groups.into_iter().map(|(group_id, group)| {
+      let interactor = Arc::clone(&self.interactor);
+      let app_context = Arc::clone(&self.app_context);
+      let handler = self.handle.clone();
+      let subscriber_id = self.id.clone();
+      let stream_tags = topic_tags.clone();
 
-    join_all(
-      ordered_processing_groups
-        .into_iter()
-        .map(|(group_id, group)| {
-          let interactor = Arc::clone(&self.interactor);
-          let app_context = Arc::clone(&self.app_context);
-          let handle = self.handle.clone();
-          let subscriber_id = self.id.clone();
-          let stream_tags = stream_tags.clone();
-
-          debug!(
-            streams = stream_tags.as_str(),
-            subscriber_id,
-            group_id = group_id,
-            count = group.len(),
-            "Processing group"
-          );
-          tokio::spawn(async move {
-            for row in group {
-              let entry_id = row.id;
-              let payload = row.payload;
-              debug!(
-                streams = stream_tags.as_str(),
-                subscriber_id,
-                entry_id = entry_id,
-                event_kind = payload.event.kind().to_string(),
-                correlation_id = payload.correlation_id.clone(),
-                causation_id = payload.causation_id.clone(),
-                "Processing event"
-              );
-              handle((
-                EventData {
-                  entry_id: entry_id.clone(),
-                  payload: payload.clone(),
-                  stream: row.stream.clone(),
-                },
-                Arc::clone(&app_context),
-                Arc::clone(&interactor),
-              ))
-              .await
-              .map_err(|err| {
-                error!(
-                  stream = stream_tags.as_str(),
-                  subscriber_id,
-                  entry_id = entry_id,
-                  error = err.to_string(),
-                  correlation_id = payload.correlation_id,
-                  causation_id = payload.causation_id,
-                  "Error handling event"
-                );
-                err
-              })?;
-            }
-            Ok::<(), anyhow::Error>(())
+      debug!(
+        topics = stream_tags.as_str(),
+        subscriber_id,
+        group_id = group_id,
+        count = group.len(),
+        "Processing group"
+      );
+      tokio::spawn(async move {
+        let event_data = group
+          .into_iter()
+          .map(|row| EventData {
+            entry_id: row.id,
+            payload: row.payload,
+            stream: row.stream,
           })
-        }),
-    )
+          .collect::<Vec<EventData>>();
+        info!(
+          topics = stream_tags.as_str(),
+          subscriber_id,
+          count = event_data.len(),
+          "Processing group"
+        );
+        handler
+          .handle(event_data, app_context, interactor)
+          .await
+          .inspect_err(|e| {
+            error!(
+              topics = stream_tags.as_str(),
+              subscriber_id,
+              error = e.to_string(),
+              "Error handling group"
+            );
+          })?;
+        Ok::<(), anyhow::Error>(())
+      })
+    }))
     .await;
 
     Ok(tail_cursor)

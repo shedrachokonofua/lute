@@ -10,10 +10,11 @@ use crate::{
   context::ApplicationContext,
   crawler::priority_queue::{Priority, QueuePushParameters},
   events::{
-    event::{Event, Stream},
-    event_subscriber::{EventData, EventSubscriber, EventSubscriberBuilder},
+    event::{Event, Topic},
+    event_subscriber::{
+      EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, GroupingStrategy,
+    },
   },
-  files::file_metadata::page_type::PageType,
   parser::parsed_file_data::{ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack},
 };
 use anyhow::Result;
@@ -197,13 +198,15 @@ fn build_embedding_provider_event_subscribers(
       let provider = Arc::clone(&provider);
       EventSubscriberBuilder::default()
         .id(format!("update_album_embedding:{}", provider.name()))
-        .stream(Stream::Parser)
-        .concurrency(provider.concurrency())
+        .topic(Topic::Parser)
+        .batch_size(provider.concurrency())
         .app_context(Arc::clone(&app_context))
-        .handle(Arc::new(move |(event_data, app_context, _)| {
-          let provider = Arc::clone(&provider);
-          Box::pin(async move { update_album_embedding(provider, event_data, app_context).await })
-        }))
+        .handle(EventHandler::Single(Arc::new(
+          move |(event_data, app_context, _)| {
+            let provider = Arc::clone(&provider);
+            Box::pin(async move { update_album_embedding(provider, event_data, app_context).await })
+          },
+        )))
         .build()
         .ok()
     })
@@ -217,53 +220,62 @@ pub fn build_album_event_subscribers(
   let mut subscribers = vec![
     EventSubscriberBuilder::default()
       .id("update_album_read_models")
-      .stream(Stream::Parser)
-      .concurrency(250)
+      .topic(Topic::Parser)
+      .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .generate_ordered_processing_group_id(Arc::new(|row| match &row.payload.event {
-        Event::FileParsed {
-          data: ParsedFileData::Album(album),
-          ..
-        } => Some(album.ascii_name()), // Ensure potential duplicates are processed sequentially
-        _ => None,
-      }))
-      .handle(Arc::new(|(event_data, app_context, _)| {
-        Box::pin(async move { update_album_read_models(event_data, app_context).await })
-      }))
+      .grouping_strategy(GroupingStrategy::GroupByKey(Arc::new(|row| {
+        match &row.payload.event {
+          Event::FileParsed {
+            data: ParsedFileData::Album(album),
+            ..
+          } => album.ascii_name(), // Ensure potential duplicates are processed sequentially
+          _ => "".to_string(),
+        }
+      })))
+      .handle(EventHandler::Single(Arc::new(
+        |(event_data, app_context, _)| {
+          Box::pin(async move { update_album_read_models(event_data, app_context).await })
+        },
+      )))
       .build()?,
     EventSubscriberBuilder::default()
       .id("delete_album_read_models")
-      .stream(Stream::File)
-      .concurrency(250)
+      .topic(Topic::File)
+      .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .generate_ordered_processing_group_id(Arc::new(|row| match &row.payload.event {
-        Event::FileDeleted { file_name, .. } => match file_name.page_type() {
-          PageType::Album => Some(file_name.to_string()),
-          _ => None,
+      .grouping_strategy(GroupingStrategy::GroupByKey(Arc::new(|row| {
+        match &row.payload.event {
+          Event::FileDeleted { file_name, .. } => file_name.to_string(),
+          _ => "".to_string(),
+        }
+      })))
+      .handle(EventHandler::Single(Arc::new(
+        |(event_data, app_context, _)| {
+          Box::pin(async move { delete_album_read_models(event_data, app_context).await })
         },
-        _ => None,
-      }))
-      .handle(Arc::new(|(event_data, app_context, _)| {
-        Box::pin(async move { delete_album_read_models(event_data, app_context).await })
-      }))
+      )))
       .build()?,
     EventSubscriberBuilder::default()
       .id("crawl_chart_albums")
-      .stream(Stream::Parser)
-      .concurrency(250)
+      .topic(Topic::Parser)
+      .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handle(Arc::new(|(event_data, app_context, _)| {
-        Box::pin(async move { crawl_chart_albums(event_data, app_context).await })
-      }))
+      .handle(EventHandler::Single(Arc::new(
+        |(event_data, app_context, _)| {
+          Box::pin(async move { crawl_chart_albums(event_data, app_context).await })
+        },
+      )))
       .build()?,
     EventSubscriberBuilder::default()
       .id("crawl_artist_albums")
-      .stream(Stream::Parser)
-      .concurrency(250)
+      .topic(Topic::Parser)
+      .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handle(Arc::new(|(event_data, app_context, _)| {
-        Box::pin(async move { crawl_artist_albums(event_data, app_context).await })
-      }))
+      .handle(EventHandler::Single(Arc::new(
+        |(event_data, app_context, _)| {
+          Box::pin(async move { crawl_artist_albums(event_data, app_context).await })
+        },
+      )))
       .build()?,
   ];
   subscribers.append(&mut build_embedding_provider_event_subscribers(

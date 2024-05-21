@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{
   events::{
-    event::{Event, EventPayloadBuilder, Stream},
+    event::{Event, EventPayloadBuilder, Topic},
     event_publisher::EventPublisher,
   },
   settings::Settings,
@@ -83,7 +83,7 @@ impl FileInteractor {
     self
       .event_publisher
       .publish(
-        Stream::File,
+        Topic::File,
         EventPayloadBuilder::default()
           .event(Event::FileSaved {
             file_id: file_metadata.id,
@@ -134,7 +134,7 @@ impl FileInteractor {
     self
       .event_publisher
       .publish(
-        Stream::File,
+        Topic::File,
         EventPayloadBuilder::default()
           .event(Event::FileDeleted {
             file_id: file_metadata.id,

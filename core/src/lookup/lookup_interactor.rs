@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
   events::{
-    event::{Event, EventPayloadBuilder, Stream},
+    event::{Event, EventPayloadBuilder, Topic},
     event_publisher::EventPublisher,
   },
   files::file_metadata::file_name::FileName,
@@ -71,7 +71,7 @@ impl LookupInteractor {
         self
           .event_publisher
           .publish(
-            Stream::Lookup,
+            Topic::Lookup,
             EventPayloadBuilder::default()
               .event(Event::LookupAlbumSearchUpdated {
                 lookup: lookup.clone(),

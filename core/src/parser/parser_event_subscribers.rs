@@ -5,8 +5,8 @@ use super::{
 use crate::{
   context::ApplicationContext,
   events::{
-    event::{Event, Stream},
-    event_subscriber::{EventData, EventSubscriber, EventSubscriberBuilder},
+    event::{Event, Topic},
+    event_subscriber::{EventData, EventHandler, EventSubscriber, EventSubscriberBuilder},
   },
   files::file_content_store::FileContentStore,
 };
@@ -72,22 +72,25 @@ pub fn build_parser_event_subscribers(
     EventSubscriberBuilder::default()
       .id("parse_saved_file")
       .app_context(Arc::clone(&app_context))
-      .concurrency(app_context.settings.parser.concurrency as usize)
-      .stream(Stream::File)
-      .handle(Arc::new(|(event_data, app_context, _)| {
-        Box::pin(async move { parse_saved_file(event_data, app_context).await })
-      }))
+      .batch_size(app_context.settings.parser.concurrency as usize)
+      .topic(Topic::File)
+      .handle(EventHandler::Single(Arc::new(
+        |(event_data, app_context, _)| {
+          Box::pin(async move { parse_saved_file(event_data, app_context).await })
+        },
+      )))
       .build()?,
     EventSubscriberBuilder::default()
       .id("populate_failed_parse_files_repository")
       .app_context(Arc::clone(&app_context))
-      .concurrency(1)
-      .stream(Stream::Parser)
-      .handle(Arc::new(|(event_data, app_context, _)| {
-        Box::pin(
-          async move { populate_failed_parse_files_repository(event_data, app_context).await },
-        )
-      }))
+      .topic(Topic::Parser)
+      .handle(EventHandler::Single(Arc::new(
+        |(event_data, app_context, _)| {
+          Box::pin(
+            async move { populate_failed_parse_files_repository(event_data, app_context).await },
+          )
+        },
+      )))
       .build()?,
   ])
 }

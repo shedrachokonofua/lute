@@ -518,7 +518,7 @@ impl SpotifyClient {
     }
   }
 
-  pub async fn get_track_feature_embeddings(
+  pub async fn get_tracks_feature_embeddings(
     &self,
     track_spotify_ids: Vec<String>,
   ) -> Result<HashMap<String, Vec<f32>>> {
@@ -538,5 +538,11 @@ impl SpotifyClient {
       });
     }
     Ok(features)
+  }
+
+  pub async fn get_track_feature_embeddings(&self, id: String) -> Result<Vec<f32>> {
+    let track_id = TrackId::from_id(id.replace("spotify:track:", ""))?;
+    let results = self.client().await?.track_features(track_id).await?;
+    Ok(get_features_embedding(results))
   }
 }

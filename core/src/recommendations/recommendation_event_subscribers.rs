@@ -4,9 +4,9 @@ use crate::{
   context::ApplicationContext,
   crawler::priority_queue::{Priority, QueuePushParameters},
   events::{
-    event::{Event, Stream},
+    event::{Event, Topic},
     event_subscriber::{
-      EventData, EventSubscriber, EventSubscriberBuilder, EventSubscriberInteractor,
+      EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, EventSubscriberInteractor,
     },
   },
   files::file_metadata::file_name::ChartParameters,
@@ -124,7 +124,7 @@ async fn get_spotify_track_search_records(
       .collect::<Vec<String>>();
     let mut embeddings = app_context
       .spotify_client
-      .get_track_feature_embeddings(track_spotify_ids)
+      .get_tracks_feature_embeddings(track_spotify_ids)
       .await?;
     spotify_album
       .tracks
@@ -191,19 +191,18 @@ pub fn build_recommendation_event_subscribers(
   Ok(vec![
     EventSubscriberBuilder::default()
       .id("crawl_similar_albums".to_string())
-      .stream(Stream::Profile)
-      .concurrency(250)
+      .topic(Topic::Profile)
+      .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handle(Arc::new(move |(event_data, app_context, _)| {
-        Box::pin(crawl_similar_albums(event_data, app_context))
-      }))
+      .handle(EventHandler::Single(Arc::new(
+        move |(event_data, app_context, _)| Box::pin(crawl_similar_albums(event_data, app_context)),
+      )))
       .build()?,
     EventSubscriberBuilder::default()
       .id("save_album_spotify_tracks".to_string())
-      .stream(Stream::Parser)
-      .concurrency(1)
+      .topic(Topic::Parser)
       .app_context(Arc::clone(&app_context))
-      .handle(Arc::new(
+      .handle(EventHandler::Single(Arc::new(
         move |(event_data, app_context, subscriber_interactor)| {
           Box::pin(save_album_spotify_tracks(
             event_data,
@@ -211,7 +210,7 @@ pub fn build_recommendation_event_subscribers(
             subscriber_interactor,
           ))
         },
-      ))
+      )))
       .build()?,
   ])
 }

@@ -1,4 +1,4 @@
-use super::event::{Event, EventPayload, EventPayloadBuilder, Stream, StreamKind};
+use super::event::{Event, EventPayload, EventPayloadBuilder, Topic, TopicKind};
 use crate::sqlite::SqliteConnection;
 use anyhow::{anyhow, Result};
 use rusqlite::{params, types::Value};
@@ -42,7 +42,7 @@ pub struct EventSubscriberRow {
 #[derive(Debug, Clone)]
 pub struct EventRow {
   pub id: String,
-  pub stream: Stream,
+  pub stream: Topic,
   pub payload: EventPayload,
 }
 
@@ -78,7 +78,7 @@ fn map_event_row(row: &rusqlite::Row<'_>) -> Result<EventRow, rusqlite::Error> {
         error!(message = err.to_string(), "Failed to build event payload");
         rusqlite::Error::ExecuteReturnedResults
       })?,
-    stream: Stream::try_from(row.get::<_, String>(5)?).map_err(|err| {
+    stream: Topic::try_from(row.get::<_, String>(5)?).map_err(|err| {
       error!(message = err.to_string(), "Failed to parse stream");
       rusqlite::Error::ExecuteReturnedResults
     })?,
@@ -135,7 +135,7 @@ impl EventSubscriberRepository {
       })?
   }
 
-  pub async fn get_stream_tails(&self) -> Result<Vec<(Stream, String)>> {
+  pub async fn get_stream_tails(&self) -> Result<Vec<(Topic, String)>> {
     self
       .sqlite_connection
       .read()
@@ -151,7 +151,7 @@ impl EventSubscriberRepository {
         let rows = statement
           .query_map([], |row| {
             Ok((
-              Stream::try_from(row.get::<_, String>(0)?).map_err(|e| {
+              Topic::try_from(row.get::<_, String>(0)?).map_err(|e| {
                 error!(message = e.to_string(), "Failed to get stream tails");
                 rusqlite::Error::ExecuteReturnedResults
               })?,
@@ -243,13 +243,13 @@ impl EventSubscriberRepository {
   #[instrument(skip(self))]
   pub async fn get_events_after_cursor(
     &self,
-    streams: &Vec<Stream>,
+    streams: &Vec<Topic>,
     subscriber_id: &str,
     count: usize,
   ) -> Result<EventList> {
     let subscriber_id = subscriber_id.to_string();
     let cursor = self.get_cursor(&subscriber_id).await?;
-    let is_global = streams.iter().any(|s| s.kind() == StreamKind::Global);
+    let is_global = streams.iter().any(|s| s.kind() == TopicKind::Global);
     let stream_tags = streams
       .iter()
       .map(|s| Value::from(s.tag()))

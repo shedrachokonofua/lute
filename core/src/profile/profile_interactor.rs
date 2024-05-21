@@ -10,7 +10,7 @@ use super::{
 use crate::{
   albums::{album_read_model::AlbumReadModel, album_repository::AlbumRepository},
   events::{
-    event::{Event, EventPayload, Stream},
+    event::{Event, EventPayload, Topic},
     event_publisher::EventPublisher,
   },
   files::file_metadata::file_name::FileName,
@@ -106,7 +106,7 @@ impl ProfileInteractor {
       self
         .event_publisher
         .publish(
-          Stream::Profile,
+          Topic::Profile,
           EventPayload::from_event(Event::ProfileAlbumAdded {
             profile_id: id.clone(),
             file_name: file_name.clone(),

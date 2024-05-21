@@ -13,9 +13,11 @@ use crate::{
     priority_queue::{Priority, QueuePushParameters},
   },
   events::{
-    event::{Event, EventPayloadBuilder, Stream},
+    event::{Event, EventPayloadBuilder, Topic},
     event_publisher::EventPublisher,
-    event_subscriber::{EventData, EventSubscriber, EventSubscriberBuilder},
+    event_subscriber::{
+      EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, GroupingStrategy,
+    },
   },
   files::file_metadata::{file_name::FileName, page_type::PageType},
   parser::parsed_file_data::ParsedFileData,
@@ -210,7 +212,7 @@ impl AlbumSearchLookupOrchestrator {
             self
               .event_publisher
               .publish(
-                Stream::Lookup,
+                Topic::Lookup,
                 EventPayloadBuilder::default()
                   .event(Event::LookupAlbumSearchUpdated {
                     lookup: AlbumSearchLookup::AlbumParsed {
@@ -269,7 +271,7 @@ impl AlbumSearchLookupOrchestrator {
         self
           .event_publisher
           .publish(
-            Stream::Lookup,
+            Topic::Lookup,
             EventPayloadBuilder::default()
               .event(Event::LookupAlbumSearchUpdated {
                 lookup: AlbumSearchLookup::AlbumParsed {
@@ -313,7 +315,7 @@ impl AlbumSearchLookupOrchestrator {
       self
         .event_publisher
         .publish(
-          Stream::Lookup,
+          Topic::Lookup,
           EventPayloadBuilder::default()
             .event(Event::LookupAlbumSearchUpdated {
               lookup: next_lookup.clone(),
@@ -340,12 +342,12 @@ impl AlbumSearchLookupOrchestrator {
     if is_album_search_correlation_id(&correlation_id) {
       let event = event_data.payload.event;
       match event_data.stream {
-        Stream::Lookup => {
+        Topic::Lookup => {
           self
             .handle_lookup_event(event, correlation_id.clone())
             .await?
         }
-        Stream::File | Stream::Parser => {
+        Topic::File | Topic::Parser => {
           self
             .handle_file_processing_event(event, correlation_id.clone())
             .await?
@@ -368,19 +370,13 @@ pub fn build_album_search_lookup_event_subscribers(
   let orchestrator = Arc::new(AlbumSearchLookupOrchestrator::new(Arc::clone(&app_context)));
   Ok(vec![EventSubscriberBuilder::default()
     .id("album_search_lookup")
-    .streams(vec![Stream::File, Stream::Parser, Stream::Lookup])
-    .concurrency(250)
+    .topics(vec![Topic::File, Topic::Parser, Topic::Lookup])
+    .batch_size(250)
     .app_context(Arc::clone(&app_context))
-    .handle(Arc::new(move |(event_data, _, _)| {
+    .grouping_strategy(GroupingStrategy::GroupByCorrelationId)
+    .handle(EventHandler::Single(Arc::new(move |(event_data, _, _)| {
       let orchestrator = Arc::clone(&orchestrator);
       Box::pin(async move { orchestrator.handle_event(event_data).await })
-    }))
-    .generate_ordered_processing_group_id(Arc::new(|row| {
-      if let Some(correlation_id) = &row.payload.correlation_id {
-        Some(correlation_id.clone())
-      } else {
-        None
-      }
-    }))
+    })))
     .build()?])
 }
