@@ -341,7 +341,7 @@ impl AlbumSearchLookupOrchestrator {
 
     if is_album_search_correlation_id(&correlation_id) {
       let event = event_data.payload.event;
-      match event_data.stream {
+      match event_data.topic {
         Topic::Lookup => {
           self
             .handle_lookup_event(event, correlation_id.clone())
@@ -374,7 +374,7 @@ pub fn build_album_search_lookup_event_subscribers(
     .batch_size(250)
     .app_context(Arc::clone(&app_context))
     .grouping_strategy(GroupingStrategy::GroupByCorrelationId)
-    .handle(EventHandler::Single(Arc::new(move |(event_data, _, _)| {
+    .handler(EventHandler::Single(Arc::new(move |(event_data, _, _)| {
       let orchestrator = Arc::clone(&orchestrator);
       Box::pin(async move { orchestrator.handle_event(event_data).await })
     })))

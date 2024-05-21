@@ -61,7 +61,7 @@ pub fn build_spotify_import_event_subscribers(
     .batch_size(250)
     .app_context(Arc::clone(&app_context))
     .grouping_strategy(GroupingStrategy::GroupByCorrelationId)
-    .handle(EventHandler::Single(Arc::new(
+    .handler(EventHandler::Single(Arc::new(
       move |(event_data, app_context, _)| {
         Box::pin(async move { process_lookup_subscriptions(event_data, app_context).await })
       },

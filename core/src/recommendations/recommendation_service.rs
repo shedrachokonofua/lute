@@ -255,11 +255,7 @@ impl proto::RecommendationService for RecommendationService {
     };
     let tracks = self
       .recommendation_interactor
-      .draft_recommendation_spotify_playlist(
-        &profile_id,
-        assessment_settings,
-        recommendation_settings,
-      )
+      .draft_spotify_playlist(&profile_id, assessment_settings, recommendation_settings)
       .await
       .map_err(|e| {
         error!(error = e.to_string(), "Failed to draft Spotify playlist");

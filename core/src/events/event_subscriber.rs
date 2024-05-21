@@ -128,7 +128,7 @@ impl EventSubscriberInteractor {
 
 pub struct EventData {
   pub entry_id: String,
-  pub stream: Topic,
+  pub topic: Topic,
   pub payload: EventPayload,
 }
 
@@ -237,7 +237,7 @@ pub struct EventSubscriber {
   #[builder(setter(each(name = "topic")))]
   pub topics: Vec<Topic>,
 
-  pub handle: EventHandler,
+  pub handler: EventHandler,
   #[builder(setter(skip), default = "self.get_default_interactor()?")]
   interactor: Arc<EventSubscriberInteractor>,
 }
@@ -276,11 +276,11 @@ impl EventSubscriber {
     join_all(groups.into_iter().map(|(group_id, group)| {
       let interactor = Arc::clone(&self.interactor);
       let app_context = Arc::clone(&self.app_context);
-      let handler = self.handle.clone();
+      let handler = self.handler.clone();
       let subscriber_id = self.id.clone();
       let stream_tags = topic_tags.clone();
 
-      debug!(
+      info!(
         topics = stream_tags.as_str(),
         subscriber_id,
         group_id = group_id,
@@ -293,15 +293,9 @@ impl EventSubscriber {
           .map(|row| EventData {
             entry_id: row.id,
             payload: row.payload,
-            stream: row.stream,
+            topic: row.stream,
           })
           .collect::<Vec<EventData>>();
-        info!(
-          topics = stream_tags.as_str(),
-          subscriber_id,
-          count = event_data.len(),
-          "Processing group"
-        );
         handler
           .handle(event_data, app_context, interactor)
           .await
@@ -310,7 +304,7 @@ impl EventSubscriber {
               topics = stream_tags.as_str(),
               subscriber_id,
               error = e.to_string(),
-              "Error handling group"
+              "Error processing group"
             );
           })?;
         Ok::<(), anyhow::Error>(())

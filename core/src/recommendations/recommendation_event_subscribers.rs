@@ -194,7 +194,7 @@ pub fn build_recommendation_event_subscribers(
       .topic(Topic::Profile)
       .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handle(EventHandler::Single(Arc::new(
+      .handler(EventHandler::Single(Arc::new(
         move |(event_data, app_context, _)| Box::pin(crawl_similar_albums(event_data, app_context)),
       )))
       .build()?,
@@ -202,7 +202,7 @@ pub fn build_recommendation_event_subscribers(
       .id("save_album_spotify_tracks".to_string())
       .topic(Topic::Parser)
       .app_context(Arc::clone(&app_context))
-      .handle(EventHandler::Single(Arc::new(
+      .handler(EventHandler::Single(Arc::new(
         move |(event_data, app_context, subscriber_interactor)| {
           Box::pin(save_album_spotify_tracks(
             event_data,

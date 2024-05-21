@@ -149,7 +149,7 @@ impl RecommendationInteractor {
       .await
   }
 
-  pub async fn draft_recommendation_spotify_playlist(
+  pub async fn draft_spotify_playlist(
     &self,
     profile_id: &ProfileId,
     assessment_settings: AlbumAssessmentSettings,
