@@ -23,14 +23,7 @@ pub struct RecommendationService {
 impl RecommendationService {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      recommendation_interactor: RecommendationInteractor::new(
-        Arc::clone(&app_context.settings),
-        Arc::clone(&app_context.redis_connection_pool),
-        Arc::clone(&app_context.sqlite_connection),
-        Arc::clone(&app_context.album_repository),
-        Arc::clone(&app_context.album_search_index),
-        Arc::clone(&app_context.spotify_client),
-      ),
+      recommendation_interactor: RecommendationInteractor::new(Arc::clone(&app_context)),
     }
   }
 }
@@ -225,6 +218,7 @@ impl proto::RecommendationService for RecommendationService {
       recommendations: recommendations.into_iter().map(Into::into).collect(),
     }))
   }
+
   async fn default_quantile_rank_album_assessment_settings(
     &self,
     _request: Request<()>,
@@ -234,5 +228,46 @@ impl proto::RecommendationService for RecommendationService {
         settings: Some(QuantileRankAlbumAssessmentSettings::default().into()),
       },
     ))
+  }
+
+  async fn draft_spotify_playlist(
+    &self,
+    request: Request<proto::DraftSpotifyPlaylistRequest>,
+  ) -> Result<Response<proto::DraftSpotifyPlaylistReply>, Status> {
+    let request = request.into_inner();
+    let profile_id = ProfileId::try_from(request.profile_id).map_err(|e| {
+      error!(error = e.to_string(), "Invalid profile ID");
+      Status::invalid_argument(e.to_string())
+    })?;
+    let assessment_settings = match request.assessment_settings {
+      Some(settings) => AlbumAssessmentSettings::try_from(settings).map_err(|e| {
+        error!(error = e.to_string(), "Invalid settings");
+        Status::invalid_argument(e.to_string())
+      })?,
+      None => AlbumAssessmentSettings::QuantileRank(QuantileRankAlbumAssessmentSettings::default()),
+    };
+    let recommendation_settings = match request.recommendation_settings {
+      Some(settings) => AlbumRecommendationSettings::try_from(settings).map_err(|e| {
+        error!(error = e.to_string(), "Invalid settings");
+        Status::invalid_argument(e.to_string())
+      })?,
+      None => AlbumRecommendationSettings::default(),
+    };
+    let tracks = self
+      .recommendation_interactor
+      .draft_recommendation_spotify_playlist(
+        &profile_id,
+        assessment_settings,
+        recommendation_settings,
+      )
+      .await
+      .map_err(|e| {
+        error!(error = e.to_string(), "Failed to draft Spotify playlist");
+        Status::internal(e.to_string())
+      })?;
+
+    Ok(Response::new(proto::DraftSpotifyPlaylistReply {
+      tracks: tracks.into_iter().map(Into::into).collect(),
+    }))
   }
 }

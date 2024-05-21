@@ -1,4 +1,5 @@
 use crate::{
+  albums::album_search_index::embedding_to_bytes,
   files::file_metadata::file_name::FileName,
   helpers::redisearch::{get_tag_query, SearchIndexVersionManager, SearchPagination},
   spotify::spotify_client::{SpotifyAlbumReference, SpotifyArtistReference, SpotifyTrackReference},
@@ -11,12 +12,12 @@ use rustis::{
   commands::{
     FtCreateOptions, FtFieldSchema, FtFieldType, FtFlatVectorFieldAttributes, FtIndexDataType,
     FtSearchOptions, FtVectorDistanceMetric, FtVectorFieldAlgorithm, FtVectorType, JsonCommands,
-    SearchCommands, SetCondition,
+    SearchCommands, SetCondition, SortOrder,
   },
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpotifyTrackSearchRecord {
@@ -26,6 +27,16 @@ pub struct SpotifyTrackSearchRecord {
   pub album: SpotifyAlbumReference,
   pub artists: Vec<SpotifyArtistReference>,
   pub embedding: Vec<f32>,
+}
+
+impl Into<SpotifyTrackReference> for SpotifyTrackSearchRecord {
+  fn into(self) -> SpotifyTrackReference {
+    SpotifyTrackReference {
+      spotify_id: self.spotify_id,
+      name: self.name,
+      artists: self.artists,
+    }
+  }
 }
 
 impl SpotifyTrackSearchRecord {
@@ -81,6 +92,23 @@ impl SpotifyTrackQuery {
       &self.include_album_file_names,
     ));
     query.trim().to_string()
+  }
+}
+
+#[derive(Debug)]
+pub struct SpotifyTrackEmbeddingSimilaritySearchQuery {
+  pub embedding: Vec<f32>,
+  pub filters: SpotifyTrackQuery,
+  pub limit: usize,
+}
+
+impl SpotifyTrackEmbeddingSimilaritySearchQuery {
+  pub fn to_ft_search_query(&self) -> String {
+    format!(
+      "({})=>[KNN {} @embedding $BLOB as distance]",
+      self.filters.to_ft_search_query(),
+      self.limit,
+    )
   }
 }
 
@@ -169,6 +197,7 @@ impl SpotifyTrackSearchIndex {
     Ok(())
   }
 
+  #[instrument(skip(self))]
   pub async fn search(
     &self,
     query: &SpotifyTrackQuery,
@@ -203,5 +232,42 @@ impl SpotifyTrackSearchIndex {
       tracks,
       total: result.total_results,
     })
+  }
+
+  #[instrument(skip(self))]
+  pub async fn embedding_similarity_search(
+    &self,
+    query: &SpotifyTrackEmbeddingSimilaritySearchQuery,
+  ) -> Result<Vec<(SpotifyTrackSearchRecord, f32)>> {
+    let search_result = self
+      .redis_connection_pool
+      .get()
+      .await?
+      .ft_search(
+        self.version_manager.latest_index_name(),
+        query.to_ft_search_query(),
+        FtSearchOptions::default()
+          .params(("BLOB", embedding_to_bytes(&query.embedding)))
+          .dialect(2)
+          .limit(0, query.limit)
+          .sortby("distance", SortOrder::Asc),
+      )
+      .await?;
+    let results = search_result
+      .results
+      .into_iter()
+      .filter_map(|row| {
+        let distance = row
+          .values
+          .get(0)
+          .map(|(_, distance)| distance.parse::<f32>().ok())??;
+        let track = row
+          .values
+          .get(1)
+          .and_then(|(_, json)| serde_json::from_str::<SpotifyTrackSearchRecord>(json).ok())?;
+        Some((track, distance))
+      })
+      .collect::<Vec<_>>();
+    Ok(results)
   }
 }

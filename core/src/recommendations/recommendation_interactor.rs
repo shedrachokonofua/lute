@@ -6,21 +6,27 @@ use super::{
   quantile_ranking::quantile_rank_interactor::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAssessableAlbum, QuantileRankInteractor,
   },
+  spotify_track_search_index::{
+    SpotifyTrackEmbeddingSimilaritySearchQuery, SpotifyTrackQueryBuilder, SpotifyTrackSearchIndex,
+  },
   types::{
     AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
     RecommendationMethodInteractor,
   },
 };
 use crate::{
-  albums::{album_repository::AlbumRepository, album_search_index::AlbumSearchIndex},
+  albums::{album_read_model::AlbumReadModel, album_repository::AlbumRepository},
+  context::ApplicationContext,
   files::file_metadata::file_name::FileName,
-  profile::{profile::ProfileId, profile_interactor::ProfileInteractor},
-  settings::Settings,
-  spotify::spotify_client::SpotifyClient,
-  sqlite::SqliteConnection,
+  helpers::math::average_embedding,
+  profile::{
+    profile::{Profile, ProfileId},
+    profile_interactor::ProfileInteractor,
+  },
+  spotify::spotify_client::SpotifyTrackReference,
 };
 use anyhow::Result;
-use rustis::{bb8::Pool, client::PooledClientManager};
+use futures::future::join_all;
 use std::sync::Arc;
 
 pub enum AlbumAssessmentSettings {
@@ -33,31 +39,40 @@ pub struct RecommendationInteractor {
   embedding_similarity_interactor: EmbeddingSimilarityInteractor,
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   profile_interactor: ProfileInteractor,
+  spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
 }
 
 impl RecommendationInteractor {
-  pub fn new(
-    settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
-    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
-    album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
-    spotify_client: Arc<SpotifyClient>,
-  ) -> Self {
+  pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(&album_search_index)),
-      embedding_similarity_interactor: EmbeddingSimilarityInteractor::new(Arc::clone(
-        &album_search_index,
+      quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(
+        &app_context.album_search_index,
       )),
-      album_repository: Arc::clone(&album_repository),
+      embedding_similarity_interactor: EmbeddingSimilarityInteractor::new(Arc::clone(
+        &app_context.album_search_index,
+      )),
+      album_repository: Arc::clone(&app_context.album_repository),
       profile_interactor: ProfileInteractor::new(
-        settings,
-        redis_connection_pool,
-        sqlite_connection,
-        Arc::clone(&album_repository),
-        spotify_client,
+        Arc::clone(&app_context.settings),
+        Arc::clone(&app_context.redis_connection_pool),
+        Arc::clone(&app_context.sqlite_connection),
+        Arc::clone(&app_context.album_repository),
+        Arc::clone(&app_context.spotify_client),
       ),
+      spotify_track_search_index: Arc::clone(&app_context.spotify_track_search_index),
     }
+  }
+
+  async fn get_profile_and_albums(
+    &self,
+    profile_id: &ProfileId,
+  ) -> Result<(Profile, Vec<AlbumReadModel>)> {
+    let profile = self.profile_interactor.get_profile(profile_id).await?;
+    let albums = self
+      .album_repository
+      .find_many(profile.album_file_names())
+      .await?;
+    Ok((profile, albums))
   }
 
   pub async fn assess_album(
@@ -66,11 +81,7 @@ impl RecommendationInteractor {
     album_file_name: &FileName,
     settings: AlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
-    let profile = self.profile_interactor.get_profile(profile_id).await?;
-    let albums = self
-      .album_repository
-      .find_many(profile.album_file_names())
-      .await?;
+    let (profile, albums) = self.get_profile_and_albums(profile_id).await?;
     let album = self.album_repository.get(album_file_name).await?;
     match settings {
       AlbumAssessmentSettings::QuantileRank(settings) => {
@@ -98,31 +109,109 @@ impl RecommendationInteractor {
     }
   }
 
+  async fn recommend_albums_with_profile(
+    &self,
+    assessment_settings: AlbumAssessmentSettings,
+    recommendation_settings: AlbumRecommendationSettings,
+    profile: &Profile,
+    profile_albums: &Vec<AlbumReadModel>,
+  ) -> Result<Vec<AlbumRecommendation>> {
+    match assessment_settings {
+      AlbumAssessmentSettings::QuantileRank(settings) => {
+        self
+          .quantile_rank_interactor
+          .recommend_albums(profile, profile_albums, settings, recommendation_settings)
+          .await
+      }
+      AlbumAssessmentSettings::EmbeddingSimilarity(settings) => {
+        self
+          .embedding_similarity_interactor
+          .recommend_albums(profile, profile_albums, settings, recommendation_settings)
+          .await
+      }
+    }
+  }
+
   pub async fn recommend_albums(
     &self,
     profile_id: &ProfileId,
     assessment_settings: AlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
-    let profile = self.profile_interactor.get_profile(profile_id).await?;
-    let albums = self
-      .album_repository
-      .find_many(profile.album_file_names())
-      .await?;
+    let (profile, albums) = self.get_profile_and_albums(profile_id).await?;
+    self
+      .recommend_albums_with_profile(
+        assessment_settings,
+        recommendation_settings,
+        &profile,
+        &albums,
+      )
+      .await
+  }
 
-    match assessment_settings {
-      AlbumAssessmentSettings::QuantileRank(settings) => {
-        self
-          .quantile_rank_interactor
-          .recommend_albums(&profile, &albums, settings, recommendation_settings)
-          .await
-      }
-      AlbumAssessmentSettings::EmbeddingSimilarity(settings) => {
-        self
-          .embedding_similarity_interactor
-          .recommend_albums(&profile, &albums, settings, recommendation_settings)
-          .await
-      }
-    }
+  pub async fn draft_recommendation_spotify_playlist(
+    &self,
+    profile_id: &ProfileId,
+    assessment_settings: AlbumAssessmentSettings,
+    recommendation_settings: AlbumRecommendationSettings,
+  ) -> Result<Vec<SpotifyTrackReference>> {
+    let (profile, profile_albums) = self.get_profile_and_albums(profile_id).await?;
+    let profile_tracks = self
+      .spotify_track_search_index
+      .search(
+        &SpotifyTrackQueryBuilder::default()
+          .include_album_file_names(profile.album_file_names())
+          .build()?,
+        None,
+      )
+      .await?;
+    let profile_embedding = average_embedding(
+      profile_tracks
+        .tracks
+        .iter()
+        .map(|track| {
+          (
+            &track.embedding,
+            profile
+              .albums
+              .get(&track.album_file_name)
+              .map(|i| *i)
+              .unwrap_or(1),
+          )
+        })
+        .collect::<Vec<_>>(),
+    );
+    let recommendations = self
+      .recommend_albums_with_profile(
+        assessment_settings,
+        recommendation_settings,
+        &profile,
+        &profile_albums,
+      )
+      .await?;
+    let recommendation_tracks = join_all(
+      recommendations
+        .iter()
+        .map(|recommendation| async {
+          let track = self
+            .spotify_track_search_index
+            .embedding_similarity_search(&SpotifyTrackEmbeddingSimilaritySearchQuery {
+              embedding: profile_embedding.clone(),
+              filters: SpotifyTrackQueryBuilder::default()
+                .include_album_file_names(vec![recommendation.album.file_name.clone()])
+                .build()?,
+              limit: 1,
+            })
+            .await?;
+          Ok(track.into_iter().next())
+        })
+        .collect::<Vec<_>>(),
+    )
+    .await
+    .into_iter()
+    .filter_map(|result| result.map(|r| r.map(|(t, _)| t.into())).transpose())
+    .collect::<Result<Vec<SpotifyTrackReference>>>()?;
+
+    Ok(recommendation_tracks)
   }
 }

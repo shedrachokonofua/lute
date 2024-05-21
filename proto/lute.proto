@@ -656,11 +656,21 @@ message DefaultQuantileRankAlbumAssessmentSettingsReply {
   QuantileRankAlbumAssessmentSettings settings = 1;
 }
 
+message DraftSpotifyPlaylistRequest {
+  string profile_id = 1;
+  optional AlbumRecommendationSettings recommendation_settings = 2;
+  optional AlbumAssessmentSettings assessment_settings = 3;
+}
+
+message DraftSpotifyPlaylistReply { repeated SpotifyTrackReference tracks = 1; }
+
 service RecommendationService {
   rpc AssessAlbum(AssessAlbumRequest) returns (AssessAlbumReply) {}
   rpc RecommendAlbums(RecommendAlbumsRequest) returns (RecommendAlbumsReply) {}
   rpc DefaultQuantileRankAlbumAssessmentSettings(google.protobuf.Empty)
       returns (DefaultQuantileRankAlbumAssessmentSettingsReply) {}
+  rpc DraftSpotifyPlaylist(DraftSpotifyPlaylistRequest)
+      returns (DraftSpotifyPlaylistReply) {}
 }
 
 message FileSavedEvent {

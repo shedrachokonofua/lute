@@ -2,7 +2,7 @@ use super::spotify_credential_repository::{
   SpotifyCredentialRepository, SpotifyCredentials, SCOPES,
 };
 use crate::{
-  albums::album_read_model::AlbumReadModel, helpers::key_value_store::KeyValueStore,
+  albums::album_read_model::AlbumReadModel, helpers::key_value_store::KeyValueStore, proto,
   settings::SpotifySettings,
 };
 use anyhow::{anyhow, Error, Result};
@@ -72,6 +72,15 @@ pub struct SpotifyArtistReference {
   pub name: String,
 }
 
+impl Into<proto::SpotifyArtistReference> for SpotifyArtistReference {
+  fn into(self) -> proto::SpotifyArtistReference {
+    proto::SpotifyArtistReference {
+      spotify_id: self.spotify_id,
+      name: self.name,
+    }
+  }
+}
+
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum SpotifyAlbumType {
   Album,
@@ -84,6 +93,16 @@ pub struct SpotifyTrackReference {
   pub spotify_id: String,
   pub name: String,
   pub artists: Vec<SpotifyArtistReference>,
+}
+
+impl Into<proto::SpotifyTrackReference> for SpotifyTrackReference {
+  fn into(self) -> proto::SpotifyTrackReference {
+    proto::SpotifyTrackReference {
+      spotify_id: self.spotify_id,
+      name: self.name,
+      artists: self.artists.into_iter().map(Into::into).collect(),
+    }
+  }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
