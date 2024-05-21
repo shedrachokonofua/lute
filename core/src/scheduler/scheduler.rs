@@ -119,21 +119,18 @@ impl Scheduler {
       loop {
         match scheduler_repository.get_pending_jobs().await {
           Ok(pending_jobs) => {
-            let inactive_pending_jobs = {
-              let active_jobs = active_jobs.read().await;
-              pending_jobs
-                .into_iter()
-                .filter(|job| !active_jobs.contains(&job.id.to_string()))
-                .collect::<Vec<_>>()
-            };
-            for job in inactive_pending_jobs {
+            for job in pending_jobs {
+              if active_jobs.read().await.contains(&job.id.to_string()) {
+                info!(job_id = job.id.as_str(), "Job already running, skipping");
+                continue;
+              }
               if let Some(processor) = processor_registry.write().await.get(&job.name) {
                 let processor = Arc::clone(&processor);
                 let scheduler_repository = Arc::clone(&scheduler_repository);
                 let app_context = Arc::clone(&app_context);
                 let active_jobs = Arc::clone(&active_jobs);
+                active_jobs.write().await.insert(job.id.to_string());
                 spawn(async move {
-                  active_jobs.write().await.insert(job.id.to_string());
                   match processor(JobProcessorContext {
                     payload: job.payload,
                     app_context,
