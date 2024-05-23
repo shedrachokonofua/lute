@@ -543,6 +543,7 @@ impl SpotifyClient {
 
         if let Some(simplified_album) = match_album {
           info!(
+            file_name = album.file_name.to_string(),
             name = album.name.clone(),
             spotify_name = simplified_album.name.clone(),
             candidate_count,
@@ -554,6 +555,11 @@ impl SpotifyClient {
 
           Ok(Some(get_spotify_album(simplified_album, tracks)))
         } else {
+          warn!(
+            file_name = album.file_name.to_string(),
+            name = album.name.clone(),
+            "No matching album found"
+          );
           Ok(None)
         }
       }
