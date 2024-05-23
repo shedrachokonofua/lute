@@ -17,11 +17,3 @@ scrape_configs:
       - source_labels: ["__meta_docker_container_name"]
         regex: "/(.*)"
         target_label: "container"
-    pipeline_stages:
-      - json:
-          expressions:
-            level: level
-            fields: fields
-      - labels:
-          level:
-          fields:
