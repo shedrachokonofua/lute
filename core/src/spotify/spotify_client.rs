@@ -543,8 +543,10 @@ impl SpotifyClient {
 
         if let Some(simplified_album) = match_album {
           info!(
-            name = simplified_album.name.clone(),
-            candidate_count, "Found matching album"
+            name = album.name.clone(),
+            spotify_name = simplified_album.name.clone(),
+            candidate_count,
+            "Found matching album"
           );
           let tracks = self
             .album_track(simplified_album.id.clone().unwrap())
