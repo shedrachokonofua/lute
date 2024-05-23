@@ -25,7 +25,7 @@ use std::{collections::HashMap, sync::Arc};
 use strsim::jaro_winkler;
 use thiserror::Error;
 use tokio::sync::mpsc::unbounded_channel;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 use unidecode::unidecode;
 
 lazy_static! {
@@ -535,12 +535,17 @@ impl SpotifyClient {
           candidates.push((item, name_similarity));
         }
 
+        let candidate_count = candidates.len();
         let match_album = candidates
           .into_iter()
           .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
           .map(|(item, _)| item);
 
         if let Some(simplified_album) = match_album {
+          info!(
+            name = simplified_album.name.clone(),
+            candidate_count, "Found matching album"
+          );
           let tracks = self
             .album_track(simplified_album.id.clone().unwrap())
             .await?;

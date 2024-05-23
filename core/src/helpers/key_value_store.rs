@@ -73,8 +73,7 @@ impl KeyValueStore {
   }
 
   #[tracing::instrument(name = "KeyValueStore::exists", skip(self))]
-  pub async fn exists(&self, key: &str) -> Result<bool> {
-    let key = key.to_string();
+  pub async fn exists(&self, key: String) -> Result<bool> {
     let exists = self
       .sqlite_connection
       .read()

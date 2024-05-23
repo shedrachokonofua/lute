@@ -17,7 +17,7 @@ use crate::{
   spotify::spotify_client::SpotifyClientError,
 };
 use anyhow::Result;
-use chrono::{Datelike, Local, TimeDelta};
+use chrono::{Datelike, Duration, Local, TimeDelta};
 use futures::future::try_join_all;
 use std::{collections::HashMap, sync::Arc};
 use tracing::{error, info, warn};
@@ -156,9 +156,39 @@ async fn get_spotify_track_search_records(
     })
     .collect::<Vec<_>>();
 
+  let track_ids = tracks
+    .iter()
+    .map(|(id, _)| id.to_string())
+    .collect::<Vec<_>>();
+  let tracks_exists = try_join_all(track_ids.iter().map(|id| {
+    app_context
+      .kv
+      .exists(format!("spotify_track_embedding:{}", id.clone()))
+  }))
+  .await?;
+  let track_ids_count = track_ids.len();
+  let missing_tracks = tracks
+    .into_iter()
+    .zip(tracks_exists)
+    .filter_map(
+      |((id, record), exists)| {
+        if !exists {
+          Some((id, record))
+        } else {
+          None
+        }
+      },
+    )
+    .collect::<Vec<_>>();
+  info!(
+    cache_misses = missing_tracks.len(),
+    cache_hits = track_ids_count - missing_tracks.len(),
+    "Getting uncached embeddings for tracks"
+  );
+
   let mut track_embeddings: HashMap<String, Vec<f32>> = HashMap::new();
 
-  for chunk in tracks.chunks(100) {
+  for chunk in missing_tracks.chunks(100) {
     let track_ids = chunk
       .iter()
       .map(|(id, _)| id.to_string())
@@ -173,7 +203,7 @@ async fn get_spotify_track_search_records(
     });
   }
 
-  let tracks = tracks
+  let tracks = missing_tracks
     .into_iter()
     .map(|(id, mut record)| {
       record.embedding = track_embeddings.remove(&id).unwrap_or_default();
@@ -213,6 +243,14 @@ pub async fn save_album_spotify_tracks(
   match get_spotify_track_search_records(Arc::clone(&app_context), parsed_albums).await {
     Ok(records) => {
       for record in records {
+        app_context
+          .kv
+          .set(
+            format!("spotify_track_embedding:{}", &record.spotify_id).as_str(),
+            record.embedding.clone(),
+            Duration::try_weeks(4).map(|d| d.to_std()).transpose()?,
+          )
+          .await?;
         app_context.spotify_track_search_index.put(record).await?;
       }
     }
