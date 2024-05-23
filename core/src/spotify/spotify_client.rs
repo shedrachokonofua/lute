@@ -29,7 +29,7 @@ use tracing::{debug, error, info, warn};
 use unidecode::unidecode;
 
 lazy_static! {
-  static ref RATE_LIMITER: DefaultDirectRateLimiter = RateLimiter::direct(Quota::per_second(nonzero!(2u32))); // API limit is 180/min
+  static ref RATE_LIMITER: DefaultDirectRateLimiter = RateLimiter::direct(Quota::per_minute(nonzero!(150u32))); // API limit is 180/min
 }
 
 #[derive(Error, Debug)]
