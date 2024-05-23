@@ -3,6 +3,7 @@ use crate::{
   albums::album_read_model::AlbumReadModel,
   context::ApplicationContext,
   crawler::priority_queue::{Priority, QueuePushParameters},
+  event_handler,
   events::{
     event::{Event, Topic},
     event_subscriber::{
@@ -21,6 +22,7 @@ use tracing::{error, info, warn};
 async fn crawl_similar_albums(
   event_data: EventData,
   app_context: Arc<ApplicationContext>,
+  _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::ProfileAlbumAdded { file_name, .. } = event_data.payload.event {
     let album = app_context.album_repository.get(&file_name).await?;
@@ -190,27 +192,17 @@ pub fn build_recommendation_event_subscribers(
 ) -> Result<Vec<EventSubscriber>> {
   Ok(vec![
     EventSubscriberBuilder::default()
-      .id("crawl_similar_albums".to_string())
+      .id("crawl_similar_albums")
       .topic(Topic::Profile)
       .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handler(EventHandler::Single(Arc::new(
-        move |(event_data, app_context, _)| Box::pin(crawl_similar_albums(event_data, app_context)),
-      )))
+      .handler(event_handler!(crawl_similar_albums))
       .build()?,
     EventSubscriberBuilder::default()
-      .id("save_album_spotify_tracks".to_string())
+      .id("save_album_spotify_tracks")
       .topic(Topic::Parser)
       .app_context(Arc::clone(&app_context))
-      .handler(EventHandler::Single(Arc::new(
-        move |(event_data, app_context, subscriber_interactor)| {
-          Box::pin(save_album_spotify_tracks(
-            event_data,
-            app_context,
-            subscriber_interactor,
-          ))
-        },
-      )))
+      .handler(event_handler!(save_album_spotify_tracks))
       .build()?,
   ])
 }

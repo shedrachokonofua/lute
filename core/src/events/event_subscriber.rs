@@ -3,7 +3,7 @@ use super::event_subscriber_repository::{
   EventList, EventRow, EventSubscriberRepository, EventSubscriberStatus,
 };
 use crate::context::ApplicationContext;
-use crate::helpers::ThreadSafeAsyncFn;
+use crate::helpers::async_utils::ThreadSafeAsyncFn;
 use crate::scheduler::job_name::JobName;
 use crate::scheduler::scheduler::{JobParametersBuilder, Scheduler};
 use anyhow::Result;
@@ -196,6 +196,38 @@ pub enum EventHandler {
    * The handler will be called once with all the events in the group.
    */
   Group(EventHandlerFn<Vec<EventData>>),
+}
+
+#[macro_export]
+macro_rules! event_handler {
+  ($f:expr) => {{
+    fn f(
+      (event, app_context, interactor): (
+        EventData,
+        Arc<ApplicationContext>,
+        Arc<EventSubscriberInteractor>,
+      ),
+    ) -> impl futures::Future<Output = Result<(), anyhow::Error>> + Send + 'static {
+      $f(event, app_context, interactor)
+    }
+    EventHandler::Single(crate::helpers::async_utils::async_callback(f))
+  }};
+}
+
+#[macro_export]
+macro_rules! group_event_handler {
+  ($f:expr) => {{
+    fn f(
+      (event, app_context, interactor): (
+        Vec<EventData>,
+        Arc<ApplicationContext>,
+        Arc<EventSubscriberInteractor>,
+      ),
+    ) -> impl futures::Future<Output = Result<(), anyhow::Error>> + Send + 'static {
+      $f(event, app_context, interactor)
+    }
+    EventHandler::Group(crate::helpers::async_utils::async_callback(f))
+  }};
 }
 
 impl EventHandler {

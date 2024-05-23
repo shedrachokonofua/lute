@@ -9,10 +9,12 @@ use super::{
 use crate::{
   context::ApplicationContext,
   crawler::priority_queue::{Priority, QueuePushParameters},
+  event_handler,
   events::{
     event::{Event, Topic},
     event_subscriber::{
-      EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, GroupingStrategy,
+      EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, EventSubscriberInteractor,
+      GroupingStrategy,
     },
   },
   parser::parsed_file_data::{ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack},
@@ -67,6 +69,7 @@ impl AlbumSubscriberContext {
 async fn update_album_read_models(
   event_data: EventData,
   app_context: Arc<ApplicationContext>,
+  _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::FileParsed {
     file_id: _,
@@ -86,6 +89,7 @@ async fn update_album_read_models(
 async fn delete_album_read_models(
   event_data: EventData,
   app_context: Arc<ApplicationContext>,
+  _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::FileDeleted { file_name, .. } = &event_data.payload.event {
     AlbumSubscriberContext::new(app_context)
@@ -111,6 +115,7 @@ fn get_crawl_priority(correlation_id: Option<String>) -> Priority {
 async fn crawl_chart_albums(
   event_data: EventData,
   app_context: Arc<ApplicationContext>,
+  _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::FileParsed {
     file_id: _,
@@ -138,6 +143,7 @@ async fn crawl_chart_albums(
 async fn crawl_artist_albums(
   event_data: EventData,
   app_context: Arc<ApplicationContext>,
+  _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::FileParsed {
     file_id: _,
@@ -232,11 +238,7 @@ pub fn build_album_event_subscribers(
           _ => "".to_string(),
         }
       })))
-      .handler(EventHandler::Single(Arc::new(
-        |(event_data, app_context, _)| {
-          Box::pin(async move { update_album_read_models(event_data, app_context).await })
-        },
-      )))
+      .handler(event_handler!(update_album_read_models))
       .build()?,
     EventSubscriberBuilder::default()
       .id("delete_album_read_models")
@@ -249,33 +251,21 @@ pub fn build_album_event_subscribers(
           _ => "".to_string(),
         }
       })))
-      .handler(EventHandler::Single(Arc::new(
-        |(event_data, app_context, _)| {
-          Box::pin(async move { delete_album_read_models(event_data, app_context).await })
-        },
-      )))
+      .handler(event_handler!(delete_album_read_models))
       .build()?,
     EventSubscriberBuilder::default()
       .id("crawl_chart_albums")
       .topic(Topic::Parser)
       .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handler(EventHandler::Single(Arc::new(
-        |(event_data, app_context, _)| {
-          Box::pin(async move { crawl_chart_albums(event_data, app_context).await })
-        },
-      )))
+      .handler(event_handler!(crawl_chart_albums))
       .build()?,
     EventSubscriberBuilder::default()
       .id("crawl_artist_albums")
       .topic(Topic::Parser)
       .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handler(EventHandler::Single(Arc::new(
-        |(event_data, app_context, _)| {
-          Box::pin(async move { crawl_artist_albums(event_data, app_context).await })
-        },
-      )))
+      .handler(event_handler!(crawl_artist_albums))
       .build()?,
   ];
   subscribers.append(&mut build_embedding_provider_event_subscribers(

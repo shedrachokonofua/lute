@@ -1,9 +1,12 @@
+use super::profile_interactor::ProfileInteractor;
 use crate::{
   context::ApplicationContext,
+  event_handler,
   events::{
     event::{Event, Topic},
     event_subscriber::{
-      EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, GroupingStrategy,
+      EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, EventSubscriberInteractor,
+      GroupingStrategy,
     },
   },
   lookup::album_search_lookup::AlbumSearchLookup,
@@ -11,11 +14,10 @@ use crate::{
 use anyhow::Result;
 use std::sync::Arc;
 
-use super::profile_interactor::ProfileInteractor;
-
 pub async fn process_lookup_subscriptions(
   event_data: EventData,
   app_context: Arc<ApplicationContext>,
+  _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   let profile_interactor = ProfileInteractor::new(
     Arc::clone(&app_context.settings),
@@ -56,15 +58,11 @@ pub fn build_spotify_import_event_subscribers(
   app_context: Arc<ApplicationContext>,
 ) -> Result<Vec<EventSubscriber>> {
   Ok(vec![EventSubscriberBuilder::default()
-    .id("profile_spotify_import".to_string())
+    .id("profile_spotify_import")
     .topic(Topic::Lookup)
     .batch_size(250)
     .app_context(Arc::clone(&app_context))
     .grouping_strategy(GroupingStrategy::GroupByCorrelationId)
-    .handler(EventHandler::Single(Arc::new(
-      move |(event_data, app_context, _)| {
-        Box::pin(async move { process_lookup_subscriptions(event_data, app_context).await })
-      },
-    )))
+    .handler(event_handler!(process_lookup_subscriptions))
     .build()?])
 }

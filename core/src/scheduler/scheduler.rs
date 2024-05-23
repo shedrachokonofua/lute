@@ -2,7 +2,9 @@ use super::{
   job_name::JobName,
   scheduler_repository::{Job, SchedulerRepository},
 };
-use crate::{context::ApplicationContext, helpers::ThreadSafeAsyncFn, sqlite::SqliteConnection};
+use crate::{
+  context::ApplicationContext, helpers::async_utils::ThreadSafeAsyncFn, sqlite::SqliteConnection,
+};
 use anyhow::Result;
 use chrono::{NaiveDateTime, TimeDelta};
 use derive_builder::Builder;
