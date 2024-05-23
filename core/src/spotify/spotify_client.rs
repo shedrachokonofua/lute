@@ -25,7 +25,7 @@ use std::{collections::HashMap, sync::Arc};
 use strsim::jaro_winkler;
 use thiserror::Error;
 use tokio::sync::mpsc::unbounded_channel;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 use unidecode::unidecode;
 
 lazy_static! {
@@ -470,7 +470,7 @@ impl SpotifyClient {
     self.wait_for_rate_limit().await;
     let client = self.client().await?;
     let result = client
-      .search(query.as_str(), SearchType::Album, None, None, Some(1), None)
+      .search(query.as_str(), SearchType::Album, None, None, Some(5), None)
       .await
       .map_err(map_spotify_error)?;
     Ok(result)
@@ -510,20 +510,37 @@ impl SpotifyClient {
       album.name.clone()
     );
     match self.search(query).await? {
-      SearchResult::Albums(mut page) => {
-        if let Some(simplified_album) = page.items.pop() {
+      SearchResult::Albums(page) => {
+        let mut candidates = vec![];
+        for item in page.items.into_iter() {
           let name_similarity = jaro_winkler(
-            &unidecode(&simplified_album.name).to_ascii_lowercase(),
+            &unidecode(&item.name).to_ascii_lowercase(),
             &album.ascii_name().to_ascii_lowercase(),
           );
           if name_similarity < 0.8 {
-            warn!(
+            debug!(
               "Album name similarity({}) is too low: {} vs {}",
-              name_similarity, simplified_album.name, album.name
+              name_similarity, item.name, album.name
             );
-            return Ok(None);
+            continue;
           }
+          if item
+            .album_type
+            .clone()
+            .is_some_and(|t| t.eq_ignore_ascii_case("single"))
+          {
+            debug!("Skipping single album: {}", item.name);
+            continue;
+          }
+          candidates.push((item, name_similarity));
+        }
 
+        let match_album = candidates
+          .into_iter()
+          .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+          .map(|(item, _)| item);
+
+        if let Some(simplified_album) = match_album {
           let tracks = self
             .album_track(simplified_album.id.clone().unwrap())
             .await?;
