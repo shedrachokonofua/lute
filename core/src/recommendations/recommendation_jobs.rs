@@ -6,7 +6,7 @@ use crate::{
     scheduler::{JobExecutorFn, JobProcessorBuilder},
     scheduler_repository::Job,
   },
-  spotify::spotify_client::SpotifyClientError,
+  spotify::spotify_client::get_spotify_retry_after,
 };
 use anyhow::Result;
 use chrono::TimeDelta;
@@ -36,19 +36,16 @@ async fn index_spotify_tracks(jobs: Vec<Job>, app_context: Arc<ApplicationContex
     .await
     .inspect_err(|e| {
       error!(e = e.to_string(), "Failed to get spotify track records");
-      if let Some(SpotifyClientError::TooManyRequests(retry_after)) = e.downcast_ref() {
-        let duration = retry_after
-          .and_then(|s| TimeDelta::try_seconds(s as i64 * 2))
-          .unwrap_or(TimeDelta::try_hours(1).unwrap());
+      if let Some(retry_after) = get_spotify_retry_after(e) {
         info!(
-          seconds = duration.num_seconds(),
+          seconds = retry_after.num_seconds(),
           "Pausing spotify track indexing job due to spotify rate limit"
         );
         let app_context = Arc::clone(&app_context);
         spawn(async move {
           if let Err(e) = app_context
             .scheduler
-            .pause_processor(&JobName::IndexSpotifyTracks, Some(duration))
+            .pause_processor(&JobName::IndexSpotifyTracks, Some(retry_after))
             .await
           {
             error!(e = e.to_string(), "Failed to pause processor");

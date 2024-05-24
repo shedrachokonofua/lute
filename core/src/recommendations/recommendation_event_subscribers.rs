@@ -14,10 +14,10 @@ use crate::{
   helpers::priority::Priority,
   parser::parsed_file_data::ParsedFileData,
   scheduler::{job_name::JobName, scheduler::JobParametersBuilder},
-  spotify::spotify_client::SpotifyClientError,
+  spotify::spotify_client::get_spotify_retry_after,
 };
 use anyhow::Result;
-use chrono::{Datelike, Duration, Local, TimeDelta};
+use chrono::{Datelike, Duration, Local};
 use std::sync::Arc;
 use tokio::spawn;
 use tracing::{error, info, warn};
@@ -149,17 +149,14 @@ pub async fn save_album_spotify_tracks(
       .await
       .inspect_err(|e| {
         error!(e = e.to_string(), "Failed to get spotify track records");
-        if let Some(SpotifyClientError::TooManyRequests(retry_after)) = e.downcast_ref() {
-          let duration = retry_after
-            .and_then(|s| TimeDelta::try_seconds(s as i64 * 2))
-            .unwrap_or(TimeDelta::try_hours(1).unwrap());
+        if let Some(retry_after) = get_spotify_retry_after(e) {
           info!(
-            seconds = duration.num_seconds(),
+            seconds = retry_after.num_seconds(),
             "Pausing spotify track indexing job due to spotify rate limit"
           );
 
           spawn(async move {
-            if let Err(e) = subscriber_interactor.pause_for(duration).await {
+            if let Err(e) = subscriber_interactor.pause_for(retry_after).await {
               error!(e = e.to_string(), "Failed to pause processor");
             }
           });

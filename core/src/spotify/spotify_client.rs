@@ -6,7 +6,7 @@ use crate::{
   settings::SpotifySettings,
 };
 use anyhow::{anyhow, Error, Result};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use futures::stream::TryStreamExt;
 use governor::{DefaultDirectRateLimiter, Jitter, Quota, RateLimiter};
 use lazy_static::lazy_static;
@@ -330,6 +330,16 @@ fn map_spotify_error(err: ClientError) -> SpotifyClientError {
     }
   }
   SpotifyClientError::Unknown(err)
+}
+
+pub fn get_spotify_retry_after(err: &Error) -> Option<TimeDelta> {
+  if let Some(SpotifyClientError::TooManyRequests(retry_after)) = err.downcast_ref() {
+    retry_after
+      .and_then(|s| TimeDelta::try_seconds(s as i64))
+      .or_else(|| TimeDelta::try_hours(1))
+  } else {
+    None
+  }
 }
 
 pub struct SpotifyClient {
