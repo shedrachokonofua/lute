@@ -54,7 +54,7 @@ impl SchedulerRepository {
             last_execution = excluded.last_execution, 
             interval_seconds = excluded.interval_seconds,
             payload = excluded.payload,
-            priority = excluded.priority
+            priority = excluded.priority,
             created_at = excluded.created_at
           ",
         )?;
