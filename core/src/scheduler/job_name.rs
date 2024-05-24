@@ -9,4 +9,5 @@ pub enum JobName {
   ChangeEventSubscriberStatus,
   DeleteExpiredKVItems,
   IndexSpotifyTracks,
+  ParserRetry,
 }

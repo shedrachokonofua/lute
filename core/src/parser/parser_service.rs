@@ -8,19 +8,13 @@ use super::{
 };
 use crate::{
   context::ApplicationContext,
-  events::event_publisher::EventPublisher,
-  files::{
-    file_content_store::FileContentStore,
-    file_interactor::FileInteractor,
-    file_metadata::{file_name::FileName, page_type::PageType},
-  },
-  helpers::fifo_queue::FifoQueue,
+  files::file_metadata::{file_name::FileName, page_type::PageType},
   proto::{
     self, EnqueueRetriesRequest, GetAggregatedFailureErrorsReply,
     GetAggregatedFailureErrorsRequest, ParseFileOnContentStoreReply,
     ParseFileOnContentStoreRequest,
   },
-  settings::Settings,
+  scheduler::{job_name::JobName, scheduler::JobParametersBuilder},
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -30,10 +24,7 @@ use ulid::Ulid;
 
 pub struct ParserService {
   failed_parse_files_repository: FailedParseFilesRepository,
-  file_interactor: Arc<FileInteractor>,
-  settings: Arc<Settings>,
-  parser_retry_queue: Arc<FifoQueue<FileName>>,
-  event_publisher: Arc<EventPublisher>,
+  app_context: Arc<ApplicationContext>,
 }
 
 impl TryFrom<i32> for PageType {
@@ -196,10 +187,7 @@ impl ParserService {
       failed_parse_files_repository: FailedParseFilesRepository {
         redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
       },
-      file_interactor: Arc::clone(&app_context.file_interactor),
-      parser_retry_queue: Arc::clone(&app_context.parser_retry_queue),
-      settings: Arc::clone(&app_context.settings),
-      event_publisher: Arc::clone(&app_context.event_publisher),
+      app_context,
     }
   }
 }
@@ -248,6 +236,7 @@ impl proto::ParserService for ParserService {
     let file_name = FileName::try_from(request.file_name.clone())
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
     let file_metadata = self
+      .app_context
       .file_interactor
       .get_file_metadata(&file_name)
       .await
@@ -255,13 +244,8 @@ impl proto::ParserService for ParserService {
         error!(err = e.to_string(), "Failed to get file metadata");
         Status::internal("Failed to get file metadata")
       })?;
-    let content_store = FileContentStore::new(&self.settings.file.content_store).map_err(|e| {
-      error!(err = e.to_string(), "Failed to create content store");
-      Status::internal("Failed to create content store")
-    })?;
     let parsed_data = parse_file_on_store(
-      content_store,
-      Arc::clone(&self.event_publisher),
+      Arc::clone(&self.app_context),
       file_metadata.id,
       file_name,
       Some(format!("rpc:{}", Ulid::new().to_string())),
@@ -291,14 +275,27 @@ impl proto::ParserService for ParserService {
         error!(err = err.to_string(), "failed to find many by error");
         Status::internal("failed to find many by error")
       })?;
-    self
-      .parser_retry_queue
-      .push_many(failures.into_iter().map(|val| val.file_name).collect())
-      .await
-      .map_err(|err| {
-        error!(err = err.to_string(), "failed to push many to queue");
-        Status::internal("failed to push many to queue")
-      })?;
+
+    for failure in failures {
+      self
+        .app_context
+        .scheduler
+        .put(
+          JobParametersBuilder::default()
+            .name(JobName::ParserRetry)
+            .payload(serde_json::to_vec(&failure.file_name).ok())
+            .build()
+            .map_err(|err| {
+              error!(err = err.to_string(), "failed to build job parameters");
+              Status::internal("failed to build job parameters")
+            })?,
+        )
+        .await
+        .map_err(|err| {
+          error!(err = err.to_string(), "failed to schedule job");
+          Status::internal("failed to schedule job")
+        })?;
+    }
     Ok(Response::new(()))
   }
 }

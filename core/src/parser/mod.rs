@@ -7,6 +7,6 @@ pub mod failed_parse_files_repository;
 pub mod parsed_file_data;
 pub mod parser;
 pub mod parser_event_subscribers;
+pub mod parser_jobs;
 pub mod parser_service;
-pub mod retry;
 mod util;

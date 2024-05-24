@@ -19,7 +19,7 @@
     - Web:
       - [ ] Add to docker image
     - Crawler:
-      - [ ] Migrate to SQLite
+      - [ ] Migrate to scheduler
       - [ ] RYM IP ban detection
       - [x] Automatic rate limit reset
       - [x] Make crawler proxy optional
@@ -30,6 +30,7 @@
       - [x] Duplicate album detection
 
 - Backlog:
+  - [ ] Parser: Extract album spotify link
   - [x] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
   - [x] Recommendations(Vector similarity): Album recommendations, rpc method
   - [x] Extension: Album assessment popup
@@ -39,7 +40,7 @@
   - [ ] Connector: P2P
   - [ ] SSL support
   - [x] Events: Subscriber monitor(status, etc)
-  - [ ] Events: Subscriber statuses, iterator reset
+  - [x] Events: Subscriber statuses, iterator reset
   - [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile
   - [ ] Lookup: Chart
   - [ ] Web(Recommendation page): Expose novelty score setting
@@ -47,12 +48,11 @@
   - [ ] Flag to rebuild redisearch indexes on startup
   - [x] Parser: Extract album cover image
   - [ ] Web(Recommendation page): Settings presets
-  - [ ] Parser: Extract album spotify link
-  - [ ] Album read model repository stats, rpc method
+  - [x] Album read model repository stats, rpc method
   - [ ] Parser: Retry queue monitor, rpc method
   - [ ] Profile: Import data from spotify most played tracks
   - [ ] Lookup: Artist
-  - [ ] Recommendations: Export to spotify playlist
+  - [x] Recommendations: Export to spotify playlist
   - [ ] Parser: Parser versioning, Target site change detection + playbook
   - [ ] Recommendations: T-SNE Visualization export
   - [ ] RYM Reviews: Crawl, parse, store, generate embeddings

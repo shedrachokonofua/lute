@@ -11,7 +11,6 @@ use crate::{
       EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, EventSubscriberInteractor,
     },
   },
-  files::file_content_store::FileContentStore,
 };
 use anyhow::Result;
 use chrono::Utc;
@@ -23,10 +22,8 @@ async fn parse_saved_file(
   _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::FileSaved { file_id, file_name } = event_data.payload.event {
-    let file_content_store = FileContentStore::new(&app_context.settings.file.content_store)?;
     parse_file_on_store(
-      file_content_store,
-      Arc::clone(&app_context.event_publisher),
+      app_context,
       file_id,
       file_name,
       event_data.payload.correlation_id,

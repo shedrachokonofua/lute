@@ -1,13 +1,8 @@
 use super::parsed_file_data::ParsedFileData;
 use crate::{
-  events::{
-    event::{Event, EventPayloadBuilder, Topic},
-    event_publisher::EventPublisher,
-  },
-  files::{
-    file_content_store::FileContentStore,
-    file_metadata::{file_name::FileName, page_type::PageType},
-  },
+  context::ApplicationContext,
+  events::event::{Event, EventPayloadBuilder, Topic},
+  files::file_metadata::{file_name::FileName, page_type::PageType},
   parser::{
     album::parse_album, album_search_result::parse_album_search_result, artist::parse_artist,
     chart::parse_chart,
@@ -18,15 +13,17 @@ use std::sync::Arc;
 use tracing::{info, instrument, warn};
 use ulid::Ulid;
 
-#[instrument(skip(file_content_store, event_publisher))]
+#[instrument(skip(app_context))]
 pub async fn parse_file_on_store(
-  file_content_store: FileContentStore,
-  event_publisher: Arc<EventPublisher>,
+  app_context: Arc<ApplicationContext>,
   file_id: Ulid,
   file_name: FileName,
   correlation_id: Option<String>,
 ) -> Result<ParsedFileData> {
-  let file_content = file_content_store.get(&file_name).await?;
+  let file_content = app_context
+    .file_interactor
+    .get_file_content(&file_name)
+    .await?;
 
   let parse_result: Result<ParsedFileData> = match file_name.page_type() {
     PageType::Chart => parse_chart(&file_content).map(ParsedFileData::Chart),
@@ -69,7 +66,8 @@ pub async fn parse_file_on_store(
     }
   };
 
-  event_publisher
+  app_context
+    .event_publisher
     .publish(
       Topic::Parser,
       EventPayloadBuilder::default()

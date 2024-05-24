@@ -7,8 +7,8 @@ use crate::{
   },
   crawler::crawler::Crawler,
   events::event_publisher::EventPublisher,
-  files::{file_interactor::FileInteractor, file_metadata::file_name::FileName},
-  helpers::{fifo_queue::FifoQueue, key_value_store::KeyValueStore},
+  files::file_interactor::FileInteractor,
+  helpers::key_value_store::KeyValueStore,
   recommendations::spotify_track_search_index::SpotifyTrackSearchIndex,
   redis::build_redis_connection_pool,
   scheduler::scheduler::Scheduler,
@@ -27,7 +27,6 @@ pub struct ApplicationContext {
   pub sqlite_connection: Arc<SqliteConnection>,
   pub kv: Arc<KeyValueStore>,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  pub parser_retry_queue: Arc<FifoQueue<FileName>>,
   pub crawler: Arc<Crawler>,
   pub album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
   pub album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
@@ -49,10 +48,6 @@ impl ApplicationContext {
     let kv = Arc::new(KeyValueStore::new(Arc::clone(&sqlite_connection)));
     let redis_connection_pool =
       Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
-    let parser_retry_queue: Arc<FifoQueue<FileName>> = Arc::new(FifoQueue::new(
-      Arc::clone(&redis_connection_pool),
-      "parser:retry",
-    ));
     let event_publisher = Arc::new(EventPublisher::new(
       Arc::clone(&settings),
       Arc::clone(&sqlite_connection),
@@ -93,7 +88,6 @@ impl ApplicationContext {
       sqlite_connection,
       kv,
       redis_connection_pool,
-      parser_retry_queue,
       crawler,
       album_repository,
       album_search_index,

@@ -308,6 +308,23 @@ impl SchedulerRepository {
       })?
   }
 
+  pub async fn delete_jobs_by_name(&self, job_name: JobName) -> Result<()> {
+    self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        let mut statement = conn.prepare("DELETE FROM scheduler_jobs WHERE name = ?")?;
+        statement.execute([job_name.to_string()])?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to delete jobs by name");
+        anyhow!("Failed to delete jobs by name")
+      })?
+  }
+
   pub async fn update_execution_times(
     &self,
     job_id: &str,

@@ -7,7 +7,7 @@ use core::{
   helpers::key_value_store::setup_kv_jobs,
   lookup::lookup_event_subscribers::build_lookup_event_subscribers,
   parser::{
-    parser_event_subscribers::build_parser_event_subscribers, retry::start_parser_retry_consumer,
+    parser_event_subscribers::build_parser_event_subscribers, parser_jobs::setup_parser_jobs,
   },
   profile::profile_event_subscribers::build_profile_event_subscribers,
   recommendations::{
@@ -43,6 +43,7 @@ async fn setup_jobs(context: Arc<ApplicationContext>) -> Result<()> {
   setup_crawler_jobs(Arc::clone(&context)).await?;
   setup_event_subscriber_jobs(Arc::clone(&context)).await?;
   setup_kv_jobs(Arc::clone(&context)).await?;
+  setup_parser_jobs(Arc::clone(&context)).await?;
   setup_recommendation_jobs(context).await?;
   Ok(())
 }
@@ -51,12 +52,10 @@ async fn setup_jobs(context: Arc<ApplicationContext>) -> Result<()> {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let context = ApplicationContext::init().await?;
   setup_redis_indexes(Arc::clone(&context)).await?;
-  start_parser_retry_consumer(Arc::clone(&context))?;
   start_event_subscribers(Arc::clone(&context))?;
   setup_jobs(Arc::clone(&context)).await?;
   context.scheduler.run().await?;
   context.crawler.run()?;
   RpcServer::new(context).run().await?;
-
   Ok(())
 }
