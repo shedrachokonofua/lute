@@ -10,8 +10,8 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::TimeDelta;
-use futures::executor;
 use std::sync::Arc;
+use tokio::spawn;
 use tracing::{error, info};
 
 use super::spotify_track_search_index::SpotifyTrackSearchRecord;
@@ -44,16 +44,20 @@ async fn index_spotify_tracks(jobs: Vec<Job>, app_context: Arc<ApplicationContex
           seconds = duration.num_seconds(),
           "Pausing spotify track indexing job due to spotify rate limit"
         );
-
-        if let Err(e) = executor::block_on(
-          app_context
+        let app_context = Arc::clone(&app_context);
+        spawn(async move {
+          if let Err(e) = app_context
             .scheduler
-            .pause_processor(&JobName::IndexSpotifyTracks, Some(duration)),
-        ) {
-          error!(e = e.to_string(), "Failed to pause processor");
-        }
+            .pause_processor(&JobName::IndexSpotifyTracks, Some(duration))
+            .await
+          {
+            error!(e = e.to_string(), "Failed to pause processor");
+          }
+        });
       }
     })?;
+
+  info!("Got embeddings for {} tracks", embeddings.len());
 
   let records = track_records
     .into_iter()

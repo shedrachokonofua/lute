@@ -514,12 +514,6 @@ impl SpotifyClient {
     );
     match self.search(query.clone()).await? {
       SearchResult::Albums(page) => {
-        info!(
-          file_name = album.file_name.to_string(),
-          query,
-          results = format!("{:?}", page),
-          "Spotify album search results"
-        );
         let mut candidates = vec![];
         for item in page.items.into_iter() {
           let name_similarity = jaro_winkler(

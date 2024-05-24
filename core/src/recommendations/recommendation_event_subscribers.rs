@@ -18,8 +18,8 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::{Datelike, Duration, Local, TimeDelta};
-use futures::executor;
 use std::sync::Arc;
+use tokio::spawn;
 use tracing::{error, info, warn};
 
 async fn crawl_similar_albums(
@@ -158,9 +158,11 @@ pub async fn save_album_spotify_tracks(
             "Pausing spotify track indexing job due to spotify rate limit"
           );
 
-          if let Err(e) = executor::block_on(subscriber_interactor.pause_for(duration)) {
-            error!(e = e.to_string(), "Failed to pause processor");
-          }
+          spawn(async move {
+            if let Err(e) = subscriber_interactor.pause_for(duration).await {
+              error!(e = e.to_string(), "Failed to pause processor");
+            }
+          });
         }
       })?;
 
