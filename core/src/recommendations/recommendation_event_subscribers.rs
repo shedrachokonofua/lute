@@ -2,7 +2,7 @@ use super::spotify_track_search_index::SpotifyTrackSearchRecord;
 use crate::{
   albums::album_read_model::AlbumReadModel,
   context::ApplicationContext,
-  crawler::priority_queue::QueuePushParameters,
+  crawler::crawler::QueuePushParameters,
   event_handler,
   events::{
     event::{Event, Topic},

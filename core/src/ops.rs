@@ -1,6 +1,6 @@
 use crate::{
   context::ApplicationContext,
-  crawler::{crawler::Crawler, priority_queue::QueuePushParametersBuilder},
+  crawler::crawler::{Crawler, QueuePushParametersBuilder},
   files::file_interactor::FileInteractor,
   helpers::{key_value_store::KeyValueStore, priority::Priority},
   parser::failed_parse_files_repository::FailedParseFilesRepository,

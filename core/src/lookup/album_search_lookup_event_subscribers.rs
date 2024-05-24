@@ -8,7 +8,7 @@ use super::{
 use crate::{
   albums::album_repository::AlbumRepository,
   context::ApplicationContext,
-  crawler::{crawler::Crawler, priority_queue::QueuePushParameters},
+  crawler::crawler::{Crawler, QueuePushParameters},
   events::{
     event::{Event, EventPayloadBuilder, Topic},
     event_publisher::EventPublisher,

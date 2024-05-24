@@ -1,7 +1,4 @@
-use super::{
-  crawler_state_repository::{CrawlerStateRepository, CrawlerStatus},
-  priority_queue::{ClaimedQueueItem, ItemKey, QueueItem, QueuePushParameters},
-};
+use super::crawler_state_repository::{CrawlerStateRepository, CrawlerStatus};
 use crate::{
   files::{file_interactor::FileInteractor, file_metadata::file_name::FileName},
   helpers::priority::Priority,
@@ -12,16 +9,81 @@ use crate::{
   },
   settings::Settings,
 };
-use anyhow::Result;
-use chrono::NaiveDateTime;
+use anyhow::{bail, Result};
+use chrono::{DateTime, NaiveDateTime};
+use derive_builder::Builder;
 use reqwest::Proxy;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_tracing::TracingMiddleware;
 use rustis::{bb8::Pool, client::PooledClientManager};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::{collections::HashMap, str::FromStr};
 use tokio::sync::Mutex;
 use tracing::instrument;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Builder)]
+#[builder(default, setter(strip_option, into))]
+pub struct QueuePushParameters {
+  pub file_name: FileName,
+  pub priority: Option<Priority>,
+  pub deduplication_key: Option<String>,
+  pub correlation_id: Option<String>,
+  pub metadata: Option<HashMap<String, String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ItemKey {
+  pub enqueue_time: NaiveDateTime,
+  pub deduplication_key: String,
+}
+
+impl ToString for ItemKey {
+  fn to_string(&self) -> String {
+    format!(
+      "{}:DELIMETER:{}",
+      self.enqueue_time.and_utc().timestamp(),
+      self.deduplication_key
+    )
+  }
+}
+
+impl FromStr for ItemKey {
+  type Err = anyhow::Error;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let parts: Vec<&str> = s.split(":DELIMETER:").collect();
+    if parts.len() != 2 {
+      bail!("Invalid queue item member string");
+    }
+    let enqueue_time = DateTime::from_timestamp(parts[0].parse::<i64>()?, 0);
+    if enqueue_time.is_none() {
+      bail!("Invalid queue item member string");
+    }
+    let deduplication_key = parts[1].to_string();
+    Ok(ItemKey {
+      enqueue_time: enqueue_time.unwrap().naive_utc(),
+      deduplication_key,
+    })
+  }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct QueueItem {
+  pub item_key: ItemKey,
+  pub enqueue_time: NaiveDateTime,
+  pub deduplication_key: String,
+  pub file_name: FileName,
+  pub priority: Priority,
+  pub correlation_id: Option<String>,
+  pub metadata: Option<HashMap<String, String>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ClaimedQueueItem {
+  pub item: QueueItem,
+  pub claim_ttl_seconds: u32,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CrawlJob {

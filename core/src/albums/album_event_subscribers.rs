@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
   context::ApplicationContext,
-  crawler::priority_queue::QueuePushParameters,
+  crawler::crawler::QueuePushParameters,
   event_handler,
   events::{
     event::{Event, Topic},

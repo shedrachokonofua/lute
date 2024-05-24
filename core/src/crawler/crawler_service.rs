@@ -1,8 +1,6 @@
 use super::{
-  crawler::Crawler,
-  crawler::CrawlerMonitor,
+  crawler::{ClaimedQueueItem, Crawler, CrawlerMonitor, QueueItem, QueuePushParameters},
   crawler_state_repository::CrawlerStatus,
-  priority_queue::{ClaimedQueueItem, QueueItem, QueuePushParameters},
 };
 use crate::{
   context::ApplicationContext,
