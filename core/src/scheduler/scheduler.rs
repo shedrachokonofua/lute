@@ -311,6 +311,17 @@ impl Scheduler {
     self.processor_status_repository.set(job_name, status).await
   }
 
+  pub async fn pause_processor(
+    &self,
+    job_name: &JobName,
+    duration: Option<TimeDelta>,
+  ) -> Result<()> {
+    self
+      .processor_status_repository
+      .pause(job_name, duration)
+      .await
+  }
+
   pub async fn get_registered_processors(&self) -> Vec<JobName> {
     self
       .processor_registry

@@ -10,7 +10,10 @@ use core::{
     parser_event_subscribers::build_parser_event_subscribers, retry::start_parser_retry_consumer,
   },
   profile::profile_event_subscribers::build_profile_event_subscribers,
-  recommendations::recommendation_event_subscribers::build_recommendation_event_subscribers,
+  recommendations::{
+    recommendation_event_subscribers::build_recommendation_event_subscribers,
+    recommendation_jobs::setup_recommendation_jobs,
+  },
   redis::setup_redis_indexes,
   rpc::RpcServer,
 };
@@ -40,6 +43,7 @@ async fn setup_jobs(context: Arc<ApplicationContext>) -> Result<()> {
   setup_crawler_jobs(Arc::clone(&context)).await?;
   setup_event_subscriber_jobs(Arc::clone(&context)).await?;
   setup_kv_jobs(Arc::clone(&context)).await?;
+  setup_recommendation_jobs(context).await?;
   Ok(())
 }
 
