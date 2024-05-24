@@ -124,7 +124,7 @@ impl From<AlbumRecommendation> for proto::AlbumRecommendation {
       album: Some(value.album.into()),
       assessment: Some(proto::AlbumAssessment {
         score: value.assessment.score,
-        metadata: value.assessment.metadata.unwrap_or(HashMap::new()),
+        metadata: value.assessment.metadata.unwrap_or_default(),
       }),
     }
   }

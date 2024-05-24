@@ -29,12 +29,12 @@ pub struct SpotifyTrackSearchRecord {
   pub embedding: Vec<f32>,
 }
 
-impl Into<SpotifyTrackReference> for SpotifyTrackSearchRecord {
-  fn into(self) -> SpotifyTrackReference {
+impl From<SpotifyTrackSearchRecord> for SpotifyTrackReference {
+  fn from(val: SpotifyTrackSearchRecord) -> Self {
     SpotifyTrackReference {
-      spotify_id: self.spotify_id,
-      name: self.name,
-      artists: self.artists,
+      spotify_id: val.spotify_id,
+      name: val.name,
+      artists: val.artists,
     }
   }
 }
@@ -61,8 +61,7 @@ impl TryFrom<Vec<(String, String)>> for SpotifyTrackSearchRecord {
   type Error = anyhow::Error;
 
   fn try_from(values: Vec<(String, String)>) -> Result<Self> {
-    let json = values
-      .get(0)
+    let json = values.first()
       .map(|(_, json)| json)
       .ok_or(anyhow!("invalid SpotifyTrackSearchRecord: missing json"))?;
     let record: SpotifyTrackSearchRecord = serde_json::from_str(json)?;
@@ -258,8 +257,7 @@ impl SpotifyTrackSearchIndex {
       .into_iter()
       .filter_map(|row| {
         let distance = row
-          .values
-          .get(0)
+          .values.first()
           .map(|(_, distance)| distance.parse::<f32>().ok())??;
         let track = row
           .values

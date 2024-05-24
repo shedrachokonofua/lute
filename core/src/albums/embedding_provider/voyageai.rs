@@ -75,7 +75,7 @@ impl Loader for VoyageAILoader {
     info!("VoyageAI request took {:?}", elapsed);
 
     match res {
-      Err(e) => return vec![Err(e); keys.len().clone()],
+      Err(e) => return vec![Err(e); keys.len()],
       Ok(res) => {
         if !res.status().is_success() {
           return vec![
@@ -92,7 +92,7 @@ impl Loader for VoyageAILoader {
             msg: format!("Failed to parse response: {}", e),
           }
         }) {
-          Err(e) => return vec![Err(e); keys.len().clone()],
+          Err(e) => return vec![Err(e); keys.len()],
           Ok(response) => {
             let embeddings: Vec<Vec<f32>> = response["data"]
               .as_array()
@@ -108,7 +108,7 @@ impl Loader for VoyageAILoader {
               })
               .collect();
 
-            return embeddings.into_iter().map(|e| Ok(e)).collect();
+            return embeddings.into_iter().map(Ok).collect();
           }
         }
       }

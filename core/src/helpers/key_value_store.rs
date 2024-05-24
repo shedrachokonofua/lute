@@ -102,13 +102,13 @@ impl KeyValueStore {
           FROM rarray(?1);
           ",
         )?;
-        let mut rows = stmt.query_map([Rc::new(key_params)], |row| {
+        let rows = stmt.query_map([Rc::new(key_params)], |row| {
           let key = row.get::<_, String>(0)?;
           let exists = row.get::<_, bool>(1)?;
           Ok((key, exists))
         })?;
         let mut results = HashMap::new();
-        while let Some(row) = rows.next() {
+        for row in rows {
           let (key, exists) = row?;
           results.insert(key, exists);
         }

@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use std::{hash::Hash, sync::Arc, time::Duration};
+use std::{hash::Hash, mem::take, sync::Arc, time::Duration};
 use thiserror::Error;
 use tokio::{
   spawn,
@@ -56,7 +56,7 @@ impl<T: Loader + Send + Sync + 'static> BatchLoader<T> {
         }
 
         if !next_batch.is_empty() {
-          let batch = next_batch.drain(..).collect::<Vec<_>>();
+          let batch = take(&mut next_batch);
           let loader = loader.clone();
           last_execution = Instant::now();
 

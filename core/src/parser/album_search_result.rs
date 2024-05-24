@@ -58,6 +58,5 @@ pub fn parse_album_search_result(file_content: &str) -> Result<ParsedAlbumSearch
   results
     .iter()
     .find(|result| result.file_name.page_type().is_album())
-    .ok_or(anyhow::anyhow!("No album found in search results"))
-    .map(|album| album.clone())
+    .ok_or(anyhow::anyhow!("No album found in search results")).cloned()
 }

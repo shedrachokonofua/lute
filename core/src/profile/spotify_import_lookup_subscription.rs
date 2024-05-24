@@ -24,7 +24,7 @@ pub fn build_spotify_import_lookup_subscriptions(
     if track.album.album_type == SpotifyAlbumType::Album {
       let query = AlbumSearchLookupQuery::new(
         track.album.name,
-        track.artists.get(0).expect("artist not found").name.clone(),
+        track.artists.first().expect("artist not found").name.clone(),
       );
       let subscription = subscriptions.get(&query);
       if let Some(subscription) = subscription {

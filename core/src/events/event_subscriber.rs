@@ -210,7 +210,7 @@ macro_rules! event_handler {
     ) -> impl futures::Future<Output = Result<(), anyhow::Error>> + Send + 'static {
       $f(event, app_context, interactor)
     }
-    EventHandler::Single(crate::helpers::async_utils::async_callback(f))
+    EventHandler::Single($crate::helpers::async_utils::async_callback(f))
   }};
 }
 
@@ -226,7 +226,7 @@ macro_rules! group_event_handler {
     ) -> impl futures::Future<Output = Result<(), anyhow::Error>> + Send + 'static {
       $f(event, app_context, interactor)
     }
-    EventHandler::Group(crate::helpers::async_utils::async_callback(f))
+    EventHandler::Group($crate::helpers::async_utils::async_callback(f))
   }};
 }
 

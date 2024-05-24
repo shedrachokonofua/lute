@@ -36,9 +36,9 @@ fn parse_artist_album(dom: &VDom, selector: &str) -> Result<Vec<ParsedArtistAlbu
 pub fn parse_artist(file_content: &str) -> Result<ParsedArtist> {
   let dom = tl::parse(file_content, tl::ParserOptions::default())?;
   let name = get_meta_value(&dom, "name")?;
-  let albums = parse_artist_album(&dom, "#disco_type_s").unwrap_or(vec![]);
-  let mixtapes = parse_artist_album(&dom, "#disco_type_m").unwrap_or(vec![]);
-  let eps = parse_artist_album(&dom, "#disco_type_e").unwrap_or(vec![]);
+  let albums = parse_artist_album(&dom, "#disco_type_s").unwrap_or_default();
+  let mixtapes = parse_artist_album(&dom, "#disco_type_m").unwrap_or_default();
+  let eps = parse_artist_album(&dom, "#disco_type_e").unwrap_or_default();
   let albums = albums
     .into_iter()
     .chain(mixtapes.into_iter())

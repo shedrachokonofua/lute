@@ -40,17 +40,17 @@ pub struct JobParameters {
   priority: Priority,
 }
 
-impl Into<Job> for JobParameters {
-  fn into(self) -> Job {
+impl From<JobParameters> for Job {
+  fn from(val: JobParameters) -> Self {
     Job {
-      id: self.id.unwrap_or(self.name.to_string()),
-      name: self.name,
-      next_execution: self.next_execution,
+      id: val.id.unwrap_or(val.name.to_string()),
+      name: val.name,
+      next_execution: val.next_execution,
       last_execution: None,
-      interval_seconds: self.interval.map(|d| d.num_seconds() as u32),
-      payload: self.payload,
+      interval_seconds: val.interval.map(|d| d.num_seconds() as u32),
+      payload: val.payload,
       claimed_at: None,
-      priority: self.priority,
+      priority: val.priority,
       created_at: Utc::now().naive_utc(),
     }
   }
@@ -68,7 +68,7 @@ impl JobProcessorStatusRepository {
   pub async fn get(&self, job_name: &JobName) -> Result<JobProcessorStatus> {
     match self
       .kv
-      .exists(format!("job_processor_paused:{}", job_name.to_string()))
+      .exists(format!("job_processor_paused:{}", job_name))
       .await?
     {
       true => Ok(JobProcessorStatus::Paused),
@@ -77,7 +77,7 @@ impl JobProcessorStatusRepository {
   }
 
   pub async fn set(&self, job_name: &JobName, status: JobProcessorStatus) -> Result<()> {
-    let key = format!("job_processor_paused:{}", job_name.to_string());
+    let key = format!("job_processor_paused:{}", job_name);
     match status {
       JobProcessorStatus::Paused => self.kv.set(&key, 1, None).await,
       JobProcessorStatus::Running => self.kv.delete(&key).await,
@@ -104,7 +104,7 @@ impl JobProcessorStatusRepository {
   pub async fn is_paused(&self, job_name: &JobName) -> Result<bool> {
     self
       .kv
-      .exists(format!("job_processor_paused:{}", job_name.to_string()))
+      .exists(format!("job_processor_paused:{}", job_name))
       .await
   }
 
@@ -127,7 +127,7 @@ macro_rules! job_executor {
     ) -> impl futures::Future<Output = Result<(), anyhow::Error>> + Send + 'static {
       $f(job, app_context)
     }
-    JobExecutorFn::Single(crate::helpers::async_utils::async_callback(f))
+    JobExecutorFn::Single($crate::helpers::async_utils::async_callback(f))
   }};
 }
 
@@ -139,7 +139,7 @@ macro_rules! batch_job_executor {
     ) -> impl futures::Future<Output = Result<(), anyhow::Error>> + Send + 'static {
       $f(jobs, app_context)
     }
-    JobExecutorFn::Batch(crate::helpers::async_utils::async_callback(f), $batch_size)
+    JobExecutorFn::Batch($crate::helpers::async_utils::async_callback(f), $batch_size)
   }};
 }
 
@@ -193,7 +193,7 @@ impl JobProcessor {
   pub async fn run(&self, scheduler_repository: Arc<SchedulerRepository>) -> Result<()> {
     let (tx, mut rx) = unbounded_channel::<oneshot::Sender<Vec<Job>>>();
     let job_name = self.name.clone();
-    let claim_duration = self.claim_duration.clone();
+    let claim_duration = self.claim_duration;
     let repo = Arc::clone(&scheduler_repository);
     let batch_size = self.executor.batch_size();
     spawn(async move {
@@ -358,7 +358,7 @@ impl Scheduler {
       .collect()
   }
 
-  pub async fn register(&self, processor: JobProcessor) -> () {
+  pub async fn register(&self, processor: JobProcessor) {
     self
       .processor_registry
       .write()

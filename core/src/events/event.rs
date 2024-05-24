@@ -115,7 +115,7 @@ impl From<EventPayload> for proto::EventPayload {
     proto::EventPayload {
       event: Some(val.event.into()),
       correlation_id: val.correlation_id,
-      metadata: val.metadata.unwrap_or(HashMap::new()),
+      metadata: val.metadata.unwrap_or_default(),
     }
   }
 }
@@ -135,7 +135,7 @@ impl From<EventPayload> for HashMap<String, String> {
     );
     result.insert(
       "metadata".to_string(),
-      serde_json::to_string(&val.metadata.unwrap_or(HashMap::new())).unwrap(),
+      serde_json::to_string(&val.metadata.unwrap_or_default()).unwrap(),
     );
     if let Some(correlation_id) = val.correlation_id {
       result.insert("correlation_id".to_string(), correlation_id);

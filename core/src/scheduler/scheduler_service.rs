@@ -9,24 +9,24 @@ use futures::future::try_join_all;
 use std::{str::FromStr, sync::Arc};
 use tonic::{async_trait, Request, Response, Status};
 
-impl Into<proto::Job> for Job {
-  fn into(self) -> proto::Job {
+impl From<Job> for proto::Job {
+  fn from(val: Job) -> Self {
     proto::Job {
-      id: self.id,
-      name: self.name.to_string(),
-      next_execution: self.next_execution.to_string(),
-      last_execution: self.last_execution.map(|d| d.to_string()),
-      interval_seconds: self.interval_seconds,
-      payload: self.payload,
-      claimed_at: self.claimed_at.map(|d| d.to_string()),
-      priority: self.priority as i32,
+      id: val.id,
+      name: val.name.to_string(),
+      next_execution: val.next_execution.to_string(),
+      last_execution: val.last_execution.map(|d| d.to_string()),
+      interval_seconds: val.interval_seconds,
+      payload: val.payload,
+      claimed_at: val.claimed_at.map(|d| d.to_string()),
+      priority: val.priority as i32,
     }
   }
 }
 
-impl Into<i32> for JobProcessorStatus {
-  fn into(self) -> i32 {
-    match self {
+impl From<JobProcessorStatus> for i32 {
+  fn from(val: JobProcessorStatus) -> Self {
+    match val {
       JobProcessorStatus::Running => proto::JobProcessorStatus::ProcessorRunning as i32,
       JobProcessorStatus::Paused => proto::JobProcessorStatus::ProcessorPaused as i32,
     }
@@ -87,7 +87,7 @@ impl proto::SchedulerService for SchedulerService {
 
     let processors = registered_processors
       .into_iter()
-      .zip(statuses.into_iter())
+      .zip(statuses)
       .map(|(processor, status)| proto::JobProcessor {
         job_name: processor.name.to_string(),
         status: status.into(),

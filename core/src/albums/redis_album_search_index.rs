@@ -42,21 +42,21 @@ pub struct RedisAlbumReadModelArtist {
   pub file_name: FileName,
 }
 
-impl Into<AlbumReadModelArtist> for RedisAlbumReadModelArtist {
-  fn into(self) -> AlbumReadModelArtist {
+impl From<RedisAlbumReadModelArtist> for AlbumReadModelArtist {
+  fn from(val: RedisAlbumReadModelArtist) -> Self {
     AlbumReadModelArtist {
-      name: self.name,
-      file_name: self.file_name,
+      name: val.name,
+      file_name: val.file_name,
     }
   }
 }
 
-impl Into<RedisAlbumReadModelArtist> for AlbumReadModelArtist {
-  fn into(self) -> RedisAlbumReadModelArtist {
+impl From<AlbumReadModelArtist> for RedisAlbumReadModelArtist {
+  fn from(val: AlbumReadModelArtist) -> Self {
     RedisAlbumReadModelArtist {
-      name: self.name.clone(),
-      ascii_name: self.ascii_name(),
-      file_name: self.file_name,
+      name: val.name.clone(),
+      ascii_name: val.ascii_name(),
+      file_name: val.file_name,
     }
   }
 }
@@ -101,67 +101,67 @@ pub struct RedisAlbumReadModel {
   pub cover_image_url: Option<String>,
 }
 
-impl Into<AlbumReadModel> for RedisAlbumReadModel {
-  fn into(self) -> AlbumReadModel {
+impl From<RedisAlbumReadModel> for AlbumReadModel {
+  fn from(val: RedisAlbumReadModel) -> Self {
     AlbumReadModel {
-      name: self.name,
-      file_name: self.file_name,
-      rating: self.rating,
-      rating_count: self.rating_count,
-      artists: self.artists.into_iter().map(|a| a.into()).collect(),
-      primary_genres: self.primary_genres,
-      secondary_genres: self.secondary_genres,
-      descriptors: self.descriptors,
-      tracks: self.tracks,
-      release_date: self.release_date,
-      languages: self.languages,
-      credits: self.credits,
-      duplicate_of: self.duplicate_of,
-      duplicates: self.duplicates,
-      cover_image_url: self.cover_image_url,
+      name: val.name,
+      file_name: val.file_name,
+      rating: val.rating,
+      rating_count: val.rating_count,
+      artists: val.artists.into_iter().map(|a| a.into()).collect(),
+      primary_genres: val.primary_genres,
+      secondary_genres: val.secondary_genres,
+      descriptors: val.descriptors,
+      tracks: val.tracks,
+      release_date: val.release_date,
+      languages: val.languages,
+      credits: val.credits,
+      duplicate_of: val.duplicate_of,
+      duplicates: val.duplicates,
+      cover_image_url: val.cover_image_url,
     }
   }
 }
 
-impl Into<RedisAlbumReadModel> for AlbumReadModel {
-  fn into(self) -> RedisAlbumReadModel {
-    let artist_count = self.artists.len() as u32;
-    let primary_genre_count = self.primary_genres.len() as u32;
-    let secondary_genre_count = self.secondary_genres.len() as u32;
-    let descriptor_count = self.descriptors.len() as u32;
-    let language_count = self.languages.len() as u32;
-    let credit_tags = self.credit_tags();
+impl From<AlbumReadModel> for RedisAlbumReadModel {
+  fn from(val: AlbumReadModel) -> Self {
+    let artist_count = val.artists.len() as u32;
+    let primary_genre_count = val.primary_genres.len() as u32;
+    let secondary_genre_count = val.secondary_genres.len() as u32;
+    let descriptor_count = val.descriptors.len() as u32;
+    let language_count = val.languages.len() as u32;
+    let credit_tags = val.credit_tags();
     let credit_tag_count = credit_tags.len() as u32;
-    let release_year = self.release_date.map(|d| d.year() as u32);
-    let is_duplicate = if self.duplicate_of.is_some() { 1 } else { 0 };
+    let release_year = val.release_date.map(|d| d.year() as u32);
+    let is_duplicate = if val.duplicate_of.is_some() { 1 } else { 0 };
 
     RedisAlbumReadModel {
-      name_tag: self.name.clone(),
-      name: self.name.clone(),
-      ascii_name: self.ascii_name(),
-      file_name: self.file_name,
-      rating: self.rating,
-      rating_count: self.rating_count,
-      artists: self.artists.into_iter().map(|a| a.into()).collect(),
+      name_tag: val.name.clone(),
+      name: val.name.clone(),
+      ascii_name: val.ascii_name(),
+      file_name: val.file_name,
+      rating: val.rating,
+      rating_count: val.rating_count,
+      artists: val.artists.into_iter().map(|a| a.into()).collect(),
       artist_count,
-      primary_genres: self.primary_genres,
+      primary_genres: val.primary_genres,
       primary_genre_count,
-      secondary_genres: self.secondary_genres,
+      secondary_genres: val.secondary_genres,
       secondary_genre_count,
-      descriptors: self.descriptors,
+      descriptors: val.descriptors,
       descriptor_count,
-      tracks: self.tracks,
-      release_date: self.release_date,
+      tracks: val.tracks,
+      release_date: val.release_date,
       release_year,
-      languages: self.languages,
+      languages: val.languages,
       language_count,
-      credits: self.credits,
+      credits: val.credits,
       credit_tags,
       credit_tag_count,
-      duplicate_of: self.duplicate_of,
-      duplicates: self.duplicates,
+      duplicate_of: val.duplicate_of,
+      duplicates: val.duplicates,
       is_duplicate,
-      cover_image_url: self.cover_image_url,
+      cover_image_url: val.cover_image_url,
     }
   }
 }
@@ -170,8 +170,7 @@ impl TryFrom<&Vec<(String, String)>> for RedisAlbumReadModel {
   type Error = Error;
 
   fn try_from(values: &Vec<(String, String)>) -> Result<Self> {
-    let json = values
-      .get(0)
+    let json = values.first()
       .map(|(_, json)| json)
       .ok_or(anyhow!("invalid AlbumReadModel: missing json"))?;
     let album: RedisAlbumReadModel = serde_json::from_str(json)?;
@@ -183,8 +182,7 @@ impl TryFrom<&Vec<(String, String)>> for ItemAndCount {
   type Error = Error;
 
   fn try_from(values: &Vec<(String, String)>) -> Result<Self> {
-    let name = values
-      .get(0)
+    let name = values.first()
       .map(|(_, name)| name)
       .ok_or(anyhow!("invalid ItemAndCount: missing name"))?;
     let count = values
@@ -202,12 +200,12 @@ impl AlbumSearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     let mut ft_search_query = String::from("");
     if let Some(text) = &self.text {
-      ft_search_query.push_str(&format!("({}) ", escape_search_query_text(&text)));
+      ft_search_query.push_str(&format!("({}) ", escape_search_query_text(text)));
     }
     if let Some(exact_name) = &self.exact_name {
       ft_search_query.push_str(&get_tag_query("@name_tag", &vec![exact_name]));
     }
-    if !self.include_duplicates.is_some_and(|b| b == true) {
+    if !self.include_duplicates.is_some_and(|b| b) {
       ft_search_query.push_str(&get_num_range_query("@is_duplicate", Some(0), Some(0)));
     }
     ft_search_query.push_str(&get_min_num_query(
@@ -279,7 +277,7 @@ fn redis_key(file_name: &FileName) -> String {
 }
 
 fn embedding_json_key(key: &str) -> String {
-  let normalized_key = key.replace("-", "_");
+  let normalized_key = key.replace('-', "_");
   format!("embedding_{}", normalized_key)
 }
 
@@ -714,8 +712,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
       .iter()
       .filter_map(|row| {
         let distance = row
-          .values
-          .get(0)
+          .values.first()
           .map(|(_, distance)| distance.parse::<f32>().ok())??;
         let redis_album_read_model = row
           .values

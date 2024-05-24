@@ -25,7 +25,7 @@ impl TryFrom<Vec<(String, String)>> for SpotifyImportLookupSubscription {
   type Error = Error;
 
   fn try_from(values: Vec<(String, String)>) -> Result<Self> {
-    let json = values.get(0).map(|(_, json)| json).ok_or(anyhow!(
+    let json = values.first().map(|(_, json)| json).ok_or(anyhow!(
       "invalid SpotifyImportLookupSubscription: missing json"
     ))?;
     let subscription: SpotifyImportLookupSubscription = serde_json::from_str(json)?;

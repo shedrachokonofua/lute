@@ -59,7 +59,7 @@ pub trait AlbumRepository {
       .into_iter()
       .filter(|file_name| !album_map.contains_key(file_name))
       .collect::<Vec<FileName>>();
-    if missing_file_names.len() > 0 {
+    if !missing_file_names.is_empty() {
       Err(anyhow!(
         "Albums not found: {}",
         missing_file_names

@@ -31,7 +31,7 @@ fn get_pool_builder(config: &Config) -> Result<PoolBuilder> {
               conn.pragma_update(None, "journal_mode", "WAL")?;
               conn.pragma_update(None, "foreign_keys", "ON")?;
               conn.pragma_update(None, "synchronous", "NORMAL")?;
-              vtab::array::load_module(&conn)?;
+              vtab::array::load_module(conn)?;
               info!("Sqlite connection initialized");
               Ok::<_, rusqlite::Error>(())
             })

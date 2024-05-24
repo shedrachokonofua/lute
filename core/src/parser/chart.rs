@@ -80,7 +80,7 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
           })
         })
         .unwrap_or(Some(Vec::new()))
-        .unwrap_or(Vec::new());
+        .unwrap_or_default();
 
         let descriptors = query_select_first(
           dom.parser(),
@@ -95,7 +95,7 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
           })
         })
         .unwrap_or(Some(Vec::new()))
-        .unwrap_or(Vec::new());
+        .unwrap_or_default();
 
         let file_name = FileName::try_from(
           get_link_tag_href(query_select_first(

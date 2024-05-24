@@ -29,7 +29,7 @@ pub struct EmbeddingSimilarityAlbumAssessmentSettings {
 impl EmbeddingSimilarityInteractor {
   pub fn new(album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>) -> Self {
     Self {
-      album_search_index: album_search_index,
+      album_search_index,
     }
   }
 
@@ -42,9 +42,7 @@ impl EmbeddingSimilarityInteractor {
       .album_search_index
       .find_many_embeddings(
         profile
-          .albums
-          .iter()
-          .map(|(file_name, _)| file_name.clone())
+          .albums.keys().cloned()
           .collect(),
         &settings.embedding_key,
       )
@@ -98,7 +96,7 @@ impl
     settings: EmbeddingSimilarityAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
     let profile_embedding = self
-      .get_average_profile_embedding(&profile, &settings)
+      .get_average_profile_embedding(profile, &settings)
       .await?;
     let mut search_result = self
       .album_search_index
@@ -116,7 +114,7 @@ impl
       anyhow::anyhow!("Embeddings search returned no results")
     })?;
     Ok(AlbumAssessment {
-      score: score,
+      score,
       metadata: None,
     })
   }
@@ -130,7 +128,7 @@ impl
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
     let profile_embedding = self
-      .get_average_profile_embedding(&profile, &assessment_settings)
+      .get_average_profile_embedding(profile, &assessment_settings)
       .await?;
     let search_query = recommendation_settings.to_search_query(profile, profile_albums)?;
     let similar_albums = self
@@ -146,9 +144,9 @@ impl
       similar_albums
         .into_iter()
         .map(|(album, score)| AlbumRecommendation {
-          album: album,
+          album,
           assessment: AlbumAssessment {
-            score: score,
+            score,
             metadata: None,
           },
         })

@@ -54,8 +54,8 @@ impl AlbumRecommendationSettings {
       .exclude_primary_genres(self.exclude_primary_genres.clone())
       .exclude_secondary_genres(self.exclude_secondary_genres.clone())
       .exclude_languages(self.exclude_languages.clone())
-      .min_release_year(self.min_release_year.clone())
-      .max_release_year(self.max_release_year.clone())
+      .min_release_year(self.min_release_year)
+      .max_release_year(self.max_release_year)
       .min_primary_genre_count(1)
       .min_secondary_genre_count(1)
       .min_descriptor_count(5);

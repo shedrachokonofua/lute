@@ -78,7 +78,7 @@ async fn update_album_read_models(
     data: ParsedFileData::Album(parsed_album),
   } = &event_data.payload.event
   {
-    let album_read_model = AlbumReadModel::from_parsed_album(&file_name, parsed_album.clone());
+    let album_read_model = AlbumReadModel::from_parsed_album(file_name, parsed_album.clone());
     AlbumSubscriberContext::new(app_context)
       .album_interactor
       .put(album_read_model)
@@ -200,7 +200,7 @@ fn build_embedding_provider_event_subscribers(
     .providers
     .iter()
     .filter_map(|provider| {
-      let provider = Arc::clone(&provider);
+      let provider = Arc::clone(provider);
       EventSubscriberBuilder::default()
         .id(format!("update_album_embedding:{}", provider.name()))
         .topic(Topic::Parser)

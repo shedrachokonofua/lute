@@ -73,12 +73,12 @@ impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
       include_file_names: value
         .include_file_names
         .into_iter()
-        .map(|file_name| FileName::try_from(file_name).map_err(|e| anyhow::Error::msg(e)))
+        .map(|file_name| FileName::try_from(file_name).map_err(anyhow::Error::msg))
         .collect::<Result<Vec<FileName>>>()?,
       exclude_file_names: value
         .exclude_file_names
         .into_iter()
-        .map(|file_name| FileName::try_from(file_name).map_err(|e| anyhow::Error::msg(e)))
+        .map(|file_name| FileName::try_from(file_name).map_err(anyhow::Error::msg))
         .collect::<Result<Vec<FileName>>>()?,
       include_artists: value.include_artists,
       exclude_artists: value.exclude_artists,
@@ -92,8 +92,8 @@ impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
       min_primary_genre_count: value.min_primary_genre_count.map(|i| i as usize),
       min_secondary_genre_count: value.min_secondary_genre_count.map(|i| i as usize),
       min_descriptor_count: value.min_descriptor_count.map(|i| i as usize),
-      min_release_year: value.min_release_year.map(|i| i as u32),
-      max_release_year: value.max_release_year.map(|i| i as u32),
+      min_release_year: value.min_release_year,
+      max_release_year: value.max_release_year,
       include_duplicates: value.include_duplicates,
     })
   }
@@ -216,7 +216,7 @@ impl proto::AlbumService for AlbumService {
       .into_inner()
       .file_names
       .into_iter()
-      .map(|file_name| FileName::try_from(file_name))
+      .map(FileName::try_from)
       .collect::<Result<Vec<FileName>, Error>>()
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
     let albums = self
@@ -239,14 +239,14 @@ impl proto::AlbumService for AlbumService {
       .query
       .map(|q| q.try_into())
       .transpose()
-      .map_err(|e: Error| Status::invalid_argument(format!("Invalid query: {}", e.to_string())))?
+      .map_err(|e: Error| Status::invalid_argument(format!("Invalid query: {}", e)))?
       .unwrap_or_default();
     let pagination = request
       .pagination
       .map(|p| p.try_into())
       .transpose()
       .map_err(|e: Error| {
-        Status::invalid_argument(format!("Invalid pagination: {}", e.to_string()))
+        Status::invalid_argument(format!("Invalid pagination: {}", e))
       })?;
     let results = self
       .album_search_index
@@ -292,7 +292,7 @@ impl proto::AlbumService for AlbumService {
       .filters
       .map(|f| f.try_into())
       .transpose()
-      .map_err(|e: Error| Status::invalid_argument(format!("Invalid filters: {}", e.to_string())))?
+      .map_err(|e: Error| Status::invalid_argument(format!("Invalid filters: {}", e)))?
       .unwrap_or_default();
 
     if !filters.exclude_file_names.contains(&file_name) {

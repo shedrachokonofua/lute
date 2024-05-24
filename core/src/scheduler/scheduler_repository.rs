@@ -240,7 +240,7 @@ impl SchedulerRepository {
           WHERE name = ?
           ",
           [job_name.to_string()],
-          |row| Ok(row.get::<_, usize>(0)?),
+          |row| row.get::<_, usize>(0),
         )
       })
       .await
@@ -265,7 +265,7 @@ impl SchedulerRepository {
           WHERE name = ? AND claimed_at IS NOT NULL
           ",
           [job_name.to_string()],
-          |row| Ok(row.get::<_, usize>(0)?),
+          |row| row.get::<_, usize>(0),
         )
       })
       .await

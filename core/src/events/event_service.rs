@@ -7,30 +7,30 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use tonic::{Request, Response, Status, Streaming};
 
-impl Into<proto::EventSubscriberStatus> for EventSubscriberStatus {
-  fn into(self) -> proto::EventSubscriberStatus {
-    match self {
+impl From<EventSubscriberStatus> for proto::EventSubscriberStatus {
+  fn from(val: EventSubscriberStatus) -> Self {
+    match val {
       EventSubscriberStatus::Paused => proto::EventSubscriberStatus::SubscriberPaused,
       EventSubscriberStatus::Running => proto::EventSubscriberStatus::SubscriberRunning,
     }
   }
 }
 
-impl Into<EventSubscriberStatus> for proto::EventSubscriberStatus {
-  fn into(self) -> EventSubscriberStatus {
-    match self {
+impl From<proto::EventSubscriberStatus> for EventSubscriberStatus {
+  fn from(val: proto::EventSubscriberStatus) -> Self {
+    match val {
       proto::EventSubscriberStatus::SubscriberPaused => EventSubscriberStatus::Paused,
       proto::EventSubscriberStatus::SubscriberRunning => EventSubscriberStatus::Running,
     }
   }
 }
 
-impl Into<proto::EventSubscriberSnapshot> for EventSubscriberRow {
-  fn into(self) -> proto::EventSubscriberSnapshot {
+impl From<EventSubscriberRow> for proto::EventSubscriberSnapshot {
+  fn from(val: EventSubscriberRow) -> Self {
     proto::EventSubscriberSnapshot {
-      id: self.id,
-      cursor: self.cursor,
-      status: Into::<proto::EventSubscriberStatus>::into(self.status).into(),
+      id: val.id,
+      cursor: val.cursor,
+      status: Into::<proto::EventSubscriberStatus>::into(val.status).into(),
     }
   }
 }
@@ -106,7 +106,7 @@ impl proto::EventService for EventService {
     };
 
     let reply = proto::GetEventsMonitorReply {
-      monitor: Some(monitor.into()),
+      monitor: Some(monitor),
     };
     Ok(Response::new(reply))
   }

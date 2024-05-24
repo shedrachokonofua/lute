@@ -176,8 +176,7 @@ impl RecommendationInteractor {
             &track.embedding,
             profile
               .albums
-              .get(&track.album_file_name)
-              .map(|i| *i)
+              .get(&track.album_file_name).copied()
               .unwrap_or(1),
           )
         })

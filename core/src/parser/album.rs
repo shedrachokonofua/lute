@@ -52,7 +52,7 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     .and_then(|node| node.as_tag())
     .and_then(|tag| tag.attributes().get("src"))
     .flatten()
-    .map(|content| format!("https:{}", content.as_utf8_str().to_string()));
+    .map(|content| format!("https:{}", content.as_utf8_str()));
 
   let artists = query_select_first(dom.parser(), container, "span[itemprop='byArtist']")?
     .query_selector(dom.parser(), "a")
@@ -230,7 +230,7 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
                   .filter_map(|role: Result<String, _>| role.ok())
                   .collect::<Vec<String>>()
               })
-              .unwrap_or(vec![]);
+              .unwrap_or_default();
 
             Some(ParsedCredit { artist, roles })
           })

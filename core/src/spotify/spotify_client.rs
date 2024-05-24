@@ -72,11 +72,11 @@ pub struct SpotifyArtistReference {
   pub name: String,
 }
 
-impl Into<proto::SpotifyArtistReference> for SpotifyArtistReference {
-  fn into(self) -> proto::SpotifyArtistReference {
+impl From<SpotifyArtistReference> for proto::SpotifyArtistReference {
+  fn from(val: SpotifyArtistReference) -> Self {
     proto::SpotifyArtistReference {
-      spotify_id: self.spotify_id,
-      name: self.name,
+      spotify_id: val.spotify_id,
+      name: val.name,
     }
   }
 }
@@ -95,12 +95,12 @@ pub struct SpotifyTrackReference {
   pub artists: Vec<SpotifyArtistReference>,
 }
 
-impl Into<proto::SpotifyTrackReference> for SpotifyTrackReference {
-  fn into(self) -> proto::SpotifyTrackReference {
+impl From<SpotifyTrackReference> for proto::SpotifyTrackReference {
+  fn from(val: SpotifyTrackReference) -> Self {
     proto::SpotifyTrackReference {
-      spotify_id: self.spotify_id,
-      name: self.name,
-      artists: self.artists.into_iter().map(Into::into).collect(),
+      spotify_id: val.spotify_id,
+      name: val.name,
+      artists: val.artists.into_iter().map(Into::into).collect(),
     }
   }
 }
@@ -378,10 +378,7 @@ impl SpotifyClient {
   }
 
   pub async fn is_authorized(&self) -> bool {
-    match self.spotify_credential_repository.get().await {
-      Ok(Some(_)) => true,
-      _ => false,
-    }
+    matches!(self.spotify_credential_repository.get().await, Ok(Some(_)))
   }
 
   pub fn get_authorize_url(&self) -> Result<String> {
@@ -630,7 +627,7 @@ impl SpotifyClient {
         playlist.id.clone(),
         track_uris
           .iter()
-          .filter_map(|uri| TrackId::from_uri(uri).ok().map(|id| PlayableId::Track(id)))
+          .filter_map(|uri| TrackId::from_uri(uri).ok().map(PlayableId::Track))
           .collect::<Vec<_>>(),
         None,
       )

@@ -29,7 +29,7 @@ async fn retry_parse(job: Job, app_context: Arc<ApplicationContext>) -> Result<(
     Arc::clone(&app_context),
     file_metadata.id,
     file_name,
-    Some(format!("retry:{}", job.id.to_string())),
+    Some(format!("retry:{}", job.id)),
   )
   .await
   .inspect_err(|e| error!(err = e.to_string(), "Failed to parse file"))?;

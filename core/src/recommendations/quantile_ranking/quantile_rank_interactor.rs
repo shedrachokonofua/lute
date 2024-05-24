@@ -52,7 +52,7 @@ pub struct QuantileRankInteractor {
 impl QuantileRankInteractor {
   pub fn new(album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>) -> Self {
     Self {
-      album_search_index: album_search_index,
+      album_search_index,
     }
   }
 }

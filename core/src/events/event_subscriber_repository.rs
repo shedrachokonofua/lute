@@ -350,7 +350,7 @@ impl EventSubscriberRepository {
       })??;
 
     let status = status
-      .map(|s| EventSubscriberStatus::try_from(s))
+      .map(EventSubscriberStatus::try_from)
       .transpose()?;
 
     Ok(status)

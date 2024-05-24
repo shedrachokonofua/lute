@@ -118,7 +118,7 @@ impl SqliteAlbumRepository {
   ) -> Result<HashMap<i64, Vec<AlbumReadModelArtist>>> {
     let album_id_params = album_ids
       .into_iter()
-      .map(|f| Value::from(f))
+      .map(Value::from)
       .collect::<Vec<Value>>();
 
     self
@@ -147,7 +147,7 @@ impl SqliteAlbumRepository {
         let mut result = HashMap::<i64, Vec<AlbumReadModelArtist>>::new();
         while let Some(Ok(row)) = rows.next() {
           let (album_id, artist_file_name, artist_name) = row;
-          let album_entry = result.entry(album_id).or_insert_with(|| Vec::new());
+          let album_entry = result.entry(album_id).or_default();
           album_entry.push(AlbumReadModelArtist {
             file_name: FileName::try_from(artist_file_name.clone()).map_err(|e| {
               error!(message = e.to_string(), "Failed to parse artist file name");
@@ -172,7 +172,7 @@ impl SqliteAlbumRepository {
   ) -> Result<HashMap<i64, (Vec<String>, Vec<String>)>> {
     let album_id_params = album_ids
       .into_iter()
-      .map(|f| Value::from(f))
+      .map(Value::from)
       .collect::<Vec<Value>>();
 
     self
@@ -223,7 +223,7 @@ impl SqliteAlbumRepository {
   async fn find_album_descriptors(&self, album_ids: Vec<i64>) -> Result<HashMap<i64, Vec<String>>> {
     let album_id_params = album_ids
       .into_iter()
-      .map(|f| Value::from(f))
+      .map(Value::from)
       .collect::<Vec<Value>>();
 
     self
@@ -247,7 +247,7 @@ impl SqliteAlbumRepository {
         let mut result = HashMap::<i64, Vec<String>>::new();
         while let Some(Ok(row)) = rows.next() {
           let (album_id, descriptor_name) = row;
-          let album_entry = result.entry(album_id).or_insert_with(|| Vec::new());
+          let album_entry = result.entry(album_id).or_default();
           album_entry.push(descriptor_name);
         }
         Ok(result)
@@ -263,7 +263,7 @@ impl SqliteAlbumRepository {
   async fn find_album_languages(&self, album_ids: Vec<i64>) -> Result<HashMap<i64, Vec<String>>> {
     let album_id_params = album_ids
       .into_iter()
-      .map(|f| Value::from(f))
+      .map(Value::from)
       .collect::<Vec<Value>>();
 
     self
@@ -287,7 +287,7 @@ impl SqliteAlbumRepository {
         let mut result = HashMap::<i64, Vec<String>>::new();
         while let Some(Ok(row)) = rows.next() {
           let (album_id, language_name) = row;
-          let album_entry = result.entry(album_id).or_insert_with(|| Vec::new());
+          let album_entry = result.entry(album_id).or_default();
           album_entry.push(language_name);
         }
         Ok(result)
@@ -306,7 +306,7 @@ impl SqliteAlbumRepository {
   ) -> Result<HashMap<i64, Vec<AlbumReadModelTrack>>> {
     let album_id_params = album_ids
       .into_iter()
-      .map(|f| Value::from(f))
+      .map(Value::from)
       .collect::<Vec<Value>>();
 
     self
@@ -338,7 +338,7 @@ impl SqliteAlbumRepository {
         let mut result = HashMap::<i64, Vec<AlbumReadModelTrack>>::new();
         while let Some(Ok(row)) = rows.next() {
           let (album_id, track_name, track_duration_seconds, track_rating, track_position) = row;
-          let album_entry = result.entry(album_id).or_insert_with(|| Vec::new());
+          let album_entry = result.entry(album_id).or_default();
           album_entry.push(AlbumReadModelTrack {
             name: track_name,
             duration_seconds: track_duration_seconds,
@@ -362,7 +362,7 @@ impl SqliteAlbumRepository {
   ) -> Result<HashMap<i64, Vec<AlbumReadModelCredit>>> {
     let album_id_params = album_ids
       .into_iter()
-      .map(|f| Value::from(f))
+      .map(Value::from)
       .collect::<Vec<Value>>();
 
     self
@@ -395,7 +395,7 @@ impl SqliteAlbumRepository {
         let mut result = HashMap::<i64, Vec<AlbumReadModelCredit>>::new();
         while let Some(Ok(row)) = rows.next() {
           let (album_id, artist_file_name, artist_name, role) = row;
-          let album_entry = result.entry(album_id).or_insert_with(|| Vec::new());
+          let album_entry = result.entry(album_id).or_default();
           let artist_file_name = FileName::try_from(artist_file_name.clone()).map_err(|e| {
             error!(message = e.to_string(), "Failed to parse artist file name");
             rusqlite::Error::ExecuteReturnedResults
@@ -434,7 +434,7 @@ impl SqliteAlbumRepository {
   ) -> Result<HashMap<i64, AlbumDuplication>> {
     let album_id_params = album_ids
       .into_iter()
-      .map(|f| Value::from(f))
+      .map(Value::from)
       .collect::<Vec<Value>>();
 
     self
@@ -920,20 +920,20 @@ impl AlbumRepository for SqliteAlbumRepository {
         let album_id = album_entity.id;
         let artists = album_artists
           .remove(&album_id)
-          .unwrap_or_else(|| Vec::new());
+          .unwrap_or_else(Vec::new);
         let (primary_genres, secondary_genres) = album_genres
           .remove(&album_id)
           .unwrap_or_else(|| (Vec::new(), Vec::new()));
         let descriptors = album_descriptors
           .remove(&album_id)
-          .unwrap_or_else(|| Vec::new());
+          .unwrap_or_else(Vec::new);
         let languages = album_languages
           .remove(&album_id)
-          .unwrap_or_else(|| Vec::new());
-        let tracks = album_tracks.remove(&album_id).unwrap_or_else(|| Vec::new());
+          .unwrap_or_else(Vec::new);
+        let tracks = album_tracks.remove(&album_id).unwrap_or_else(Vec::new);
         let credits = album_credits
           .remove(&album_id)
-          .unwrap_or_else(|| Vec::new());
+          .unwrap_or_else(Vec::new);
         let (duplicate_of, duplicates) = match album_duplicates
           .remove(&album_id)
           .unwrap_or_else(|| AlbumDuplication::Duplicates(Vec::new()))
@@ -988,7 +988,7 @@ impl AlbumRepository for SqliteAlbumRepository {
           ",
         )?;
         let mut rows = stmt.query_map([Rc::new(artist_file_name_params)], |row| {
-          Ok(row.get::<_, String>(0)?)
+          row.get::<_, String>(0)
         })?;
         let mut result_set = HashSet::<FileName>::new();
         while let Some(Ok(row)) = rows.next() {
@@ -1175,14 +1175,12 @@ impl AlbumRepository for SqliteAlbumRepository {
       .await?
       .interact(move |conn| {
         let mut stmt = conn.prepare("SELECT COUNT(*) FROM albums")?;
-        Ok(
-          stmt
+        stmt
             .query_row([], |row| row.get::<_, u32>(0))
             .map_err(|e| {
               error!(message = e.to_string(), "Failed to get album count");
               anyhow!("Failed to get album count")
-            })?,
-        )
+            })
       })
       .await
       .map_err(|e| {
@@ -1199,14 +1197,12 @@ impl AlbumRepository for SqliteAlbumRepository {
       .await?
       .interact(move |conn| {
         let mut stmt = conn.prepare("SELECT COUNT(*) FROM artists")?;
-        Ok(
-          stmt
+        stmt
             .query_row([], |row| row.get::<_, u32>(0))
             .map_err(|e| {
               error!(message = e.to_string(), "Failed to get artist count");
               anyhow!("Failed to get artist count")
-            })?,
-        )
+            })
       })
       .await
       .map_err(|e| {
@@ -1223,14 +1219,12 @@ impl AlbumRepository for SqliteAlbumRepository {
       .await?
       .interact(move |conn| {
         let mut stmt = conn.prepare("SELECT COUNT(*) FROM genres")?;
-        Ok(
-          stmt
+        stmt
             .query_row([], |row| row.get::<_, u32>(0))
             .map_err(|e| {
               error!(message = e.to_string(), "Failed to get genre count");
               anyhow!("Failed to get genre count")
-            })?,
-        )
+            })
       })
       .await
       .map_err(|e| {
@@ -1247,14 +1241,12 @@ impl AlbumRepository for SqliteAlbumRepository {
       .await?
       .interact(move |conn| {
         let mut stmt = conn.prepare("SELECT COUNT(*) FROM descriptors")?;
-        Ok(
-          stmt
+        stmt
             .query_row([], |row| row.get::<_, u32>(0))
             .map_err(|e| {
               error!(message = e.to_string(), "Failed to get descriptor count");
               anyhow!("Failed to get descriptor count")
-            })?,
-        )
+            })
       })
       .await
       .map_err(|e| {
@@ -1271,14 +1263,12 @@ impl AlbumRepository for SqliteAlbumRepository {
       .await?
       .interact(move |conn| {
         let mut stmt = conn.prepare("SELECT COUNT(*) FROM languages")?;
-        Ok(
-          stmt
+        stmt
             .query_row([], |row| row.get::<_, u32>(0))
             .map_err(|e| {
               error!(message = e.to_string(), "Failed to get language count");
               anyhow!("Failed to get language count")
-            })?,
-        )
+            })
       })
       .await
       .map_err(|e| {
@@ -1299,14 +1289,12 @@ impl AlbumRepository for SqliteAlbumRepository {
             SELECT COUNT(*) FROM album_duplicates
             ",
         )?;
-        Ok(
-          stmt
+        stmt
             .query_row([], |row| row.get::<_, u32>(0))
             .map_err(|e| {
               error!(message = e.to_string(), "Failed to get duplicate count");
               anyhow!("Failed to get duplicate count")
-            })?,
-        )
+            })
       })
       .await
       .map_err(|e| {

@@ -7,6 +7,12 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 
 pub struct OneHotAlbumEmbeddingProvider;
 
+impl Default for OneHotAlbumEmbeddingProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OneHotAlbumEmbeddingProvider {
   pub fn new() -> Self {
     Self
