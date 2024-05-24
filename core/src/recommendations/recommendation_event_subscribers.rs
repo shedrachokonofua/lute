@@ -119,20 +119,51 @@ async fn get_spotify_track_search_records(
   app_context: Arc<ApplicationContext>,
   parsed_albums: HashMap<FileName, AlbumReadModel>,
 ) -> Result<Vec<SpotifyTrackSearchRecord>> {
+  let parsed_albums_len = parsed_albums.len();
+  let albums_processed = app_context
+    .kv
+    .many_exists(
+      parsed_albums
+        .iter()
+        .map(|(file_name, _)| format!("spotify_track_embedding_album:{}", file_name.to_string()))
+        .collect(),
+    )
+    .await?;
+
+  let unprocessed_albums = parsed_albums
+    .into_iter()
+    .filter(|(file_name, _)| {
+      let is_processed = albums_processed
+        .get(&format!(
+          "spotify_track_embedding_album:{}",
+          file_name.to_string()
+        ))
+        .copied()
+        .unwrap_or(false);
+      !is_processed
+    })
+    .collect::<Vec<_>>();
+
+  info!(
+    unprocessed_albums_count = unprocessed_albums.len(),
+    processed_albums_count = parsed_albums_len - unprocessed_albums.len(),
+    "Getting uncached embeddings for album tracks"
+  );
+
   let spotify_albums = try_join_all(
-    parsed_albums
+    unprocessed_albums
       .iter()
       .map(|(_, album)| app_context.spotify_client.find_album(&album)),
   )
   .await?;
   let found_album_count = spotify_albums.iter().filter(|a| a.is_some()).count();
   info!(
-    parsed_album_count = parsed_albums.len(),
+    parsed_album_count = parsed_albums_len,
     found_album_count, "Got spotify albums"
   );
 
-  let tracks = parsed_albums
-    .into_iter()
+  let tracks = unprocessed_albums
+    .iter()
     .zip(spotify_albums)
     .filter_map(|((_, album), spotify_album)| {
       spotify_album.map(|spotify_album| (album, spotify_album))
@@ -156,39 +187,9 @@ async fn get_spotify_track_search_records(
     })
     .collect::<Vec<_>>();
 
-  let track_ids = tracks
-    .iter()
-    .map(|(id, _)| id.to_string())
-    .collect::<Vec<_>>();
-  let tracks_exists = try_join_all(track_ids.iter().map(|id| {
-    app_context
-      .kv
-      .exists(format!("spotify_track_embedding:{}", id.clone()))
-  }))
-  .await?;
-  let track_ids_count = track_ids.len();
-  let missing_tracks = tracks
-    .into_iter()
-    .zip(tracks_exists)
-    .filter_map(
-      |((id, record), exists)| {
-        if !exists {
-          Some((id, record))
-        } else {
-          None
-        }
-      },
-    )
-    .collect::<Vec<_>>();
-  info!(
-    cache_misses = missing_tracks.len(),
-    cache_hits = track_ids_count - missing_tracks.len(),
-    "Getting uncached embeddings for tracks"
-  );
-
   let mut track_embeddings: HashMap<String, Vec<f32>> = HashMap::new();
 
-  for chunk in missing_tracks.chunks(100) {
+  for chunk in tracks.chunks(100) {
     let track_ids = chunk
       .iter()
       .map(|(id, _)| id.to_string())
@@ -203,13 +204,32 @@ async fn get_spotify_track_search_records(
     });
   }
 
-  let tracks = missing_tracks
+  let tracks = tracks
     .into_iter()
     .map(|(id, mut record)| {
       record.embedding = track_embeddings.remove(&id).unwrap_or_default();
       record
     })
-    .collect();
+    .collect::<Vec<_>>();
+
+  app_context
+    .kv
+    .set_many(
+      unprocessed_albums
+        .iter()
+        .map(|(file_name, _)| {
+          (
+            format!("spotify_track_embedding_album:{}", file_name.to_string()),
+            1,
+            Duration::try_weeks(4)
+              .map(|d| d.to_std())
+              .transpose()
+              .unwrap(),
+          )
+        })
+        .collect::<Vec<_>>(),
+    )
+    .await?;
 
   Ok(tracks)
 }
@@ -243,14 +263,6 @@ pub async fn save_album_spotify_tracks(
   match get_spotify_track_search_records(Arc::clone(&app_context), parsed_albums).await {
     Ok(records) => {
       for record in records {
-        app_context
-          .kv
-          .set(
-            format!("spotify_track_embedding:{}", &record.spotify_id).as_str(),
-            record.embedding.clone(),
-            Duration::try_weeks(4).map(|d| d.to_std()).transpose()?,
-          )
-          .await?;
         app_context.spotify_track_search_index.put(record).await?;
       }
     }

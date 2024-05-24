@@ -314,12 +314,15 @@ fn map_spotify_error(err: ClientError) -> SpotifyClientError {
         warn!(headers = headers_string, "Error response headers");
         let retry_after = response
           .headers()
-          .get("Retry-After")
+          .get("retry-after")
           .and_then(|retry_after| {
             retry_after
               .to_str()
               .ok()
               .and_then(|retry_after| retry_after.parse::<usize>().ok())
+              .inspect(|retry_after| {
+                info!(retry_after = *retry_after, "Retry after");
+              })
           });
 
         return SpotifyClientError::TooManyRequests(retry_after);

@@ -5,9 +5,9 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use chrono::{NaiveDateTime, TimeDelta, Utc};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, types::Value, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
 use tracing::{error, info};
 
 #[derive(Debug, Clone)]
@@ -70,6 +70,46 @@ impl KeyValueStore {
         anyhow!("Failed to get key value store size")
       })??;
     Ok(size)
+  }
+
+  #[tracing::instrument(name = "KeyValueStore::many_exists", skip(self))]
+  pub async fn many_exists(&self, keys: Vec<String>) -> Result<HashMap<String, bool>> {
+    let key_params = keys
+      .iter()
+      .map(|f| Value::from(f.clone()))
+      .collect::<Vec<Value>>();
+    let results = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare(
+          "
+          SELECT
+            value as k,
+            EXISTS (SELECT 1 FROM key_value_store WHERE key_value_store.key = value) as e
+          FROM rarray(?1);
+          ",
+        )?;
+        let mut rows = stmt.query_map([Rc::new(key_params)], |row| {
+          let key = row.get::<_, String>(0)?;
+          let exists = row.get::<_, bool>(1)?;
+          Ok((key, exists))
+        })?;
+        let mut results = HashMap::new();
+        while let Some(row) = rows.next() {
+          let (key, exists) = row?;
+          results.insert(key, exists);
+        }
+        Ok::<_, rusqlite::Error>(results)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to check if keys exist");
+        anyhow!("Failed to check if key exist")
+      })??;
+
+    Ok(results)
   }
 
   #[tracing::instrument(name = "KeyValueStore::exists", skip(self))]
@@ -144,32 +184,39 @@ impl KeyValueStore {
     }
   }
 
-  #[tracing::instrument(name = "KeyValueStore::set", skip_all)]
-  pub async fn set<T: Serialize + Send + Sync>(
+  #[tracing::instrument(name = "KeyValueStore::set_many", skip_all)]
+  pub async fn set_many<T: Serialize + Send + Sync>(
     &self,
-    key: &str,
-    value: T,
-    ttl: Option<Duration>,
+    key_values: Vec<(String, T, Option<Duration>)>,
   ) -> Result<()> {
-    let expires_at = ttl.map(|ttl| Utc::now().naive_utc() + ttl);
-    let key = key.to_string();
-    let value = serde_json::to_vec(&value)?;
+    let key_values: Vec<(String, Vec<u8>, Option<NaiveDateTime>)> = key_values
+      .into_iter()
+      .map(|(key, value, ttl)| {
+        let expires_at = ttl.map(|ttl| Utc::now().naive_utc() + ttl);
+        let value = serde_json::to_vec(&value).unwrap();
+        (key, value, expires_at)
+      })
+      .collect();
     self
       .sqlite_connection
       .write()
       .await?
       .interact(move |conn| {
-        let mut statement = conn.prepare(
-          "
-          INSERT INTO key_value_store (key, value, expires_at, updated_at)
-          VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
-          ON CONFLICT(key) DO UPDATE SET 
-            value = excluded.value,
-            expires_at = excluded.expires_at,
-            updated_at = excluded.updated_at
-          ",
-        )?;
-        statement.execute(params![key, value, expires_at])?;
+        let tx = conn.transaction()?;
+        for (key, value, expires_at) in key_values {
+          tx.execute(
+            "
+            INSERT INTO key_value_store (key, value, expires_at, updated_at)
+            VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
+            ON CONFLICT(key) DO UPDATE SET 
+              value = excluded.value,
+              expires_at = excluded.expires_at,
+              updated_at = excluded.updated_at
+            ",
+            params![key, value, expires_at],
+          )?;
+        }
+        tx.commit()?;
         Ok(())
       })
       .await
@@ -177,6 +224,16 @@ impl KeyValueStore {
         error!(message = e.to_string(), "Failed to set key value");
         anyhow!("Failed to set key value")
       })?
+  }
+
+  #[tracing::instrument(name = "KeyValueStore::set", skip_all)]
+  pub async fn set<T: Serialize + Send + Sync>(
+    &self,
+    key: &str,
+    value: T,
+    ttl: Option<Duration>,
+  ) -> Result<()> {
+    self.set_many(vec![(key.to_string(), value, ttl)]).await
   }
 
   #[tracing::instrument(name = "KeyValueStore::delete", skip(self))]
