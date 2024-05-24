@@ -1,0 +1,1 @@
+ALTER TABLE scheduler_jobs ADD COLUMN priority INTEGER NOT NULL DEFAULT 2;

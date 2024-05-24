@@ -1,11 +1,12 @@
 use super::{
   crawler_interactor::{CrawlerInteractor, CrawlerMonitor},
   crawler_state_repository::CrawlerStatus,
-  priority_queue::{ClaimedQueueItem, Priority, QueueItem, QueuePushParameters},
+  priority_queue::{ClaimedQueueItem, QueueItem, QueuePushParameters},
 };
 use crate::{
   context::ApplicationContext,
   files::file_metadata::file_name::FileName,
+  helpers::priority::Priority,
   proto::{self, EnqueueRequest, GetCrawlerMonitorReply, SetCrawlerStatusReply, SetStatusRequest},
 };
 use std::sync::Arc;
@@ -51,24 +52,24 @@ impl From<proto::CrawlerStatus> for CrawlerStatus {
   }
 }
 
-impl From<Priority> for proto::CrawlerItemPriority {
+impl From<Priority> for proto::Priority {
   fn from(val: Priority) -> Self {
     match val {
-      Priority::Express => proto::CrawlerItemPriority::Express,
-      Priority::High => proto::CrawlerItemPriority::High,
-      Priority::Standard => proto::CrawlerItemPriority::Standard,
-      Priority::Low => proto::CrawlerItemPriority::Low,
+      Priority::Express => proto::Priority::Express,
+      Priority::High => proto::Priority::High,
+      Priority::Standard => proto::Priority::Standard,
+      Priority::Low => proto::Priority::Low,
     }
   }
 }
 
-impl From<proto::CrawlerItemPriority> for Priority {
-  fn from(val: proto::CrawlerItemPriority) -> Self {
+impl From<proto::Priority> for Priority {
+  fn from(val: proto::Priority) -> Self {
     match val {
-      proto::CrawlerItemPriority::Express => Priority::Express,
-      proto::CrawlerItemPriority::High => Priority::High,
-      proto::CrawlerItemPriority::Standard => Priority::Standard,
-      proto::CrawlerItemPriority::Low => Priority::Low,
+      proto::Priority::Express => Priority::Express,
+      proto::Priority::High => Priority::High,
+      proto::Priority::Standard => Priority::Standard,
+      proto::Priority::Low => Priority::Low,
     }
   }
 }
@@ -80,7 +81,7 @@ impl From<QueueItem> for proto::CrawlerQueueItem {
       enqueue_time: val.enqueue_time.to_string(),
       deduplication_key: val.deduplication_key,
       file_name: val.file_name.0,
-      priority: proto::CrawlerItemPriority::from(val.priority).into(),
+      priority: proto::Priority::from(val.priority).into(),
       correlation_id: val.correlation_id,
       metadata: val.metadata.unwrap_or_default(),
     }

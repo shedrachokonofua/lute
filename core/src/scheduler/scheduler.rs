@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
   context::ApplicationContext,
-  helpers::{async_utils::ThreadSafeAsyncFn, key_value_store::KeyValueStore},
+  helpers::{async_utils::ThreadSafeAsyncFn, key_value_store::KeyValueStore, priority::Priority},
   sqlite::SqliteConnection,
 };
 use anyhow::Result;
@@ -26,16 +26,18 @@ pub enum JobProcessorStatus {
 #[derive(Builder)]
 pub struct JobParameters {
   name: JobName,
-  #[builder(default = "None", setter(into))]
+  #[builder(default, setter(into))]
   id: Option<String>,
-  #[builder(default = "None", setter(strip_option))]
+  #[builder(default, setter(strip_option))]
   interval: Option<TimeDelta>,
   #[builder(default = "chrono::Utc::now().naive_utc()")]
   next_execution: NaiveDateTime,
   #[builder(default = "true")]
   overwrite_existing: bool,
-  #[builder(default = "None")]
+  #[builder(default)]
   payload: Option<Vec<u8>>,
+  #[builder(default)]
+  priority: Priority,
 }
 
 impl Into<Job> for JobParameters {
@@ -48,6 +50,7 @@ impl Into<Job> for JobParameters {
       interval_seconds: self.interval.map(|d| d.num_seconds() as u32),
       payload: self.payload,
       claimed_at: None,
+      priority: self.priority,
     }
   }
 }
@@ -290,6 +293,10 @@ impl Scheduler {
 
   pub async fn delete_job(&self, job_id: &str) -> Result<()> {
     self.scheduler_repository.delete_job(job_id).await
+  }
+
+  pub async fn delete_all_jobs(&self) -> Result<()> {
+    self.scheduler_repository.delete_all_jobs().await
   }
 
   pub async fn get_processor_status(&self, job_name: &JobName) -> Result<JobProcessorStatus> {

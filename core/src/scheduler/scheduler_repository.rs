@@ -1,5 +1,5 @@
 use super::job_name::JobName;
-use crate::sqlite::SqliteConnection;
+use crate::{helpers::priority::Priority, sqlite::SqliteConnection};
 use anyhow::{anyhow, Result};
 use chrono::{Duration, NaiveDateTime, TimeDelta};
 use rusqlite::{params, types::Value};
@@ -20,6 +20,7 @@ pub struct Job {
   pub interval_seconds: Option<u32>,
   pub payload: Option<Vec<u8>>,
   pub claimed_at: Option<NaiveDateTime>,
+  pub priority: Priority,
 }
 
 impl SchedulerRepository {
@@ -35,14 +36,15 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          INSERT INTO scheduler_jobs (id, name, next_execution, last_execution, interval_seconds, payload)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO scheduler_jobs (id, name, next_execution, last_execution, interval_seconds, payload, priority)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT (id) DO UPDATE SET 
             name = excluded.name,
             next_execution = excluded.next_execution, 
             last_execution = excluded.last_execution, 
             interval_seconds = excluded.interval_seconds,
-            payload = excluded.payload
+            payload = excluded.payload,
+            priority = excluded.priority
           ",
         )?;
         statement.execute(params![
@@ -52,6 +54,7 @@ impl SchedulerRepository {
           record.last_execution,
           record.interval_seconds,
           record.payload,
+          record.priority as u32
         ])?;
         Ok(())
       })
@@ -70,7 +73,7 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at
+          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at, priority
           FROM scheduler_jobs
           ",
         )?;
@@ -84,6 +87,7 @@ impl SchedulerRepository {
               interval_seconds: row.get(4)?,
               payload: row.get(5)?,
               claimed_at: row.get(6)?,
+              priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
             })
           })?
           .collect::<Result<Vec<_>, _>>()?;
@@ -142,7 +146,7 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at
+          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at, priority
           FROM scheduler_jobs
           WHERE
             name = ?
@@ -151,7 +155,7 @@ impl SchedulerRepository {
               claimed_at IS NULL
               OR claimed_at < datetime(?)
             )
-          ORDER BY next_execution, id
+          ORDER BY next_execution, priority, id
           LIMIT ?
           ",
         )?;
@@ -167,6 +171,7 @@ impl SchedulerRepository {
                 interval_seconds: row.get(4)?,
                 payload: row.get(5)?,
                 claimed_at: row.get(6)?,
+                priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
               })
             },
           )?
@@ -200,7 +205,7 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at
+          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at, priority
           FROM scheduler_jobs
           WHERE id IN rarray(?)
           ",
@@ -215,6 +220,7 @@ impl SchedulerRepository {
               interval_seconds: row.get(4)?,
               payload: row.get(5)?,
               claimed_at: row.get(6)?,
+              priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
             })
           })?
           .collect::<Result<Vec<_>, _>>()?;
@@ -238,7 +244,7 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at
+          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at, priority
           FROM scheduler_jobs
           WHERE id = ?
           ",
@@ -252,6 +258,7 @@ impl SchedulerRepository {
             interval_seconds: row.get(4)?,
             payload: row.get(5)?,
             claimed_at: row.get(6)?,
+            priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
           })
         })?;
         rows.next().transpose().map_err(|e| {
@@ -281,6 +288,23 @@ impl SchedulerRepository {
       .map_err(|e| {
         error!(message = e.to_string(), "Failed to delete job");
         anyhow!("Failed to delete job")
+      })?
+  }
+
+  pub async fn delete_all_jobs(&self) -> Result<()> {
+    self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        let mut statement = conn.prepare("DELETE FROM scheduler_jobs")?;
+        statement.execute([])?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to delete all jobs");
+        anyhow!("Failed to delete all jobs")
       })?
   }
 

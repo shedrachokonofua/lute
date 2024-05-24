@@ -19,6 +19,7 @@ impl Into<proto::Job> for Job {
       interval_seconds: self.interval_seconds,
       payload: self.payload,
       claimed_at: self.claimed_at.map(|d| d.to_string()),
+      priority: self.priority as i32,
     }
   }
 }
@@ -154,6 +155,16 @@ impl proto::SchedulerService for SchedulerService {
       .app_context
       .scheduler
       .delete_job(&request.into_inner().id)
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+    Ok(Response::new(()))
+  }
+
+  async fn delete_all_jobs(&self, _request: Request<()>) -> Result<Response<()>, Status> {
+    self
+      .app_context
+      .scheduler
+      .delete_all_jobs()
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
     Ok(Response::new(()))

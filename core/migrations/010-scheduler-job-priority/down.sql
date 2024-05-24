@@ -1,0 +1,1 @@
+ALTER TABLE scheduler_jobs DROP COLUMN priority;

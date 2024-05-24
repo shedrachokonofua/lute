@@ -1,7 +1,7 @@
 use super::priority_queue::{
-  ClaimedQueueItem, ItemKey, Priority, PriorityQueue, QueueItem, QueuePushParameters,
+  ClaimedQueueItem, ItemKey, PriorityQueue, QueueItem, QueuePushParameters,
 };
-use crate::files::file_metadata::file_name::FileName;
+use crate::{files::file_metadata::file_name::FileName, helpers::priority::Priority};
 use anyhow::{bail, Result};
 use async_trait::async_trait;
 use chrono::DateTime;

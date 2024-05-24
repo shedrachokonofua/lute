@@ -2,7 +2,7 @@ use super::spotify_track_search_index::SpotifyTrackSearchRecord;
 use crate::{
   albums::album_read_model::AlbumReadModel,
   context::ApplicationContext,
-  crawler::priority_queue::{Priority, QueuePushParameters},
+  crawler::priority_queue::QueuePushParameters,
   event_handler,
   events::{
     event::{Event, Topic},
@@ -13,6 +13,7 @@ use crate::{
   },
   files::file_metadata::file_name::{ChartParameters, FileName},
   group_event_handler,
+  helpers::priority::Priority,
   parser::parsed_file_data::ParsedFileData,
   spotify::spotify_client::SpotifyClientError,
 };

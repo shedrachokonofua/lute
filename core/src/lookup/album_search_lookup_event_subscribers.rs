@@ -8,10 +8,7 @@ use super::{
 use crate::{
   albums::album_repository::AlbumRepository,
   context::ApplicationContext,
-  crawler::{
-    crawler_interactor::CrawlerInteractor,
-    priority_queue::{Priority, QueuePushParameters},
-  },
+  crawler::{crawler_interactor::CrawlerInteractor, priority_queue::QueuePushParameters},
   events::{
     event::{Event, EventPayloadBuilder, Topic},
     event_publisher::EventPublisher,
@@ -20,6 +17,7 @@ use crate::{
     },
   },
   files::file_metadata::{file_name::FileName, page_type::PageType},
+  helpers::priority::Priority,
   parser::parsed_file_data::ParsedFileData,
 };
 use anyhow::Result;

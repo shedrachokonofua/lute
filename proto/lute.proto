@@ -55,7 +55,7 @@ enum CrawlerStatus {
   CrawlerThrottled = 3;
 }
 
-enum CrawlerItemPriority {
+enum Priority {
   Express = 0;
   High = 1;
   Standard = 2;
@@ -67,7 +67,7 @@ message CrawlerQueueItem {
   string enqueue_time = 2;
   string deduplication_key = 3;
   string file_name = 4;
-  CrawlerItemPriority priority = 5;
+  Priority priority = 5;
   optional string correlation_id = 6;
   map<string, string> metadata = 7;
 }
@@ -92,7 +92,7 @@ message SetCrawlerStatusReply { CrawlerStatus status = 1; }
 
 message EnqueueRequest {
   string file_name = 1;
-  CrawlerItemPriority priority = 2;
+  Priority priority = 2;
   string deduplication_key = 3;
   optional string correlation_id = 4;
   map<string, string> metadata = 5;
@@ -822,6 +822,7 @@ message Job {
   optional uint32 interval_seconds = 5;
   optional bytes payload = 6;
   optional string claimed_at = 7;
+  Priority priority = 8;
 }
 
 message GetJobsReply { repeated Job jobs = 1; }
@@ -848,6 +849,7 @@ service SchedulerService {
   rpc GetJobs(google.protobuf.Empty) returns (GetJobsReply) {}
   rpc PutJob(PutJobRequest) returns (google.protobuf.Empty) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteAllJobs(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc SetJobProcessorStatus(SetProcessorStatusRequest)
       returns (google.protobuf.Empty) {}
 }

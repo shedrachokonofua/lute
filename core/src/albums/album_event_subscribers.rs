@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
   context::ApplicationContext,
-  crawler::priority_queue::{Priority, QueuePushParameters},
+  crawler::priority_queue::QueuePushParameters,
   event_handler,
   events::{
     event::{Event, Topic},
@@ -17,6 +17,7 @@ use crate::{
       GroupingStrategy,
     },
   },
+  helpers::priority::Priority,
   parser::parsed_file_data::{ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack},
 };
 use anyhow::Result;

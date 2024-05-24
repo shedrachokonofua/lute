@@ -1,11 +1,8 @@
 use crate::{
   context::ApplicationContext,
-  crawler::{
-    crawler_interactor::CrawlerInteractor,
-    priority_queue::{Priority, QueuePushParametersBuilder},
-  },
+  crawler::{crawler_interactor::CrawlerInteractor, priority_queue::QueuePushParametersBuilder},
   files::file_interactor::FileInteractor,
-  helpers::key_value_store::KeyValueStore,
+  helpers::{key_value_store::KeyValueStore, priority::Priority},
   parser::failed_parse_files_repository::FailedParseFilesRepository,
   proto::{
     self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest, KeyCountReply,
