@@ -34,9 +34,9 @@ pub struct JobParameters {
   next_execution: NaiveDateTime,
   #[builder(default = "true")]
   overwrite_existing: bool,
-  #[builder(default)]
+  #[builder(default, setter(strip_option))]
   payload: Option<Vec<u8>>,
-  #[builder(default)]
+  #[builder(default, setter(strip_option))]
   priority: Priority,
 }
 
@@ -51,6 +51,7 @@ impl Into<Job> for JobParameters {
       payload: self.payload,
       claimed_at: None,
       priority: self.priority,
+      created_at: Utc::now().naive_utc(),
     }
   }
 }
@@ -299,6 +300,31 @@ impl Scheduler {
     self.scheduler_repository.delete_all_jobs().await
   }
 
+  pub async fn delete_jobs_by_name(&self, job_name: JobName) -> Result<()> {
+    self
+      .scheduler_repository
+      .delete_jobs_by_name(job_name)
+      .await
+  }
+
+  pub async fn count_jobs_by_name(&self, job_name: JobName) -> Result<usize> {
+    self.scheduler_repository.count_jobs_by_name(job_name).await
+  }
+
+  pub async fn count_claimed_jobs_by_name(&self, job_name: JobName) -> Result<usize> {
+    self
+      .scheduler_repository
+      .count_claimed_jobs_by_name(job_name)
+      .await
+  }
+
+  pub async fn find_claimed_jobs_by_name(&self, job_name: JobName) -> Result<Vec<Job>> {
+    self
+      .scheduler_repository
+      .find_claimed_jobs_by_name(job_name)
+      .await
+  }
+
   pub async fn get_processor_status(&self, job_name: &JobName) -> Result<JobProcessorStatus> {
     self.processor_status_repository.get(job_name).await
   }
@@ -340,10 +366,15 @@ impl Scheduler {
       .insert(processor.name.clone(), processor);
   }
 
-  pub async fn put(&self, params: JobParameters) -> Result<()> {
+  pub async fn put(&self, params: JobParameters) -> Result<bool> {
     let overwrite_existing = params.overwrite_existing;
     let record: Job = params.into();
     if let Some(existing_job) = self.scheduler_repository.find_job(&record.id).await? {
+      if existing_job.claimed_at.is_some() {
+        info!(job_id = record.id.as_str(), "Job is claimed, skipping");
+        return Ok(false);
+      }
+
       let interval_changed = match (record.interval_seconds, existing_job.interval_seconds) {
         (Some(interval_seconds), Some(existing_interval_seconds)) => {
           interval_seconds != existing_interval_seconds
@@ -353,11 +384,11 @@ impl Scheduler {
       // Force overwrite if interval has changed
       if !overwrite_existing && !interval_changed {
         info!(job_id = record.id.as_str(), "Job already exists, skipping");
-        return Ok(());
+        return Ok(false);
       }
     }
     self.scheduler_repository.put(record).await?;
-    Ok(())
+    Ok(true)
   }
 
   pub async fn run(&self) -> Result<()> {

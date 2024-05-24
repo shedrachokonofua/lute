@@ -10,4 +10,5 @@ pub enum JobName {
   DeleteExpiredKVItems,
   IndexSpotifyTracks,
   ParserRetry,
+  Crawl,
 }

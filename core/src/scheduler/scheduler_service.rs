@@ -120,8 +120,11 @@ impl proto::SchedulerService for SchedulerService {
     let mut builder = JobParametersBuilder::default();
     builder
       .id(params.id)
-      .name(JobName::from_str(&params.name).map_err(|e| Status::invalid_argument(e.to_string()))?)
-      .payload(params.payload);
+      .name(JobName::from_str(&params.name).map_err(|e| Status::invalid_argument(e.to_string()))?);
+
+    if let Some(payload) = params.payload {
+      builder.payload(payload);
+    }
 
     if let Some(next_execution) = params.next_execution {
       builder.next_execution(

@@ -1,6 +1,6 @@
 use crate::{
   context::ApplicationContext,
-  crawler::{crawler_interactor::CrawlerInteractor, priority_queue::QueuePushParametersBuilder},
+  crawler::{crawler::Crawler, priority_queue::QueuePushParametersBuilder},
   files::file_interactor::FileInteractor,
   helpers::{key_value_store::KeyValueStore, priority::Priority},
   parser::failed_parse_files_repository::FailedParseFilesRepository,
@@ -24,7 +24,7 @@ use tracing::error;
 pub struct OperationsService {
   sqlite_connection: Arc<SqliteConnection>,
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  crawler_interactor: Arc<CrawlerInteractor>,
+  crawler: Arc<Crawler>,
   file_interactor: Arc<FileInteractor>,
   failed_parse_files_repository: FailedParseFilesRepository,
   kv: Arc<KeyValueStore>,
@@ -33,7 +33,7 @@ pub struct OperationsService {
 impl OperationsService {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      crawler_interactor: Arc::clone(&app_context.crawler.crawler_interactor),
+      crawler: Arc::clone(&app_context.crawler),
       sqlite_connection: Arc::clone(&app_context.sqlite_connection),
       kv: Arc::clone(&app_context.kv),
       redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
@@ -185,7 +185,7 @@ impl proto::OperationsService for OperationsService {
     let count = files.len() as u32;
     for file in files {
       self
-        .crawler_interactor
+        .crawler
         .enqueue(
           QueuePushParametersBuilder::default()
             .file_name(file)

@@ -15,6 +15,7 @@ pub struct SchedulerRepository {
 pub struct Job {
   pub id: String,
   pub name: JobName,
+  pub created_at: NaiveDateTime,
   pub next_execution: NaiveDateTime,
   pub last_execution: Option<NaiveDateTime>,
   pub interval_seconds: Option<u32>,
@@ -36,8 +37,17 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          INSERT INTO scheduler_jobs (id, name, next_execution, last_execution, interval_seconds, payload, priority)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO scheduler_jobs (
+            id, 
+            name, 
+            next_execution, 
+            last_execution, 
+            interval_seconds, 
+            payload, 
+            priority,
+            created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
           ON CONFLICT (id) DO UPDATE SET 
             name = excluded.name,
             next_execution = excluded.next_execution, 
@@ -45,6 +55,7 @@ impl SchedulerRepository {
             interval_seconds = excluded.interval_seconds,
             payload = excluded.payload,
             priority = excluded.priority
+            created_at = excluded.created_at
           ",
         )?;
         statement.execute(params![
@@ -73,7 +84,16 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at, priority
+          SELECT 
+            id, 
+            name, 
+            next_execution, 
+            last_execution, 
+            interval_seconds, 
+            payload, 
+            claimed_at, 
+            priority, 
+            created_at
           FROM scheduler_jobs
           ",
         )?;
@@ -88,6 +108,7 @@ impl SchedulerRepository {
               payload: row.get(5)?,
               claimed_at: row.get(6)?,
               priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
+              created_at: row.get(8)?,
             })
           })?
           .collect::<Result<Vec<_>, _>>()?;
@@ -146,7 +167,16 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at, priority
+          SELECT 
+            id, 
+            name, 
+            next_execution, 
+            last_execution, 
+            interval_seconds, 
+            payload, 
+            claimed_at, 
+            priority, 
+            created_at
           FROM scheduler_jobs
           WHERE
             name = ?
@@ -172,6 +202,7 @@ impl SchedulerRepository {
                 payload: row.get(5)?,
                 claimed_at: row.get(6)?,
                 priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
+                created_at: row.get(8)?,
               })
             },
           )?
@@ -196,6 +227,104 @@ impl SchedulerRepository {
     Ok(jobs)
   }
 
+  pub async fn count_jobs_by_name(&self, job_name: JobName) -> Result<usize> {
+    let count = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        conn.query_row(
+          "
+          SELECT COUNT(*)
+          FROM scheduler_jobs
+          WHERE name = ?
+          ",
+          [job_name.to_string()],
+          |row| Ok(row.get::<_, usize>(0)?),
+        )
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to count jobs");
+        anyhow!("Failed to count jobs")
+      })??;
+
+    Ok(count)
+  }
+
+  pub async fn count_claimed_jobs_by_name(&self, job_name: JobName) -> Result<usize> {
+    let count = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        conn.query_row(
+          "
+          SELECT COUNT(*)
+          FROM scheduler_jobs
+          WHERE name = ? AND claimed_at IS NOT NULL
+          ",
+          [job_name.to_string()],
+          |row| Ok(row.get::<_, usize>(0)?),
+        )
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to count claimed jobs");
+        anyhow!("Failed to count claimed jobs")
+      })??;
+
+    Ok(count)
+  }
+
+  pub async fn find_claimed_jobs_by_name(&self, job_name: JobName) -> Result<Vec<Job>> {
+    let jobs = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut statement = conn.prepare(
+          "
+          SELECT
+            id, 
+            name, 
+            next_execution, 
+            last_execution, 
+            interval_seconds, 
+            payload, 
+            claimed_at, 
+            priority, 
+            created_at
+          FROM scheduler_jobs
+          WHERE name = ? AND claimed_at IS NOT NULL
+          ",
+        )?;
+        let rows = statement
+          .query_map([job_name.to_string()], |row| {
+            Ok(Job {
+              id: row.get(0)?,
+              name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
+              next_execution: row.get(2)?,
+              last_execution: row.get(3)?,
+              interval_seconds: row.get(4)?,
+              payload: row.get(5)?,
+              claimed_at: row.get(6)?,
+              priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
+              created_at: row.get(8)?,
+            })
+          })?
+          .collect::<Result<Vec<_>, _>>()?;
+        Ok::<_, rusqlite::Error>(rows)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to claim next job");
+        anyhow!("Failed to claim next job")
+      })??;
+
+    Ok(jobs)
+  }
+
   pub async fn find_jobs(&self, job_ids: Vec<String>) -> Result<Vec<Job>> {
     let ids = job_ids.into_iter().map(Value::from).collect::<Vec<_>>();
     let jobs = self
@@ -205,7 +334,16 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at, priority
+          SELECT
+            id, 
+            name, 
+            next_execution, 
+            last_execution, 
+            interval_seconds, 
+            payload, 
+            claimed_at, 
+            priority, 
+            created_at
           FROM scheduler_jobs
           WHERE id IN rarray(?)
           ",
@@ -221,6 +359,7 @@ impl SchedulerRepository {
               payload: row.get(5)?,
               claimed_at: row.get(6)?,
               priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
+              created_at: row.get(8)?,
             })
           })?
           .collect::<Result<Vec<_>, _>>()?;
@@ -244,7 +383,16 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at, priority
+          SELECT
+            id, 
+            name, 
+            next_execution, 
+            last_execution, 
+            interval_seconds, 
+            payload, 
+            claimed_at, 
+            priority, 
+            created_at
           FROM scheduler_jobs
           WHERE id = ?
           ",
@@ -259,6 +407,7 @@ impl SchedulerRepository {
             payload: row.get(5)?,
             claimed_at: row.get(6)?,
             priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
+            created_at: row.get(8)?,
           })
         })?;
         rows.next().transpose().map_err(|e| {

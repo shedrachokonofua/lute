@@ -128,7 +128,6 @@ async fn crawl_chart_albums(
     for album in albums {
       app_context
         .crawler
-        .crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
           file_name: album.file_name,
           priority: Some(priority),
@@ -156,7 +155,6 @@ async fn crawl_artist_albums(
     for album in parsed_artist.albums {
       app_context
         .crawler
-        .crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
           file_name: album.file_name,
           priority: Some(priority),

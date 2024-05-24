@@ -102,12 +102,12 @@ impl EventSubscriberInteractor {
           .id(id.to_string())
           .name(JobName::ChangeEventSubscriberStatus)
           .next_execution(when)
-          .payload(Some(serde_json::to_vec(
+          .payload(serde_json::to_vec(
             &ChangeEventSubscriberStatusJobPayload {
               status,
               subscriber_id: self.subscriber_id.clone(),
             },
-          )?))
+          )?)
           .build()?,
       )
       .await?;

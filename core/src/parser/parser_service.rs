@@ -283,7 +283,10 @@ impl proto::ParserService for ParserService {
         .put(
           JobParametersBuilder::default()
             .name(JobName::ParserRetry)
-            .payload(serde_json::to_vec(&failure.file_name).ok())
+            .payload(serde_json::to_vec(&failure.file_name).map_err(|err| {
+              error!(err = err.to_string(), "failed to serialize payload");
+              Status::internal("failed to serialize payload")
+            })?)
             .build()
             .map_err(|err| {
               error!(err = err.to_string(), "failed to build job parameters");

@@ -8,7 +8,7 @@ use super::{
 use crate::{
   albums::album_repository::AlbumRepository,
   context::ApplicationContext,
-  crawler::{crawler_interactor::CrawlerInteractor, priority_queue::QueuePushParameters},
+  crawler::{crawler::Crawler, priority_queue::QueuePushParameters},
   events::{
     event::{Event, EventPayloadBuilder, Topic},
     event_publisher::EventPublisher,
@@ -131,7 +131,7 @@ impl AlbumSearchLookup {
 }
 
 struct AlbumSearchLookupOrchestrator {
-  crawler_interactor: Arc<CrawlerInteractor>,
+  crawler: Arc<Crawler>,
   lookup_interactor: LookupInteractor,
   event_publisher: Arc<EventPublisher>,
   album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
@@ -140,7 +140,7 @@ struct AlbumSearchLookupOrchestrator {
 impl AlbumSearchLookupOrchestrator {
   fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      crawler_interactor: Arc::clone(&app_context.crawler.crawler_interactor),
+      crawler: Arc::clone(&app_context.crawler),
       lookup_interactor: LookupInteractor::new(
         Arc::clone(&app_context.settings),
         Arc::clone(&app_context.redis_connection_pool),
@@ -164,7 +164,7 @@ impl AlbumSearchLookupOrchestrator {
   #[instrument(skip(self))]
   async fn enqueue_to_crawler(&self, file_name: &FileName, correlation_id: String) -> Result<()> {
     self
-      .crawler_interactor
+      .crawler
       .enqueue(QueuePushParameters {
         file_name: file_name.clone(),
         priority: Some(Priority::High),

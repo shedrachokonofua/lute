@@ -36,7 +36,6 @@ async fn crawl_similar_albums(
     for artist in album.artists {
       if let Err(e) = app_context
         .crawler
-        .crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
           file_name: artist.file_name,
           correlation_id: Some(format!("crawl_similar_albums:{}", file_name.to_string())),
@@ -56,7 +55,6 @@ async fn crawl_similar_albums(
     // Same genres, same descriptors
     if let Err(e) = app_context
       .crawler
-      .crawler_interactor
       .enqueue_if_stale(QueuePushParameters {
         file_name: ChartParameters {
           release_type: release_type.to_string(),
@@ -87,7 +85,6 @@ async fn crawl_similar_albums(
       primary_genres.insert(0, "all".to_string());
       if let Err(e) = app_context
         .crawler
-        .crawler_interactor
         .enqueue_if_stale(QueuePushParameters {
           file_name: ChartParameters {
             release_type: release_type.to_string(),
@@ -187,7 +184,7 @@ pub async fn save_album_spotify_tracks(
             JobParametersBuilder::default()
               .id(format!("save_album_spotify_tracks:{}", spotify_id))
               .name(JobName::IndexSpotifyTracks)
-              .payload(Some(serde_json::to_vec(&record)?))
+              .payload(serde_json::to_vec(&record)?)
               .build()?,
           )
           .await?;

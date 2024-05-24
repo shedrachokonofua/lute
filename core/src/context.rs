@@ -57,10 +57,15 @@ impl ApplicationContext {
       Arc::clone(&redis_connection_pool),
       Arc::clone(&event_publisher),
     ));
+    let scheduler = Arc::new(Scheduler::new(
+      Arc::clone(&sqlite_connection),
+      Arc::clone(&kv),
+    ));
     let crawler = Arc::new(Crawler::new(
       Arc::clone(&settings),
       Arc::clone(&redis_connection_pool),
       Arc::clone(&file_interactor),
+      Arc::clone(&scheduler),
     )?);
     let album_repository = Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection)));
     let album_embedding_providers_interactor = Arc::new(AlbumEmbeddingProvidersInteractor::new(
@@ -73,10 +78,6 @@ impl ApplicationContext {
     ));
     let spotify_client = Arc::new(SpotifyClient::new(
       &settings.spotify.clone(),
-      Arc::clone(&kv),
-    ));
-    let scheduler = Arc::new(Scheduler::new(
-      Arc::clone(&sqlite_connection),
       Arc::clone(&kv),
     ));
     let spotify_track_search_index = Arc::new(SpotifyTrackSearchIndex::new(Arc::clone(
