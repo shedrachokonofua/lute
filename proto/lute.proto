@@ -808,7 +808,7 @@ message JobProcessor {
   string job_name = 1;
   JobProcessorStatus status = 2;
   uint32 concurrency = 3;
-  uint64 heartbeat_seconds = 4;
+  uint64 cooldown_seconds = 4;
   uint64 claim_duration_seconds = 5;
 }
 

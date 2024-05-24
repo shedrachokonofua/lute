@@ -172,7 +172,7 @@ pub struct JobProcessor {
   #[builder(default = "Duration::from_secs(60)")]
   pub claim_duration: Duration,
   #[builder(default = "Duration::from_secs(1)")]
-  pub heartbeat: Duration,
+  pub cooldown: Duration,
   #[builder(setter(skip), default = "self.get_status_repo()?")]
   pub status_repository: Arc<JobProcessorStatusRepository>,
 }
@@ -215,7 +215,7 @@ impl JobProcessor {
       let tx = tx.clone();
       let executor = self.executor.clone();
       let app_context = Arc::clone(&self.app_context);
-      let heartbeat = self.heartbeat;
+      let cooldown = self.cooldown;
       let scheduler_repo = Arc::clone(&scheduler_repository);
       let status_repo = Arc::clone(&self.status_repository);
       let job_name = self.name.clone();
@@ -224,7 +224,7 @@ impl JobProcessor {
         loop {
           match status_repo.get(&job_name).await {
             Ok(JobProcessorStatus::Paused) => {
-              sleep(heartbeat).await;
+              sleep(cooldown).await;
               continue;
             }
             Err(e) => {
@@ -232,7 +232,7 @@ impl JobProcessor {
                 message = e.to_string(),
                 "Failed to get job processor status"
               );
-              sleep(heartbeat).await;
+              sleep(cooldown).await;
               continue;
             }
             _ => {}
@@ -264,7 +264,7 @@ impl JobProcessor {
               error!(message = e.to_string(), "Failed to receive job");
             }
           }
-          sleep(heartbeat).await;
+          sleep(cooldown).await;
         }
       });
     }

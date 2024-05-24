@@ -93,7 +93,7 @@ impl proto::SchedulerService for SchedulerService {
         status: status.into(),
         claim_duration_seconds: processor.claim_duration.as_secs(),
         concurrency: processor.concurrency,
-        heartbeat_seconds: processor.heartbeat.as_secs(),
+        cooldown_seconds: processor.cooldown.as_secs(),
       })
       .collect::<Vec<_>>();
 

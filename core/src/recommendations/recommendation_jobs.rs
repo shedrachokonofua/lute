@@ -83,7 +83,7 @@ pub async fn setup_recommendation_jobs(app_context: Arc<ApplicationContext>) -> 
         .name(JobName::IndexSpotifyTracks)
         .app_context(Arc::clone(&app_context))
         .executor(batch_job_executor!(index_spotify_tracks, 100))
-        .heartbeat(TimeDelta::try_seconds(15).unwrap().to_std()?)
+        .cooldown(TimeDelta::try_seconds(15).unwrap().to_std()?)
         .build()?,
     )
     .await;
