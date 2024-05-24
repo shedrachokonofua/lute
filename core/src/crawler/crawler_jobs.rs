@@ -27,6 +27,7 @@ pub async fn setup_crawler_jobs(app_context: Arc<ApplicationContext>) -> Result<
     .register(
       JobProcessorBuilder::default()
         .name(JobName::ResetCrawlerRequestWindow)
+        .app_context(Arc::clone(&app_context))
         .executor(job_executor!(reset_crawler_request_window))
         .build()?,
     )

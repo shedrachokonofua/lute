@@ -80,7 +80,10 @@ impl ApplicationContext {
       &settings.spotify.clone(),
       Arc::clone(&kv),
     ));
-    let scheduler = Arc::new(Scheduler::new(Arc::clone(&sqlite_connection)));
+    let scheduler = Arc::new(Scheduler::new(
+      Arc::clone(&sqlite_connection),
+      Arc::clone(&kv),
+    ));
     let spotify_track_search_index = Arc::new(SpotifyTrackSearchIndex::new(Arc::clone(
       &redis_connection_pool,
     )));

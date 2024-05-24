@@ -92,7 +92,13 @@ impl KeyValueStore {
           "
           SELECT
             value as k,
-            EXISTS (SELECT 1 FROM key_value_store WHERE key_value_store.key = value) as e
+            EXISTS (
+              SELECT 1 
+              FROM key_value_store 
+              WHERE 
+                key_value_store.key = value 
+                AND (expires_at > CURRENT_TIMESTAMP OR expires_at IS NULL) 
+            ) as e
           FROM rarray(?1);
           ",
         )?;
@@ -126,7 +132,13 @@ impl KeyValueStore {
       .interact(|conn| {
         conn
           .query_row(
-            "SELECT EXISTS(SELECT 1 FROM key_value_store WHERE key = ?1)",
+            "SELECT EXISTS(
+              SELECT 1 
+              FROM key_value_store 
+              WHERE 
+                key = ?1 
+                AND (expires_at > CURRENT_TIMESTAMP OR expires_at IS NULL)
+            )",
             [key],
             |row| row.get::<_, bool>(0),
           )
@@ -340,6 +352,7 @@ pub async fn setup_kv_jobs(app_context: Arc<ApplicationContext>) -> Result<()> {
     .register(
       JobProcessorBuilder::default()
         .name(JobName::DeleteExpiredKVItems)
+        .app_context(Arc::clone(&app_context))
         .executor(job_executor!(delete_expired_keys))
         .build()?,
     )

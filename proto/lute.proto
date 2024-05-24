@@ -799,7 +799,20 @@ service EventService {
       returns (google.protobuf.Empty) {}
 }
 
-message GetRegisteredProcessorsReply { repeated string processors = 1; }
+enum JobProcessorStatus {
+  ProcessorPaused = 0;
+  ProcessorRunning = 1;
+}
+
+message JobProcessor {
+  string job_name = 1;
+  JobProcessorStatus status = 2;
+  uint32 concurrency = 3;
+  uint64 heartbeat_seconds = 4;
+  uint64 claim_duration_seconds = 5;
+}
+
+message GetRegisteredProcessorsReply { repeated JobProcessor processors = 1; }
 
 message Job {
   string id = 1;
@@ -824,10 +837,17 @@ message PutJobRequest {
   optional bool overwrite_existing = 6;
 }
 
+message SetProcessorStatusRequest {
+  string name = 1;
+  JobProcessorStatus status = 2;
+}
+
 service SchedulerService {
   rpc GetRegisteredProcessors(google.protobuf.Empty)
       returns (GetRegisteredProcessorsReply) {}
   rpc GetJobs(google.protobuf.Empty) returns (GetJobsReply) {}
   rpc PutJob(PutJobRequest) returns (google.protobuf.Empty) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
+  rpc SetJobProcessorStatus(SetProcessorStatusRequest)
+      returns (google.protobuf.Empty) {}
 }

@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   start_parser_retry_consumer(Arc::clone(&context))?;
   start_event_subscribers(Arc::clone(&context))?;
   setup_jobs(Arc::clone(&context)).await?;
-  context.scheduler.run(Arc::clone(&context)).await?;
+  context.scheduler.run().await?;
   context.crawler.run()?;
   RpcServer::new(context).run().await?;
 

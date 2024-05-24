@@ -44,6 +44,7 @@ pub async fn setup_event_subscriber_jobs(app_context: Arc<ApplicationContext>) -
     .register(
       JobProcessorBuilder::default()
         .name(JobName::ChangeEventSubscriberStatus)
+        .app_context(Arc::clone(&app_context))
         .executor(job_executor!(change_subscriber_status))
         .build()?,
     )
