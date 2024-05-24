@@ -1,28 +1,34 @@
 use crate::{
   context::ApplicationContext,
-  scheduler::{job_name::JobName, scheduler::JobParametersBuilder},
+  job_executor,
+  scheduler::{
+    job_name::JobName,
+    scheduler::{JobExecutorFn, JobParametersBuilder, JobProcessorBuilder},
+    scheduler_repository::Job,
+  },
 };
 use anyhow::Result;
 use chrono::{TimeDelta, Utc};
 use std::sync::Arc;
 use tracing::info;
 
+async fn reset_crawler_request_window(_: Job, ctx: Arc<ApplicationContext>) -> Result<()> {
+  info!("Executing job, resetting crawler request window");
+  ctx
+    .crawler
+    .crawler_interactor
+    .reset_window_request_count()
+    .await
+}
+
 pub async fn setup_crawler_jobs(app_context: Arc<ApplicationContext>) -> Result<()> {
   app_context
     .scheduler
     .register(
-      JobName::ResetCrawlerRequestWindow,
-      Arc::new(|ctx| {
-        Box::pin(async move {
-          info!("Executing job, resetting crawler request window");
-          ctx
-            .app_context
-            .crawler
-            .crawler_interactor
-            .reset_window_request_count()
-            .await
-        })
-      }),
+      JobProcessorBuilder::default()
+        .name(JobName::ResetCrawlerRequestWindow)
+        .executor(job_executor!(reset_crawler_request_window))
+        .build()?,
     )
     .await;
 

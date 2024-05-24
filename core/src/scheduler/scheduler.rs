@@ -8,12 +8,12 @@ use crate::{
 use anyhow::Result;
 use chrono::{NaiveDateTime, TimeDelta};
 use derive_builder::Builder;
-use std::{
-  collections::{HashMap, HashSet},
-  sync::Arc,
-  time::Duration,
+use std::{collections::HashMap, sync::Arc, time::Duration};
+use tokio::{
+  spawn,
+  sync::{mpsc::unbounded_channel, oneshot, RwLock},
+  time::sleep,
 };
-use tokio::{spawn, sync::RwLock, time::sleep};
 use tracing::{error, info};
 
 #[derive(Builder)]
@@ -40,6 +40,7 @@ impl Into<Job> for JobParameters {
       last_execution: None,
       interval_seconds: self.interval.map(|d| d.num_seconds() as u32),
       payload: self.payload,
+      claimed_at: None,
     }
   }
 }
@@ -49,12 +50,142 @@ pub struct JobProcessorContext {
   pub app_context: Arc<ApplicationContext>,
 }
 
-type JobProcessor = ThreadSafeAsyncFn<JobProcessorContext>;
+// type JobProcessor = ThreadSafeAsyncFn<JobProcessorContext>;
+
+#[derive(Clone)]
+pub enum JobExecutorFn {
+  Single(ThreadSafeAsyncFn<(Job, Arc<ApplicationContext>)>),
+  Batch(ThreadSafeAsyncFn<(Vec<Job>, Arc<ApplicationContext>)>, u32),
+}
+
+#[macro_export]
+macro_rules! job_executor {
+  ($f: expr) => {{
+    fn f(
+      (job, app_context): (Job, Arc<ApplicationContext>),
+    ) -> impl futures::Future<Output = Result<(), anyhow::Error>> + Send + 'static {
+      $f(job, app_context)
+    }
+    JobExecutorFn::Single(crate::helpers::async_utils::async_callback(f))
+  }};
+}
+
+#[macro_export]
+macro_rules! batch_job_executor {
+  ($f: expr, $batch_size: expr) => {{
+    fn f(
+      (jobs, app_context): (Vec<Job>, Arc<ApplicationContext>),
+    ) -> impl futures::Future<Output = Result<(), anyhow::Error>> + Send + 'static {
+      $f(jobs, app_context)
+    }
+    JobExecutorFn::Batch(crate::helpers::async_utils::async_callback(f), $batch_size)
+  }};
+}
+
+impl JobExecutorFn {
+  pub fn batch_size(&self) -> u32 {
+    match self {
+      JobExecutorFn::Single(_) => 1,
+      JobExecutorFn::Batch(_, size) => *size,
+    }
+  }
+
+  async fn execute(&self, mut jobs: Vec<Job>, app_context: Arc<ApplicationContext>) -> Result<()> {
+    if jobs.is_empty() {
+      return Ok(());
+    }
+
+    match self {
+      JobExecutorFn::Single(f) => f((jobs.pop().unwrap(), app_context)).await,
+      JobExecutorFn::Batch(f, _) => f((jobs, app_context)).await,
+    }
+  }
+}
+
+#[derive(Builder)]
+pub struct JobProcessor {
+  pub name: JobName,
+  pub executor: JobExecutorFn,
+  #[builder(default = "1")]
+  pub concurrency: u32,
+  #[builder(default = "Duration::from_secs(60)")]
+  pub claim_duration: Duration,
+  #[builder(default = "Duration::from_secs(1)")]
+  pub heartbeat: Duration,
+}
+
+impl JobProcessor {
+  pub async fn run(
+    &self,
+    scheduler_repository: Arc<SchedulerRepository>,
+    app_context: Arc<ApplicationContext>,
+  ) -> Result<()> {
+    let (tx, mut rx) = unbounded_channel::<oneshot::Sender<Vec<Job>>>();
+    let job_name = self.name.clone();
+    let claim_duration = self.claim_duration.clone();
+    let repo = Arc::clone(&scheduler_repository);
+    let batch_size = self.executor.batch_size();
+    spawn(async move {
+      while let Some(response_channel) = rx.recv().await {
+        let job = repo
+          .claim_next_jobs(
+            job_name.clone(),
+            batch_size,
+            TimeDelta::from_std(claim_duration)?,
+          )
+          .await?;
+        if let Err(j) = response_channel.send(job) {
+          error!(message = format!("{:?}", j), "Failed to send job to worker");
+        }
+      }
+      Ok::<_, anyhow::Error>(())
+    });
+
+    for _ in 0..self.concurrency {
+      let tx = tx.clone();
+      let executor = self.executor.clone();
+      let app_context = Arc::clone(&app_context);
+      let heartbeat = self.heartbeat;
+      let repo = Arc::clone(&scheduler_repository);
+      spawn(async move {
+        loop {
+          let (job_sender, job_receiver) = oneshot::channel();
+          if let Err(e) = tx.send(job_sender) {
+            error!(message = format!("{:?}", e), "Failed to send claim request");
+          }
+          match job_receiver.await {
+            Ok(jobs) => {
+              if !jobs.is_empty() {
+                if let Err(e) = executor
+                  .execute(jobs.clone(), Arc::clone(&app_context))
+                  .await
+                {
+                  error!(message = e.to_string(), "Failed to execute job");
+                }
+
+                if let Err(e) = repo.update_jobs_after_execution(jobs).await {
+                  error!(
+                    message = e.to_string(),
+                    "Failed to update jobs after execution"
+                  );
+                }
+              }
+            }
+            Err(e) => {
+              error!(message = e.to_string(), "Failed to receive job");
+            }
+          }
+          sleep(heartbeat).await;
+        }
+      });
+    }
+    Ok(())
+  }
+}
 
 pub struct Scheduler {
   scheduler_repository: Arc<SchedulerRepository>,
   processor_registry: Arc<RwLock<HashMap<JobName, JobProcessor>>>,
-  active_jobs: Arc<RwLock<HashSet<String>>>,
 }
 
 impl Scheduler {
@@ -62,7 +193,6 @@ impl Scheduler {
     Self {
       scheduler_repository: Arc::new(SchedulerRepository::new(sqlite_connection)),
       processor_registry: Arc::new(RwLock::new(HashMap::new())),
-      active_jobs: Arc::new(RwLock::new(HashSet::new())),
     }
   }
 
@@ -84,12 +214,12 @@ impl Scheduler {
       .collect()
   }
 
-  pub async fn register(&self, job_name: JobName, processor: JobProcessor) -> () {
+  pub async fn register(&self, processor: JobProcessor) -> () {
     self
       .processor_registry
       .write()
       .await
-      .insert(job_name, processor);
+      .insert(processor.name.clone(), processor);
   }
 
   pub async fn put(&self, params: JobParameters) -> Result<()> {
@@ -113,70 +243,16 @@ impl Scheduler {
   }
 
   pub async fn run(&self, app_context: Arc<ApplicationContext>) -> Result<()> {
-    let scheduler_repository = Arc::clone(&self.scheduler_repository);
     let processor_registry = Arc::clone(&self.processor_registry);
-    let active_jobs = Arc::clone(&self.active_jobs);
 
-    spawn(async move {
-      loop {
-        match scheduler_repository.get_pending_jobs().await {
-          Ok(pending_jobs) => {
-            for job in pending_jobs {
-              if active_jobs.read().await.contains(&job.id.to_string()) {
-                info!(job_id = job.id.as_str(), "Job already running, skipping");
-                continue;
-              }
-              if let Some(processor) = processor_registry.write().await.get(&job.name) {
-                let processor = Arc::clone(&processor);
-                let scheduler_repository = Arc::clone(&scheduler_repository);
-                let app_context = Arc::clone(&app_context);
-                let active_jobs = Arc::clone(&active_jobs);
-                active_jobs.write().await.insert(job.id.to_string());
-                spawn(async move {
-                  match processor(JobProcessorContext {
-                    payload: job.payload,
-                    app_context,
-                  })
-                  .await
-                  {
-                    Ok(_) => {
-                      if let Err(e) = scheduler_repository
-                        .update_job_after_execution(&job.id)
-                        .await
-                      {
-                        error!(
-                          message = e.to_string(),
-                          "Failed to update job after execution"
-                        );
-                      }
-                    }
-                    Err(e) => {
-                      error!(message = e.to_string(), "Failed to execute job");
-                    }
-                  };
-                  active_jobs.write().await.remove(&job.id.to_string());
-                });
-              } else {
-                if job.interval_seconds.is_none() {
-                  info!(
-                    job_id = job.id.as_str(),
-                    "Deleting transient job without handler"
-                  );
-                  if let Err(e) = scheduler_repository.delete_job(&job.id).await {
-                    error!(message = e.to_string(), "Failed to delete job");
-                  }
-                }
-              }
-            }
-          }
-          Err(e) => {
-            error!(message = e.to_string(), "Failed to get pending jobs");
-          }
-        }
-
-        sleep(Duration::from_millis(500)).await;
-      }
-    });
+    for processor in processor_registry.read().await.values() {
+      processor
+        .run(
+          Arc::clone(&self.scheduler_repository),
+          Arc::clone(&app_context),
+        )
+        .await?;
+    }
 
     Ok(())
   }

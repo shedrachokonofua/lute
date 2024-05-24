@@ -808,6 +808,7 @@ message Job {
   optional string last_execution = 4;
   optional uint32 interval_seconds = 5;
   optional bytes payload = 6;
+  optional string claimed_at = 7;
 }
 
 message GetJobsReply { repeated Job jobs = 1; }

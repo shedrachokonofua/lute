@@ -1,0 +1,1 @@
+ALTER TABLE scheduler_jobs ADD COLUMN claimed_at DATETIME;

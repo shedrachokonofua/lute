@@ -1,5 +1,13 @@
 use super::event_subscriber_repository::{EventSubscriberRepository, EventSubscriberStatus};
-use crate::{context::ApplicationContext, scheduler::job_name::JobName};
+use crate::{
+  context::ApplicationContext,
+  job_executor,
+  scheduler::{
+    job_name::JobName,
+    scheduler::{JobExecutorFn, JobProcessorBuilder},
+    scheduler_repository::Job,
+  },
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -11,32 +19,33 @@ pub struct ChangeEventSubscriberStatusJobParameters {
   pub status: EventSubscriberStatus,
 }
 
+async fn change_subscriber_status(job: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
+  if let Some(payload) = job.payload {
+    let params = serde_json::from_slice::<ChangeEventSubscriberStatusJobParameters>(&payload)?;
+    info!(
+      subscriber_id = &params.subscriber_id,
+      next_status = params.status.to_string(),
+      "Changing event subscriber status"
+    );
+    let event_subscriber_repository =
+      EventSubscriberRepository::new(Arc::clone(&app_context.sqlite_connection));
+    event_subscriber_repository
+      .set_status(&params.subscriber_id, params.status)
+      .await?;
+  } else {
+    error!("No payload provided for ChangeEventSubscriberStatus job, skipping");
+  }
+  Ok(())
+}
+
 pub async fn setup_event_subscriber_jobs(app_context: Arc<ApplicationContext>) -> Result<()> {
   app_context
     .scheduler
     .register(
-      JobName::ChangeEventSubscriberStatus,
-      Arc::new(|ctx| {
-        Box::pin(async move {
-          if let Some(payload) = ctx.payload {
-            let params =
-              serde_json::from_slice::<ChangeEventSubscriberStatusJobParameters>(&payload)?;
-            info!(
-              subscriber_id = &params.subscriber_id,
-              next_status = params.status.to_string(),
-              "Changing event subscriber status"
-            );
-            let event_subscriber_repository =
-              EventSubscriberRepository::new(Arc::clone(&ctx.app_context.sqlite_connection));
-            event_subscriber_repository
-              .set_status(&params.subscriber_id, params.status)
-              .await?;
-          } else {
-            error!("No payload provided for ChangeEventSubscriberStatus job, skipping");
-          }
-          Ok(())
-        })
-      }),
+      JobProcessorBuilder::default()
+        .name(JobName::ChangeEventSubscriberStatus)
+        .executor(job_executor!(change_subscriber_status))
+        .build()?,
     )
     .await;
   Ok(())

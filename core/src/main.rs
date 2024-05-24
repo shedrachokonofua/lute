@@ -16,7 +16,7 @@ use core::{
 };
 use mimalloc::MiMalloc;
 use std::sync::Arc;
-use tokio::task;
+use tokio::spawn;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -31,7 +31,7 @@ fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
     &app_context,
   ))?);
   event_subscribers.into_iter().for_each(|subscriber| {
-    task::spawn(async move { subscriber.run().await });
+    spawn(async move { subscriber.run().await });
   });
   Ok(())
 }

@@ -13,6 +13,7 @@ impl Into<proto::Job> for Job {
       last_execution: self.last_execution.map(|d| d.to_string()),
       interval_seconds: self.interval_seconds,
       payload: self.payload,
+      claimed_at: self.claimed_at.map(|d| d.to_string()),
     }
   }
 }

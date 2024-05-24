@@ -1,9 +1,9 @@
 use super::job_name::JobName;
 use crate::sqlite::SqliteConnection;
 use anyhow::{anyhow, Result};
-use chrono::{NaiveDateTime, TimeDelta};
-use rusqlite::params;
-use std::{str::FromStr, sync::Arc};
+use chrono::{Duration, NaiveDateTime, TimeDelta};
+use rusqlite::{params, types::Value};
+use std::{rc::Rc, str::FromStr, sync::Arc};
 use tracing::error;
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct SchedulerRepository {
   sqlite_connection: Arc<SqliteConnection>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Job {
   pub id: String,
   pub name: JobName,
@@ -19,6 +19,7 @@ pub struct Job {
   pub last_execution: Option<NaiveDateTime>,
   pub interval_seconds: Option<u32>,
   pub payload: Option<Vec<u8>>,
+  pub claimed_at: Option<NaiveDateTime>,
 }
 
 impl SchedulerRepository {
@@ -69,7 +70,7 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload
+          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at
           FROM scheduler_jobs
           ",
         )?;
@@ -82,6 +83,7 @@ impl SchedulerRepository {
               last_execution: row.get(3)?,
               interval_seconds: row.get(4)?,
               payload: row.get(5)?,
+              claimed_at: row.get(6)?,
             })
           })?
           .collect::<Result<Vec<_>, _>>()?;
@@ -94,21 +96,117 @@ impl SchedulerRepository {
       })?
   }
 
-  pub async fn get_pending_jobs(&self) -> Result<Vec<Job>> {
+  pub async fn set_many_claimed_at(
+    &self,
+    job_ids: Vec<String>,
+    claimed_at: NaiveDateTime,
+  ) -> Result<()> {
+    let ids = job_ids.into_iter().map(Value::from).collect::<Vec<_>>();
     self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        let mut statement = conn.prepare(
+          "
+          UPDATE scheduler_jobs
+          SET claimed_at = ?
+          WHERE id IN rarray(?)
+          ",
+        )?;
+        statement.execute(params![claimed_at, Rc::new(ids)])?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to set claimed at");
+        anyhow!("Failed to set claimed at")
+      })?
+  }
+
+  pub async fn set_claimed_at(&self, job_id: String, claimed_at: NaiveDateTime) -> Result<()> {
+    self.set_many_claimed_at(vec![job_id], claimed_at).await
+  }
+
+  pub async fn claim_next_jobs(
+    &self,
+    job_name: JobName,
+    count: u32,
+    claim_duration: Duration,
+  ) -> Result<Vec<Job>> {
+    let oldest_claimed_at = chrono::Utc::now().naive_utc() - claim_duration;
+    let jobs = self
       .sqlite_connection
       .read()
       .await?
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload
+          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at
           FROM scheduler_jobs
-          WHERE next_execution <= datetime('now')
+          WHERE
+            name = ?
+            AND next_execution <= datetime('now')
+            AND (
+              claimed_at IS NULL
+              OR claimed_at < datetime(?)
+            )
+          ORDER BY next_execution, id
+          LIMIT ?
           ",
         )?;
         let rows = statement
-          .query_map([], |row| {
+          .query_map(
+            params![job_name.to_string(), oldest_claimed_at, count],
+            |row| {
+              Ok(Job {
+                id: row.get(0)?,
+                name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
+                next_execution: row.get(2)?,
+                last_execution: row.get(3)?,
+                interval_seconds: row.get(4)?,
+                payload: row.get(5)?,
+                claimed_at: row.get(6)?,
+              })
+            },
+          )?
+          .collect::<Result<Vec<_>, _>>()?;
+        Ok::<_, rusqlite::Error>(rows)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to claim next job");
+        anyhow!("Failed to claim next job")
+      })??;
+
+    if !jobs.is_empty() {
+      self
+        .set_many_claimed_at(
+          jobs.iter().map(|job| job.id.clone()).collect(),
+          chrono::Utc::now().naive_utc(),
+        )
+        .await?;
+    }
+
+    Ok(jobs)
+  }
+
+  pub async fn find_jobs(&self, job_ids: Vec<String>) -> Result<Vec<Job>> {
+    let ids = job_ids.into_iter().map(Value::from).collect::<Vec<_>>();
+    let jobs = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut statement = conn.prepare(
+          "
+          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at
+          FROM scheduler_jobs
+          WHERE id IN rarray(?)
+          ",
+        )?;
+        let rows = statement
+          .query_map(params![Rc::new(ids)], |row| {
             Ok(Job {
               id: row.get(0)?,
               name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
@@ -116,16 +214,19 @@ impl SchedulerRepository {
               last_execution: row.get(3)?,
               interval_seconds: row.get(4)?,
               payload: row.get(5)?,
+              claimed_at: row.get(6)?,
             })
           })?
           .collect::<Result<Vec<_>, _>>()?;
-        Ok(rows)
+        Ok::<_, rusqlite::Error>(rows)
       })
       .await
       .map_err(|e| {
-        error!(message = e.to_string(), "Failed to get pending jobs");
-        anyhow!("Failed to get pending jobs")
-      })?
+        error!(message = e.to_string(), "Failed to claim next job");
+        anyhow!("Failed to claim next job")
+      })??;
+
+    Ok(jobs)
   }
 
   pub async fn find_job(&self, job_id: &str) -> Result<Option<Job>> {
@@ -137,7 +238,7 @@ impl SchedulerRepository {
       .interact(move |conn| {
         let mut statement = conn.prepare(
           "
-          SELECT id, name, next_execution, last_execution, interval_seconds, payload
+          SELECT id, name, next_execution, last_execution, interval_seconds, payload, claimed_at
           FROM scheduler_jobs
           WHERE id = ?
           ",
@@ -150,6 +251,7 @@ impl SchedulerRepository {
             last_execution: row.get(3)?,
             interval_seconds: row.get(4)?,
             payload: row.get(5)?,
+            claimed_at: row.get(6)?,
           })
         })?;
         rows.next().transpose().map_err(|e| {
@@ -211,22 +313,39 @@ impl SchedulerRepository {
       })?
   }
 
-  pub async fn update_job_after_execution(&self, job_id: &str) -> Result<()> {
+  pub async fn update_jobs_after_execution(&self, jobs: Vec<Job>) -> Result<()> {
     let last_execution = chrono::Utc::now().naive_utc();
-    let job = self
-      .find_job(&job_id)
+    self
+      .sqlite_connection
+      .write()
       .await?
-      .ok_or(anyhow!("Job not found"))?;
-
-    if let Some(interval_seconds) = job.interval_seconds {
-      let next_execution =
-        last_execution + TimeDelta::try_seconds(interval_seconds as i64).expect("Invalid interval");
-      self
-        .update_execution_times(job_id, next_execution, last_execution)
-        .await?;
-    } else {
-      self.delete_job(&job_id).await?;
-    }
+      .interact(move |conn| {
+        let tx = conn.transaction()?;
+        for job in jobs {
+          if let Some(interval_seconds) = job.interval_seconds {
+            let next_execution = last_execution
+              + TimeDelta::try_seconds(interval_seconds as i64).expect("Invalid interval");
+            let mut statement = tx.prepare(
+              "
+              UPDATE scheduler_jobs
+              SET next_execution = ?, last_execution = ?, claimed_at = NULL
+              WHERE id = ?
+              ",
+            )?;
+            statement.execute(params![next_execution, last_execution, job.id])?;
+          } else {
+            let mut statement = tx.prepare("DELETE FROM scheduler_jobs WHERE id = ?")?;
+            statement.execute([job.id])?;
+          }
+        }
+        tx.commit()?;
+        Ok::<_, rusqlite::Error>(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to update execution times");
+        anyhow!("Failed to update execution times")
+      })??;
 
     Ok(())
   }

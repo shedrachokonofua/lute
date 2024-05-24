@@ -8,4 +8,5 @@ pub enum JobName {
   CrawlNewAlbums,
   ChangeEventSubscriberStatus,
   DeleteExpiredKVItems,
+  Test,
 }

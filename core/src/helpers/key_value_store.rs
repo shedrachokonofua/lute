@@ -1,6 +1,11 @@
 use crate::{
   context::ApplicationContext,
-  scheduler::{job_name::JobName, scheduler::JobParametersBuilder},
+  job_executor,
+  scheduler::{
+    job_name::JobName,
+    scheduler::{JobExecutorFn, JobParametersBuilder, JobProcessorBuilder},
+    scheduler_repository::Job,
+  },
   sqlite::SqliteConnection,
 };
 use anyhow::{anyhow, Result};
@@ -324,17 +329,19 @@ impl KeyValueStore {
   }
 }
 
+async fn delete_expired_keys(_: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
+  info!("Executing job, deleting expired key value items");
+  app_context.kv.delete_expired().await
+}
+
 pub async fn setup_kv_jobs(app_context: Arc<ApplicationContext>) -> Result<()> {
   app_context
     .scheduler
     .register(
-      JobName::DeleteExpiredKVItems,
-      Arc::new(|ctx| {
-        Box::pin(async move {
-          info!("Executing job, deleting expired key value items");
-          ctx.app_context.kv.delete_expired().await
-        })
-      }),
+      JobProcessorBuilder::default()
+        .name(JobName::DeleteExpiredKVItems)
+        .executor(job_executor!(delete_expired_keys))
+        .build()?,
     )
     .await;
 
