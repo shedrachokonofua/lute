@@ -301,9 +301,7 @@ impl EventSubscriber {
       "Subscriber polled"
     );
     let tail_cursor = event_list.tail_cursor();
-    let groups = self
-      .grouping_strategy
-      .group(event_list.rows.into_iter().collect());
+    let groups = self.grouping_strategy.group(event_list.rows);
 
     join_all(groups.into_iter().map(|(group_id, group)| {
       let interactor = Arc::clone(&self.interactor);
@@ -359,13 +357,13 @@ impl EventSubscriber {
         .await?
         .is_some_and(|s| s == EventSubscriberStatus::Running)
       {
-        if let Ok(Some(tail_cursor)) = self.poll().await.inspect_err(|e| {
+        if let Some(tail_cursor) = self.poll().await.inspect_err(|e| {
           error!(
             subscriber_id = self.id,
             error = e.to_string(),
             "Error polling stream"
           );
-        }) {
+        })? {
           self.interactor.set_cursor(&tail_cursor).await?;
         }
       }

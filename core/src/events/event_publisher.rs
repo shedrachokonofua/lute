@@ -19,26 +19,7 @@ impl EventPublisher {
   }
 
   pub async fn publish(&self, stream: Topic, payload: EventPayload) -> Result<()> {
-    self.sqlite_connection.write().await?.interact(move |conn| {
-      conn.execute(
-        "INSERT INTO events (correlation_id, causation_id, event, metadata, stream) VALUES (?1, ?2, ?3, ?4, ?5)",
-        (
-          &payload.correlation_id,
-          &payload.causation_id,
-          serde_json::to_string(&payload.event)
-              .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-          serde_json::to_string(&payload.metadata)
-              .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-          &stream.tag(),
-        ),
-      )?;
-      Ok(())
-    })
-    .await
-    .map_err(|e| {
-      error!("Failed to publish event: {:?}", e);
-      anyhow!("Failed to publish event: {:?}", e)
-    })?
+    self.batch_publish(stream, vec![payload]).await
   }
 
   pub async fn batch_publish(&self, stream: Topic, payloads: Vec<EventPayload>) -> Result<()> {
@@ -63,8 +44,8 @@ impl EventPublisher {
     })
     .await
     .map_err(|e| {
-      error!("Failed to publish event: {:?}", e);
-      anyhow!("Failed to publish event: {:?}", e)
+      error!("Failed to publish events: {:?}", e);
+      anyhow!("Failed to publish events: {:?}", e)
     })?
   }
 }
