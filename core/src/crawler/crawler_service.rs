@@ -80,7 +80,6 @@ impl From<QueueItem> for proto::CrawlerQueueItem {
       file_name: val.file_name.0,
       priority: proto::Priority::from(val.priority).into(),
       correlation_id: val.correlation_id,
-      metadata: val.metadata.unwrap_or_default(),
     }
   }
 }
@@ -103,7 +102,6 @@ impl TryFrom<EnqueueRequest> for QueuePushParameters {
       priority: Some(Priority::from(val.priority())),
       deduplication_key: Some(val.deduplication_key),
       correlation_id: val.correlation_id,
-      metadata: Some(val.metadata),
     })
   }
 }

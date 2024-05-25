@@ -9,8 +9,8 @@ use crate::{
   },
   settings::Settings,
 };
-use anyhow::{bail, Result};
-use chrono::{DateTime, NaiveDateTime};
+use anyhow::{anyhow, bail, Result};
+use chrono::{DateTime, NaiveDateTime, TimeDelta, Utc};
 use derive_builder::Builder;
 use reqwest::Proxy;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::{collections::HashMap, str::FromStr};
 use tokio::sync::Mutex;
-use tracing::instrument;
+use tracing::{error, instrument};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Builder)]
 #[builder(default, setter(strip_option, into))]
@@ -28,7 +28,6 @@ pub struct QueuePushParameters {
   pub priority: Option<Priority>,
   pub deduplication_key: Option<String>,
   pub correlation_id: Option<String>,
-  pub metadata: Option<HashMap<String, String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -84,6 +83,37 @@ pub struct ClaimedQueueItem {
   pub claim_ttl_seconds: u32,
 }
 
+impl ClaimedQueueItem {
+  pub fn try_from_job(job: Job, claim_duration: TimeDelta) -> Result<Self> {
+    let payload = job
+      .payload
+      .map(|p| serde_json::from_slice::<CrawlJobPayload>(&p))
+      .transpose()?
+      .ok_or_else(|| anyhow::Error::msg("Missing payload"))?;
+    let claimed_at = job
+      .claimed_at
+      .ok_or_else(|| anyhow!("Missing claimed_at"))?;
+    let seconds_since_claimed = (Utc::now().naive_utc() - claimed_at).num_seconds();
+    let claim_ttl_seconds = claim_duration.num_seconds() as u32 - seconds_since_claimed as u32;
+
+    Ok(ClaimedQueueItem {
+      item: QueueItem {
+        item_key: ItemKey {
+          enqueue_time: job.created_at,
+          deduplication_key: job.id.clone(),
+        },
+        enqueue_time: job.created_at,
+        deduplication_key: job.id,
+        file_name: payload.file_name,
+        priority: job.priority,
+        correlation_id: payload.correlation_id,
+        metadata: None,
+      },
+      claim_ttl_seconds,
+    })
+  }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CrawlJob {
   pub file_name: FileName,
@@ -121,37 +151,6 @@ impl TryInto<CrawlJob> for Job {
       interval_seconds: self.interval_seconds,
       claimed_at: self.claimed_at,
       priority: self.priority,
-    })
-  }
-}
-
-impl TryInto<ClaimedQueueItem> for Job {
-  type Error = anyhow::Error;
-
-  fn try_into(self) -> Result<ClaimedQueueItem> {
-    let payload = self
-      .payload
-      .map(|p| serde_json::from_slice::<CrawlJobPayload>(&p))
-      .transpose()?
-      .ok_or_else(|| anyhow::Error::msg("Missing payload"))?;
-
-    Ok(ClaimedQueueItem {
-      item: QueueItem {
-        item_key: ItemKey {
-          enqueue_time: self.created_at,
-          deduplication_key: self.id.clone(),
-        },
-        enqueue_time: self.created_at,
-        deduplication_key: self.id,
-        file_name: payload.file_name,
-        priority: self.priority,
-        correlation_id: payload.correlation_id,
-        metadata: None,
-      },
-      claim_ttl_seconds: self
-        .claimed_at
-        .map(|d| d.signed_duration_since(self.created_at).num_seconds() as u32)
-        .unwrap_or_default(),
     })
   }
 }
@@ -352,11 +351,7 @@ impl Crawler {
     if self.get_status().await? == CrawlerStatus::Throttled {
       return Ok(false);
     }
-    let total = self.get_window_request_count().await?
-      + (self
-        .scheduler
-        .count_claimed_jobs_by_name(JobName::Crawl)
-        .await? as u32);
+    let total = self.get_window_request_count().await?;
     Ok(total >= self.settings.crawler.rate_limit.max_requests)
   }
 
@@ -372,6 +367,10 @@ impl Crawler {
 
   pub async fn get_monitor(&self) -> Result<CrawlerMonitor> {
     let status = self.get_status().await?;
+    let claim_duration = self
+      .scheduler
+      .get_processor_claim_duration(&JobName::Crawl)
+      .await?;
     let size = self.scheduler.count_jobs_by_name(JobName::Crawl).await? as u32;
     let claimed_item_count = self
       .scheduler
@@ -383,9 +382,8 @@ impl Crawler {
       .await?
       .into_iter()
       .filter_map(|job| {
-        job
-          .try_into()
-          .inspect_err(|e| tracing::error!("Error converting job to claimed item: {:?}", e))
+        ClaimedQueueItem::try_from_job(job, claim_duration)
+          .inspect_err(|e| error!("Error converting job to claimed item: {:?}", e))
           .ok()
       })
       .collect();

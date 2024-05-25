@@ -195,14 +195,14 @@ impl JobProcessor {
     let batch_size = self.executor.batch_size();
     spawn(async move {
       while let Some(response_channel) = rx.recv().await {
-        let job = repo
+        let jobs = repo
           .claim_next_jobs(
             job_name.clone(),
             batch_size,
             TimeDelta::from_std(claim_duration)?,
           )
           .await?;
-        if let Err(j) = response_channel.send(job) {
+        if let Err(j) = response_channel.send(jobs) {
           error!(message = format!("{:?}", j), "Failed to send job to worker");
         }
       }

@@ -27,6 +27,7 @@ async fn crawl(job: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
     crawler.request(&crawl_job.file_name).await
   })
   .await?;
+
   app_context
     .file_interactor
     .put_file(&crawl_job.file_name, file_content, crawl_job.correlation_id)

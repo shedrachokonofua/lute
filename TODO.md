@@ -19,7 +19,7 @@
     - Web:
       - [ ] Add to docker image
     - Crawler:
-      - [ ] Migrate to scheduler
+      - [x] Migrate to scheduler
       - [ ] RYM IP ban detection
       - [x] Automatic rate limit reset
       - [x] Make crawler proxy optional

@@ -77,7 +77,7 @@ impl SchedulerRepository {
   }
 
   pub async fn get_jobs(&self) -> Result<Vec<Job>> {
-    self
+    let jobs = self
       .sqlite_connection
       .read()
       .await?
@@ -99,26 +99,38 @@ impl SchedulerRepository {
         )?;
         let rows = statement
           .query_map([], |row| {
-            Ok(Job {
-              id: row.get(0)?,
-              name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
-              next_execution: row.get(2)?,
-              last_execution: row.get(3)?,
-              interval_seconds: row.get(4)?,
-              payload: row.get(5)?,
-              claimed_at: row.get(6)?,
-              priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
-              created_at: row.get(8)?,
-            })
+            let result = JobName::from_str(row.get::<_, String>(1)?.as_str())
+              .inspect_err(|e| {
+                error!(message = e.to_string(), "Failed to get job name");
+              })
+              .ok()
+              .map(|name| {
+                let job = Job {
+                  id: row.get(0)?,
+                  name,
+                  next_execution: row.get(2)?,
+                  last_execution: row.get(3)?,
+                  interval_seconds: row.get(4)?,
+                  payload: row.get(5)?,
+                  claimed_at: row.get(6)?,
+                  priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
+                  created_at: row.get(8)?,
+                };
+                Ok::<_, rusqlite::Error>(job)
+              })
+              .transpose()?;
+            Ok(result)
           })?
           .collect::<Result<Vec<_>, _>>()?;
-        Ok(rows)
+        Ok::<_, rusqlite::Error>(rows)
       })
       .await
       .map_err(|e| {
         error!(message = e.to_string(), "Failed to get all jobs");
         anyhow!("Failed to get all jobs")
-      })?
+      })??;
+
+    Ok(jobs.into_iter().flatten().collect())
   }
 
   pub async fn set_many_claimed_at(

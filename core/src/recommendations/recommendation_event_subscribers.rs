@@ -41,7 +41,6 @@ async fn crawl_similar_albums(
           correlation_id: Some(format!("crawl_similar_albums:{}", file_name.to_string())),
           priority: Some(Priority::Low),
           deduplication_key: None,
-          metadata: None,
         })
         .await
       {
@@ -69,7 +68,6 @@ async fn crawl_similar_albums(
         correlation_id: Some(format!("crawl_similar_albums:{}", file_name.to_string())),
         priority: Some(Priority::Low),
         deduplication_key: None,
-        metadata: None,
       })
       .await
     {
@@ -98,7 +96,6 @@ async fn crawl_similar_albums(
           correlation_id: Some(format!("crawl_similar_albums:{}", file_name.to_string())),
           priority: Some(Priority::Low),
           deduplication_key: None,
-          metadata: None,
         })
         .await
       {

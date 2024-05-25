@@ -170,7 +170,6 @@ impl AlbumSearchLookupOrchestrator {
         priority: Some(Priority::High),
         deduplication_key: Some(format!("{}:{}", file_name.to_string(), correlation_id)),
         correlation_id: Some(correlation_id),
-        metadata: None,
       })
       .await?;
     Ok(())

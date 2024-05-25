@@ -68,7 +68,6 @@ message CrawlerQueueItem {
   string file_name = 4;
   Priority priority = 5;
   optional string correlation_id = 6;
-  map<string, string> metadata = 7;
 }
 
 message ClaimedCrawlerQueueItem {
