@@ -1,6 +1,6 @@
 use crate::{
   context::ApplicationContext,
-  crawler::{crawler::CrawlJob, crawler_state_repository::CrawlerStatus},
+  crawler::crawler::CrawlJob,
   job_executor,
   scheduler::{
     job_name::JobName,
@@ -8,7 +8,7 @@ use crate::{
     scheduler_repository::Job,
   },
 };
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use chrono::{TimeDelta, Utc};
 use std::sync::Arc;
 use tokio_retry::{strategy::FibonacciBackoff, Retry};
@@ -19,22 +19,8 @@ async fn crawl(job: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
   let crawler = Arc::clone(&app_context.crawler);
   let crawl_job: CrawlJob = job.try_into()?;
 
-  crawler.enforce_throttle().await?;
-
-  match crawler.get_status().await? {
-    CrawlerStatus::Paused => {
-      info!("Crawler is paused, pausing processor and skipping crawl job");
-      app_context
-        .scheduler
-        .pause_processor(&JobName::Crawl, None)
-        .await?;
-      return Ok(());
-    }
-    CrawlerStatus::Throttled => {
-      info!("Crawler is throttled, skipping crawl job");
-      return Ok(());
-    }
-    _ => {}
+  if crawler.enforce_throttle().await? {
+    bail!("Crawler is throttled");
   }
 
   let file_content = Retry::spawn(FibonacciBackoff::from_millis(500).take(5), || async {

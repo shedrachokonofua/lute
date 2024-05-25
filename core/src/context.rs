@@ -63,9 +63,9 @@ impl ApplicationContext {
     ));
     let crawler = Arc::new(Crawler::new(
       Arc::clone(&settings),
-      Arc::clone(&redis_connection_pool),
-      Arc::clone(&file_interactor),
       Arc::clone(&scheduler),
+      Arc::clone(&kv),
+      Arc::clone(&file_interactor),
     )?);
     let album_repository = Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection)));
     let album_embedding_providers_interactor = Arc::new(AlbumEmbeddingProvidersInteractor::new(

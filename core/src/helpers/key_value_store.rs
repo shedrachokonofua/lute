@@ -47,6 +47,40 @@ impl KeyValueStore {
     Ok(())
   }
 
+  #[tracing::instrument(name = "KeyValueStore::increment", skip(self))]
+  pub async fn increment(&self, key: &str, delta: i64) -> Result<i64> {
+    let key = key.to_string();
+    let value = self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        let tx = conn.transaction()?;
+        tx.execute(
+          "
+          INSERT INTO key_value_store (key, value)
+          VALUES (?1, ?2)
+          ON CONFLICT (key) DO UPDATE SET
+            value = value + excluded.value
+          ",
+          params![key.clone(), delta],
+        )?;
+        let value = tx.query_row(
+          "SELECT value FROM key_value_store WHERE key = ?",
+          params![key],
+          |row| row.get::<_, i64>(0),
+        )?;
+        tx.commit()?;
+        Ok::<_, rusqlite::Error>(value)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to increment key value");
+        anyhow!("Failed to increment key value")
+      })??;
+    Ok(value)
+  }
+
   #[tracing::instrument(name = "KeyValueStore::size", skip(self))]
   pub async fn size(&self) -> Result<usize> {
     let size: usize = self
@@ -166,7 +200,7 @@ impl KeyValueStore {
       .interact(|conn| {
         conn
           .query_row(
-            "SELECT value, expires_at FROM key_value_store WHERE key = ?1",
+            "SELECT CAST(value as BLOB), expires_at FROM key_value_store WHERE key = ?1",
             [req_key],
             |row| {
               let value = row.get::<_, Vec<u8>>(0)?;

@@ -7,7 +7,7 @@ use crate::{
   helpers::{async_utils::ThreadSafeAsyncFn, key_value_store::KeyValueStore, priority::Priority},
   sqlite::SqliteConnection,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::{NaiveDateTime, TimeDelta, Utc};
 use derive_builder::Builder;
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -60,41 +60,20 @@ pub struct JobProcessorStatusRepository {
   kv: Arc<KeyValueStore>,
 }
 
+fn processor_status_key(job_name: &JobName) -> String {
+  format!("job_processor_paused:{}", job_name)
+}
+
 impl JobProcessorStatusRepository {
   pub fn new(kv: Arc<KeyValueStore>) -> Self {
     Self { kv }
-  }
-
-  pub async fn get(&self, job_name: &JobName) -> Result<JobProcessorStatus> {
-    match self
-      .kv
-      .exists(format!("job_processor_paused:{}", job_name))
-      .await?
-    {
-      true => Ok(JobProcessorStatus::Paused),
-      false => Ok(JobProcessorStatus::Running),
-    }
-  }
-
-  pub async fn set(&self, job_name: &JobName, status: JobProcessorStatus) -> Result<()> {
-    let key = format!("job_processor_paused:{}", job_name);
-    match status {
-      JobProcessorStatus::Paused => self.kv.set(&key, 1, None).await,
-      JobProcessorStatus::Running => self.kv.delete(&key).await,
-    }
-  }
-
-  pub async fn pause_until(&self, job_name: &JobName, until: NaiveDateTime) -> Result<()> {
-    self
-      .pause(job_name, Some(Utc::now().naive_utc() - until))
-      .await
   }
 
   pub async fn pause(&self, job_name: &JobName, duration: Option<TimeDelta>) -> Result<()> {
     self
       .kv
       .set(
-        &job_name.to_string(),
+        &processor_status_key(job_name),
         1,
         duration.map(|d| d.to_std().unwrap()),
       )
@@ -102,14 +81,32 @@ impl JobProcessorStatusRepository {
   }
 
   pub async fn is_paused(&self, job_name: &JobName) -> Result<bool> {
-    self
-      .kv
-      .exists(format!("job_processor_paused:{}", job_name))
-      .await
+    self.kv.exists(processor_status_key(job_name)).await
   }
 
   pub async fn resume(&self, job_name: &JobName) -> Result<()> {
-    self.kv.delete(&job_name.to_string()).await
+    self.kv.delete(&processor_status_key(job_name)).await
+  }
+
+  pub async fn get(&self, job_name: &JobName) -> Result<JobProcessorStatus> {
+    Ok(if self.is_paused(job_name).await? {
+      JobProcessorStatus::Paused
+    } else {
+      JobProcessorStatus::Running
+    })
+  }
+
+  pub async fn set(&self, job_name: &JobName, status: JobProcessorStatus) -> Result<()> {
+    match status {
+      JobProcessorStatus::Paused => self.pause(job_name, None).await,
+      JobProcessorStatus::Running => self.resume(job_name).await,
+    }
+  }
+
+  pub async fn pause_until(&self, job_name: &JobName, until: NaiveDateTime) -> Result<()> {
+    self
+      .pause(job_name, Some(Utc::now().naive_utc() - until))
+      .await
   }
 }
 
@@ -311,17 +308,32 @@ impl Scheduler {
     self.scheduler_repository.count_jobs_by_name(job_name).await
   }
 
+  pub async fn get_processor_claim_duration(&self, job_name: &JobName) -> Result<TimeDelta> {
+    let registry = self.processor_registry.read().await;
+    let processor = registry
+      .get(job_name)
+      .ok_or_else(|| anyhow!("Processor not found"))?;
+    let duration = TimeDelta::from_std(processor.claim_duration)?;
+    Ok(duration)
+  }
+
   pub async fn count_claimed_jobs_by_name(&self, job_name: JobName) -> Result<usize> {
     self
       .scheduler_repository
-      .count_claimed_jobs_by_name(job_name)
+      .count_claimed_jobs_by_name(
+        job_name.clone(),
+        self.get_processor_claim_duration(&job_name).await?,
+      )
       .await
   }
 
   pub async fn find_claimed_jobs_by_name(&self, job_name: JobName) -> Result<Vec<Job>> {
     self
       .scheduler_repository
-      .find_claimed_jobs_by_name(job_name)
+      .find_claimed_jobs_by_name(
+        job_name.clone(),
+        self.get_processor_claim_duration(&job_name).await?,
+      )
       .await
   }
 
@@ -346,6 +358,10 @@ impl Scheduler {
       .processor_status_repository
       .pause(job_name, duration)
       .await
+  }
+
+  pub async fn resume_processor(&self, job_name: &JobName) -> Result<()> {
+    self.processor_status_repository.resume(job_name).await
   }
 
   pub async fn get_registered_processors(&self) -> Vec<JobName> {

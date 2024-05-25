@@ -125,7 +125,7 @@ impl Settings {
       .set_default("crawler.pool_size", 10)?
       .set_default(
         "crawler.claim_ttl_seconds",
-        TimeDelta::try_days(5).unwrap().num_seconds(),
+        TimeDelta::try_minutes(2).unwrap().num_seconds(),
       )?
       .set_default("crawler.max_queue_size", 5000)?
       .set_default("crawler.wait_time_seconds", 5)?
@@ -133,7 +133,7 @@ impl Settings {
         "crawler.rate_limit.window_seconds",
         TimeDelta::try_days(1).unwrap().num_seconds(),
       )?
-      .set_default("crawler.rate_limit.max_requests", 2000)?
+      .set_default("crawler.rate_limit.max_requests", 500)?
       .set_default("parser.concurrency", 20)?
       .set_default("parser.retry_concurrency", 20)?
       .set_default("tracing.service_name", "core")?

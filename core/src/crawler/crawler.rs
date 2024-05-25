@@ -1,10 +1,10 @@
 use super::crawler_state_repository::{CrawlerStateRepository, CrawlerStatus};
 use crate::{
   files::{file_interactor::FileInteractor, file_metadata::file_name::FileName},
-  helpers::priority::Priority,
+  helpers::{key_value_store::KeyValueStore, priority::Priority},
   scheduler::{
     job_name::JobName,
-    scheduler::{JobParameters, JobParametersBuilder, Scheduler},
+    scheduler::{JobParameters, JobParametersBuilder, JobProcessorStatus, Scheduler},
     scheduler_repository::Job,
   },
   settings::Settings,
@@ -15,7 +15,6 @@ use derive_builder::Builder;
 use reqwest::Proxy;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_tracing::TracingMiddleware;
-use rustis::{bb8::Pool, client::PooledClientManager};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::{collections::HashMap, str::FromStr};
@@ -199,9 +198,9 @@ pub struct CrawlerMonitor {
 impl Crawler {
   pub fn new(
     settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    file_interactor: Arc<FileInteractor>,
     scheduler: Arc<Scheduler>,
+    kv: Arc<KeyValueStore>,
+    file_interactor: Arc<FileInteractor>,
   ) -> Result<Self> {
     let mut base_client_builder = reqwest::ClientBuilder::new().danger_accept_invalid_certs(true);
     if let Some(proxy_settings) = &settings.crawler.proxy {
@@ -224,9 +223,7 @@ impl Crawler {
       client,
       settings,
       file_interactor,
-      crawler_state_repository: CrawlerStateRepository {
-        redis_connection_pool,
-      },
+      crawler_state_repository: CrawlerStateRepository::new(kv),
       throttle_lock: Arc::new(Mutex::new(())),
       scheduler,
     })
@@ -268,12 +265,43 @@ impl Crawler {
   }
 
   pub async fn set_status(&self, status: CrawlerStatus) -> Result<()> {
-    self.crawler_state_repository.set_status(status).await
+    match status {
+      CrawlerStatus::Running => {
+        self
+          .crawler_state_repository
+          .set_throttled(false, None)
+          .await?;
+        self.scheduler.resume_processor(&JobName::Crawl).await?;
+      }
+      CrawlerStatus::Paused => {
+        self
+          .scheduler
+          .pause_processor(&JobName::Crawl, None)
+          .await?;
+      }
+      CrawlerStatus::Throttled => {
+        self
+          .crawler_state_repository
+          .set_throttled(true, None)
+          .await?;
+        self
+          .scheduler
+          .pause_processor(&JobName::Crawl, None)
+          .await?;
+      }
+    }
+    Ok(())
   }
 
   #[instrument(skip(self))]
   pub async fn get_status(&self) -> Result<CrawlerStatus> {
-    self.crawler_state_repository.get_status().await
+    if self.crawler_state_repository.is_throttled().await? {
+      return Ok(CrawlerStatus::Throttled);
+    }
+    match self.scheduler.get_processor_status(&JobName::Crawl).await? {
+      JobProcessorStatus::Running => Ok(CrawlerStatus::Running),
+      JobProcessorStatus::Paused => Ok(CrawlerStatus::Paused),
+    }
   }
 
   pub async fn empty_queue(&self) -> Result<()> {
@@ -333,12 +361,13 @@ impl Crawler {
   }
 
   #[instrument(skip(self))]
-  pub async fn enforce_throttle(&self) -> Result<()> {
+  pub async fn enforce_throttle(&self) -> Result<bool> {
     let _ = self.throttle_lock.lock().await;
-    if self.should_throttle().await? {
+    let should_throttle = self.should_throttle().await?;
+    if should_throttle {
       self.set_status(CrawlerStatus::Throttled).await?;
     }
-    Ok(())
+    Ok(should_throttle)
   }
 
   pub async fn get_monitor(&self) -> Result<CrawlerMonitor> {

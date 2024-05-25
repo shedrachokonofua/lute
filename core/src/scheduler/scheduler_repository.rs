@@ -1,7 +1,7 @@
 use super::job_name::JobName;
 use crate::{helpers::priority::Priority, sqlite::SqliteConnection};
 use anyhow::{anyhow, Result};
-use chrono::{Duration, NaiveDateTime, TimeDelta};
+use chrono::{Duration, NaiveDateTime, TimeDelta, Utc};
 use rusqlite::{params, types::Value};
 use std::{rc::Rc, str::FromStr, sync::Arc};
 use tracing::error;
@@ -252,7 +252,12 @@ impl SchedulerRepository {
     Ok(count)
   }
 
-  pub async fn count_claimed_jobs_by_name(&self, job_name: JobName) -> Result<usize> {
+  pub async fn count_claimed_jobs_by_name(
+    &self,
+    job_name: JobName,
+    claim_duration: Duration,
+  ) -> Result<usize> {
+    let oldest_claimed_at = Utc::now().naive_utc() - claim_duration;
     let count = self
       .sqlite_connection
       .read()
@@ -262,9 +267,12 @@ impl SchedulerRepository {
           "
           SELECT COUNT(*)
           FROM scheduler_jobs
-          WHERE name = ? AND claimed_at IS NOT NULL
+          WHERE 
+            name = ? 
+            AND claimed_at IS NOT NULL
+            AND claimed_at >= datetime(?)
           ",
-          [job_name.to_string()],
+          params![job_name.to_string(), oldest_claimed_at],
           |row| row.get::<_, usize>(0),
         )
       })
@@ -277,7 +285,12 @@ impl SchedulerRepository {
     Ok(count)
   }
 
-  pub async fn find_claimed_jobs_by_name(&self, job_name: JobName) -> Result<Vec<Job>> {
+  pub async fn find_claimed_jobs_by_name(
+    &self,
+    job_name: JobName,
+    claim_duration: Duration,
+  ) -> Result<Vec<Job>> {
+    let oldest_claimed_at = Utc::now().naive_utc() - claim_duration;
     let jobs = self
       .sqlite_connection
       .read()
@@ -296,11 +309,14 @@ impl SchedulerRepository {
             priority, 
             created_at
           FROM scheduler_jobs
-          WHERE name = ? AND claimed_at IS NOT NULL
+          WHERE 
+            name = ? 
+            AND claimed_at IS NOT NULL
+            AND claimed_at >= datetime(?)
           ",
         )?;
         let rows = statement
-          .query_map([job_name.to_string()], |row| {
+          .query_map(params![job_name.to_string(), oldest_claimed_at], |row| {
             Ok(Job {
               id: row.get(0)?,
               name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),

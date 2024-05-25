@@ -51,8 +51,7 @@ message GetCrawlerMonitorReply { CrawlerMonitor monitor = 1; }
 enum CrawlerStatus {
   CrawlerPaused = 0;
   CrawlerRunning = 1;
-  CrawlerDraining = 2;
-  CrawlerThrottled = 3;
+  CrawlerThrottled = 2;
 }
 
 enum Priority {

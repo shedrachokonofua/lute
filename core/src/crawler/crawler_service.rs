@@ -34,7 +34,6 @@ impl From<CrawlerStatus> for proto::CrawlerStatus {
     match val {
       CrawlerStatus::Running => proto::CrawlerStatus::CrawlerRunning,
       CrawlerStatus::Paused => proto::CrawlerStatus::CrawlerPaused,
-      CrawlerStatus::Draining => proto::CrawlerStatus::CrawlerDraining,
       CrawlerStatus::Throttled => proto::CrawlerStatus::CrawlerThrottled,
     }
   }
@@ -45,7 +44,6 @@ impl From<proto::CrawlerStatus> for CrawlerStatus {
     match val {
       proto::CrawlerStatus::CrawlerRunning => CrawlerStatus::Running,
       proto::CrawlerStatus::CrawlerPaused => CrawlerStatus::Paused,
-      proto::CrawlerStatus::CrawlerDraining => CrawlerStatus::Draining,
       proto::CrawlerStatus::CrawlerThrottled => CrawlerStatus::Throttled,
     }
   }
