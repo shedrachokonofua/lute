@@ -326,16 +326,24 @@ impl KeyValueStore {
   }
 
   #[tracing::instrument(name = "KeyValueStore::delete_expired", skip(self))]
-  pub async fn delete_expired(&self) -> Result<()> {
-    self
+  pub async fn delete_expired(&self) -> Result<usize> {
+    let count = self
       .sqlite_connection
       .write()
       .await?
       .interact(move |conn| {
-        let mut statement =
-          conn.prepare("DELETE FROM key_value_store WHERE expires_at < CURRENT_TIMESTAMP")?;
-        statement.execute([])?;
-        Ok(())
+        let tx = conn.transaction()?;
+        let count = tx.query_row(
+          "SELECT COUNT(*) FROM key_value_store WHERE expires_at < CURRENT_TIMESTAMP",
+          [],
+          |row| row.get::<_, usize>(0),
+        )?;
+        tx.execute(
+          "DELETE FROM key_value_store WHERE expires_at < CURRENT_TIMESTAMP",
+          [],
+        )?;
+        tx.commit()?;
+        Ok::<_, rusqlite::Error>(count)
       })
       .await
       .map_err(|e| {
@@ -344,7 +352,8 @@ impl KeyValueStore {
           "Failed to delete expired key value"
         );
         anyhow!("Failed to delete expired key value")
-      })?
+      })??;
+    Ok(count)
   }
 
   #[tracing::instrument(name = "KeyValueStore::count_matching", skip(self))]
@@ -377,7 +386,9 @@ impl KeyValueStore {
 
 async fn delete_expired_keys(_: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
   info!("Executing job, deleting expired key value items");
-  app_context.kv.delete_expired().await
+  let count = app_context.kv.delete_expired().await?;
+  info!(count = count, "Deleted expired key value items");
+  Ok(())
 }
 
 pub async fn setup_kv_jobs(app_context: Arc<ApplicationContext>) -> Result<()> {
