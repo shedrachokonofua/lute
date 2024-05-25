@@ -3,6 +3,7 @@ use crate::{helpers::priority::Priority, sqlite::SqliteConnection};
 use anyhow::{anyhow, Result};
 use chrono::{Duration, NaiveDateTime, TimeDelta, Utc};
 use rusqlite::{params, types::Value};
+use serde::de::DeserializeOwned;
 use std::{rc::Rc, str::FromStr, sync::Arc};
 use tracing::error;
 
@@ -22,6 +23,18 @@ pub struct Job {
   pub payload: Option<Vec<u8>>,
   pub claimed_at: Option<NaiveDateTime>,
   pub priority: Priority,
+}
+
+pub fn try_get_payload<T>(job: &Job) -> Result<T>
+where
+  T: DeserializeOwned,
+{
+  job
+    .payload
+    .as_ref()
+    .map(|p| serde_json::from_slice::<T>(p))
+    .transpose()?
+    .ok_or_else(|| anyhow!("Failed to get payload"))
 }
 
 impl SchedulerRepository {

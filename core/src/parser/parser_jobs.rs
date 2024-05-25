@@ -4,8 +4,9 @@ use crate::{
   files::file_metadata::file_name::FileName,
   job_executor,
   scheduler::{
-    job_name::JobName, scheduler::JobExecutorFn, scheduler::JobProcessorBuilder,
-    scheduler_repository::Job,
+    job_name::JobName,
+    scheduler::{JobExecutorFn, JobProcessorBuilder},
+    scheduler_repository::{try_get_payload, Job},
   },
 };
 use anyhow::Result;
@@ -13,11 +14,7 @@ use std::sync::Arc;
 use tracing::error;
 
 async fn retry_parse(job: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
-  let file_name = job
-    .payload
-    .map(|p| serde_json::from_slice::<FileName>(&p))
-    .transpose()?
-    .ok_or_else(|| anyhow::anyhow!("Missing file name in job payload"))?;
+  let file_name = try_get_payload::<FileName>(&job)?;
 
   let file_metadata = app_context
     .file_interactor

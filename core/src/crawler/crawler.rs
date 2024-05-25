@@ -5,7 +5,7 @@ use crate::{
   scheduler::{
     job_name::JobName,
     scheduler::{JobParameters, JobParametersBuilder, JobProcessorStatus, Scheduler},
-    scheduler_repository::Job,
+    scheduler_repository::{try_get_payload, Job},
   },
   settings::Settings,
 };
@@ -85,11 +85,7 @@ pub struct ClaimedQueueItem {
 
 impl ClaimedQueueItem {
   pub fn try_from_job(job: Job, claim_duration: TimeDelta) -> Result<Self> {
-    let payload = job
-      .payload
-      .map(|p| serde_json::from_slice::<CrawlJobPayload>(&p))
-      .transpose()?
-      .ok_or_else(|| anyhow::Error::msg("Missing payload"))?;
+    let payload = try_get_payload::<CrawlJobPayload>(&job)?;
     let claimed_at = job
       .claimed_at
       .ok_or_else(|| anyhow!("Missing claimed_at"))?;
@@ -136,11 +132,7 @@ impl TryInto<CrawlJob> for Job {
   type Error = anyhow::Error;
 
   fn try_into(self) -> Result<CrawlJob> {
-    let payload = self
-      .payload
-      .map(|p| serde_json::from_slice::<CrawlJobPayload>(&p))
-      .transpose()?
-      .ok_or_else(|| anyhow::Error::msg("Missing payload"))?;
+    let payload = try_get_payload::<CrawlJobPayload>(&self)?;
 
     Ok(CrawlJob {
       file_name: payload.file_name,

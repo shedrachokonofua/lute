@@ -4,7 +4,7 @@ use crate::{
   scheduler::{
     job_name::JobName,
     scheduler::{JobExecutorFn, JobProcessorBuilder},
-    scheduler_repository::Job,
+    scheduler_repository::{try_get_payload, Job},
   },
   spotify::spotify_client::get_spotify_retry_after,
 };
@@ -19,9 +19,15 @@ use super::spotify_track_search_index::SpotifyTrackSearchRecord;
 async fn index_spotify_tracks(jobs: Vec<Job>, app_context: Arc<ApplicationContext>) -> Result<()> {
   let track_records = jobs
     .into_iter()
-    .map(|job| {
-      serde_json::from_slice::<SpotifyTrackSearchRecord>(&job.payload.expect("Job missing payload"))
-        .expect("failed to parse record")
+    .filter_map(|job| {
+      try_get_payload::<SpotifyTrackSearchRecord>(&job)
+        .inspect_err(|e| {
+          error!(
+            e = e.to_string(),
+            "Failed to get spotify track search record"
+          );
+        })
+        .ok()
     })
     .collect::<Vec<_>>();
 
