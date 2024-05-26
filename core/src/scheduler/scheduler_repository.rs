@@ -25,16 +25,15 @@ pub struct Job {
   pub priority: Priority,
 }
 
-pub fn try_get_payload<T>(job: &Job) -> Result<T>
-where
-  T: DeserializeOwned,
-{
-  job
-    .payload
-    .as_ref()
-    .map(|p| serde_json::from_slice::<T>(p))
-    .transpose()?
-    .ok_or_else(|| anyhow!("Failed to get payload"))
+impl Job {
+  pub fn payload<T: DeserializeOwned>(&self) -> Result<T> {
+    self
+      .payload
+      .as_ref()
+      .map(|p| serde_json::from_slice::<T>(p))
+      .transpose()?
+      .ok_or_else(|| anyhow!("Failed to get payload"))
+  }
 }
 
 impl SchedulerRepository {

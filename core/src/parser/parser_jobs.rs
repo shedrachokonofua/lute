@@ -6,7 +6,7 @@ use crate::{
   scheduler::{
     job_name::JobName,
     scheduler::{JobExecutorFn, JobProcessorBuilder},
-    scheduler_repository::{try_get_payload, Job},
+    scheduler_repository::Job,
   },
 };
 use anyhow::Result;
@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tracing::error;
 
 async fn retry_parse(job: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
-  let file_name = try_get_payload::<FileName>(&job)?;
+  let file_name = job.payload::<FileName>()?;
 
   let file_metadata = app_context
     .file_interactor

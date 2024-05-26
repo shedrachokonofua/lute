@@ -5,7 +5,7 @@ use crate::{
   scheduler::{
     job_name::JobName,
     scheduler::{JobExecutorFn, JobProcessorBuilder},
-    scheduler_repository::{try_get_payload, Job},
+    scheduler_repository::Job,
   },
 };
 use anyhow::Result;
@@ -20,7 +20,7 @@ pub struct ChangeEventSubscriberStatusJobParameters {
 }
 
 async fn change_subscriber_status(job: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
-  let params = try_get_payload::<ChangeEventSubscriberStatusJobParameters>(&job)?;
+  let params = job.payload::<ChangeEventSubscriberStatusJobParameters>()?;
   info!(
     subscriber_id = &params.subscriber_id,
     next_status = params.status.to_string(),

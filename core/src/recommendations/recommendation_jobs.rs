@@ -4,7 +4,7 @@ use crate::{
   scheduler::{
     job_name::JobName,
     scheduler::{JobExecutorFn, JobProcessorBuilder},
-    scheduler_repository::{try_get_payload, Job},
+    scheduler_repository::Job,
   },
   spotify::spotify_client::get_spotify_retry_after,
 };
@@ -20,7 +20,8 @@ async fn index_spotify_tracks(jobs: Vec<Job>, app_context: Arc<ApplicationContex
   let track_records = jobs
     .into_iter()
     .filter_map(|job| {
-      try_get_payload::<SpotifyTrackSearchRecord>(&job)
+      job
+        .payload::<SpotifyTrackSearchRecord>()
         .inspect_err(|e| {
           error!(
             e = e.to_string(),
