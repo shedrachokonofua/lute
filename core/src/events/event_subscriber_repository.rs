@@ -1,4 +1,4 @@
-use super::event::{Event, EventPayload, EventPayloadBuilder, Topic, TopicKind};
+use super::event::{Event, EventPayload, EventPayloadBuilder, Topic};
 use crate::sqlite::SqliteConnection;
 use anyhow::{anyhow, Result};
 use rusqlite::{params, types::Value};
@@ -78,7 +78,7 @@ fn map_event_row(row: &rusqlite::Row<'_>) -> Result<EventRow, rusqlite::Error> {
         error!(message = err.to_string(), "Failed to build event payload");
         rusqlite::Error::ExecuteReturnedResults
       })?,
-    stream: Topic::try_from(row.get::<_, String>(5)?).map_err(|err| {
+    stream: Topic::try_from(row.get::<_, String>(5)?.as_str()).map_err(|err| {
       error!(message = err.to_string(), "Failed to parse stream");
       rusqlite::Error::ExecuteReturnedResults
     })?,
@@ -151,7 +151,7 @@ impl EventSubscriberRepository {
         let rows = statement
           .query_map([], |row| {
             Ok((
-              Topic::try_from(row.get::<_, String>(0)?).map_err(|e| {
+              Topic::try_from(row.get::<_, String>(0)?.as_str()).map_err(|e| {
                 error!(message = e.to_string(), "Failed to get stream tails");
                 rusqlite::Error::ExecuteReturnedResults
               })?,
@@ -249,10 +249,10 @@ impl EventSubscriberRepository {
   ) -> Result<EventList> {
     let subscriber_id = subscriber_id.to_string();
     let cursor = self.get_cursor(&subscriber_id).await?;
-    let is_global = streams.iter().any(|s| s.kind() == TopicKind::Global);
+    let is_global = streams.iter().any(|s| s == &Topic::Global);
     let stream_tags = streams
       .iter()
-      .map(|s| Value::from(s.tag()))
+      .map(|s| Value::from(s.to_string()))
       .collect::<Vec<_>>();
     self
       .sqlite_connection
@@ -349,9 +349,7 @@ impl EventSubscriberRepository {
         anyhow!("Failed to check status")
       })??;
 
-    let status = status
-      .map(EventSubscriberStatus::try_from)
-      .transpose()?;
+    let status = status.map(EventSubscriberStatus::try_from).transpose()?;
 
     Ok(status)
   }

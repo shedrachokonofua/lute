@@ -296,7 +296,7 @@ impl EventSubscriber {
       .interactor
       .get_events_after_cursor(&self.topics, self.batch_size)
       .await?;
-    let topic_tags = self.topics.iter().map(|s| s.tag()).join(",");
+    let topic_tags = self.topics.iter().map(|s| s.to_string()).join(",");
     debug!(
       topics = topic_tags.as_str(),
       subscriber_id = self.id,

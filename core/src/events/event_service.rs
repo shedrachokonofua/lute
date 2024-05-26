@@ -99,7 +99,7 @@ impl proto::EventService for EventService {
       streams: stream_tails
         .into_iter()
         .map(|(stream, tail)| proto::EventStreamSnapshot {
-          id: stream.tag(),
+          id: stream.to_string(),
           tail,
         })
         .collect(),
@@ -142,7 +142,7 @@ impl proto::EventService for EventService {
     let output_stream = async_stream::try_stream! {
       while let Ok(Some(event_stream_request)) = input_stream.message().await {
         loop {
-          let stream_id = super::event::Topic::try_from(event_stream_request.stream_id.clone())
+          let stream_id = super::event::Topic::try_from(event_stream_request.stream_id.as_str())
             .map_err(|err| Status::invalid_argument(err.to_string()))?;
           if let Some(cursor) = event_stream_request.cursor.clone() {
             event_subscriber_repository.set_cursor(
@@ -167,7 +167,7 @@ impl proto::EventService for EventService {
                 proto::EventStreamItem {
                   entry_id: row.id.clone(),
                   payload: Some(row.payload.into()),
-                  stream_id: stream_id.tag(),
+                  stream_id: stream_id.to_string(),
                   timestamp: row.id.clone().split('-').next()
                     .expect("Invalid event stream item ID")
                     .parse::<u64>()

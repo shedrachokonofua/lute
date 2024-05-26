@@ -36,7 +36,7 @@ impl EventPublisher {
               .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
           serde_json::to_string(&payload.metadata)
               .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-          &stream.tag(),
+          &stream.to_string(),
         ))?;
       }
       transaction.commit()?;

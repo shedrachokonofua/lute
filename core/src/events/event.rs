@@ -5,13 +5,14 @@ use crate::profile::profile::ProfileId;
 use crate::proto;
 use anyhow::{anyhow, Result};
 use derive_builder::Builder;
-use kinded::Kinded;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::EnumString;
+use strum_macros;
 use ulid::serde::ulid_as_u128;
 use ulid::Ulid;
 
-#[derive(Serialize, Deserialize, Clone, Kinded, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type", content = "data")]
 pub enum Event {
   FileSaved {
@@ -170,41 +171,12 @@ impl TryFrom<&HashMap<String, String>> for EventPayload {
   }
 }
 
-#[derive(Clone, Kinded, Debug, PartialEq, Eq)]
-#[kinded(display = "kebab-case")]
+#[derive(Clone, Debug, PartialEq, Eq, strum_macros::Display, EnumString)]
+#[strum(serialize_all = "kebab-case")]
 pub enum Topic {
   File,
   Parser,
   Profile,
   Lookup,
   Global,
-}
-
-impl Topic {
-  pub fn tag(&self) -> String {
-    self.kind().to_string()
-  }
-
-  pub fn redis_key(&self) -> String {
-    format!("event:stream:{}", &self.tag())
-  }
-
-  pub fn redis_cursor_key(&self, subscriber_id: &str) -> String {
-    format!("event:stream:{}:cursor:{}", &self.tag(), subscriber_id)
-  }
-}
-
-impl TryFrom<String> for Topic {
-  type Error = anyhow::Error;
-
-  fn try_from(value: String) -> Result<Self> {
-    let kind = value.parse::<TopicKind>()?;
-    match kind {
-      TopicKind::File => Ok(Topic::File),
-      TopicKind::Parser => Ok(Topic::Parser),
-      TopicKind::Profile => Ok(Topic::Profile),
-      TopicKind::Lookup => Ok(Topic::Lookup),
-      TopicKind::Global => Ok(Topic::Global),
-    }
-  }
 }
