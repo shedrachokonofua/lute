@@ -1,12 +1,14 @@
 use crate::{
   context::ApplicationContext,
   crawler::crawler::{Crawler, QueuePushParametersBuilder},
+  events::event_repository::EventRepository,
   files::file_interactor::FileInteractor,
   helpers::{key_value_store::KeyValueStore, priority::Priority},
   parser::failed_parse_files_repository::FailedParseFilesRepository,
   proto::{
-    self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest, KeyCountReply,
-    MigrateSqliteRequest, ParseFileContentStoreReply,
+    self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest,
+    GetEventKeyMigrationMonitorReply, KeyCountReply, MigrateSqliteRequest,
+    ParseFileContentStoreReply,
   },
   sqlite::SqliteConnection,
 };
@@ -16,7 +18,7 @@ use rustis::{
   client::PooledClientManager,
   commands::{FlushingMode, ServerCommands},
 };
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::spawn;
 use tonic::{Request, Response, Status};
 use tracing::error;
@@ -28,6 +30,7 @@ pub struct OperationsService {
   file_interactor: Arc<FileInteractor>,
   failed_parse_files_repository: FailedParseFilesRepository,
   kv: Arc<KeyValueStore>,
+  event_repository: EventRepository,
 }
 
 impl OperationsService {
@@ -41,6 +44,7 @@ impl OperationsService {
       failed_parse_files_repository: FailedParseFilesRepository {
         redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
       },
+      event_repository: EventRepository::new(Arc::clone(&app_context.sqlite_connection)),
     }
   }
 }
@@ -56,6 +60,41 @@ impl proto::OperationsService for OperationsService {
       Status::internal("Failed to get key value store size")
     })? as u32;
     let reply = KeyCountReply { count };
+    Ok(Response::new(reply))
+  }
+
+  async fn get_event_key_migration_monitor(
+    &self,
+    _: Request<()>,
+  ) -> Result<Response<GetEventKeyMigrationMonitorReply>, Status> {
+    let reply = GetEventKeyMigrationMonitorReply {
+      event_count: self.event_repository.count_events().await.map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Failed to count events")
+      })? as u32,
+      event_without_key_count: self
+        .event_repository
+        .count_events_without_key()
+        .await
+        .map_err(|e| {
+          error!("Error: {:?}", e);
+          Status::internal("Failed to count events")
+        })? as u32,
+      key_counts_by_topic: self
+        .event_repository
+        .count_events_each_topic()
+        .await
+        .map(|counts| {
+          counts
+            .into_iter()
+            .map(|(topic, count)| (topic.to_string(), count as u32))
+            .collect::<HashMap<_, _>>()
+        })
+        .map_err(|e| {
+          error!("Error: {:?}", e);
+          Status::internal("Failed to count events by topic")
+        })?,
+    };
     Ok(Response::new(reply))
   }
 

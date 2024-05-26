@@ -1,4 +1,4 @@
-use super::event_subscriber_repository::{EventSubscriberRepository, EventSubscriberStatus};
+use super::event_repository::{EventRepository, EventSubscriberStatus};
 use crate::{
   context::ApplicationContext,
   job_executor,
@@ -26,10 +26,9 @@ async fn change_subscriber_status(job: Job, app_context: Arc<ApplicationContext>
     next_status = params.status.to_string(),
     "Changing event subscriber status"
   );
-  let event_subscriber_repository =
-    EventSubscriberRepository::new(Arc::clone(&app_context.sqlite_connection));
-  event_subscriber_repository
-    .set_status(&params.subscriber_id, params.status)
+  let event_repository = EventRepository::new(Arc::clone(&app_context.sqlite_connection));
+  event_repository
+    .set_subscriber_status(&params.subscriber_id, params.status)
     .await?;
   Ok(())
 }

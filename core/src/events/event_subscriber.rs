@@ -1,7 +1,5 @@
 use super::event::{EventPayload, Topic};
-use super::event_subscriber_repository::{
-  EventList, EventRow, EventSubscriberRepository, EventSubscriberStatus,
-};
+use super::event_repository::{EventList, EventRepository, EventRow, EventSubscriberStatus};
 use crate::context::ApplicationContext;
 use crate::helpers::async_utils::ThreadSafeAsyncFn;
 use crate::scheduler::job_name::JobName;
@@ -26,40 +24,37 @@ pub struct ChangeEventSubscriberStatusJobPayload {
 
 pub struct EventSubscriberInteractor {
   subscriber_id: String,
-  event_subscriber_repository: EventSubscriberRepository,
+  event_repository: EventRepository,
   scheduler: Arc<Scheduler>,
 }
 
 impl EventSubscriberInteractor {
   pub fn new(
     subscriber_id: String,
-    event_subscriber_repository: EventSubscriberRepository,
+    event_repository: EventRepository,
     scheduler: Arc<Scheduler>,
   ) -> Self {
     Self {
       subscriber_id,
-      event_subscriber_repository,
+      event_repository,
       scheduler,
     }
   }
 
   pub async fn get_cursor(&self) -> Result<String> {
-    self
-      .event_subscriber_repository
-      .get_cursor(&self.subscriber_id)
-      .await
+    self.event_repository.get_cursor(&self.subscriber_id).await
   }
 
   pub async fn set_cursor(&self, cursor: &str) -> Result<()> {
     self
-      .event_subscriber_repository
+      .event_repository
       .set_cursor(&self.subscriber_id, cursor)
       .await
   }
 
   pub async fn delete_cursor(&self) -> Result<()> {
     self
-      .event_subscriber_repository
+      .event_repository
       .delete_cursor(&self.subscriber_id)
       .await
   }
@@ -70,22 +65,22 @@ impl EventSubscriberInteractor {
     count: usize,
   ) -> Result<EventList> {
     self
-      .event_subscriber_repository
+      .event_repository
       .get_events_after_cursor(topics, &self.subscriber_id, count)
       .await
   }
 
   pub async fn get_status(&self) -> Result<Option<EventSubscriberStatus>> {
     self
-      .event_subscriber_repository
-      .get_status(&self.subscriber_id)
+      .event_repository
+      .get_subscriber_status(&self.subscriber_id)
       .await
   }
 
   pub async fn set_status(&self, status: EventSubscriberStatus) -> Result<()> {
     self
-      .event_subscriber_repository
-      .set_status(&self.subscriber_id, status)
+      .event_repository
+      .set_subscriber_status(&self.subscriber_id, status)
       .await
   }
 
@@ -275,6 +270,8 @@ pub struct EventSubscriber {
   pub handler: EventHandler,
   #[builder(setter(skip), default = "self.get_default_interactor()?")]
   interactor: Arc<EventSubscriberInteractor>,
+  #[builder(default = "Duration::from_secs(1)")]
+  pub cooldown: Duration,
 }
 
 impl EventSubscriberBuilder {
@@ -282,7 +279,7 @@ impl EventSubscriberBuilder {
     match (&self.app_context, &self.id) {
       (Some(app_context), Some(id)) => Ok(Arc::new(EventSubscriberInteractor::new(
         id.clone(),
-        EventSubscriberRepository::new(Arc::clone(&app_context.sqlite_connection)),
+        EventRepository::new(Arc::clone(&app_context.sqlite_connection)),
         Arc::clone(&app_context.scheduler),
       ))),
       _ => Err("SQLite connection and ID are required".to_string()),
@@ -326,7 +323,7 @@ impl EventSubscriber {
           .map(|row| EventData {
             entry_id: row.id,
             payload: row.payload,
-            topic: row.stream,
+            topic: row.topic,
           })
           .collect::<Vec<EventData>>();
         handler
@@ -349,7 +346,7 @@ impl EventSubscriber {
   }
 
   pub async fn sleep(&self) {
-    sleep(Duration::from_secs(2)).await;
+    sleep(self.cooldown).await;
   }
 
   pub async fn run(&self) -> Result<()> {
@@ -358,7 +355,8 @@ impl EventSubscriber {
         .interactor
         .get_status()
         .await?
-        .is_some_and(|s| s == EventSubscriberStatus::Running)
+        .unwrap_or(EventSubscriberStatus::Running)
+        == EventSubscriberStatus::Running
       {
         if let Some(tail_cursor) = self.poll().await.inspect_err(|e| {
           error!(

@@ -71,6 +71,7 @@ pub async fn parse_file_on_store(
     .publish(
       Topic::Parser,
       EventPayloadBuilder::default()
+        .key(file_name)
         .event(event)
         .correlation_id(correlation_id)
         .build()?,

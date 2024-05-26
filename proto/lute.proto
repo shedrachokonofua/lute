@@ -310,6 +310,12 @@ message KeyCountReply { uint32 count = 1; }
 
 message KeysMatchingRequest { string pattern = 1; }
 
+message GetEventKeyMigrationMonitorReply {
+  uint32 event_count = 1;
+  uint32 event_without_key_count = 2;
+  map<string, uint32> key_counts_by_topic = 3;
+}
+
 service OperationsService {
   rpc FlushRedis(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc ParseFileContentStore(google.protobuf.Empty)
@@ -324,6 +330,8 @@ service OperationsService {
       returns (google.protobuf.Empty) {}
   rpc DeleteKeysMatching(KeysMatchingRequest) returns (google.protobuf.Empty) {}
   rpc CountKeysMatching(KeysMatchingRequest) returns (KeyCountReply) {}
+  rpc GetEventKeyMigrationMonitor(google.protobuf.Empty)
+      returns (GetEventKeyMigrationMonitorReply) {}
 }
 
 message AggregatedFailureError {

@@ -85,9 +85,10 @@ impl FileInteractor {
       .publish(
         Topic::File,
         EventPayloadBuilder::default()
+          .key(file_name.clone())
           .event(Event::FileSaved {
             file_id: file_metadata.id,
-            file_name: file_metadata.name.clone(),
+            file_name: file_name.clone(),
           })
           .correlation_id(correlation_id)
           .build()?,
@@ -136,9 +137,10 @@ impl FileInteractor {
       .publish(
         Topic::File,
         EventPayloadBuilder::default()
+          .key(file_name.clone())
           .event(Event::FileDeleted {
             file_id: file_metadata.id,
-            file_name: file_metadata.name.clone(),
+            file_name: file_name.clone(),
           })
           .build()?,
       )

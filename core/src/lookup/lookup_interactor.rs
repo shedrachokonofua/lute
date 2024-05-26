@@ -32,10 +32,7 @@ impl LookupInteractor {
       album_search_lookup_repository: AlbumSearchLookupRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
-      event_publisher: EventPublisher {
-        settings,
-        sqlite_connection,
-      },
+      event_publisher: EventPublisher::new(settings, sqlite_connection),
     }
   }
 
@@ -73,6 +70,7 @@ impl LookupInteractor {
           .publish(
             Topic::Lookup,
             EventPayloadBuilder::default()
+              .key(get_album_search_correlation_id(lookup.query()))
               .event(Event::LookupAlbumSearchUpdated {
                 lookup: lookup.clone(),
               })

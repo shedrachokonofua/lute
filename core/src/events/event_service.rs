@@ -1,6 +1,4 @@
-use super::event_subscriber_repository::{
-  EventSubscriberRepository, EventSubscriberRow, EventSubscriberStatus,
-};
+use super::event_repository::{EventRepository, EventSubscriberRow, EventSubscriberStatus};
 use crate::{context::ApplicationContext, proto};
 use futures::{try_join, Stream};
 use std::{pin::Pin, sync::Arc, time::Duration};
@@ -36,15 +34,13 @@ impl From<EventSubscriberRow> for proto::EventSubscriberSnapshot {
 }
 
 pub struct EventService {
-  event_subscriber_repository: EventSubscriberRepository,
+  event_repository: EventRepository,
 }
 
 impl EventService {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      event_subscriber_repository: EventSubscriberRepository::new(Arc::clone(
-        &app_context.sqlite_connection,
-      )),
+      event_repository: EventRepository::new(Arc::clone(&app_context.sqlite_connection)),
     }
   }
 }
@@ -60,7 +56,7 @@ impl proto::EventService for EventService {
   ) -> Result<Response<()>, Status> {
     let request = request.into_inner();
     self
-      .event_subscriber_repository
+      .event_repository
       .set_cursor(&request.subscriber_id, &request.cursor)
       .await
       .map_err(|err| Status::internal(err.to_string()))?;
@@ -73,7 +69,7 @@ impl proto::EventService for EventService {
   ) -> Result<Response<()>, Status> {
     let request = request.into_inner();
     self
-      .event_subscriber_repository
+      .event_repository
       .delete_cursor(&request.subscriber_id)
       .await
       .map_err(|err| Status::internal(err.to_string()))?;
@@ -85,9 +81,9 @@ impl proto::EventService for EventService {
     _: Request<()>,
   ) -> Result<Response<proto::GetEventsMonitorReply>, Status> {
     let (event_count, subscribers, stream_tails) = try_join!(
-      self.event_subscriber_repository.get_event_count(),
-      self.event_subscriber_repository.get_subscribers(),
-      self.event_subscriber_repository.get_stream_tails(),
+      self.event_repository.count_events(),
+      self.event_repository.get_subscribers(),
+      self.event_repository.get_stream_tails(),
     )
     .map_err(|err| Status::internal(err.to_string()))?;
     let monitor = proto::EventsMonitor {
@@ -126,8 +122,8 @@ impl proto::EventService for EventService {
       }
     };
     self
-      .event_subscriber_repository
-      .set_status(&request.subscriber_id, status)
+      .event_repository
+      .set_subscriber_status(&request.subscriber_id, status)
       .await
       .map_err(|err| Status::internal(err.to_string()))?;
     Ok(Response::new(()))
@@ -138,21 +134,21 @@ impl proto::EventService for EventService {
     request: Request<Streaming<proto::EventStreamRequest>>,
   ) -> Result<Response<Self::StreamStream>, Status> {
     let mut input_stream: Streaming<proto::EventStreamRequest> = request.into_inner();
-    let event_subscriber_repository = self.event_subscriber_repository.clone();
+    let event_repository = self.event_repository.clone();
     let output_stream = async_stream::try_stream! {
       while let Ok(Some(event_stream_request)) = input_stream.message().await {
         loop {
           let stream_id = super::event::Topic::try_from(event_stream_request.stream_id.as_str())
             .map_err(|err| Status::invalid_argument(err.to_string()))?;
           if let Some(cursor) = event_stream_request.cursor.clone() {
-            event_subscriber_repository.set_cursor(
+            event_repository.set_cursor(
               &event_stream_request.subscriber_id,
               &cursor,
             )
             .await
             .map_err(|err| Status::internal(err.to_string()))?;
           }
-          let event_list = event_subscriber_repository.get_events_after_cursor(
+          let event_list = event_repository.get_events_after_cursor(
             &vec![stream_id.clone()],
             &event_stream_request.subscriber_id,
             event_stream_request.max_batch_size.unwrap_or(10) as usize,
