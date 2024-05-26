@@ -142,6 +142,9 @@ pub enum GroupingStrategy {
   Chunks(usize),
   GroupByKey(Arc<dyn Fn(&EventRow) -> String + Send + Sync>),
   GroupByCorrelationId,
+  /**
+   * All events in the batch will be processed in a single call.
+   */
   All,
 }
 
