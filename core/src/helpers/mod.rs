@@ -4,3 +4,4 @@ pub mod key_value_store;
 pub mod math;
 pub mod priority;
 pub mod redisearch;
+pub mod test;

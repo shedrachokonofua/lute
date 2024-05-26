@@ -255,3 +255,86 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     cover_image_url,
   })
 }
+
+#[cfg(test)]
+mod tests {
+  use chrono::NaiveDate;
+
+  use crate::test_resource;
+
+  #[test]
+  fn test_album_parser() -> Result<(), String> {
+    let file_content = include_str!(test_resource!("album.html"));
+    let album = super::parse_album(file_content).map_err(|err| err.to_string())?;
+    println!("{:?}", album);
+    assert_eq!(album.name, "Gentleman");
+    assert_eq!(album.rating, 3.91);
+    assert_eq!(album.rating_count, 3692);
+    assert_eq!(album.artists.len(), 2);
+    assert_eq!(album.artists[0].name, "Fela Kuti");
+    assert_eq!(album.artists[0].file_name.0, "artist/fela-kuti");
+    assert_eq!(album.artists[1].name, "The Africa '70");
+    assert_eq!(album.artists[1].file_name.0, "artist/the-africa-70");
+    assert_eq!(album.primary_genres, ["Afrobeat"]);
+    assert_eq!(album.secondary_genres, ["Jazz-Funk"]);
+    assert_eq!(album.descriptors.len(), 12);
+    assert_eq!(album.tracks.len(), 3);
+    assert_eq!(album.tracks[0].name, "Gentleman");
+    assert_eq!(album.tracks[0].duration_seconds, Some(0));
+    assert_eq!(album.tracks[0].rating, None);
+    assert_eq!(album.tracks[0].position, Some("A".to_string()));
+    assert_eq!(album.tracks[1].name, "Igbe (Na Shit)");
+    assert_eq!(album.tracks[1].duration_seconds, Some(0));
+    assert_eq!(album.tracks[1].rating, None);
+    assert_eq!(album.tracks[1].position, Some("B1".to_string()));
+    assert_eq!(album.tracks[2].name, "Fefe Naa Efe");
+    assert_eq!(album.tracks[2].duration_seconds, Some(0));
+    assert_eq!(album.tracks[2].rating, None);
+    assert_eq!(album.tracks[2].position, Some("B2".to_string()));
+    assert!(album.release_date.is_some());
+    assert_eq!(album.release_date, NaiveDate::from_ymd_opt(2020, 6, 26));
+    assert_eq!(album.languages, ["English", "Yoruba"]);
+    assert_eq!(album.credits.len(), 6);
+    assert_eq!(album.credits[0].artist.name, "Fela Ransome Kuti");
+    assert_eq!(album.credits[0].artist.file_name.0, "artist/fela-kuti");
+    assert_eq!(
+      album.credits[0].roles,
+      [
+        "tenor saxophone",
+        "alto saxophone",
+        "electric piano",
+        "vocals",
+        "writer",
+        "arranger",
+        "producer"
+      ]
+    );
+    assert_eq!(album.credits[1].artist.name, "Tunde Williams");
+    assert_eq!(album.credits[1].artist.file_name.0, "artist/tunde_williams");
+    assert_eq!(album.credits[1].roles, ["trumpet"]);
+    assert_eq!(album.credits[2].artist.name, "Emmanuel Odenisi");
+    assert_eq!(
+      album.credits[2].artist.file_name.0,
+      "artist/emmanuel_a__odenusi"
+    );
+    assert_eq!(
+      album.credits[2].roles,
+      ["recording engineer", "mixing engineer"]
+    );
+    assert_eq!(album.credits[3].artist.name, "The Africa &#39;70");
+    assert_eq!(album.credits[3].artist.file_name.0, "artist/the-africa-70");
+    assert_eq!(album.credits[3].roles, ["performer"]);
+    assert_eq!(album.credits[4].artist.name, "Remi Olowookere");
+    assert_eq!(
+      album.credits[4].artist.file_name.0,
+      "artist/remi-olowookere"
+    );
+    assert_eq!(album.credits[4].roles, ["graphic design", "art direction"]);
+    assert_eq!(album.credits[5].artist.name, "Igo Chico");
+    assert_eq!(album.credits[5].artist.file_name.0, "artist/igo-chico");
+    assert_eq!(album.credits[5].roles, ["tenor saxophone"]);
+    assert!(album.cover_image_url.is_some());
+    assert_eq!(album.cover_image_url.unwrap(), "https://e.snmc.io/i/600/w/5f531a5819eda8ce114ffdb1e2359148/1346423/fela-ransome-kuti-and-the-afrika-70-gentleman-Cover-Art.jpg");
+    Ok(())
+  }
+}
