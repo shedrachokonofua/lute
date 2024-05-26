@@ -19,7 +19,7 @@ export const TwoColumnLayout = ({
         sx={{
           "@media (min-width: 1024px)": {
             overflowY: "auto",
-            height: "calc(100vh - 55px)",
+            height: "calc(100vh - 110px)",
           },
         }}
         px="md"
@@ -31,7 +31,7 @@ export const TwoColumnLayout = ({
         sx={{
           "@media (min-width: 1024px)": {
             overflowY: "auto",
-            height: "calc(100vh - 55px)",
+            height: "calc(100vh - 110px)",
           },
           background: "#eee",
         }}

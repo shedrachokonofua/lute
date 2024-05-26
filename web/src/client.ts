@@ -17,6 +17,7 @@ import {
   ClearPendingSpotifyImportsRequest,
   CreateProfileRequest,
   DeleteProfileRequest,
+  DraftSpotifyPlaylistRequest,
   EmbeddingSimilarityAlbumAssessmentSettings,
   FindSimilarAlbumsRequest,
   GetAlbumRequest,
@@ -37,6 +38,7 @@ import {
   SearchAlbumsReply,
   SearchAlbumsRequest,
   SearchPagination,
+  SpotifyTrackReference,
 } from "./proto/lute_pb";
 
 const coreUrl = "http://pc:22000";
@@ -75,11 +77,11 @@ export const getEmbeddingKeys = async (): Promise<string[]> => {
 
 export const settingsToRecommendationRequest = (
   settings: RecommendationSettingsForm,
+  request: RecommendAlbumsRequest | DraftSpotifyPlaylistRequest,
 ): RecommendAlbumsRequest | null => {
   if (!settings.profileId) {
     return null;
   }
-  const request = new RecommendAlbumsRequest();
   request.setProfileId(settings.profileId);
   const recommedationSettings = new AlbumRecommendationSettings();
   if (settings.recommendationSettings?.count) {
@@ -184,12 +186,32 @@ export const settingsToRecommendationRequest = (
 export const getAlbumRecommendations = async (
   settings: RecommendationSettingsForm,
 ): Promise<AlbumRecommendation[]> => {
-  const request = settingsToRecommendationRequest(settings);
+  const request = settingsToRecommendationRequest(
+    settings,
+    new RecommendAlbumsRequest(),
+  );
   if (!request) {
     throw new Error("Invalid settings");
   }
   const response = await client.recommendation.recommendAlbums(request, null);
   return response.getRecommendationsList();
+};
+
+export const draftSpotifyPlaylist = async (
+  settings: RecommendationSettingsForm,
+): Promise<SpotifyTrackReference[]> => {
+  const request = settingsToRecommendationRequest(
+    settings,
+    new DraftSpotifyPlaylistRequest(),
+  );
+  if (!request) {
+    throw new Error("Invalid settings");
+  }
+  const response = await client.recommendation.draftSpotifyPlaylist(
+    request,
+    null,
+  );
+  return response.getTracksList();
 };
 
 export const getDefaultQuantileRankAlbumAssessmentSettings =
