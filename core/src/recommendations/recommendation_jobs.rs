@@ -1,16 +1,19 @@
 use crate::{
+  albums::album_read_model::AlbumReadModel,
   batch_job_executor,
   context::ApplicationContext,
+  files::file_metadata::file_name::FileName,
+  job_executor,
   scheduler::{
     job_name::JobName,
-    scheduler::{JobExecutorFn, JobProcessorBuilder},
+    scheduler::{JobExecutorFn, JobParametersBuilder, JobProcessorBuilder},
     scheduler_repository::Job,
   },
-  spotify::spotify_client::get_spotify_retry_after,
+  spotify::spotify_client::{get_spotify_retry_after, SpotifyAlbum},
 };
-use anyhow::Result;
-use chrono::TimeDelta;
-use std::sync::Arc;
+use anyhow::{anyhow, Result};
+use chrono::{Duration, TimeDelta};
+use std::{collections::HashMap, sync::Arc};
 use tokio::spawn;
 use tracing::{error, info};
 
@@ -79,7 +82,203 @@ async fn index_spotify_tracks(jobs: Vec<Job>, app_context: Arc<ApplicationContex
   Ok(())
 }
 
+pub async fn schedule_task_indexing(
+  app_context: Arc<ApplicationContext>,
+  file_name: FileName,
+  album: SpotifyAlbum,
+) -> Result<()> {
+  let tracks = album
+    .tracks
+    .iter()
+    .map(|track| {
+      (
+        track.spotify_id.clone(),
+        SpotifyTrackSearchRecord::new(
+          track.clone(),
+          album.clone().into(),
+          file_name.clone(),
+          vec![],
+        ),
+      )
+    })
+    .collect::<Vec<_>>();
+
+  for (spotify_id, record) in tracks {
+    info!(
+      spotify_id = spotify_id.as_str(),
+      "Scheduling track indexing job"
+    );
+    app_context
+      .scheduler
+      .put(
+        JobParametersBuilder::default()
+          .id(format!("save_album_spotify_tracks:{}", spotify_id))
+          .name(JobName::IndexSpotifyTracks)
+          .payload(serde_json::to_vec(&record)?)
+          .build()?,
+      )
+      .await?;
+  }
+
+  app_context
+    .kv
+    .set(
+      &format!("spotify_track_embedding_album:{}", file_name.to_string()),
+      1,
+      Duration::try_weeks(4)
+        .map(|d| d.to_std())
+        .transpose()
+        .unwrap(),
+    )
+    .await?;
+  Ok(())
+}
+
+pub async fn fetch_spotify_tracks_by_album_ids(
+  jobs: Vec<Job>,
+  app_context: Arc<ApplicationContext>,
+) -> Result<()> {
+  let albums = jobs
+    .into_iter()
+    .map(|job| {
+      job.payload::<AlbumReadModel>().and_then(|a| {
+        if !a.spotify_id.is_none() {
+          Ok(a)
+        } else {
+          Err(anyhow!("No spotify id"))
+        }
+      })
+    })
+    .collect::<Result<Vec<_>>>()?;
+
+  let albums_by_spotify_id = albums
+    .into_iter()
+    .map(|a| (a.spotify_id.clone().unwrap(), a))
+    .collect::<HashMap<_, _>>();
+
+  let album_pages = app_context
+    .spotify_client
+    .get_album_pages(albums_by_spotify_id.keys().cloned().collect::<Vec<_>>())
+    .await
+    .inspect_err(|e| {
+      error!(e = e.to_string(), "Failed to get spotify album pages");
+      if let Some(retry_after) = get_spotify_retry_after(e) {
+        info!(
+          seconds = retry_after.num_seconds(),
+          "Pausing spotify track indexing job due to spotify rate limit"
+        );
+        let app_context = Arc::clone(&app_context);
+        spawn(async move {
+          if let Err(e) = app_context
+            .scheduler
+            .pause_processor(&JobName::FetchSpotifyTracksByAlbumIds, Some(retry_after))
+            .await
+          {
+            error!(e = e.to_string(), "Failed to pause processor");
+          }
+        });
+      }
+    })?;
+  let mut complete_albums = vec![];
+  let mut incomplete_albums = vec![];
+  for page in album_pages {
+    if page.has_more_tracks {
+      incomplete_albums.push((page,));
+    } else {
+      complete_albums.push(page);
+    }
+  }
+  info!(
+    complete_albums = complete_albums.len(),
+    incomplete_albums = incomplete_albums.len(),
+    "Got spotify album pages"
+  );
+
+  for page in complete_albums {
+    let album = albums_by_spotify_id
+      .get(&page.spotify_album.spotify_id.replace("spotify:album:", ""))
+      .ok_or_else(|| anyhow!("Album not found"))?;
+    schedule_task_indexing(
+      Arc::clone(&app_context),
+      album.file_name.clone(),
+      page.spotify_album.clone(),
+    )
+    .await?;
+  }
+
+  for (page,) in incomplete_albums {
+    error!(
+      id = page.spotify_album.spotify_id,
+      name = page.spotify_album.name,
+      "Album  has more tracks than can be fetched in a single request",
+    );
+  }
+
+  Ok(())
+}
+
+pub async fn fetch_spotify_tracks_by_album_search(
+  job: Job,
+  app_context: Arc<ApplicationContext>,
+) -> Result<()> {
+  let album = job.payload::<AlbumReadModel>()?;
+
+  let spotify_album = app_context
+    .spotify_client
+    .find_album(&album)
+    .await
+    .inspect_err(|e| {
+      error!(e = e.to_string(), "Failed to get spotify track records");
+      if let Some(retry_after) = get_spotify_retry_after(e) {
+        info!(
+          seconds = retry_after.num_seconds(),
+          "Pausing spotify track indexing job due to spotify rate limit"
+        );
+        let app_context = Arc::clone(&app_context);
+        spawn(async move {
+          if let Err(e) = app_context
+            .scheduler
+            .pause_processor(&JobName::FetchSpotifyTracksByAlbumSearch, Some(retry_after))
+            .await
+          {
+            error!(e = e.to_string(), "Failed to pause processor");
+          }
+        });
+      }
+    })?;
+
+  if let Some(spotify_album) = spotify_album {
+    schedule_task_indexing(Arc::clone(&app_context), album.file_name, spotify_album).await?;
+  }
+
+  Ok(())
+}
+
 pub async fn setup_recommendation_jobs(app_context: Arc<ApplicationContext>) -> Result<()> {
+  app_context
+    .scheduler
+    .register(
+      JobProcessorBuilder::default()
+        .name(JobName::FetchSpotifyTracksByAlbumIds)
+        .app_context(Arc::clone(&app_context))
+        .concurrency(2)
+        .executor(batch_job_executor!(fetch_spotify_tracks_by_album_ids, 20))
+        .build()?,
+    )
+    .await;
+
+  app_context
+    .scheduler
+    .register(
+      JobProcessorBuilder::default()
+        .name(JobName::FetchSpotifyTracksByAlbumSearch)
+        .app_context(Arc::clone(&app_context))
+        .executor(job_executor!(fetch_spotify_tracks_by_album_search))
+        .cooldown(TimeDelta::try_seconds(5).unwrap().to_std()?)
+        .build()?,
+    )
+    .await;
+
   app_context
     .scheduler
     .register(

@@ -1,19 +1,10 @@
 use super::{
-  event::{Event, EventPayload, Topic},
+  event::{EventPayload, Topic},
   event_repository::EventRepository,
-  event_subscriber::{
-    EventData, EventHandler, EventSubscriber, EventSubscriberBuilder, EventSubscriberInteractor,
-  },
 };
-use crate::{
-  context::ApplicationContext, event_handler,
-  lookup::album_search_lookup::get_album_search_correlation_id, settings::Settings,
-  sqlite::SqliteConnection,
-};
+use crate::{settings::Settings, sqlite::SqliteConnection};
 use anyhow::Result;
-use chrono::TimeDelta;
 use std::sync::Arc;
-use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct EventPublisher {
@@ -44,45 +35,4 @@ impl EventPublisher {
       )
       .await
   }
-}
-
-pub async fn set_event_key(
-  event_data: EventData,
-  app_context: Arc<ApplicationContext>,
-  _: Arc<EventSubscriberInteractor>,
-) -> Result<()> {
-  let key = match event_data.payload.event {
-    Event::ProfileAlbumAdded {
-      profile_id,
-      file_name,
-      ..
-    } => {
-      format!("{}:{}", profile_id.to_string(), file_name.to_string())
-    }
-    Event::FileSaved { file_name, .. } => file_name.to_string(),
-    Event::FileDeleted { file_name, .. } => file_name.to_string(),
-    Event::FileParsed { file_name, .. } => file_name.to_string(),
-    Event::FileParseFailed { file_name, .. } => file_name.to_string(),
-    Event::LookupAlbumSearchUpdated { lookup } => get_album_search_correlation_id(lookup.query()),
-  };
-  info!(
-    event_id = event_data.entry_id.to_string(),
-    key = &key,
-    "Setting event key"
-  );
-  let event_repository = EventRepository::new(Arc::clone(&app_context.sqlite_connection));
-  event_repository.set_key(&event_data.entry_id, key).await?;
-  Ok(())
-}
-
-pub fn build_event_key_migration_subscriber(
-  app_context: Arc<ApplicationContext>,
-) -> Result<Vec<EventSubscriber>> {
-  Ok(vec![EventSubscriberBuilder::default()
-    .id("event_key_migration")
-    .app_context(app_context)
-    .topic(Topic::All)
-    .handler(event_handler!(set_event_key))
-    .cooldown(TimeDelta::try_milliseconds(50).unwrap().to_std()?)
-    .build()?])
 }

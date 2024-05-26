@@ -134,6 +134,7 @@ message Album {
   optional string cover_image_url = 12;
   optional string duplicate_of = 13;
   repeated string duplicates = 14;
+  optional string spotify_id = 15;
 }
 
 message GetAlbumReply { Album album = 1; }
@@ -208,6 +209,7 @@ message AlbumMonitor {
   repeated ItemAndCount aggregated_descriptors = 8;
   repeated ItemAndCount aggregated_languages = 9;
   repeated ItemAndCount aggregated_years = 10;
+  uint32 spotify_id_count = 11;
 }
 
 message GetAlbumMonitorReply { AlbumMonitor monitor = 1; }
@@ -252,6 +254,7 @@ enum SpotifyAlbumType {
   ALBUM = 0;
   SINGLE = 1;
   COMPILATION = 2;
+  APPREARS_ON = 3;
 }
 
 message SpotifyAlbumReference {
@@ -393,6 +396,8 @@ message ParsedAlbum {
   optional string release_date = 9;
   repeated string languages = 10;
   repeated ParsedCredit credits = 11;
+  optional string cover_image_url = 12;
+  optional string spotify_id = 13;
 }
 
 message ParsedArtistAlbum {

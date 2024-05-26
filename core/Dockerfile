@@ -11,7 +11,7 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17
 COPY core core
 COPY proto proto
 
-RUN cargo install --path lute
+RUN cargo install --path core
 
 FROM debian:bookworm-slim
 RUN apt-get update

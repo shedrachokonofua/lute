@@ -3,10 +3,7 @@ use lute::{
   albums::album_event_subscribers::build_album_event_subscribers,
   context::ApplicationContext,
   crawler::crawler_jobs::setup_crawler_jobs,
-  events::{
-    event_publisher::build_event_key_migration_subscriber, event_subscriber::EventSubscriber,
-    event_subscriber_jobs::setup_event_subscriber_jobs,
-  },
+  events::{event_subscriber::EventSubscriber, event_subscriber_jobs::setup_event_subscriber_jobs},
   helpers::key_value_store::setup_kv_jobs,
   lookup::lookup_event_subscribers::build_lookup_event_subscribers,
   parser::{
@@ -30,11 +27,8 @@ static GLOBAL: MiMalloc = MiMalloc;
 fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
   event_subscribers.extend(build_album_event_subscribers(Arc::clone(&app_context))?);
-  event_subscribers.extend(build_event_key_migration_subscriber(Arc::clone(
-    &app_context,
-  ))?);
-  event_subscribers.extend(build_parser_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_lookup_event_subscribers(Arc::clone(&app_context))?);
+  event_subscribers.extend(build_parser_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_profile_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_recommendation_event_subscribers(Arc::clone(
     &app_context,
@@ -55,7 +49,7 @@ async fn setup_jobs(context: Arc<ApplicationContext>) -> Result<()> {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
   let context = ApplicationContext::init().await?;
   setup_redis_indexes(Arc::clone(&context)).await?;
   start_event_subscribers(Arc::clone(&context))?;

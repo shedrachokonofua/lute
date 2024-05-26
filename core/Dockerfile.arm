@@ -41,12 +41,12 @@ RUN  curl -L http://www.openssl.org/source/openssl-$OPENSSL_VER.tar.gz | tar xz 
 
 RUN rustup target add aarch64-unknown-linux-gnu && \
   rustup toolchain install stable-aarch64-unknown-linux-gnu && \
-  cargo install --path lute --target aarch64-unknown-linux-gnu
+  cargo install --path core --target aarch64-unknown-linux-gnu
 
 FROM --platform=linux/arm64 debian:bookworm-slim
 RUN apt-get update
 RUN apt-get install ca-certificates -y
 RUN update-ca-certificates
 RUN rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/cargo/bin/lute /usr/local/bin/lute
-CMD ["lute"]
+COPY --from=builder /usr/local/cargo/bin/core /usr/local/bin/core
+CMD ["core"]

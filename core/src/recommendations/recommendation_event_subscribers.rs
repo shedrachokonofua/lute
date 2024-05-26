@@ -1,4 +1,4 @@
-use super::spotify_track_search_index::SpotifyTrackSearchRecord;
+use super::spotify_track_search_index::SpotifyTrackQueryBuilder;
 use crate::{
   albums::album_read_model::AlbumReadModel,
   context::ApplicationContext,
@@ -14,13 +14,11 @@ use crate::{
   helpers::priority::Priority,
   parser::parsed_file_data::ParsedFileData,
   scheduler::{job_name::JobName, scheduler::JobParametersBuilder},
-  spotify::spotify_client::get_spotify_retry_after,
 };
 use anyhow::Result;
-use chrono::{Datelike, Duration, Local};
+use chrono::{Datelike, Local};
 use std::sync::Arc;
-use tokio::spawn;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 async fn crawl_similar_albums(
   event_data: EventData,
@@ -109,10 +107,10 @@ async fn crawl_similar_albums(
   Ok(())
 }
 
-pub async fn save_album_spotify_tracks(
+pub async fn trigger_spotify_track_indexing(
   data: EventData,
   app_context: Arc<ApplicationContext>,
-  subscriber_interactor: Arc<EventSubscriberInteractor>,
+  _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::FileParsed {
     file_id: _,
@@ -120,8 +118,6 @@ pub async fn save_album_spotify_tracks(
     data: ParsedFileData::Album(parsed_album),
   } = data.payload.event
   {
-    let album = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
-
     if app_context
       .kv
       .exists(format!(
@@ -137,70 +133,60 @@ pub async fn save_album_spotify_tracks(
       return Ok(());
     }
 
-    let spotify_album = app_context
-      .spotify_client
-      .find_album(&album)
-      .await
-      .inspect_err(|e| {
-        error!(e = e.to_string(), "Failed to get spotify track records");
-        if let Some(retry_after) = get_spotify_retry_after(e) {
-          info!(
-            seconds = retry_after.num_seconds(),
-            "Pausing spotify track indexing job due to spotify rate limit"
-          );
+    if app_context
+      .spotify_track_search_index
+      .search(
+        &SpotifyTrackQueryBuilder::default()
+          .include_album_file_names(vec![file_name.clone()])
+          .build()?,
+        None,
+      )
+      .await?
+      .total
+      > 0
+    {
+      info!(
+        "Spotify tracks for album {} already indexed, found in search index",
+        file_name.to_string()
+      );
+      return Ok(());
+    }
 
-          spawn(async move {
-            if let Err(e) = subscriber_interactor.pause_for(retry_after).await {
-              error!(e = e.to_string(), "Failed to pause processor");
-            }
-          });
-        }
-      })?;
-
-    if let Some(spotify_album) = spotify_album {
-      let tracks = spotify_album
-        .tracks
-        .iter()
-        .map(|track| {
-          (
-            track.spotify_id.clone(),
-            SpotifyTrackSearchRecord::new(
-              track.clone(),
-              spotify_album.clone().into(),
-              file_name.clone(),
-              vec![],
-            ),
-          )
-        })
-        .collect::<Vec<_>>();
-
-      for (spotify_id, record) in tracks {
-        app_context
-          .scheduler
-          .put(
-            JobParametersBuilder::default()
-              .id(format!("save_album_spotify_tracks:{}", spotify_id))
-              .name(JobName::IndexSpotifyTracks)
-              .payload(serde_json::to_vec(&record)?)
-              .build()?,
-          )
-          .await?;
-      }
-
+    let album = AlbumReadModel::from_parsed_album(&file_name, parsed_album);
+    if let Some(spotify_id) = &album.spotify_id {
       app_context
-        .kv
-        .set(
-          &format!("spotify_track_embedding_album:{}", file_name.to_string()),
-          1,
-          Duration::try_weeks(4)
-            .map(|d| d.to_std())
-            .transpose()
-            .unwrap(),
+        .scheduler
+        .put(
+          JobParametersBuilder::default()
+            .id(format!("fetch_spotify_tracks_by_album_ids:{}", spotify_id))
+            .name(JobName::FetchSpotifyTracksByAlbumIds)
+            .payload(serde_json::to_vec(&album)?)
+            .build()?,
         )
         .await?;
-    }
+      app_context
+        .scheduler
+        .delete_job(&format!(
+          "fetch_spotify_tracks_by_album_search:{}",
+          file_name.to_string()
+        ))
+        .await?;
+    } else {
+      app_context
+        .scheduler
+        .put(
+          JobParametersBuilder::default()
+            .id(format!(
+              "fetch_spotify_tracks_by_album_search:{}",
+              file_name.to_string()
+            ))
+            .name(JobName::FetchSpotifyTracksByAlbumSearch)
+            .payload(serde_json::to_vec(&album)?)
+            .build()?,
+        )
+        .await?;
+    };
   }
-
   Ok(())
 }
 
@@ -216,11 +202,11 @@ pub fn build_recommendation_event_subscribers(
       .handler(event_handler!(crawl_similar_albums))
       .build()?,
     EventSubscriberBuilder::default()
-      .id("save_album_spotify_tracks")
+      .id("trigger_spotify_track_indexing")
       .topic(Topic::Parser)
-      .batch_size(2)
+      .batch_size(250)
       .app_context(Arc::clone(&app_context))
-      .handler(event_handler!(save_album_spotify_tracks))
+      .handler(event_handler!(trigger_spotify_track_indexing))
       .build()?,
   ])
 }

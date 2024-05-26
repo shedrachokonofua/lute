@@ -163,6 +163,7 @@ impl From<AlbumReadModel> for proto::Album {
         .into_iter()
         .map(|file_name| file_name.to_string())
         .collect(),
+      spotify_id: val.spotify_id,
     }
   }
 }

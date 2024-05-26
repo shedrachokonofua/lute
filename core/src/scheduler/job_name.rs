@@ -11,4 +11,6 @@ pub enum JobName {
   IndexSpotifyTracks,
   ParserRetry,
   Crawl,
+  FetchSpotifyTracksByAlbumIds,
+  FetchSpotifyTracksByAlbumSearch,
 }

@@ -32,12 +32,13 @@ pub trait AlbumRepository {
   async fn get_aggregated_descriptors(&self, limit: Option<u32>) -> Result<Vec<ItemAndCount>>;
   async fn get_aggregated_languages(&self, limit: Option<u32>) -> Result<Vec<ItemAndCount>>;
   async fn get_aggregated_years(&self, limit: Option<u32>) -> Result<Vec<ItemAndCount>>;
-  async fn get_album_count(&self) -> Result<u32>;
-  async fn get_artist_count(&self) -> Result<u32>;
-  async fn get_genre_count(&self) -> Result<u32>;
-  async fn get_descriptor_count(&self) -> Result<u32>;
-  async fn get_language_count(&self) -> Result<u32>;
-  async fn get_duplicate_count(&self) -> Result<u32>;
+  async fn count_albums(&self) -> Result<u32>;
+  async fn count_artists(&self) -> Result<u32>;
+  async fn count_genres(&self) -> Result<u32>;
+  async fn count_descriptors(&self) -> Result<u32>;
+  async fn count_languages(&self) -> Result<u32>;
+  async fn count_duplicates(&self) -> Result<u32>;
+  async fn count_spotify_ids(&self) -> Result<u32>;
 
   #[instrument(skip(self))]
   async fn get(&self, file_name: &FileName) -> Result<AlbumReadModel> {

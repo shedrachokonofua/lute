@@ -34,6 +34,7 @@ impl From<AlbumMonitor> for proto::AlbumMonitor {
       descriptor_count: val.descriptor_count,
       duplicate_count: val.duplicate_count,
       language_count: val.language_count,
+      spotify_id_count: val.spotify_id_count,
       aggregated_genres: val
         .aggregated_genres
         .into_iter()
@@ -129,6 +130,7 @@ impl TryFrom<SpotifyAlbum> for proto::SpotifyAlbum {
         SpotifyAlbumType::Album => proto::SpotifyAlbumType::Album.into(),
         SpotifyAlbumType::Single => proto::SpotifyAlbumType::Single.into(),
         SpotifyAlbumType::Compilation => proto::SpotifyAlbumType::Compilation.into(),
+        SpotifyAlbumType::AppearsOn => proto::SpotifyAlbumType::ApprearsOn.into(),
       },
       tracks: value
         .tracks
@@ -245,9 +247,7 @@ impl proto::AlbumService for AlbumService {
       .pagination
       .map(|p| p.try_into())
       .transpose()
-      .map_err(|e: Error| {
-        Status::invalid_argument(format!("Invalid pagination: {}", e))
-      })?;
+      .map_err(|e: Error| Status::invalid_argument(format!("Invalid pagination: {}", e)))?;
     let results = self
       .album_search_index
       .search(&query, pagination.as_ref())

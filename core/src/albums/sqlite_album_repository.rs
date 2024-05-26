@@ -533,14 +533,15 @@ impl AlbumRepository for SqliteAlbumRepository {
         let tx = conn.transaction()?;
         tx.execute(
           "
-          INSERT INTO albums (file_name, name, rating, rating_count, release_date, cover_image_url)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO albums (file_name, name, rating, rating_count, release_date, cover_image_url, spotify_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT (file_name) DO UPDATE SET
             name = excluded.name,
             rating = excluded.rating,
             rating_count = excluded.rating_count,
             release_date = excluded.release_date,
-            cover_image_url = excluded.cover_image_url
+            cover_image_url = excluded.cover_image_url,
+            spotify_id = excluded.spotify_id
           ",
           params![
             album.file_name.to_string(),
@@ -548,7 +549,8 @@ impl AlbumRepository for SqliteAlbumRepository {
             album.rating,
             album.rating_count,
             album.release_date,
-            album.cover_image_url
+            album.cover_image_url,
+            album.spotify_id,
           ],
         )?;
         let album_id: i64 = tx.query_row(
@@ -1174,7 +1176,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all)]
-  async fn get_album_count(&self) -> Result<u32> {
+  async fn count_albums(&self) -> Result<u32> {
     self
       .sqlite_connection
       .read()
@@ -1194,7 +1196,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all)]
-  async fn get_artist_count(&self) -> Result<u32> {
+  async fn count_artists(&self) -> Result<u32> {
     self
       .sqlite_connection
       .read()
@@ -1214,7 +1216,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all)]
-  async fn get_genre_count(&self) -> Result<u32> {
+  async fn count_genres(&self) -> Result<u32> {
     self
       .sqlite_connection
       .read()
@@ -1234,7 +1236,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all)]
-  async fn get_descriptor_count(&self) -> Result<u32> {
+  async fn count_descriptors(&self) -> Result<u32> {
     self
       .sqlite_connection
       .read()
@@ -1254,7 +1256,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all)]
-  async fn get_language_count(&self) -> Result<u32> {
+  async fn count_languages(&self) -> Result<u32> {
     self
       .sqlite_connection
       .read()
@@ -1274,7 +1276,7 @@ impl AlbumRepository for SqliteAlbumRepository {
   }
 
   #[instrument(skip_all)]
-  async fn get_duplicate_count(&self) -> Result<u32> {
+  async fn count_duplicates(&self) -> Result<u32> {
     self
       .sqlite_connection
       .read()
@@ -1294,6 +1296,31 @@ impl AlbumRepository for SqliteAlbumRepository {
       .map_err(|e| {
         error!(message = e.to_string(), "Failed to get duplicate count");
         anyhow!("Failed to get duplicate count")
+      })?
+  }
+
+  #[instrument(skip_all)]
+  async fn count_spotify_ids(&self) -> Result<u32> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare(
+          "
+            SELECT COUNT(*) FROM albums
+            WHERE spotify_id IS NOT NULL
+            ",
+        )?;
+        stmt.query_row([], |row| row.get::<_, u32>(0)).map_err(|e| {
+          error!(message = e.to_string(), "Failed to get spotify id count");
+          anyhow!("Failed to get spotify id count")
+        })
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to get spotify id count");
+        anyhow!("Failed to get spotify id count")
       })?
   }
 }

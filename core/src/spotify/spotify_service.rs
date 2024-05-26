@@ -39,6 +39,7 @@ impl From<SpotifyTrack> for proto::SpotifyTrack {
           SpotifyAlbumType::Album => proto::SpotifyAlbumType::Album.into(),
           SpotifyAlbumType::Single => proto::SpotifyAlbumType::Single.into(),
           SpotifyAlbumType::Compilation => proto::SpotifyAlbumType::Compilation.into(),
+          SpotifyAlbumType::AppearsOn => proto::SpotifyAlbumType::ApprearsOn.into(),
         },
       }),
     }

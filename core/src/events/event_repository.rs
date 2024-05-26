@@ -110,7 +110,8 @@ impl EventRepository {
               event = excluded.event,
               metadata = excluded.metadata,
               stream = excluded.stream,
-              key = excluded.key
+              key = excluded.key,
+              created_at = excluded.created_at
             ",
           )?;
           statement.execute((

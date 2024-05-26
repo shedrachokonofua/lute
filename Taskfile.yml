@@ -22,8 +22,6 @@ tasks:
 
   "core:test":
     dir: core
-    env:
-      RUST_LOG: warn,lute=debug,lute-postgres-connector=debug
     cmds:
       - cargo test
 

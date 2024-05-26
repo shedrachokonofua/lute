@@ -113,6 +113,8 @@ impl Into<proto::ParsedAlbum> for ParsedAlbum {
         .into_iter()
         .map(|credit| credit.into())
         .collect(),
+      cover_image_url: self.cover_image_url,
+      spotify_id: self.spotify_id,
     }
   }
 }

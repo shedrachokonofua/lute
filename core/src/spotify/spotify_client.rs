@@ -14,8 +14,9 @@ use nonzero::nonzero;
 use rspotify::{
   http::HttpError,
   model::{
-    AlbumId, AudioFeatures, FullTrack, PlayableId, PlayableItem, PlaylistId, SavedTrack,
-    SearchResult, SearchType, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, TrackId,
+    AlbumId, AlbumType, AudioFeatures, FullAlbum, FullTrack, PlayableId, PlayableItem, PlaylistId,
+    SavedTrack, SearchResult, SearchType, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack,
+    TrackId,
   },
   prelude::{BaseClient, OAuthClient},
   AuthCodeSpotify, ClientError, Credentials, OAuth, Token,
@@ -86,6 +87,7 @@ pub enum SpotifyAlbumType {
   Album,
   Single,
   Compilation,
+  AppearsOn,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -114,6 +116,11 @@ pub struct SpotifyAlbum {
   pub tracks: Vec<SpotifyTrackReference>,
 }
 
+pub struct SpotifyAlbumPage {
+  pub spotify_album: SpotifyAlbum,
+  pub has_more_tracks: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpotifyAlbumReference {
   pub spotify_id: String,
@@ -136,6 +143,26 @@ pub struct SpotifyTrack {
   pub name: String,
   pub artists: Vec<SpotifyArtistReference>,
   pub album: SpotifyAlbumReference,
+}
+
+impl TryFrom<SimplifiedTrack> for SpotifyTrackReference {
+  type Error = Error;
+
+  fn try_from(simplified_track: SimplifiedTrack) -> Result<Self> {
+    let spotify_id = simplified_track
+      .id
+      .ok_or_else(|| anyhow!("Track ID is missing"))?;
+
+    Ok(SpotifyTrackReference {
+      spotify_id: spotify_id.to_string(),
+      name: simplified_track.name,
+      artists: simplified_track
+        .artists
+        .iter()
+        .map(|artist| artist.try_into())
+        .collect::<Result<Vec<SpotifyArtistReference>>>()?,
+    })
+  }
 }
 
 fn get_spotify_album(
@@ -200,6 +227,37 @@ impl TryFrom<SimplifiedAlbum> for SpotifyAlbumReference {
       spotify_id: spotify_id.to_string(),
       name: simplified_album.name,
       album_type,
+    })
+  }
+}
+
+impl TryFrom<FullAlbum> for SpotifyAlbumPage {
+  type Error = Error;
+
+  fn try_from(full_album: FullAlbum) -> Result<Self> {
+    Ok(SpotifyAlbumPage {
+      spotify_album: SpotifyAlbum {
+        spotify_id: full_album.id.to_string(),
+        name: full_album.name,
+        album_type: match full_album.album_type {
+          AlbumType::Album => SpotifyAlbumType::Album,
+          AlbumType::Single => SpotifyAlbumType::Single,
+          AlbumType::Compilation => SpotifyAlbumType::Compilation,
+          AlbumType::AppearsOn => SpotifyAlbumType::AppearsOn,
+        },
+        artists: full_album
+          .artists
+          .into_iter()
+          .map(|a| (&a).try_into())
+          .collect::<Result<Vec<SpotifyArtistReference>>>()?,
+        tracks: full_album
+          .tracks
+          .items
+          .into_iter()
+          .map(|t| t.try_into())
+          .collect::<Result<Vec<SpotifyTrackReference>>>()?,
+      },
+      has_more_tracks: full_album.tracks.next.is_some(),
     })
   }
 }
@@ -328,6 +386,7 @@ fn map_spotify_error(err: ClientError) -> SpotifyClientError {
         return SpotifyClientError::TooManyRequests(retry_after);
       }
     }
+  } else if let ClientError::ParseJson(err) = &err {
   }
   SpotifyClientError::Unknown(err)
 }
@@ -509,6 +568,15 @@ impl SpotifyClient {
     Ok(result)
   }
 
+  async fn albums<'a>(&self, album_ids: Vec<AlbumId<'a>>) -> Result<Vec<FullAlbum>> {
+    let client = self.client().await?;
+    let result = client
+      .albums(album_ids, None)
+      .await
+      .map_err(map_spotify_error)?;
+    Ok(result)
+  }
+
   pub async fn find_album(&self, album: &AlbumReadModel) -> Result<Option<SpotifyAlbum>> {
     let query = format!(
       "{} {}",
@@ -575,6 +643,25 @@ impl SpotifyClient {
       }
       _ => Ok(None),
     }
+  }
+
+  pub async fn get_album_pages(&self, album_ids: Vec<String>) -> Result<Vec<SpotifyAlbumPage>> {
+    info!(
+      album_ids = album_ids.iter().cloned().collect::<Vec<_>>().join(","),
+      "Getting album pages"
+    );
+    let album_ids = album_ids
+      .iter()
+      .map(|id| AlbumId::from_id(id).map_err(|e| anyhow!("Invalid album ID: {}", e)))
+      .collect::<Result<Vec<_>>>()?;
+    let albums = self
+      .albums(album_ids)
+      .await?
+      .into_iter()
+      .map(|album| album.try_into())
+      .collect::<Result<Vec<SpotifyAlbumPage>>>()?;
+
+    Ok(albums)
   }
 
   pub async fn get_tracks_feature_embeddings(
