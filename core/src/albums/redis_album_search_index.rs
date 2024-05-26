@@ -99,6 +99,8 @@ pub struct RedisAlbumReadModel {
   pub name_tag: String, // redisearch doesn't support exact matching on text fields, so we need to store a tag for exact matching
   #[serde(default)]
   pub cover_image_url: Option<String>,
+  #[serde(default)]
+  pub spotify_id: Option<String>,
 }
 
 impl From<RedisAlbumReadModel> for AlbumReadModel {
@@ -119,6 +121,7 @@ impl From<RedisAlbumReadModel> for AlbumReadModel {
       duplicate_of: val.duplicate_of,
       duplicates: val.duplicates,
       cover_image_url: val.cover_image_url,
+      spotify_id: val.spotify_id,
     }
   }
 }
@@ -162,6 +165,7 @@ impl From<AlbumReadModel> for RedisAlbumReadModel {
       duplicates: val.duplicates,
       is_duplicate,
       cover_image_url: val.cover_image_url,
+      spotify_id: val.spotify_id,
     }
   }
 }
@@ -170,7 +174,8 @@ impl TryFrom<&Vec<(String, String)>> for RedisAlbumReadModel {
   type Error = Error;
 
   fn try_from(values: &Vec<(String, String)>) -> Result<Self> {
-    let json = values.first()
+    let json = values
+      .first()
       .map(|(_, json)| json)
       .ok_or(anyhow!("invalid AlbumReadModel: missing json"))?;
     let album: RedisAlbumReadModel = serde_json::from_str(json)?;
@@ -182,7 +187,8 @@ impl TryFrom<&Vec<(String, String)>> for ItemAndCount {
   type Error = Error;
 
   fn try_from(values: &Vec<(String, String)>) -> Result<Self> {
-    let name = values.first()
+    let name = values
+      .first()
       .map(|(_, name)| name)
       .ok_or(anyhow!("invalid ItemAndCount: missing name"))?;
     let count = values
@@ -712,7 +718,8 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
       .iter()
       .filter_map(|row| {
         let distance = row
-          .values.first()
+          .values
+          .first()
           .map(|(_, distance)| distance.parse::<f32>().ok())??;
         let redis_album_read_model = row
           .values

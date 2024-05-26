@@ -40,6 +40,8 @@ pub struct ParsedAlbum {
   pub credits: Vec<ParsedCredit>,
   #[serde(default)]
   pub cover_image_url: Option<String>,
+  #[serde(default)]
+  pub spotify_id: Option<String>,
 }
 
 impl ParsedAlbum {

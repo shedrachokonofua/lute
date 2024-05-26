@@ -55,6 +55,7 @@ pub struct AlbumReadModel {
   pub duplicate_of: Option<FileName>,
   pub duplicates: Vec<FileName>,
   pub cover_image_url: Option<String>,
+  pub spotify_id: Option<String>,
 }
 
 impl AlbumReadModel {
@@ -112,6 +113,7 @@ impl AlbumReadModel {
       duplicates: vec![],
       duplicate_of: None,
       cover_image_url: parsed_album.cover_image_url,
+      spotify_id: parsed_album.spotify_id,
     }
   }
 }
@@ -206,6 +208,7 @@ impl From<AlbumReadModel> for ParsedAlbum {
         })
         .collect::<Vec<ParsedCredit>>(),
       cover_image_url: album.cover_image_url,
+      spotify_id: album.spotify_id,
     }
   }
 }

@@ -7,6 +7,8 @@ use super::{
 };
 use crate::files::file_metadata::file_name::FileName;
 use anyhow::{Error, Result};
+use htmlescape::decode_html;
+use serde_json::Value;
 use tracing::{instrument, warn};
 
 #[instrument(skip(file_content))]
@@ -26,6 +28,31 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
       .parse::<u32>()
       .map_err(|err| anyhow::anyhow!("Failed to parse rating count: {}", err))
   })?;
+  let data_links_map = dom
+    .query_selector("#media_link_button_container_top")
+    .and_then(|mut iter| iter.next())
+    .and_then(|node| node.get(dom.parser()))
+    .and_then(|node| node.as_tag())
+    .and_then(|tag| tag.attributes().get("data-links"))
+    .flatten()
+    .map(|content| content.as_utf8_str())
+    .map(|val| val.to_string())
+    .and_then(|val| decode_html(&val).ok());
+
+  let spotify_id = data_links_map
+    .and_then(|val| serde_json::from_str::<Value>(&val).ok())
+    .and_then(|val| {
+      val["spotify"]
+        .as_object()?
+        .iter()
+        .find_map(|(id, attributes)| {
+          if attributes.get("default")?.as_bool()? {
+            Some(id.clone())
+          } else {
+            None
+          }
+        })
+    });
 
   let release_date = dom
     .query_selector(".issue_year.ymd")
@@ -253,6 +280,7 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
     languages,
     credits,
     cover_image_url,
+    spotify_id,
   })
 }
 
@@ -266,10 +294,10 @@ mod tests {
   fn test_album_parser() -> Result<(), String> {
     let file_content = include_str!(test_resource!("album.html"));
     let album = super::parse_album(file_content).map_err(|err| err.to_string())?;
-    println!("{:?}", album);
     assert_eq!(album.name, "Gentleman");
     assert_eq!(album.rating, 3.91);
     assert_eq!(album.rating_count, 3692);
+    assert_eq!(album.spotify_id, Some("532y6THMUtDYbRQAvzP1bL".to_string()));
     assert_eq!(album.artists.len(), 2);
     assert_eq!(album.artists[0].name, "Fela Kuti");
     assert_eq!(album.artists[0].file_name.0, "artist/fela-kuti");

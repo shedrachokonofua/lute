@@ -30,7 +30,7 @@
       - [x] Duplicate album detection
 
 - Backlog:
-  - [ ] Parser: Extract album spotify link
+  - [x] Parser: Extract album spotify id
   - [x] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
   - [x] Recommendations(Vector similarity): Album recommendations, rpc method
   - [x] Extension: Album assessment popup
