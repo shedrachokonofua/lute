@@ -1,6 +1,6 @@
 {
   "rust-analyzer.cargo.extraEnv": {
-    "RUST_LOG": "warn,core=debug,lute-postgres-connector=debug",
+    "RUST_LOG": "warn,lute=debug,lute-postgres-connector=debug",
   },
   "files.watcherExclude": {
     "**/target": true

@@ -9,16 +9,23 @@ tasks:
   "core:build":
     dir: core
     env:
-      RUST_LOG: warn,core=debug,lute-postgres-connector=debug
+      RUST_LOG: warn,lute=debug,lute-postgres-connector=debug
     cmds:
       - cargo build
 
   "core:run":
     dir: core
     env:
-      RUST_LOG: warn,core=info,lute-postgres-connector=debug
+      RUST_LOG: warn,lute=info,lute-postgres-connector=debug
     cmds:
       - cargo run --release
+
+  "core:test":
+    dir: core
+    env:
+      RUST_LOG: warn,lute=debug,lute-postgres-connector=debug
+    cmds:
+      - cargo test
 
   "core:lint":
     dir: core
@@ -28,7 +35,7 @@ tasks:
   "core:lint:fix":
     dir: core
     env:
-      RUST_LOG: warn,core=debug,lute-postgres-connector=debug
+      RUST_LOG: warn,lute=debug,lute-postgres-connector=debug
     cmds:
       - cargo clippy --fix --allow-dirty
 
@@ -40,7 +47,7 @@ tasks:
   "core:release":
     dir: core
     env:
-      RUST_LOG: warn,core=info
+      RUST_LOG: warn,lute=info
     cmds:
       - cargo build --release
 
@@ -98,6 +105,10 @@ tasks:
     cmds:
       - task: "core:fmt"
       - task: "web:fmt"
+
+  "test":
+    cmds:
+      - task: "core:test"
 
   "redis:up":
     cmds:

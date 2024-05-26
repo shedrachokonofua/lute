@@ -11,12 +11,12 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17
 COPY core core
 COPY proto proto
 
-RUN cargo install --path core
+RUN cargo install --path lute
 
 FROM debian:bookworm-slim
 RUN apt-get update
 RUN apt-get install ca-certificates -y
 RUN update-ca-certificates
 RUN rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/cargo/bin/core /usr/local/bin/core
-CMD ["core"]
+COPY --from=builder /usr/local/cargo/bin/lute /usr/local/bin/lute
+CMD ["lute"]

@@ -56,7 +56,7 @@ impl RpcServer {
     let addr = self.addr();
     info!(address = addr.to_string(), "Starting RPC server");
     let server = Server::builder()
-      .trace_fn(|_| tracing::info_span!("core::rpc"))
+      .trace_fn(|_| tracing::info_span!("lute::rpc"))
       .accept_http1(true)
       .add_service(reflection_service)
       .add_service(tonic_web::enable(LuteServer::new(LuteService {})))
