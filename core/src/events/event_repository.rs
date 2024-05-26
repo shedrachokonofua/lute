@@ -183,7 +183,7 @@ impl EventRepository {
           .query_row(
             "SELECT id FROM events WHERE stream = ?1 AND key = ?2 AND id != ?3",
             [row.topic.to_string(), key.clone(), id.clone()],
-            |row| row.get::<_, String>(0),
+            |row| row.get::<_, u32>(0),
           )
           .optional()?;
         if let Some(cid) = conflicting_id {

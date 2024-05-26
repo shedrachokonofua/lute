@@ -211,6 +211,7 @@ impl AlbumSearchLookupOrchestrator {
               .publish(
                 Topic::Lookup,
                 EventPayloadBuilder::default()
+                  .key(correlation_id.clone())
                   .event(Event::LookupAlbumSearchUpdated {
                     lookup: AlbumSearchLookup::AlbumParsed {
                       query,
@@ -270,6 +271,7 @@ impl AlbumSearchLookupOrchestrator {
           .publish(
             Topic::Lookup,
             EventPayloadBuilder::default()
+              .key(lookup.file_processing_correlation_id().clone())
               .event(Event::LookupAlbumSearchUpdated {
                 lookup: AlbumSearchLookup::AlbumParsed {
                   album_search_file_name: lookup.album_search_file_name().unwrap(),
@@ -314,6 +316,7 @@ impl AlbumSearchLookupOrchestrator {
         .publish(
           Topic::Lookup,
           EventPayloadBuilder::default()
+            .key(correlation_id.clone())
             .event(Event::LookupAlbumSearchUpdated {
               lookup: next_lookup.clone(),
             })
