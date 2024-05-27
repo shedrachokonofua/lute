@@ -1,0 +1,2 @@
+DROP INDEX idx_scheduler_jobs_name_next_execution_priority_id;
+DROP INDEX idx_scheduler_jobs_claimed_at;

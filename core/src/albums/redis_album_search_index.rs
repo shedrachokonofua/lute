@@ -628,12 +628,15 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
         .providers
         .iter()
         .map(|provider| async {
-          let embedding = self.find_embedding(file_name, provider.name()).await?;
-          Ok(embedding.map(|embedding| AlbumEmbedding {
-            file_name: file_name.clone(),
-            key: provider.name().to_string(),
-            embedding: embedding.embedding,
-          }))
+          let embedding = match self.find_embedding(file_name, provider.name()).await {
+            Ok(embedding) => embedding.map(|embedding| AlbumEmbedding {
+              file_name: file_name.clone(),
+              key: provider.name().to_string(),
+              embedding: embedding.embedding,
+            }),
+            Err(_) => None,
+          };
+          Ok(embedding)
         }),
     )
     .await

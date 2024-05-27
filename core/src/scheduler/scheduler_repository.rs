@@ -4,8 +4,8 @@ use anyhow::{anyhow, Result};
 use chrono::{Duration, NaiveDateTime, TimeDelta, Utc};
 use rusqlite::{params, types::Value};
 use serde::de::DeserializeOwned;
-use std::{rc::Rc, str::FromStr, sync::Arc};
-use tracing::error;
+use std::{collections::HashMap, rc::Rc, str::FromStr, sync::Arc};
+use tracing::{error, instrument};
 
 #[derive(Clone)]
 pub struct SchedulerRepository {
@@ -41,6 +41,7 @@ impl SchedulerRepository {
     Self { sqlite_connection }
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::put")]
   pub async fn put(&self, record: Job) -> Result<()> {
     self
       .sqlite_connection
@@ -88,6 +89,7 @@ impl SchedulerRepository {
       })?
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::get_jobs")]
   pub async fn get_jobs(&self) -> Result<Vec<Job>> {
     let jobs = self
       .sqlite_connection
@@ -145,6 +147,7 @@ impl SchedulerRepository {
     Ok(jobs.into_iter().flatten().collect())
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::set_many_claimed_at")]
   pub async fn set_many_claimed_at(
     &self,
     job_ids: Vec<String>,
@@ -177,7 +180,8 @@ impl SchedulerRepository {
     self.set_many_claimed_at(vec![job_id], claimed_at).await
   }
 
-  pub async fn claim_next_jobs(
+  #[instrument(skip(self), name = "SchedulerRepository::peek_next_jobs")]
+  pub async fn peek_next_jobs(
     &self,
     job_name: JobName,
     count: u32,
@@ -239,6 +243,18 @@ impl SchedulerRepository {
         anyhow!("Failed to claim next job")
       })??;
 
+    Ok(jobs)
+  }
+
+  #[instrument(skip(self), name = "SchedulerRepository::claim_next_jobs")]
+  pub async fn claim_next_jobs(
+    &self,
+    job_name: JobName,
+    count: u32,
+    claim_duration: Duration,
+  ) -> Result<Vec<Job>> {
+    let jobs = self.peek_next_jobs(job_name, count, claim_duration).await?;
+
     if !jobs.is_empty() {
       self
         .set_many_claimed_at(
@@ -251,6 +267,7 @@ impl SchedulerRepository {
     Ok(jobs)
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::count_jobs_by_name")]
   pub async fn count_jobs_by_name(&self, job_name: JobName) -> Result<usize> {
     let count = self
       .sqlite_connection
@@ -269,13 +286,56 @@ impl SchedulerRepository {
       })
       .await
       .map_err(|e| {
-        error!(message = e.to_string(), "Failed to count jobs");
-        anyhow!("Failed to count jobs")
+        error!(message = e.to_string(), "Failed to count jobs by name");
+        anyhow!("Failed to count jobs by name")
       })??;
 
     Ok(count)
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::count_jobs_by_each_name")]
+  pub async fn count_jobs_by_each_name(&self) -> Result<HashMap<JobName, usize>> {
+    let results = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut statement = conn.prepare(
+          "
+          SELECT name, COUNT(*)
+          FROM scheduler_jobs
+          GROUP BY name
+          ",
+        )?;
+        let rows = statement
+          .query_map([], |row| {
+            if let Some(name) = JobName::from_str(row.get::<_, String>(0)?.as_str()).ok() {
+              let count = row.get::<_, usize>(1)?;
+              Ok(Some((name, count)))
+            } else {
+              Ok(None)
+            }
+          })?
+          .collect::<Result<Vec<Option<(_, _)>>, _>>()?;
+        Ok::<_, rusqlite::Error>(rows)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to count jobs by each name");
+        anyhow!("Failed to count jobs by each name: {:?}", e.to_string())
+      })??;
+
+    let mut counts = HashMap::new();
+    for row in results {
+      if let Some((name, count)) = row {
+        counts.insert(name, count);
+      }
+    }
+
+    Ok(counts)
+  }
+
+  #[instrument(skip(self), name = "SchedulerRepository::count_claimed_jobs_by_name")]
   pub async fn count_claimed_jobs_by_name(
     &self,
     job_name: JobName,
@@ -303,12 +363,33 @@ impl SchedulerRepository {
       .await
       .map_err(|e| {
         error!(message = e.to_string(), "Failed to count claimed jobs");
-        anyhow!("Failed to count claimed jobs")
+        anyhow!("Failed to count claimed jobs: {:?}", e.to_string())
       })??;
 
     Ok(count)
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::count_jobs")]
+  pub async fn count_jobs(&self) -> Result<usize> {
+    let count = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        conn.query_row("SELECT COUNT(*) FROM scheduler_jobs", [], |row| {
+          row.get::<_, usize>(0)
+        })
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to count jobs");
+        anyhow!("Failed to count jobs: {:?}", e.to_string())
+      })??;
+
+    Ok(count)
+  }
+
+  #[instrument(skip(self), name = "SchedulerRepository::find_claimed_jobs_by_name")]
   pub async fn find_claimed_jobs_by_name(
     &self,
     job_name: JobName,
@@ -365,6 +446,7 @@ impl SchedulerRepository {
     Ok(jobs)
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::find_jobs")]
   pub async fn find_jobs(&self, job_ids: Vec<String>) -> Result<Vec<Job>> {
     let ids = job_ids.into_iter().map(Value::from).collect::<Vec<_>>();
     let jobs = self
@@ -414,54 +496,15 @@ impl SchedulerRepository {
     Ok(jobs)
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::find_job")]
   pub async fn find_job(&self, job_id: &str) -> Result<Option<Job>> {
-    let job_id = job_id.to_string();
     self
-      .sqlite_connection
-      .read()
-      .await?
-      .interact(move |conn| {
-        let mut statement = conn.prepare(
-          "
-          SELECT
-            id, 
-            name, 
-            next_execution, 
-            last_execution, 
-            interval_seconds, 
-            payload, 
-            claimed_at, 
-            priority, 
-            created_at
-          FROM scheduler_jobs
-          WHERE id = ?
-          ",
-        )?;
-        let mut rows = statement.query_map([job_id], |row| {
-          Ok(Job {
-            id: row.get(0)?,
-            name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
-            next_execution: row.get(2)?,
-            last_execution: row.get(3)?,
-            interval_seconds: row.get(4)?,
-            payload: row.get(5)?,
-            claimed_at: row.get(6)?,
-            priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
-            created_at: row.get(8)?,
-          })
-        })?;
-        rows.next().transpose().map_err(|e| {
-          error!(message = e.to_string(), "Failed to get job");
-          anyhow!("Failed to get job")
-        })
-      })
+      .find_jobs(vec![job_id.to_string()])
       .await
-      .map_err(|e| {
-        error!(message = e.to_string(), "Failed to get job");
-        anyhow!("Failed to get job")
-      })?
+      .map(|jobs| jobs.into_iter().next())
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::delete_job")]
   pub async fn delete_job(&self, job_id: &str) -> Result<()> {
     let job_id = job_id.to_string();
     self
@@ -480,6 +523,7 @@ impl SchedulerRepository {
       })?
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::delete_all_jobs")]
   pub async fn delete_all_jobs(&self) -> Result<()> {
     self
       .sqlite_connection
@@ -497,6 +541,7 @@ impl SchedulerRepository {
       })?
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::delete_jobs_by_name")]
   pub async fn delete_jobs_by_name(&self, job_name: JobName) -> Result<()> {
     self
       .sqlite_connection
@@ -514,6 +559,7 @@ impl SchedulerRepository {
       })?
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::update_execution_times")]
   pub async fn update_execution_times(
     &self,
     job_id: &str,
@@ -543,6 +589,7 @@ impl SchedulerRepository {
       })?
   }
 
+  #[instrument(skip(self), name = "SchedulerRepository::update_jobs_after_execution")]
   pub async fn update_jobs_after_execution(&self, jobs: Vec<Job>) -> Result<()> {
     let last_execution = chrono::Utc::now().naive_utc();
     self

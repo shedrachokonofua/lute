@@ -82,6 +82,7 @@ pub fn build_parser_event_subscribers(
       .id("populate_failed_parse_files_repository")
       .app_context(Arc::clone(&app_context))
       .topic(Topic::Parser)
+      .batch_size(250)
       .handler(event_handler!(populate_failed_parse_files_repository))
       .build()?,
   ])

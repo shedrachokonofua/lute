@@ -386,7 +386,6 @@ fn map_spotify_error(err: ClientError) -> SpotifyClientError {
         return SpotifyClientError::TooManyRequests(retry_after);
       }
     }
-  } else if let ClientError::ParseJson(err) = &err {
   }
   SpotifyClientError::Unknown(err)
 }
@@ -569,6 +568,7 @@ impl SpotifyClient {
   }
 
   async fn albums<'a>(&self, album_ids: Vec<AlbumId<'a>>) -> Result<Vec<FullAlbum>> {
+    self.wait_for_rate_limit().await;
     let client = self.client().await?;
     let result = client
       .albums(album_ids, None)

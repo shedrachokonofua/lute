@@ -16,7 +16,7 @@ use tokio::{
   sync::{mpsc::unbounded_channel, oneshot, RwLock},
   time::sleep,
 };
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 pub enum JobProcessorStatus {
   Running,
@@ -56,7 +56,7 @@ impl From<JobParameters> for Job {
   }
 }
 
-pub struct JobProcessorStatusRepository {
+pub struct JobProcessorRepository {
   kv: Arc<KeyValueStore>,
 }
 
@@ -64,7 +64,7 @@ fn processor_status_key(job_name: &JobName) -> String {
   format!("job_processor_paused:{}", job_name)
 }
 
-impl JobProcessorStatusRepository {
+impl JobProcessorRepository {
   pub fn new(kv: Arc<KeyValueStore>) -> Self {
     Self { kv }
   }
@@ -88,7 +88,7 @@ impl JobProcessorStatusRepository {
     self.kv.delete(&processor_status_key(job_name)).await
   }
 
-  pub async fn get(&self, job_name: &JobName) -> Result<JobProcessorStatus> {
+  pub async fn get_status(&self, job_name: &JobName) -> Result<JobProcessorStatus> {
     Ok(if self.is_paused(job_name).await? {
       JobProcessorStatus::Paused
     } else {
@@ -96,7 +96,7 @@ impl JobProcessorStatusRepository {
     })
   }
 
-  pub async fn set(&self, job_name: &JobName, status: JobProcessorStatus) -> Result<()> {
+  pub async fn set_status(&self, job_name: &JobName, status: JobProcessorStatus) -> Result<()> {
     match status {
       JobProcessorStatus::Paused => self.pause(job_name, None).await,
       JobProcessorStatus::Running => self.resume(job_name).await,
@@ -172,13 +172,13 @@ pub struct JobProcessor {
   #[builder(default = "Duration::from_secs(1)")]
   pub cooldown: Duration,
   #[builder(setter(skip), default = "self.get_status_repo()?")]
-  pub status_repository: Arc<JobProcessorStatusRepository>,
+  pub processor_repository: Arc<JobProcessorRepository>,
 }
 
 impl JobProcessorBuilder {
-  fn get_status_repo(&self) -> Result<Arc<JobProcessorStatusRepository>, String> {
+  fn get_status_repo(&self) -> Result<Arc<JobProcessorRepository>, String> {
     match &self.app_context {
-      Some(app_context) => Ok(Arc::new(JobProcessorStatusRepository::new(Arc::clone(
+      Some(app_context) => Ok(Arc::new(JobProcessorRepository::new(Arc::clone(
         &app_context.kv,
       )))),
       None => Err("App context is required".to_string()),
@@ -187,6 +187,19 @@ impl JobProcessorBuilder {
 }
 
 impl JobProcessor {
+  fn last_execution_key(&self) -> String {
+    format!("processor_last_execution:{}", self.name)
+  }
+
+  pub async fn get_last_execution(&self) -> Result<Option<NaiveDateTime>> {
+    self
+      .app_context
+      .kv
+      .get::<NaiveDateTime>(&self.last_execution_key())
+      .await
+  }
+
+  #[instrument(skip_all, fields(job_name = %self.name), name = "JobProcessor::run")]
   pub async fn run(&self, scheduler_repository: Arc<SchedulerRepository>) -> Result<()> {
     let (tx, mut rx) = unbounded_channel::<oneshot::Sender<Vec<Job>>>();
     let job_name = self.name.clone();
@@ -215,12 +228,13 @@ impl JobProcessor {
       let app_context = Arc::clone(&self.app_context);
       let cooldown = self.cooldown;
       let scheduler_repo = Arc::clone(&scheduler_repository);
-      let status_repo = Arc::clone(&self.status_repository);
+      let status_repo = Arc::clone(&self.processor_repository);
       let job_name = self.name.clone();
+      let last_execution_key = self.last_execution_key();
 
       spawn(async move {
         loop {
-          match status_repo.get(&job_name).await {
+          match status_repo.get_status(&job_name).await {
             Ok(JobProcessorStatus::Paused) => {
               sleep(cooldown).await;
               continue;
@@ -256,6 +270,14 @@ impl JobProcessor {
                     "Failed to update jobs after execution"
                   );
                 }
+
+                if let Err(e) = app_context
+                  .kv
+                  .set::<NaiveDateTime>(&last_execution_key, Utc::now().naive_utc(), None)
+                  .await
+                {
+                  error!(message = e.to_string(), "Failed set last execution");
+                }
               }
             }
             Err(e) => {
@@ -270,10 +292,11 @@ impl JobProcessor {
   }
 }
 
+pub struct SchedulerMonitor {}
 pub struct Scheduler {
   scheduler_repository: Arc<SchedulerRepository>,
   pub processor_registry: Arc<RwLock<HashMap<JobName, JobProcessor>>>,
-  processor_status_repository: Arc<JobProcessorStatusRepository>,
+  processor_status_repository: Arc<JobProcessorRepository>,
 }
 
 impl Scheduler {
@@ -281,7 +304,7 @@ impl Scheduler {
     Self {
       scheduler_repository: Arc::new(SchedulerRepository::new(sqlite_connection)),
       processor_registry: Arc::new(RwLock::new(HashMap::new())),
-      processor_status_repository: Arc::new(JobProcessorStatusRepository::new(kv)),
+      processor_status_repository: Arc::new(JobProcessorRepository::new(kv)),
     }
   }
 
@@ -317,6 +340,14 @@ impl Scheduler {
     Ok(duration)
   }
 
+  pub async fn count_jobs(&self) -> Result<usize> {
+    self.scheduler_repository.count_jobs().await
+  }
+
+  pub async fn count_jobs_by_each_name(&self) -> Result<HashMap<JobName, usize>> {
+    self.scheduler_repository.count_jobs_by_each_name().await
+  }
+
   pub async fn count_claimed_jobs_by_name(&self, job_name: JobName) -> Result<usize> {
     self
       .scheduler_repository
@@ -338,7 +369,7 @@ impl Scheduler {
   }
 
   pub async fn get_processor_status(&self, job_name: &JobName) -> Result<JobProcessorStatus> {
-    self.processor_status_repository.get(job_name).await
+    self.processor_status_repository.get_status(job_name).await
   }
 
   pub async fn set_processor_status(
@@ -346,7 +377,10 @@ impl Scheduler {
     job_name: &JobName,
     status: JobProcessorStatus,
   ) -> Result<()> {
-    self.processor_status_repository.set(job_name, status).await
+    self
+      .processor_status_repository
+      .set_status(job_name, status)
+      .await
   }
 
   pub async fn pause_processor(

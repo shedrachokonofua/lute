@@ -6,7 +6,7 @@ use super::{
 use crate::{context::ApplicationContext, proto};
 use chrono::{NaiveDateTime, TimeDelta};
 use futures::future::try_join_all;
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tonic::{async_trait, Request, Response, Status};
 
 impl From<Job> for proto::Job {
@@ -71,10 +71,10 @@ impl proto::SchedulerService for SchedulerService {
     Ok(Response::new(()))
   }
 
-  async fn get_registered_processors(
+  async fn get_scheduler_monitor(
     &self,
     _request: Request<()>,
-  ) -> Result<Response<proto::GetRegisteredProcessorsReply>, Status> {
+  ) -> Result<Response<proto::GetSchedulerMonitorReply>, Status> {
     let registered_processors = self.app_context.scheduler.processor_registry.read().await;
     let registered_processors = registered_processors.values().collect::<Vec<_>>();
     let statuses = try_join_all(
@@ -85,8 +85,30 @@ impl proto::SchedulerService for SchedulerService {
     .await
     .map_err(|e| Status::internal(e.to_string()))?;
 
-    let processors = registered_processors
+    let jobs_by_name = self
+      .app_context
+      .scheduler
+      .count_jobs_by_each_name()
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+
+    let claimed_job_counts_by_name = try_join_all(registered_processors.iter().map(|j| {
+      self
+        .app_context
+        .scheduler
+        .count_claimed_jobs_by_name(j.name.clone())
+    }))
+    .await
+    .map_err(|e| Status::internal(e.to_string()))?;
+
+    let claimed_job_counts = claimed_job_counts_by_name
       .into_iter()
+      .zip(registered_processors.iter())
+      .map(|(count, processor)| (processor.name.clone(), count))
+      .collect::<HashMap<_, _>>();
+
+    let processors = registered_processors
+      .iter()
       .zip(statuses)
       .map(|(processor, status)| proto::JobProcessor {
         job_name: processor.name.to_string(),
@@ -94,11 +116,28 @@ impl proto::SchedulerService for SchedulerService {
         claim_duration_seconds: processor.claim_duration.as_secs(),
         concurrency: processor.concurrency,
         cooldown_seconds: processor.cooldown.as_secs(),
+        job_count: jobs_by_name.get(&processor.name).copied().unwrap_or(0) as u32,
+        claimed_job_count: claimed_job_counts
+          .get(&processor.name)
+          .copied()
+          .unwrap_or(0) as u32,
+        batch_size: processor.executor.batch_size(),
       })
       .collect::<Vec<_>>();
 
-    Ok(Response::new(proto::GetRegisteredProcessorsReply {
-      processors,
+    let job_count = self
+      .app_context
+      .scheduler
+      .count_jobs()
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+
+    let claimed_job_count = claimed_job_counts.values().map(|v| *v as u32).sum::<u32>();
+
+    Ok(Response::new(proto::GetSchedulerMonitorReply {
+      registered_processors: processors,
+      job_count: job_count as u32,
+      claimed_job_count,
     }))
   }
 

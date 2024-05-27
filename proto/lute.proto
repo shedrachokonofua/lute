@@ -821,9 +821,10 @@ message JobProcessor {
   uint32 concurrency = 3;
   uint64 cooldown_seconds = 4;
   uint64 claim_duration_seconds = 5;
+  uint32 job_count = 6;
+  uint32 claimed_job_count = 7;
+  uint32 batch_size = 8;
 }
-
-message GetRegisteredProcessorsReply { repeated JobProcessor processors = 1; }
 
 message Job {
   string id = 1;
@@ -854,9 +855,15 @@ message SetProcessorStatusRequest {
   JobProcessorStatus status = 2;
 }
 
+message GetSchedulerMonitorReply {
+  repeated JobProcessor registered_processors = 1;
+  uint32 job_count = 2;
+  uint32 claimed_job_count = 7;
+}
+
 service SchedulerService {
-  rpc GetRegisteredProcessors(google.protobuf.Empty)
-      returns (GetRegisteredProcessorsReply) {}
+  rpc GetSchedulerMonitor(google.protobuf.Empty)
+      returns (GetSchedulerMonitorReply) {}
   rpc GetJobs(google.protobuf.Empty) returns (GetJobsReply) {}
   rpc PutJob(PutJobRequest) returns (google.protobuf.Empty) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}

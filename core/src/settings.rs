@@ -117,9 +117,9 @@ impl Settings {
       .add_source(config::Environment::default())
       .set_default("port", 80)?
       .set_default("file.ttl_days.artist", 7)?
-      .set_default("file.ttl_days.album", 14)?
+      .set_default("file.ttl_days.album", 30)?
       .set_default("file.ttl_days.chart", 7)?
-      .set_default("file.ttl_days.search", 1)?
+      .set_default("file.ttl_days.search", 7)?
       .set_default("file.content_store.key", None::<String>)?
       .set_default("file.content_store.secret", None::<String>)?
       .set_default("crawler.pool_size", 10)?
