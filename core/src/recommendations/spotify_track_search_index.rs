@@ -27,6 +27,7 @@ pub struct SpotifyTrackSearchRecord {
   pub album: SpotifyAlbumReference,
   pub artists: Vec<SpotifyArtistReference>,
   pub embedding: Vec<f32>,
+  pub duration_ms: Option<u32>,
 }
 
 impl From<SpotifyTrackSearchRecord> for SpotifyTrackReference {
@@ -35,6 +36,7 @@ impl From<SpotifyTrackSearchRecord> for SpotifyTrackReference {
       spotify_id: val.spotify_id,
       name: val.name,
       artists: val.artists,
+      duration_ms: val.duration_ms,
     }
   }
 }
@@ -53,6 +55,7 @@ impl SpotifyTrackSearchRecord {
       album,
       artists: track.artists,
       embedding,
+      duration_ms: track.duration_ms,
     }
   }
 }
@@ -61,7 +64,8 @@ impl TryFrom<Vec<(String, String)>> for SpotifyTrackSearchRecord {
   type Error = anyhow::Error;
 
   fn try_from(values: Vec<(String, String)>) -> Result<Self> {
-    let json = values.first()
+    let json = values
+      .first()
       .map(|(_, json)| json)
       .ok_or(anyhow!("invalid SpotifyTrackSearchRecord: missing json"))?;
     let record: SpotifyTrackSearchRecord = serde_json::from_str(json)?;
@@ -123,7 +127,7 @@ pub struct SpotifyTrackSearchIndex {
 }
 
 const NAMESPACE: &str = "spotify_track";
-const INDEX_VERSION: u32 = 1;
+const INDEX_VERSION: u32 = 2;
 
 impl SpotifyTrackSearchIndex {
   pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
@@ -166,6 +170,9 @@ impl SpotifyTrackSearchIndex {
           FtFieldSchema::identifier("$.artists[*].name")
             .as_attribute("artist_name")
             .field_type(FtFieldType::Text),
+          FtFieldSchema::identifier("$.duration_ms")
+            .as_attribute("duration_ms")
+            .field_type(FtFieldType::Numeric),
           FtFieldSchema::identifier("$.embedding")
             .as_attribute("embedding")
             .field_type(FtFieldType::Vector(Some(FtVectorFieldAlgorithm::Flat(
@@ -257,7 +264,8 @@ impl SpotifyTrackSearchIndex {
       .into_iter()
       .filter_map(|row| {
         let distance = row
-          .values.first()
+          .values
+          .first()
           .map(|(_, distance)| distance.parse::<f32>().ok())??;
         let track = row
           .values

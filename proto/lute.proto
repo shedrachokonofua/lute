@@ -268,12 +268,14 @@ message SpotifyTrack {
   string name = 2;
   repeated SpotifyArtistReference artists = 3;
   SpotifyAlbumReference album = 4;
+  optional uint32 duration_ms = 5;
 }
 
 message SpotifyTrackReference {
   string spotify_id = 1;
   string name = 2;
   repeated SpotifyArtistReference artists = 3;
+  optional uint32 duration_ms = 4;
 }
 
 message SpotifyAlbum {
@@ -688,6 +690,8 @@ message CreateSpotifyPlaylistReply {
   repeated SpotifyTrackReference tracks = 2;
 }
 
+// message SearchSpotifyTrackIndexRequest { string query = 1; }
+
 service RecommendationService {
   rpc AssessAlbum(AssessAlbumRequest) returns (AssessAlbumReply) {}
   rpc RecommendAlbums(RecommendAlbumsRequest) returns (RecommendAlbumsReply) {}
@@ -697,6 +701,8 @@ service RecommendationService {
       returns (DraftSpotifyPlaylistReply) {}
   rpc CreateSpotifyPlaylist(CreateSpotifyPlaylistRequest)
       returns (CreateSpotifyPlaylistReply) {}
+  // rpc SearchSpotifyTrackIndex(SearchSpotifyTrackIndexRequest)
+  //     returns (SearchSpotifyTrackIndexReply) {}
 }
 
 message FileSavedEvent {

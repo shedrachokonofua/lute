@@ -95,6 +95,7 @@ pub struct SpotifyTrackReference {
   pub spotify_id: String,
   pub name: String,
   pub artists: Vec<SpotifyArtistReference>,
+  pub duration_ms: Option<u32>,
 }
 
 impl From<SpotifyTrackReference> for proto::SpotifyTrackReference {
@@ -103,6 +104,7 @@ impl From<SpotifyTrackReference> for proto::SpotifyTrackReference {
       spotify_id: val.spotify_id,
       name: val.name,
       artists: val.artists.into_iter().map(Into::into).collect(),
+      duration_ms: val.duration_ms,
     }
   }
 }
@@ -143,6 +145,7 @@ pub struct SpotifyTrack {
   pub name: String,
   pub artists: Vec<SpotifyArtistReference>,
   pub album: SpotifyAlbumReference,
+  pub duration_ms: Option<u32>,
 }
 
 impl TryFrom<SimplifiedTrack> for SpotifyTrackReference {
@@ -161,6 +164,7 @@ impl TryFrom<SimplifiedTrack> for SpotifyTrackReference {
         .iter()
         .map(|artist| artist.try_into())
         .collect::<Result<Vec<SpotifyArtistReference>>>()?,
+      duration_ms: Some(simplified_track.duration.num_milliseconds() as u32),
     })
   }
 }
@@ -187,19 +191,8 @@ fn get_spotify_album(
       })
       .collect(),
     tracks: tracks
-      .iter()
-      .map(|track| SpotifyTrackReference {
-        spotify_id: track.id.clone().expect("Track ID is missing").to_string(),
-        name: track.name.clone(),
-        artists: track
-          .artists
-          .iter()
-          .map(|artist| SpotifyArtistReference {
-            spotify_id: artist.id.clone().expect("Artist ID is missing").to_string(),
-            name: artist.name.clone(),
-          })
-          .collect(),
-      })
+      .into_iter()
+      .map(|track| track.try_into().unwrap())
       .collect(),
   }
 }
@@ -312,6 +305,7 @@ impl TryFrom<SavedTrack> for SpotifyTrack {
         )
         .collect(),
       album: saved_track.track.album.try_into()?,
+      duration_ms: Some(saved_track.track.duration.num_milliseconds() as u32),
     })
   }
 }
@@ -346,6 +340,7 @@ impl TryFrom<FullTrack> for SpotifyTrack {
         )
         .collect(),
       album: full_track.album.try_into()?,
+      duration_ms: Some(full_track.duration.num_milliseconds() as u32),
     })
   }
 }

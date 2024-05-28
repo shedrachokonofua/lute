@@ -42,6 +42,7 @@ impl From<SpotifyTrack> for proto::SpotifyTrack {
           SpotifyAlbumType::AppearsOn => proto::SpotifyAlbumType::ApprearsOn.into(),
         },
       }),
+      duration_ms: track.duration_ms,
     }
   }
 }

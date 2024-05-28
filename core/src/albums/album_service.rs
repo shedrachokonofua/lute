@@ -132,22 +132,7 @@ impl TryFrom<SpotifyAlbum> for proto::SpotifyAlbum {
         SpotifyAlbumType::Compilation => proto::SpotifyAlbumType::Compilation.into(),
         SpotifyAlbumType::AppearsOn => proto::SpotifyAlbumType::ApprearsOn.into(),
       },
-      tracks: value
-        .tracks
-        .into_iter()
-        .map(|track| proto::SpotifyTrackReference {
-          spotify_id: track.spotify_id,
-          name: track.name,
-          artists: track
-            .artists
-            .into_iter()
-            .map(|artist| proto::SpotifyArtistReference {
-              spotify_id: artist.spotify_id,
-              name: artist.name,
-            })
-            .collect(),
-        })
-        .collect(),
+      tracks: value.tracks.into_iter().map(|track| track.into()).collect(),
     })
   }
 }

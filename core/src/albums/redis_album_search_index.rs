@@ -679,15 +679,29 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     file_name: &FileName,
     key: &str,
   ) -> Result<Option<AlbumEmbedding>> {
-    let result: Option<String> = self
+    let key = embedding_json_key(key);
+    let result: Result<Option<String>, rustis::Error> = self
       .redis_connection_pool
       .get()
       .await?
       .json_get(
         redis_key(file_name),
-        JsonGetOptions::default().path(embedding_json_key(key)),
+        JsonGetOptions::default().path(key.clone()),
       )
-      .await?;
+      .await;
+
+    let result = match result {
+      Ok(r) => r,
+      Err(e)
+        if e
+          .to_string()
+          .contains(&format!("ERR Path '$.{}' does not exist", key)) =>
+      {
+        return Ok(None)
+      }
+      Err(e) => return Err(e.into()),
+    };
+
     let embedding = result
       .map(|r| serde_json::from_str::<Vec<f32>>(&r))
       .transpose()?
