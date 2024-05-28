@@ -213,7 +213,7 @@ impl SchedulerRepository {
               claimed_at IS NULL
               OR claimed_at < datetime(?)
             )
-          ORDER BY next_execution, priority, id
+          ORDER BY priority, next_execution, id
           LIMIT ?
           ",
         )?;
