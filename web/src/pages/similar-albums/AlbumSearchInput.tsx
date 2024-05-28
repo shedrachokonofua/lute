@@ -1,5 +1,5 @@
-import { Group, Select, Text } from "@mantine/core";
-import { forwardRef, useState } from "react";
+import { Group, Select, SelectProps, Text } from "@mantine/core";
+import { useState } from "react";
 import { PromiseFn, useAsync } from "react-async";
 import { searchAlbums } from "../../client";
 import { FormName } from "../../forms";
@@ -34,33 +34,31 @@ const loadOptions: PromiseFn<AlbumSearchResultItem[] | undefined> = async ({
   return searchResults?.getAlbumsList().map(searchResultItemFromAlbum) || [];
 };
 
-type ItemProps = React.ComponentPropsWithoutRef<"div"> & AlbumSearchResultItem;
-
-const SelectItem = forwardRef<HTMLDivElement, AlbumSearchResultItem>(
-  ({ album, ...others }: ItemProps, ref) => {
-    return (
-      <div ref={ref} {...others}>
-        <Group noWrap>
-          <div>
-            <img
-              src={album.getCoverImageUrl()}
-              style={{ width: 40, height: 40, borderRadius: 4 }}
-            />
-          </div>
-          <div>
-            <Text size="sm">{album.getName()}</Text>
-            <Text size="xs" opacity={0.65}>
-              {album
-                .getArtistsList()
-                .map((artist) => artist.getName())
-                .join(", ")}
-            </Text>
-          </div>
-        </Group>
+const renderSelectOption: SelectProps["renderOption"] = ({
+  option,
+  checked,
+}) => {
+  let album = (option as any).album as Album;
+  return (
+    <Group wrap="nowrap">
+      <div>
+        <img
+          src={album.getCoverImageUrl()}
+          style={{ width: 40, height: 40, borderRadius: 4 }}
+        />
       </div>
-    );
-  },
-);
+      <div>
+        <Text size="sm">{album.getName()}</Text>
+        <Text size="xs" opacity={0.65}>
+          {album
+            .getArtistsList()
+            .map((artist) => artist.getName())
+            .join(", ")}
+        </Text>
+      </div>
+    </Group>
+  );
+};
 
 export const AlbumSearchInput = ({
   initialAlbum,
@@ -91,7 +89,7 @@ export const AlbumSearchInput = ({
       data={options || initialOptions || []}
       value={value}
       onChange={setValue}
-      itemComponent={SelectItem}
+      renderOption={renderSelectOption}
       maxDropdownHeight={350}
       required
     />

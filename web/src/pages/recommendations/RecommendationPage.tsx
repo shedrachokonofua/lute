@@ -1,4 +1,4 @@
-import { Box, Button, Flex, Stack, Text } from "@mantine/core";
+import { Button, Flex, Stack, Text } from "@mantine/core";
 import React from "react";
 import {
   Await,
@@ -13,6 +13,7 @@ import {
   getDefaultQuantileRankAlbumAssessmentSettings,
 } from "../../client";
 import { TwoColumnLayout } from "../../components";
+import { Page } from "../../components/Page";
 import {
   FormName,
   coerceToUndefined,
@@ -128,7 +129,7 @@ export const recommendationPageLoader = async ({
   });
 };
 
-export const RecommendationPage = () => {
+export const Component = () => {
   const {
     settings,
     recommendations,
@@ -139,27 +140,7 @@ export const RecommendationPage = () => {
   playlistPreviewUrl.pathname = playlistPreviewUrl.pathname + "/playlist";
 
   return (
-    <div>
-      <Flex
-        gap="md"
-        py="xs"
-        px="xs"
-        justify="end"
-        sx={{
-          background: "#000",
-          borderBottom: "1px solid #DDD",
-        }}
-      >
-        <Button
-          variant="white"
-          component={Link}
-          compact
-          radius={2}
-          to={playlistPreviewUrl.toString()}
-        >
-          Generate Spotify Playlist
-        </Button>
-      </Flex>
+    <Page>
       <TwoColumnLayout
         left={
           <div>
@@ -176,27 +157,54 @@ export const RecommendationPage = () => {
             <Await resolve={recommendations} errorElement={<ErrorBoundary />}>
               {(recommendations: AlbumRecommendation[] | null) => {
                 return (
-                  <Box px="xs">
-                    <Stack spacing="md">
-                      {recommendations === null ? (
-                        <Text>Select a profile to get started</Text>
-                      ) : (
-                        recommendations.map((r) => (
-                          <AlbumRecommendationItem
-                            key={r.getAlbum()!.getFileName()}
-                            recommendation={r}
-                            recommendationMethod={settings?.method}
-                          />
-                        ))
-                      )}
-                    </Stack>
-                  </Box>
+                  <div>
+                    {recommendations === null ? (
+                      <Text>Select a profile to get started</Text>
+                    ) : (
+                      <div style={{ position: "relative" }}>
+                        <Flex
+                          gap="md"
+                          py="xs"
+                          px="xs"
+                          justify="end"
+                          style={{
+                            background: "rgba(30, 87, 174, 0.3)",
+                            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 1000,
+                          }}
+                        >
+                          <Button
+                            component={Link}
+                            size="compact-sm"
+                            radius={2}
+                            variant="white"
+                            to={playlistPreviewUrl.toString()}
+                          >
+                            Generate Spotify Playlist
+                          </Button>
+                        </Flex>
+                        <Stack gap="md" px="xs" py="sm">
+                          {recommendations.map((r) => (
+                            <AlbumRecommendationItem
+                              key={r.getAlbum()!.getFileName()}
+                              recommendation={r}
+                              recommendationMethod={settings?.method}
+                            />
+                          ))}
+                        </Stack>
+                      </div>
+                    )}
+                  </div>
                 );
               }}
             </Await>
           </React.Suspense>
         }
       />
-    </div>
+    </Page>
   );
 };
+
+Component.displayName = "RecommendationPage";

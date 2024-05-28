@@ -189,7 +189,7 @@ const getActionNotification = (actionData: ProfileDetailsActionData) => {
   return null;
 };
 
-export const ProfileDetails = () => {
+export const Component = () => {
   const params = useParams();
   const {
     profile: initialProfile,
@@ -218,8 +218,8 @@ export const ProfileDetails = () => {
 
   return (
     <Grid>
-      <Grid.Col md={4}>
-        <Stack spacing="md">
+      <Grid.Col span={4}>
+        <Stack gap="md">
           <ProfileOverview profileSummary={profileSummary} />
           {isSpotifyAuthenticated && (
             <ProfileSpotifyImport
@@ -229,9 +229,11 @@ export const ProfileDetails = () => {
           )}
         </Stack>
       </Grid.Col>
-      <Grid.Col md={8}>
+      <Grid.Col span={8}>
         <ProfileAlbums profile={profile} list={albumsList} />
       </Grid.Col>
     </Grid>
   );
 };
+
+Component.displayName = "ProfileDetails";

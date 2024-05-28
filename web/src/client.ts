@@ -16,6 +16,7 @@ import {
   AlbumSearchQuery,
   ClearPendingSpotifyImportsRequest,
   CreateProfileRequest,
+  CreateSpotifyPlaylistRequest,
   DeleteProfileRequest,
   DraftSpotifyPlaylistRequest,
   EmbeddingSimilarityAlbumAssessmentSettings,
@@ -75,10 +76,12 @@ export const getEmbeddingKeys = async (): Promise<string[]> => {
   return response.getKeysList();
 };
 
-export const settingsToRecommendationRequest = (
+export const settingsToRecommendationRequest = <
+  T extends RecommendAlbumsRequest | DraftSpotifyPlaylistRequest,
+>(
   settings: RecommendationSettingsForm,
-  request: RecommendAlbumsRequest | DraftSpotifyPlaylistRequest,
-): RecommendAlbumsRequest | null => {
+  request: T,
+): T | null => {
   if (!settings.profileId) {
     return null;
   }
@@ -212,6 +215,27 @@ export const draftSpotifyPlaylist = async (
     null,
   );
   return response.getTracksList();
+};
+
+export const createSpotifyPlaylist = async (
+  name: string,
+  description: string,
+  settings: RecommendationSettingsForm,
+): Promise<string> => {
+  const request = settingsToRecommendationRequest(
+    settings,
+    new CreateSpotifyPlaylistRequest(),
+  );
+  if (!request) {
+    throw new Error("Invalid settings");
+  }
+  request.setName(name);
+  request.setDescription(description);
+  const response = await client.recommendation.createSpotifyPlaylist(
+    request,
+    null,
+  );
+  return response.getPlaylistId();
 };
 
 export const getDefaultQuantileRankAlbumAssessmentSettings =

@@ -27,7 +27,7 @@ export const newProfileAction: ActionFunction = async ({ request }) => {
   }
 };
 
-export const NewProfilePage = () => {
+export const Component = () => {
   const actionData = useActionData() as {
     error: string;
   } | null;
@@ -47,7 +47,7 @@ export const NewProfilePage = () => {
     <Container py="xl">
       <Form method="post">
         <Stack
-          spacing="md"
+          gap="md"
           style={{
             maxWidth: 400,
             margin: "auto",
@@ -84,3 +84,5 @@ export const NewProfilePage = () => {
     </Container>
   );
 };
+
+Component.displayName = "NewProfilePage";

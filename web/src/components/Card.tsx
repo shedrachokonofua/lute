@@ -3,8 +3,6 @@ import {
   Box,
   Card as MantineCard,
   Menu,
-  SpacingValue,
-  SystemProp,
   Text,
 } from "@mantine/core";
 import { IconMenu2 } from "@tabler/icons-react";
@@ -15,11 +13,13 @@ export const Card = ({
   contentPt,
   footer,
   dropdownMenu,
+  sections,
 }: {
   label: string;
   children?: React.ReactNode;
-  contentPt?: SystemProp<SpacingValue>;
+  contentPt?: number | string;
   footer?: React.ReactNode;
+  sections?: React.ReactNode[];
   dropdownMenu?: React.ReactNode;
 }) => (
   <MantineCard
@@ -34,34 +34,38 @@ export const Card = ({
     }
   >
     <MantineCard.Section withBorder inheritPadding py="xs">
-      <div style={{ display: "flex" }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
         <div style={{ flex: 1 }}>
           <Text
             style={{
               lineHeight: 1,
             }}
-            color="dimmed"
+            c="dimmed"
             size="sm"
-            weight="bold"
+            fw="bold"
           >
             {label}
           </Text>
         </div>
         {dropdownMenu && (
-          <div>
-            <Menu shadow="md" position="bottom-start">
-              <Menu.Target>
-                <ActionIcon size={14}>
-                  <IconMenu2 />
-                </ActionIcon>
-              </Menu.Target>
+          <Menu shadow="md" position="bottom-start">
+            <Menu.Target>
+              <ActionIcon size="sm">
+                <IconMenu2 />
+              </ActionIcon>
+            </Menu.Target>
 
-              <Menu.Dropdown>{dropdownMenu}</Menu.Dropdown>
-            </Menu>
-          </div>
+            <Menu.Dropdown>{dropdownMenu}</Menu.Dropdown>
+          </Menu>
         )}
       </div>
     </MantineCard.Section>
+    {sections &&
+      sections.map((section, index) => (
+        <MantineCard.Section key={index} withBorder inheritPadding py="xs">
+          {section}
+        </MantineCard.Section>
+      ))}
     <Box pt={contentPt}>{children}</Box>
     {footer && (
       <MantineCard.Section withBorder inheritPadding py="xs">

@@ -1,7 +1,7 @@
 import { Badge, Button } from "@mantine/core";
 import { useAsync } from "react-async";
-import { getSpotifyAuthUrl } from "../client";
-import { useRemoteContext } from "../remote-context";
+import { getSpotifyAuthUrl } from "../../client";
+import { useRemoteContext } from "../../remote-context";
 
 const redirect = async () => {
   try {
@@ -12,7 +12,7 @@ const redirect = async () => {
   }
 };
 
-export const SpotifyWidget = () => {
+export const SpotifyAuthWidget = () => {
   const { isSpotifyAuthenticated } = useRemoteContext();
   const { isLoading: isRedirectLoading, run: redirectForAuth } = useAsync({
     deferFn: redirect,
@@ -27,7 +27,7 @@ export const SpotifyWidget = () => {
     </Badge>
   ) : (
     <Button
-      compact
+      size="compact-sm"
       variant="gradient"
       gradient={{ from: "teal", to: "lime", deg: 105 }}
       loading={isRedirectLoading}

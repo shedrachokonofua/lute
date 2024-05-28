@@ -16,8 +16,8 @@ export const ProfileDetailsMenu = ({ profile }: { profile: Profile }) => {
       <Menu.Target>
         <Button
           variant="outline"
-          leftIcon={<IconTools size={18} />}
-          rightIcon={<IconCaretDownFilled size={16} />}
+          leftSection={<IconTools size={18} />}
+          rightSection={<IconCaretDownFilled size={16} />}
         >
           Options
         </Button>
@@ -25,7 +25,7 @@ export const ProfileDetailsMenu = ({ profile }: { profile: Profile }) => {
 
       <Menu.Dropdown>
         <Menu.Item
-          icon={<IconAffiliate size={14} />}
+          leftSection={<IconAffiliate size={14} />}
           component={Link}
           to={`/recommendations?profileId=` + profile.getId()}
         >
@@ -34,7 +34,7 @@ export const ProfileDetailsMenu = ({ profile }: { profile: Profile }) => {
         <Menu.Divider />
         <Menu.Item
           color="red"
-          icon={<IconTrashX size={14} />}
+          leftSection={<IconTrashX size={14} />}
           onClick={() => {
             if (
               confirm(

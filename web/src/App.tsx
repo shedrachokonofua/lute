@@ -1,26 +1,21 @@
-import { MantineProvider, MantineThemeOverride } from "@mantine/core";
+import { MantineProvider, createTheme } from "@mantine/core";
+import "@mantine/core/styles.css";
 import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { Layout } from "./components";
+import { newProfileAction } from "./pages/profiles/NewProfilePage";
 import {
-  DashboardPage,
-  NewProfilePage,
-  NoProfileSelected,
-  PlaylistPreviewPage,
-  ProfileDetails,
-  ProfilesPage,
-  RecommendationPage,
-  SimilarAlbumsPage,
-  SpotifyOAuthCallbackPage,
-  newProfileAction,
-  playlistPreviewPageLoader,
   profileDetailsAction,
   profileDetailsLoader,
-  profilePageAction,
-  recommendationPageLoader,
-  similarAlbumsPageLoader,
-} from "./pages";
+} from "./pages/profiles/ProfileDetails/ProfileDetails";
+import { profilePageAction } from "./pages/profiles/ProfilesPage";
+import {
+  createPlaylistAction,
+  playlistPreviewPageLoader,
+} from "./pages/recommendations/PlaylistPreviewPage";
+import { recommendationPageLoader } from "./pages/recommendations/RecommendationPage";
+import { similarAlbumsPageLoader } from "./pages/similar-albums";
 import { getRemoteContext } from "./remote-context";
 
 const queryClient = new QueryClient({
@@ -34,7 +29,7 @@ const queryClient = new QueryClient({
 const router = createBrowserRouter([
   {
     path: "/spotify/oauth/callback",
-    element: <SpotifyOAuthCallbackPage />,
+    lazy: () => import("./pages/SpotifyOAuthCallbackPage"),
   },
   {
     path: "/",
@@ -50,52 +45,54 @@ const router = createBrowserRouter([
       },
       {
         index: true,
-        element: <DashboardPage />,
+        lazy: () => import("./pages/dashboard/DashboardPage"),
       },
       {
         path: "/profiles/new",
         action: newProfileAction,
-        element: <NewProfilePage />,
+        lazy: () => import("./pages/profiles/NewProfilePage"),
       },
       {
         id: "profiles",
         path: "/profiles",
-        element: <ProfilesPage />,
+        lazy: () => import("./pages/profiles/ProfilesPage"),
         action: profilePageAction,
         children: [
           {
             index: true,
-            element: <NoProfileSelected />,
+            lazy: () => import("./pages/profiles/NoProfileSelected"),
           },
           {
             id: "profile-details",
             path: "/profiles/:id",
             action: profileDetailsAction(queryClient),
             loader: profileDetailsLoader(queryClient),
-            element: <ProfileDetails />,
+            lazy: () =>
+              import("./pages/profiles/ProfileDetails/ProfileDetails"),
           },
         ],
       },
       {
         path: "/recommendations",
-        element: <RecommendationPage />,
+        lazy: () => import("./pages/recommendations/RecommendationPage"),
         loader: recommendationPageLoader,
       },
       {
         path: "/recommendations/playlist",
-        element: <PlaylistPreviewPage />,
+        lazy: () => import("./pages/recommendations/PlaylistPreviewPage"),
+        action: createPlaylistAction,
         loader: playlistPreviewPageLoader,
       },
       {
         path: "/similar-albums",
-        element: <SimilarAlbumsPage />,
+        lazy: () => import("./pages/similar-albums/SimilarAlbumsPage"),
         loader: similarAlbumsPageLoader(queryClient),
       },
     ],
   },
 ]);
 
-const theme: MantineThemeOverride = {
+const theme = createTheme({
   fontFamily: "Ubuntu, sans-serif",
   colors: {
     blue: [
@@ -135,7 +132,7 @@ const theme: MantineThemeOverride = {
       "#290A0F",
     ],
   },
-};
+});
 
 export const App = () => (
   <QueryClientProvider client={queryClient}>

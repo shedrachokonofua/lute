@@ -1,0 +1,15 @@
+.left {
+  border-right: 1px solid #ddd;
+}
+
+.right {
+  background-color: #eee;
+}
+
+@media (min-width: 1024px) {
+  .left,
+  .right {
+    height: 100%;
+    overflow-y: auto;
+  }
+}

@@ -57,7 +57,7 @@ const CountCard = ({ title, count }: { title: string; count: number }) => {
 
   return (
     <MantineCard padding="sm" shadow="xs" withBorder radius="lg">
-      <Text size="xl" weight="bold">
+      <Text size="xl" fw="bold">
         {formattedCount}
       </Text>
       <Text size="sm">{title}</Text>
@@ -65,7 +65,7 @@ const CountCard = ({ title, count }: { title: string; count: number }) => {
   );
 };
 
-export const DashboardPage = () => {
+export const Component = () => {
   const { albumMonitor } = useRemoteContext();
 
   return (
@@ -77,37 +77,37 @@ export const DashboardPage = () => {
     >
       <Container size="xl" py="lg">
         <Grid gutter="md">
-          <Grid.Col span={4} lg={2}>
+          <Grid.Col span={{ base: 4, lg: 2 }}>
             <CountCard title="Albums" count={albumMonitor.getAlbumCount()} />
           </Grid.Col>
 
-          <Grid.Col span={4} lg={2}>
+          <Grid.Col span={{ base: 4, lg: 2 }}>
             <CountCard title="Artists" count={albumMonitor.getArtistCount()} />
           </Grid.Col>
 
-          <Grid.Col span={4} lg={2}>
+          <Grid.Col span={{ base: 4, lg: 2 }}>
             <CountCard title="Genres" count={albumMonitor.getGenreCount()} />
           </Grid.Col>
 
-          <Grid.Col span={4} lg={2}>
+          <Grid.Col span={{ base: 4, lg: 2 }}>
             <CountCard
               title="Descriptors"
               count={albumMonitor.getDescriptorCount()}
             />
           </Grid.Col>
-          <Grid.Col span={4} lg={2}>
+          <Grid.Col span={{ base: 4, lg: 2 }}>
             <CountCard
               title="Languages"
               count={albumMonitor.getLanguageCount()}
             />
           </Grid.Col>
-          <Grid.Col span={4} lg={2}>
+          <Grid.Col span={{ base: 4, lg: 2 }}>
             <CountCard
               title="Duplicate Albums"
               count={albumMonitor.getDuplicateCount()}
             />
           </Grid.Col>
-          <Grid.Col span={12} lg={6}>
+          <Grid.Col span={{ base: 12, lg: 6 }}>
             <AlbumsByYearChart
               data={albumMonitor.getAggregatedYearsList().map((item) => ({
                 year: Number(item.getName()),
@@ -115,7 +115,7 @@ export const DashboardPage = () => {
               }))}
             />
           </Grid.Col>
-          <Grid.Col span={12} lg={6}>
+          <Grid.Col span={{ base: 12, lg: 6 }}>
             <Card label="Albums by Genre" contentPt="sm">
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart
@@ -150,7 +150,7 @@ export const DashboardPage = () => {
               </ResponsiveContainer>
             </Card>
           </Grid.Col>
-          <Grid.Col span={12} lg={4}>
+          <Grid.Col span={{ base: 12, lg: 4 }}>
             <Card label="Albums by Descriptor" contentPt="sm">
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart
@@ -173,7 +173,7 @@ export const DashboardPage = () => {
               </ResponsiveContainer>
             </Card>
           </Grid.Col>
-          <Grid.Col span={12} lg={4}>
+          <Grid.Col span={{ base: 12, lg: 4 }}>
             <Card label="Albums by Language" contentPt="sm">
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart
@@ -201,3 +201,5 @@ export const DashboardPage = () => {
     </div>
   );
 };
+
+Component.displayName = "DashboardPage";

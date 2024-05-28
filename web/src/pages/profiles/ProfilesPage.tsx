@@ -1,8 +1,9 @@
 import { Box, Button, Container, Group } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { ActionFunction, Link, Outlet, useMatches } from "react-router-dom";
+import { Page } from "../../components/Page";
 import { useRemoteContext } from "../../remote-context";
-import { ProfileDetailsMenu } from "./ProfileDetails";
+import { ProfileDetailsMenu } from "./ProfileDetails/ProfileDetailsMenu";
 import { ProfileSelect } from "./ProfilesSelect";
 
 export const profilePageAction: ActionFunction = () => {
@@ -19,14 +20,13 @@ const useActiveProfile = () => {
   return profiles.find((p) => p.getId() === id);
 };
 
-export const ProfilesPage = () => {
+export const Component = () => {
   const activeProfile = useActiveProfile();
 
   return (
-    <div
+    <Page
       style={{
         background: "#EEE",
-        minHeight: "100%",
       }}
     >
       <Box
@@ -37,12 +37,12 @@ export const ProfilesPage = () => {
         py="md"
       >
         <Container size="xl">
-          <Group position="apart">
+          <Group justify="space-between">
             <Group>
               <Button
                 component={Link}
                 to="/profiles/new"
-                leftIcon={<IconPlus size={16} />}
+                leftSection={<IconPlus size={16} />}
               >
                 Create Profile
               </Button>
@@ -59,6 +59,8 @@ export const ProfilesPage = () => {
       <Container size="xl" py="md">
         <Outlet />
       </Container>
-    </div>
+    </Page>
   );
 };
+
+Component.displayName = "ProfilesPage";

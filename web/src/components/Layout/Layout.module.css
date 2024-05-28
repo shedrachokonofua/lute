@@ -1,0 +1,13 @@
+.navBar {
+  background: rgb(25, 25, 25);
+  color: rgb(200, 200, 200);
+  border: none;
+  padding: 0.5rem;
+}
+
+.navItem {
+  color: rgb(200, 200, 200);
+}
+.navItem:hover {
+  background: rgb(35, 35, 35);
+}

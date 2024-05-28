@@ -1,0 +1,21 @@
+.progressBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3;
+  background: #ccc;
+  z-index: 1000;
+  animation: loadingAnimation 2s forwards;
+}
+
+@keyframes loadingAnimation {
+  0% {
+    width: 0;
+  }
+  50% {
+    width: 50%;
+  }
+  100% {
+    width: 95%;
+  }
+}

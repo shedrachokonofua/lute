@@ -12,7 +12,7 @@ const OverviewItem = ({
 }) => {
   return (
     <div>
-      <Text size="sm" weight="bold">
+      <Text size="sm" fw="bold">
         {label}
       </Text>
       <Text size="sm">{value}</Text>
@@ -49,7 +49,7 @@ export const ProfileOverview = ({
   return (
     <Card label="Overview">
       <Box pt="sm">
-        <Stack spacing="sm">
+        <Stack gap="sm">
           <Group grow>
             <OverviewItem
               label="Average Rating"

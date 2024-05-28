@@ -41,7 +41,7 @@ const Assessment = ({ assessment }: { assessment: AlbumAssessment }) => {
       opened={opened}
     >
       <Popover.Target>{score}</Popover.Target>
-      <Popover.Dropdown sx={{ pointerEvents: "none" }}>
+      <Popover.Dropdown style={{ pointerEvents: "none" }}>
         <Text size="sm">
           <b>Score</b>: {(assessment.getScore() * 100).toFixed(2)}%
         </Text>

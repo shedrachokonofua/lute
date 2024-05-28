@@ -25,11 +25,11 @@ export const RecommendationSettings = ({
   );
 
   return (
-    <Stack spacing="lg">
+    <Stack gap="lg">
       <Title order={4}>Settings</Title>
       <Form role="search">
-        <Stack spacing="xl">
-          <Stack spacing="sm">
+        <Stack gap="xl">
+          <Stack gap="sm">
             <Select
               label="Profile"
               data={profiles.map((profile) => ({
@@ -54,7 +54,7 @@ export const RecommendationSettings = ({
           <CollapsibleSection title="Filters">
             <AlbumSearchFilters filters={settings?.recommendationSettings} />
           </CollapsibleSection>
-          <Stack spacing="sm">
+          <Stack gap="sm">
             <Select
               label="Method"
               data={[

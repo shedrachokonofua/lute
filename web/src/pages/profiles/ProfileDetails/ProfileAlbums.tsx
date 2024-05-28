@@ -1,6 +1,5 @@
 import {
   Flex,
-  Card as MantineCard,
   Pagination,
   Select,
   Switch,
@@ -73,7 +72,7 @@ const PageSizeSelect = ({ list }: { list: ProfileAlbumsList }) => {
             width: 70,
             display: "inline-block",
           },
-          rightSection: {
+          section: {
             paddingLeft: 4,
           },
         }}
@@ -158,8 +157,7 @@ export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
           <PageSizeSelect list={list} />
         </Flex>
       }
-    >
-      <MantineCard.Section withBorder inheritPadding py="xs">
+      sections={[
         <Flex gap="md" align="center">
           <div
             style={{
@@ -169,20 +167,19 @@ export const ProfileAlbums = ({ profile, list }: ProfileAlbumsProps) => {
             <AlbumSearchInput value={list.search} />
           </div>
           <SearchModeSwitch list={list} />
-        </Flex>
-      </MantineCard.Section>
-      <div>
-        {list.albums.map((album, i) => (
-          <ProfileAlbumsListItem
-            key={album.getFileName()}
-            album={album}
-            profile={profile}
-            searchMode={list.searchMode}
-            factor={profile.getAlbumsMap().get(album.getFileName()) || 0}
-            hasBorder={i !== list.albums.length - 1}
-          />
-        ))}
-      </div>
+        </Flex>,
+      ]}
+    >
+      {list.albums.map((album, i) => (
+        <ProfileAlbumsListItem
+          key={album.getFileName()}
+          album={album}
+          profile={profile}
+          searchMode={list.searchMode}
+          factor={profile.getAlbumsMap().get(album.getFileName()) || 0}
+          hasBorder={i !== list.albums.length - 1}
+        />
+      ))}
     </Card>
   );
 };

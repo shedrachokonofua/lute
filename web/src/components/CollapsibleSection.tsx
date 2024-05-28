@@ -17,11 +17,11 @@ export const CollapsibleSection = ({
   return (
     <div>
       <Button
-        rightIcon={<Icon size={16} />}
+        rightSection={<Icon size={16} />}
         onClick={() => setIsOpen(!isOpen)}
         variant="filled"
         color="gray"
-        compact
+        size="compact-sm"
         fullWidth
       >
         {title}

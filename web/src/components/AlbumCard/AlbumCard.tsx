@@ -1,5 +1,6 @@
 import { Anchor, Badge, Box, Card, Flex, Text } from "@mantine/core";
-import { Album } from "../proto/lute_pb";
+import { Album } from "../../proto/lute_pb";
+import classes from "./AlbumCard.module.css";
 
 export const AlbumCard = ({
   album,
@@ -11,22 +12,8 @@ export const AlbumCard = ({
   actions?: React.ReactNode;
 }) => (
   <Card padding="sm" shadow="xs" withBorder>
-    <Flex
-      gap="md"
-      sx={{
-        "@media (max-width: 1024px)": {
-          flexDirection: "column",
-        },
-      }}
-    >
-      <Box
-        sx={{
-          "@media (max-width: 1024px)": {
-            width: "100%",
-          },
-          width: 220,
-        }}
-      >
+    <Flex gap="md" className={classes.content}>
+      <Box className={classes.imageBox}>
         <img
           src={album.getCoverImageUrl()}
           alt={album.getName()}
@@ -43,7 +30,7 @@ export const AlbumCard = ({
       >
         <Flex justify="space-between">
           <Flex align="center" gap="0.5rem">
-            <Text weight="bold" size="1.25rem">
+            <Text fw="bold" size="1.25rem">
               <Anchor
                 href={`https://rateyourmusic.com/${album.getFileName()}`}
                 target="_blank"
@@ -61,7 +48,7 @@ export const AlbumCard = ({
 
           {assessment}
         </Flex>
-        <Text weight="bold">
+        <Text fw="bold">
           {album
             .getArtistsList()
             .map((a) => a.getName())
@@ -72,9 +59,7 @@ export const AlbumCard = ({
             {album.getReleaseDate()}
           </Text>
         </div>
-        <Text weight="semi-bold">
-          {album.getPrimaryGenresList().join(", ")}
-        </Text>
+        <Text fw="semi-bold">{album.getPrimaryGenresList().join(", ")}</Text>
         <Text size="md">{album.getSecondaryGenresList().join(", ")}</Text>
         <Text size="sm">{album.getDescriptorsList().join(", ")}</Text>
         {actions && <Box mt="1rem">{actions}</Box>}

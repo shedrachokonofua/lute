@@ -18,6 +18,7 @@ import {
   EmbeddingSimilaritySettings,
   TwoColumnLayout,
 } from "../../components";
+import { Page } from "../../components/Page";
 import { FormName, parseAlbumSearchFiltersForm } from "../../forms";
 import { useUpdateSearchParams } from "../../hooks/use-update-search-params";
 import { Album } from "../../proto/lute_pb";
@@ -70,7 +71,7 @@ export const similarAlbumsPageLoader =
     });
   };
 
-export const SimilarAlbumsPage = () => {
+export const Component = () => {
   const {
     currentAlbum: initialAlbum,
     settings,
@@ -90,57 +91,59 @@ export const SimilarAlbumsPage = () => {
   });
 
   return (
-    <TwoColumnLayout
-      left={
-        <Stack spacing="lg">
-          <Title order={4}>Settings</Title>
-          <Form role="search">
-            <Stack spacing="md">
-              <AlbumSearchInput initialAlbum={currentAlbum} />
-              <EmbeddingSimilaritySettings />
-              <CollapsibleSection title="Filters">
-                <AlbumSearchFilters />
-              </CollapsibleSection>
-              <div>
-                <Button type="submit" fullWidth>
-                  Submit
-                </Button>
-              </div>
-            </Stack>
-          </Form>
-        </Stack>
-      }
-      rightColumnRef={rightColumnRef}
-      right={
-        <Suspense fallback={<Text>Loading recommendations...</Text>}>
-          <Await resolve={similarAlbums} errorElement={<ErrorBoundary />}>
-            {(similarAlbums?: Album[]) => (
-              <Stack spacing="md">
-                {!similarAlbums ? (
-                  <Text>Select an album to get started</Text>
-                ) : (
-                  similarAlbums.map((album) => (
-                    <AlbumCard
-                      album={album}
-                      actions={
-                        <Button
-                          onClick={() =>
-                            updateSearchParams({
-                              [FormName.FileName]: album.getFileName(),
-                            })
-                          }
-                        >
-                          View similar albums
-                        </Button>
-                      }
-                    />
-                  ))
-                )}
+    <Page>
+      <TwoColumnLayout
+        left={
+          <Stack gap="lg">
+            <Title order={4}>Settings</Title>
+            <Form role="search">
+              <Stack gap="md">
+                <AlbumSearchInput initialAlbum={currentAlbum} />
+                <EmbeddingSimilaritySettings />
+                <CollapsibleSection title="Filters">
+                  <AlbumSearchFilters />
+                </CollapsibleSection>
+                <div>
+                  <Button type="submit" fullWidth>
+                    Submit
+                  </Button>
+                </div>
               </Stack>
-            )}
-          </Await>
-        </Suspense>
-      }
-    />
+            </Form>
+          </Stack>
+        }
+        rightColumnRef={rightColumnRef}
+        right={
+          <Suspense fallback={<Text>Loading recommendations...</Text>}>
+            <Await resolve={similarAlbums} errorElement={<ErrorBoundary />}>
+              {(similarAlbums?: Album[]) => (
+                <Stack gap="md">
+                  {!similarAlbums ? (
+                    <Text>Select an album to get started</Text>
+                  ) : (
+                    similarAlbums.map((album) => (
+                      <AlbumCard
+                        album={album}
+                        actions={
+                          <Button
+                            onClick={() =>
+                              updateSearchParams({
+                                [FormName.FileName]: album.getFileName(),
+                              })
+                            }
+                          >
+                            View similar albums
+                          </Button>
+                        }
+                      />
+                    ))
+                  )}
+                </Stack>
+              )}
+            </Await>
+          </Suspense>
+        }
+      />
+    </Page>
   );
 };

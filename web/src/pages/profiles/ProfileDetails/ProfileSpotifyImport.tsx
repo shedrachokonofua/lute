@@ -238,7 +238,7 @@ export const ProfileSpotifyImport = ({
           <Menu.Item
             disabled={importSavedTracksMutation.isPending || isImportInProgress}
             onClick={() => importSavedTracksMutation.mutate()}
-            icon={<IconFolderHeart size={16} />}
+            leftSection={<IconFolderHeart size={16} />}
           >
             Import from saved tracks
           </Menu.Item>
@@ -250,7 +250,7 @@ export const ProfileSpotifyImport = ({
                 importPlaylistMutation.mutate(playlistId);
               }
             }}
-            icon={<IconPlaylist size={16} />}
+            leftSection={<IconPlaylist size={16} />}
           >
             Import from playlist
           </Menu.Item>
@@ -260,7 +260,7 @@ export const ProfileSpotifyImport = ({
               pendingSpotifyImports?.getCount() === 0
             }
             onClick={() => clearPendingSpotifyImportsMutation.mutate()}
-            icon={<IconTrashFilled size={16} />}
+            leftSection={<IconTrashFilled size={16} />}
           >
             Clear pending imports
           </Menu.Item>
@@ -268,7 +268,7 @@ export const ProfileSpotifyImport = ({
       }
       footer={
         isImportInProgress && secondsTillRefetch ? (
-          <Text size="xs" color="gray" align="right">
+          <Text size="xs" c="gray" ta="right">
             {isRefetching
               ? "Refetching..."
               : `Refetching in ${secondsTillRefetch} seconds`}
@@ -276,7 +276,7 @@ export const ProfileSpotifyImport = ({
         ) : undefined
       }
     >
-      <Stack spacing="md" py="sm">
+      <Stack gap="md" py="sm">
         <SegmentedControl
           data={[
             { label: "In-Progress", value: "in-progress" },
@@ -292,7 +292,7 @@ export const ProfileSpotifyImport = ({
             return (
               <Group
                 key={status}
-                position="apart"
+                justify="space-between"
                 py={6}
                 style={{
                   borderBottom:

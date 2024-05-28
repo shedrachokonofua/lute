@@ -1,0 +1,13 @@
+.imageBox {
+  width: 220px;
+}
+
+@media (max-width: 1024px) {
+  .content {
+    flex-direction: "column";
+  }
+  .imageBox {
+    width: 100%;
+  }
+}
+

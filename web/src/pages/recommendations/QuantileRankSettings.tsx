@@ -10,11 +10,11 @@ export const QuantileRankSettings = ({
   settings: RecommendationSettingsForm | null;
   defaultQuantileRankAlbumAssessmentSettings: QuantileRankAlbumAssessmentSettings;
 }) => (
-  <Stack spacing="sm">
+  <Stack gap="sm">
     <Title order={6}>Parameter Weights</Title>
 
     <Grid gutter="xs">
-      <Grid.Col md={6}>
+      <Grid.Col span={6}>
         <NumberInput
           label="Primary Genres"
           placeholder="Primary Genres"
@@ -30,7 +30,7 @@ export const QuantileRankSettings = ({
           variant="filled"
         />
       </Grid.Col>
-      <Grid.Col md={6}>
+      <Grid.Col span={6}>
         <NumberInput
           label="Secondary Genres"
           placeholder="Secondary Genres"
@@ -46,7 +46,7 @@ export const QuantileRankSettings = ({
           variant="filled"
         />
       </Grid.Col>
-      <Grid.Col md={6}>
+      <Grid.Col span={6}>
         <NumberInput
           label="Descriptor"
           placeholder="Descriptor"
@@ -61,7 +61,7 @@ export const QuantileRankSettings = ({
           variant="filled"
         />
       </Grid.Col>
-      <Grid.Col md={6}>
+      <Grid.Col span={6}>
         <NumberInput
           label="Rating"
           placeholder="Rating"
@@ -76,7 +76,7 @@ export const QuantileRankSettings = ({
           variant="filled"
         />
       </Grid.Col>
-      <Grid.Col md={6}>
+      <Grid.Col span={6}>
         <NumberInput
           label="Rating Count"
           placeholder="Rating Count"
@@ -91,7 +91,7 @@ export const QuantileRankSettings = ({
           variant="filled"
         />
       </Grid.Col>
-      <Grid.Col md={6}>
+      <Grid.Col span={6}>
         <NumberInput
           label="Descriptor Count"
           placeholder="Descriptor Count"
@@ -107,7 +107,7 @@ export const QuantileRankSettings = ({
           variant="filled"
         />
       </Grid.Col>
-      <Grid.Col md={6}>
+      <Grid.Col span={6}>
         <NumberInput
           label="Credits"
           placeholder="Credits"

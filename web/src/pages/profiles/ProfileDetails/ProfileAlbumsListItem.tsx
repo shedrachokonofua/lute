@@ -46,7 +46,7 @@ const AlbumFactorInput = ({
         min={1}
         rightSectionWidth={75}
         rightSection={
-          <Group spacing={4}>
+          <Group gap={4}>
             <Text size="xs"> of </Text>
             <Text>{album.getTracksList().length}</Text>
           </Group>
@@ -120,7 +120,7 @@ export const ProfileAlbumsListItem = ({
         </Text>
         <Text size="sm">{album.getPrimaryGenresList().join(", ")}</Text>
       </div>
-      <Group spacing="xl">
+      <Group gap="xl">
         <div>
           <AlbumFactorInput album={album} factor={factor} />
         </div>

@@ -29,9 +29,9 @@ export const AlbumSearchFilters = ({
     }));
 
   return (
-    <Stack spacing="sm">
+    <Stack gap="sm">
       <Grid gutter="xs">
-        <Grid.Col md={6}>
+        <Grid.Col span={6}>
           <NumberInput
             label="Min Release Year"
             placeholder="Year"
@@ -43,7 +43,7 @@ export const AlbumSearchFilters = ({
             variant="filled"
           />
         </Grid.Col>
-        <Grid.Col md={6}>
+        <Grid.Col span={6}>
           <NumberInput
             label="Max Release Year"
             placeholder="Year"

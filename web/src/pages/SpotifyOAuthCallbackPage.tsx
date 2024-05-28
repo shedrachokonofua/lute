@@ -11,9 +11,13 @@ const onLoad = async () => {
   window.location.assign("/");
 };
 
-export const SpotifyOAuthCallbackPage = () => (
-  <Async promiseFn={onLoad}>
-    <Async.Loading>Loading...</Async.Loading>
-    <Async.Rejected>{(error) => <div>{error.message}</div>}</Async.Rejected>
-  </Async>
-);
+export const Component = () => {
+  return (
+    <Async promiseFn={onLoad}>
+      <Async.Loading>Loading...</Async.Loading>
+      <Async.Rejected>{(error) => <div>{error.message}</div>}</Async.Rejected>
+    </Async>
+  );
+};
+
+Component.displayName = "SpotifyOAuthCallbackPage";
