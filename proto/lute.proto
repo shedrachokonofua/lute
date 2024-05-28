@@ -690,7 +690,20 @@ message CreateSpotifyPlaylistReply {
   repeated SpotifyTrackReference tracks = 2;
 }
 
-// message SearchSpotifyTrackIndexRequest { string query = 1; }
+message SpotifyTrackIndexQuery {
+  repeated string include_spotify_ids = 1;
+  repeated string include_album_file_names = 2;
+}
+
+message SearchSpotifyTrackIndexRequest {
+  SpotifyTrackIndexQuery query = 1;
+  SearchPagination pagination = 2;
+}
+
+message SearchSpotifyTrackIndexReply {
+  repeated SpotifyTrackReference tracks = 1;
+  uint32 total = 2;
+}
 
 service RecommendationService {
   rpc AssessAlbum(AssessAlbumRequest) returns (AssessAlbumReply) {}
@@ -701,8 +714,8 @@ service RecommendationService {
       returns (DraftSpotifyPlaylistReply) {}
   rpc CreateSpotifyPlaylist(CreateSpotifyPlaylistRequest)
       returns (CreateSpotifyPlaylistReply) {}
-  // rpc SearchSpotifyTrackIndex(SearchSpotifyTrackIndexRequest)
-  //     returns (SearchSpotifyTrackIndexReply) {}
+  rpc SearchSpotifyTrackIndex(SearchSpotifyTrackIndexRequest)
+      returns (SearchSpotifyTrackIndexReply) {}
 }
 
 message FileSavedEvent {

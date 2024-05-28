@@ -1,3 +1,4 @@
+use crate::proto;
 use anyhow::Result;
 use rustis::{
   bb8::{Pool, PooledConnection},
@@ -12,6 +13,15 @@ use unidecode::unidecode;
 pub struct SearchPagination {
   pub offset: Option<usize>,
   pub limit: Option<usize>,
+}
+
+impl From<proto::SearchPagination> for SearchPagination {
+  fn from(value: proto::SearchPagination) -> Self {
+    SearchPagination {
+      offset: value.offset.map(|i| i as usize),
+      limit: value.limit.map(|i| i as usize),
+    }
+  }
 }
 
 pub async fn does_ft_index_exist<'a>(

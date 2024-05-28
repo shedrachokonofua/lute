@@ -7,7 +7,8 @@ use super::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAssessableAlbum, QuantileRankInteractor,
   },
   spotify_track_search_index::{
-    SpotifyTrackEmbeddingSimilaritySearchQuery, SpotifyTrackQueryBuilder, SpotifyTrackSearchIndex,
+    SpotifyTrackEmbeddingSimilaritySearchQuery, SpotifyTrackQuery, SpotifyTrackQueryBuilder,
+    SpotifyTrackSearchIndex, SpotifyTrackSearchResult,
   },
   types::{
     AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
@@ -18,7 +19,7 @@ use crate::{
   albums::{album_read_model::AlbumReadModel, album_repository::AlbumRepository},
   context::ApplicationContext,
   files::file_metadata::file_name::FileName,
-  helpers::math::average_embedding,
+  helpers::{math::average_embedding, redisearch::SearchPagination},
   profile::{
     profile::{Profile, ProfileId},
     profile_interactor::ProfileInteractor,
@@ -176,7 +177,8 @@ impl RecommendationInteractor {
             &track.embedding,
             profile
               .albums
-              .get(&track.album_file_name).copied()
+              .get(&track.album_file_name)
+              .copied()
               .unwrap_or(1),
           )
         })
@@ -240,5 +242,16 @@ impl RecommendationInteractor {
       .await?;
 
     Ok((playlist_id, playlist_draft))
+  }
+
+  pub async fn search_spotify_track(
+    &self,
+    query: &SpotifyTrackQuery,
+    pagination: Option<&SearchPagination>,
+  ) -> Result<SpotifyTrackSearchResult> {
+    self
+      .spotify_track_search_index
+      .search(query, pagination)
+      .await
   }
 }

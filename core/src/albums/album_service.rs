@@ -7,7 +7,6 @@ use super::{
 use crate::{
   context::ApplicationContext,
   files::file_metadata::file_name::FileName,
-  helpers::redisearch::SearchPagination,
   proto,
   spotify::spotify_client::{SpotifyAlbum, SpotifyAlbumType, SpotifyClient},
 };
@@ -96,17 +95,6 @@ impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
       min_release_year: value.min_release_year,
       max_release_year: value.max_release_year,
       include_duplicates: value.include_duplicates,
-    })
-  }
-}
-
-impl TryFrom<proto::SearchPagination> for SearchPagination {
-  type Error = anyhow::Error;
-
-  fn try_from(value: proto::SearchPagination) -> Result<Self> {
-    Ok(SearchPagination {
-      offset: value.offset.map(|i| i as usize),
-      limit: value.limit.map(|i| i as usize),
     })
   }
 }
@@ -228,11 +216,7 @@ impl proto::AlbumService for AlbumService {
       .transpose()
       .map_err(|e: Error| Status::invalid_argument(format!("Invalid query: {}", e)))?
       .unwrap_or_default();
-    let pagination = request
-      .pagination
-      .map(|p| p.try_into())
-      .transpose()
-      .map_err(|e: Error| Status::invalid_argument(format!("Invalid pagination: {}", e)))?;
+    let pagination = request.pagination.map(|p| p.into());
     let results = self
       .album_search_index
       .search(&query, pagination.as_ref())

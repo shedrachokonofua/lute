@@ -4,11 +4,12 @@ use super::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAlbumAssessmentSettingsBuilder,
   },
   recommendation_interactor::{AlbumAssessmentSettings, RecommendationInteractor},
+  spotify_track_search_index::{SpotifyTrackQuery, SpotifyTrackSearchResult},
   types::{AlbumRecommendation, AlbumRecommendationSettings},
 };
 use crate::{
   context::ApplicationContext, files::file_metadata::file_name::FileName,
-  profile::profile::ProfileId, proto,
+  profile::profile::ProfileId, proto, spotify::spotify_client::SpotifyTrackReference,
 };
 use anyhow::Error;
 use num_traits::Num;
@@ -141,6 +142,33 @@ impl From<QuantileRankAlbumAssessmentSettings> for proto::QuantileRankAlbumAsses
       rating_count_weight: Some(value.rating_count_weight),
       descriptor_count_weight: Some(value.descriptor_count_weight),
       credit_tag_weight: Some(value.credit_tag_weight),
+    }
+  }
+}
+
+impl From<proto::SpotifyTrackIndexQuery> for SpotifyTrackQuery {
+  fn from(value: proto::SpotifyTrackIndexQuery) -> Self {
+    Self {
+      include_spotify_ids: value.include_spotify_ids,
+      include_album_file_names: value
+        .include_album_file_names
+        .into_iter()
+        .filter_map(|name| FileName::try_from(name).ok())
+        .collect(),
+    }
+  }
+}
+
+impl From<SpotifyTrackSearchResult> for proto::SearchSpotifyTrackIndexReply {
+  fn from(value: SpotifyTrackSearchResult) -> Self {
+    Self {
+      tracks: value
+        .tracks
+        .into_iter()
+        .map(Into::<SpotifyTrackReference>::into)
+        .map(Into::into)
+        .collect(),
+      total: value.total as u32,
     }
   }
 }
@@ -311,5 +339,27 @@ impl proto::RecommendationService for RecommendationService {
       playlist_id,
       tracks: tracks.into_iter().map(Into::into).collect(),
     }))
+  }
+
+  async fn search_spotify_track_index(
+    &self,
+    request: Request<proto::SearchSpotifyTrackIndexRequest>,
+  ) -> Result<Response<proto::SearchSpotifyTrackIndexReply>, Status> {
+    let request = request.into_inner();
+    let result = self
+      .recommendation_interactor
+      .search_spotify_track(
+        &request.query.map(Into::into).unwrap_or_default(),
+        request.pagination.map(Into::into).as_ref(),
+      )
+      .await
+      .map_err(|e| {
+        error!(
+          error = e.to_string(),
+          "Failed to search Spotify track index"
+        );
+        Status::internal(e.to_string())
+      })?;
+    Ok(Response::new(result.into()))
   }
 }
