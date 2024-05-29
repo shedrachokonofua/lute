@@ -167,3 +167,13 @@ tasks:
     cmds:
       - task: "memgraph:up"
       - task: "bolt-connector:run"
+
+  "discord-connector:run":
+    dir: connector/discord
+    cmds:
+      - npm run dev
+
+  "discord-connector:proto":
+    dir: connector/discord
+    cmds:
+      - protoc -I=../../proto --ts_out=./src/proto --ts_opt=unary_rpc_promise=true --ts_opt=target=node --ts_opt=json_names lute.proto
