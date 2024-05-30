@@ -1,0 +1,46 @@
+services:
+  promtail:
+    image: grafana/promtail:latest
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/config.yaml
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: ["-config.file=/etc/promtail/config.yaml"]
+    
+  redis:
+    image: "redis/redis-stack:latest"
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_ARGS=--appendonly yes
+    ports:
+      - 6379:6379
+      - 22001:8001
+    volumes:
+      - redis_data:/data
+    networks:
+      - lute_network
+
+  core:
+    build:
+      context: ../../
+      dockerfile: ./core/Dockerfile
+    env_file:
+      - core.env
+    ports:
+      - "22000:22000"
+    volumes:
+      - ../../core/lute.db:/usr/src/app/core/lute.db
+      - ../../core/lute.db-shm:/usr/src/app/core/lute.db-shm
+      - ../../core/lute.db-wal:/usr/src/app/core/lute.db-wal
+    depends_on:
+      - promtail
+      - redis
+    networks:
+      - lute_network
+
+volumes:
+  redis_data:
+
+networks:
+  lute_network:
+    driver: bridge
+    name: lute_network
