@@ -119,6 +119,11 @@ message Track {
   optional string position = 4;
 }
 
+message Credit {
+  AlbumArtist artist = 1;
+  repeated string roles = 2;
+}
+
 message Album {
   string name = 1;
   string file_name = 2;
@@ -135,6 +140,7 @@ message Album {
   optional string duplicate_of = 13;
   repeated string duplicates = 14;
   optional string spotify_id = 15;
+  repeated Credit credits = 16;
 }
 
 message GetAlbumReply { Album album = 1; }
@@ -177,6 +183,7 @@ message AlbumSearchQuery {
   optional uint32 max_release_year = 17;
   optional bool include_duplicates = 18;
   optional string text = 19;
+  repeated string exclude_descriptors = 20;
 }
 
 message SearchPagination {
@@ -648,6 +655,8 @@ message AlbumRecommendationSettings {
   optional uint32 min_release_year = 8;
   optional uint32 max_release_year = 9;
   optional bool exclude_known_artists = 10;
+  repeated string include_descriptors = 11;
+  repeated string exclude_descriptors = 12;
 }
 
 message RecommendAlbumsRequest {

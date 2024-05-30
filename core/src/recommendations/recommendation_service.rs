@@ -112,6 +112,8 @@ impl TryFrom<proto::AlbumRecommendationSettings> for AlbumRecommendationSettings
       exclude_primary_genres: value.exclude_primary_genres,
       exclude_secondary_genres: value.exclude_secondary_genres,
       exclude_languages: value.exclude_languages,
+      include_descriptors: value.include_descriptors,
+      exclude_descriptors: value.exclude_descriptors,
       min_release_year: value.min_release_year,
       max_release_year: value.max_release_year,
       exclude_known_artists: value.exclude_known_artists,

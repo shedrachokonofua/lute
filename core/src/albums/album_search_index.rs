@@ -22,6 +22,7 @@ pub struct AlbumSearchQuery {
   pub include_languages: Vec<String>,
   pub exclude_languages: Vec<String>,
   pub include_descriptors: Vec<String>,
+  pub exclude_descriptors: Vec<String>,
   pub min_primary_genre_count: Option<usize>,
   pub min_secondary_genre_count: Option<usize>,
   pub min_descriptor_count: Option<usize>,

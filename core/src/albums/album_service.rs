@@ -89,6 +89,7 @@ impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
       include_languages: value.include_languages,
       exclude_languages: value.exclude_languages,
       include_descriptors: value.include_descriptors,
+      exclude_descriptors: value.exclude_descriptors,
       min_primary_genre_count: value.min_primary_genre_count.map(|i| i as usize),
       min_secondary_genre_count: value.min_secondary_genre_count.map(|i| i as usize),
       min_descriptor_count: value.min_descriptor_count.map(|i| i as usize),

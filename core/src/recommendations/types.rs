@@ -17,6 +17,8 @@ pub struct AlbumRecommendationSettings {
   pub include_languages: Vec<String>,
   pub exclude_primary_genres: Vec<String>,
   pub exclude_secondary_genres: Vec<String>,
+  pub include_descriptors: Vec<String>,
+  pub exclude_descriptors: Vec<String>,
   pub exclude_languages: Vec<String>,
   pub min_release_year: Option<u32>,
   pub max_release_year: Option<u32>,
@@ -36,6 +38,8 @@ impl Default for AlbumRecommendationSettings {
       min_release_year: None,
       max_release_year: None,
       exclude_known_artists: Some(true),
+      include_descriptors: vec![],
+      exclude_descriptors: vec![],
     }
   }
 }

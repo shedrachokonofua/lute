@@ -138,6 +138,15 @@ impl From<AlbumReadModelArtist> for proto::AlbumArtist {
   }
 }
 
+impl From<AlbumReadModelCredit> for proto::Credit {
+  fn from(val: AlbumReadModelCredit) -> Self {
+    proto::Credit {
+      artist: Some(val.artist.into()),
+      roles: val.roles,
+    }
+  }
+}
+
 impl From<AlbumReadModel> for proto::Album {
   fn from(val: AlbumReadModel) -> Self {
     proto::Album {
@@ -164,6 +173,11 @@ impl From<AlbumReadModel> for proto::Album {
         .map(|file_name| file_name.to_string())
         .collect(),
       spotify_id: val.spotify_id,
+      credits: val
+        .credits
+        .into_iter()
+        .map(|credit| credit.into())
+        .collect(),
     }
   }
 }

@@ -254,6 +254,7 @@ impl AlbumSearchQuery {
       &self.exclude_secondary_genres,
     ));
     ft_search_query.push_str(&get_tag_query("-@language", &self.exclude_languages));
+    ft_search_query.push_str(&get_tag_query("-@descriptor", &self.exclude_descriptors));
     ft_search_query.trim().to_string()
   }
 }

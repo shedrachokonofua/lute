@@ -22,8 +22,8 @@ use anyhow::Result;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{task::spawn, task::JoinHandle};
 use tonic::{transport::Server, Request, Response, Status};
+use tonic_tracing_opentelemetry::middleware::{filters, server::OtelGrpcLayer};
 use tracing::info;
-
 pub struct LuteService {}
 
 #[tonic::async_trait]
@@ -57,6 +57,7 @@ impl RpcServer {
     info!(address = addr.to_string(), "Starting RPC server");
     let server = Server::builder()
       .trace_fn(|_| tracing::info_span!("lute::rpc"))
+      .layer(OtelGrpcLayer::default().filter(filters::reject_healthcheck))
       .accept_http1(true)
       .add_service(reflection_service)
       .add_service(tonic_web::enable(LuteServer::new(LuteService {})))
