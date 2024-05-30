@@ -1721,6 +1721,7 @@ dependencies = [
  "tonic 0.11.0",
  "tonic-build 0.11.0",
  "tonic-reflection",
+ "tonic-tracing-opentelemetry",
  "tonic-web",
  "tracing",
  "tracing-opentelemetry",
@@ -3652,6 +3653,25 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic 0.11.0",
+]
+
+[[package]]
+name = "tonic-tracing-opentelemetry"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91f7d16858362cbf0beac4aae1a1421afe89688ac9a5c17439e315c1a477b764"
+dependencies = [
+ "futures-core",
+ "futures-util",
+ "http 0.2.12",
+ "http-body 0.4.6",
+ "hyper 0.14.28",
+ "opentelemetry",
+ "pin-project-lite",
+ "tonic 0.11.0",
+ "tower",
+ "tracing",
+ "tracing-opentelemetry",
 ]
 
 [[package]]
