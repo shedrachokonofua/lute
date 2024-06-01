@@ -168,8 +168,8 @@ export const Component = () => {
                           px="xs"
                           justify="end"
                           style={{
-                            background: "rgba(30, 87, 174, 0.3)",
-                            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                            background: "#FFF",
+                            borderBottom: "1px solid #DDD",
                             position: "sticky",
                             top: 0,
                             zIndex: 1000,
@@ -179,7 +179,7 @@ export const Component = () => {
                             component={Link}
                             size="compact-sm"
                             radius={2}
-                            variant="white"
+                            variant="light"
                             to={playlistPreviewUrl.toString()}
                           >
                             Generate Spotify Playlist
