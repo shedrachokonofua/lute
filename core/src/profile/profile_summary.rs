@@ -2,41 +2,16 @@ use super::profile::{Profile, ProfileId};
 use crate::{
   albums::album_read_model::AlbumReadModel,
   files::file_metadata::file_name::FileName,
-  helpers::math::{desc_sort_by, median},
+  helpers::{
+    item_with_factor::{desc_sort_by_factor, ItemWithFactor},
+    math::median,
+  },
 };
 use chrono::Datelike;
 use rayon::prelude::*;
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, iter::repeat};
 use tracing::instrument;
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default, Eq)]
-pub struct ItemWithFactor {
-  pub item: String,
-  pub factor: u32,
-}
-
-impl Ord for ItemWithFactor {
-  fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-    self.factor.cmp(&other.factor)
-  }
-}
-
-impl PartialOrd for ItemWithFactor {
-  fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-    Some(self.cmp(other))
-  }
-}
-
-impl PartialEq for ItemWithFactor {
-  fn eq(&self, other: &Self) -> bool {
-    self.factor == other.factor
-  }
-}
-
-fn desc_sort_by_factor(values: &mut [ItemWithFactor]) {
-  desc_sort_by(values, |item| item.factor as f32);
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ProfileSummary {

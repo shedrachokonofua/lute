@@ -3,8 +3,8 @@ use super::{
 };
 use crate::{
   albums::album_read_model::AlbumReadModel,
-  helpers::math::default_if_zero,
-  profile::{profile::Profile, profile_summary::ItemWithFactor},
+  helpers::{item_with_factor::ItemWithFactor, math::default_if_zero},
+  profile::profile::Profile,
   recommendations::types::AlbumAssessment,
 };
 use anyhow::{anyhow, Result};

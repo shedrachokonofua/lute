@@ -1,7 +1,7 @@
 use super::{
   profile::{Profile, ProfileId},
   profile_interactor::ProfileInteractor,
-  profile_summary::{ItemWithFactor, ProfileSummary},
+  profile_summary::ProfileSummary,
 };
 use crate::{
   context::ApplicationContext,
@@ -28,15 +28,6 @@ impl From<Profile> for proto::Profile {
         .into_iter()
         .map(|(k, v)| (k.to_string(), v))
         .collect(),
-    }
-  }
-}
-
-impl From<ItemWithFactor> for proto::ItemWithFactor {
-  fn from(val: ItemWithFactor) -> Self {
-    proto::ItemWithFactor {
-      item: val.item,
-      factor: val.factor,
     }
   }
 }

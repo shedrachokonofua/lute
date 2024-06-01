@@ -16,7 +16,7 @@ use tokio::{
   sync::{mpsc::unbounded_channel, oneshot, RwLock},
   time::sleep,
 };
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 pub enum JobProcessorStatus {
   Running,
@@ -32,8 +32,13 @@ pub struct JobParameters {
   interval: Option<TimeDelta>,
   #[builder(default = "chrono::Utc::now().naive_utc()")]
   next_execution: NaiveDateTime,
+  /**
+   * If set to true, the job will be overwritten if it already exists and is not claimed
+   */
   #[builder(default = "true")]
   overwrite_existing: bool,
+  #[builder(default = "true")]
+  skip_if_claimed: bool,
   #[builder(default, setter(strip_option))]
   payload: Option<Vec<u8>>,
   #[builder(default, setter(strip_option))]
@@ -418,10 +423,14 @@ impl Scheduler {
 
   pub async fn put(&self, params: JobParameters) -> Result<bool> {
     let overwrite_existing = params.overwrite_existing;
+    let skip_if_claimed = params.skip_if_claimed;
     let record: Job = params.into();
     if let Some(existing_job) = self.scheduler_repository.find_job(&record.id).await? {
-      if existing_job.claimed_at.is_some() {
-        info!(job_id = record.id.as_str(), "Job is claimed, skipping");
+      if existing_job.claimed_at.is_some() && skip_if_claimed {
+        warn!(
+          job_id = record.id.as_str(),
+          "Job is claimed, can't schedule, skipping"
+        );
         return Ok(false);
       }
 
