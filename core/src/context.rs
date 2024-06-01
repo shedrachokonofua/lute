@@ -3,7 +3,6 @@ use crate::{
     album_repository::AlbumRepository, album_search_index::AlbumSearchIndex,
     embedding_provider::AlbumEmbeddingProvidersInteractor,
     redis_album_search_index::RedisAlbumSearchIndex,
-    sqlite_album_repository::SqliteAlbumRepository,
   },
   crawler::crawler::Crawler,
   events::event_publisher::EventPublisher,
@@ -28,7 +27,7 @@ pub struct ApplicationContext {
   pub kv: Arc<KeyValueStore>,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub crawler: Arc<Crawler>,
-  pub album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  pub album_repository: Arc<AlbumRepository>,
   pub album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   pub album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
   pub spotify_client: Arc<SpotifyClient>,
@@ -67,7 +66,7 @@ impl ApplicationContext {
       Arc::clone(&kv),
       Arc::clone(&file_interactor),
     )?);
-    let album_repository = Arc::new(SqliteAlbumRepository::new(Arc::clone(&sqlite_connection)));
+    let album_repository = Arc::new(AlbumRepository::new(Arc::clone(&sqlite_connection)));
     let album_embedding_providers_interactor = Arc::new(AlbumEmbeddingProvidersInteractor::new(
       Arc::clone(&settings),
       Arc::clone(&kv),

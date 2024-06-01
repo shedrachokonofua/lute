@@ -38,7 +38,7 @@ pub enum AlbumAssessmentSettings {
 pub struct RecommendationInteractor {
   quantile_rank_interactor: QuantileRankInteractor,
   embedding_similarity_interactor: EmbeddingSimilarityInteractor,
-  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<AlbumRepository>,
   profile_interactor: ProfileInteractor,
   spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
   spotify_client: Arc<SpotifyClient>,

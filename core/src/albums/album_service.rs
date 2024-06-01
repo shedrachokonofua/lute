@@ -128,7 +128,7 @@ impl TryFrom<SpotifyAlbum> for proto::SpotifyAlbum {
 pub struct AlbumService {
   album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
   album_interactor: Arc<AlbumInteractor>,
-  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<AlbumRepository>,
   album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   spotify_client: Arc<SpotifyClient>,
 }

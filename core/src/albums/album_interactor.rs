@@ -25,13 +25,13 @@ pub struct AlbumMonitor {
 }
 
 pub struct AlbumInteractor {
-  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<AlbumRepository>,
   album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
 }
 
 impl AlbumInteractor {
   pub fn new(
-    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_repository: Arc<AlbumRepository>,
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   ) -> Self {
     Self {

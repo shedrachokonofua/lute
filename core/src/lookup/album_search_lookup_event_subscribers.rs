@@ -134,7 +134,7 @@ struct AlbumSearchLookupOrchestrator {
   crawler: Arc<Crawler>,
   lookup_interactor: LookupInteractor,
   event_publisher: Arc<EventPublisher>,
-  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<AlbumRepository>,
 }
 
 impl AlbumSearchLookupOrchestrator {

@@ -36,7 +36,7 @@ pub struct PendingSpotifyImport {
 
 pub struct ProfileInteractor {
   profile_repository: ProfileRepository,
-  album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+  album_repository: Arc<AlbumRepository>,
   event_publisher: EventPublisher,
   spotify_client: Arc<SpotifyClient>,
   lookup_interactor: LookupInteractor,
@@ -48,7 +48,7 @@ impl ProfileInteractor {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<SqliteConnection>,
-    album_repository: Arc<dyn AlbumRepository + Send + Sync + 'static>,
+    album_repository: Arc<AlbumRepository>,
     spotify_client: Arc<SpotifyClient>,
   ) -> Self {
     Self {
