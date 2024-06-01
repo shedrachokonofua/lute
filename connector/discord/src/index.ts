@@ -13,6 +13,8 @@ import {
   ChatCompletionSystemMessageParam,
 } from "openai/resources";
 import { lute } from "./proto/lute";
+import net from "net";
+import { logger } from "./logger";
 
 const openai = new OpenAI({
   apiKey: config.openai.key,
@@ -23,11 +25,11 @@ const client = new Client({
 });
 
 client.once("ready", () => {
-  console.log("Discord bot is ready! 🤖");
+  logger.info("Discord bot is ready! 🤖");
 });
 
 client.on("interactionCreate", async (interaction) => {
-  console.log(interaction);
+  logger.info({ interaction }, "Interaction");
 });
 
 client.login(config.discord.token);
@@ -35,7 +37,7 @@ client.login(config.discord.token);
 const startingPrompt: ChatCompletionSystemMessageParam = {
   role: "system",
   content:
-	"You are a chat front-end for a state-of-the-art music recommendation engine called Lute. Creatively drill down into the user's preferences, without being too direct and explicit. Don't interrogate, Be engaging and brief. You're here to help them discover new music, be suggestive but not imposing. When telling them about an album, be engaging and brief, don't include cover images as they maybe dead. Tell them about your capabilities to start. Extrapolate what they mean, enrich requests as you see fit for best results. Responses must be less than 2000 characters. Steer away from your own knowledge of music for recommendations, be a conduit for Lute, only use knowledge to help user prompt and make the responses engaging. Liberally call the functions to gather as much context as you need. Lute is very powerful.",
+    "You are a chat front-end for a state-of-the-art music recommendation engine called Lute. Creatively drill down into the user's preferences, without being too direct and explicit. Don't interrogate, Be engaging and brief. You're here to help them discover new music, be suggestive but not imposing. When telling them about an album, be engaging and brief, don't include cover images as they maybe dead. Tell them about your capabilities to start. Extrapolate what they mean, enrich requests as you see fit for best results. Responses must be less than 2000 characters. Steer away from your own knowledge of music for recommendations, be a conduit for Lute, only use knowledge to help user prompt and make the responses engaging. Liberally call the functions to gather as much context as you need. Lute is very powerful.",
 };
 
 function chunkText(text: string, maxChunkLength: number): string[] {
@@ -326,12 +328,12 @@ class ChatSession {
         ],
         messages: this.messages,
       })
-      .on("functionCall", (functionCall) =>
-        console.log("functionCall", functionCall)
-      )
-      .on("functionCallResult", (functionCallResult) =>
-        console.log("functionCallResult")
-      )
+      .on("functionCall", (functionCall) => {
+        logger.info({ functionCall }, "functionCall");
+      })
+      .on("functionCallResult", (functionCallResult) => {
+        logger.info({ functionCallResult }, "functionCallResult");
+      })
       .on("chatCompletion", async (completion) => {
         const content = completion.choices?.[0]?.message?.content;
         if (content) {
@@ -341,7 +343,7 @@ class ChatSession {
         }
       });
     await runner.finalChatCompletion();
-    console.log(runner.messages);
+    logger.info({ messages: runner.messages }, "Final messages");
     this.messages = runner.messages;
   }
 
@@ -350,12 +352,22 @@ class ChatSession {
   }
 }
 
-(async () => {
-  const albumMonitor = await getAlbumMonitor();
-  let chatSession = new ChatSession(albumMonitor);
 
-  client.on("messageCreate", async (message) => {
-    if (message.author.bot) return;
-    await chatSession.handleMessage(message);
+const server = net.createServer();
+server
+  .listen(22003, () => {
+    logger.info("Acquiring port to ensure single instance");
+  })
+  .on("listening", async () => {
+    const albumMonitor = await getAlbumMonitor();
+    let chatSession = new ChatSession(albumMonitor);
+
+    client.on("messageCreate", async (message) => {
+      if (message.author.bot) return;
+      await chatSession.handleMessage(message);
+    });
+  })
+  .on("error", (err) => {
+    logger.error("Port already in use, exiting.");
+    process.exit(1);
   });
-})();

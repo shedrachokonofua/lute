@@ -77,7 +77,7 @@ export interface Pagination {
 const toPagination = (pagination?: Pagination) => {
   return new core.SearchPagination({
     offset: pagination?.offset,
-    limit: pagination?.limit,
+    limit: pagination?.limit || 10
   });
 };
 export interface AlbumSearchParams {

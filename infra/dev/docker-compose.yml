@@ -1,11 +1,4 @@
 services:
-  promtail:
-    image: grafana/promtail:latest
-    volumes:
-      - ./promtail-config.yaml:/etc/promtail/config.yaml
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: ["-config.file=/etc/promtail/config.yaml"]
-    
   redis:
     image: "redis/redis-stack:latest"
     environment:
@@ -16,8 +9,6 @@ services:
       - 22001:8001
     volumes:
       - redis_data:/data
-    networks:
-      - lute_network
 
   core:
     build:
@@ -32,15 +23,24 @@ services:
       - ../../core/lute.db-shm:/usr/src/app/core/lute.db-shm
       - ../../core/lute.db-wal:/usr/src/app/core/lute.db-wal
     depends_on:
-      - promtail
       - redis
-    networks:
-      - lute_network
+
+  discord-bot:
+    build:
+      context: ../../
+      dockerfile: ./connector/discord/Dockerfile
+    volumes:
+      - ../../connector/discord/:/usr/src/app/
+      - /usr/src/app/node_modules
+    command: npm run dev
+    ports:
+      - "22003:22003"
+    env_file:
+      - discord-bot.env
+    environment:
+      - NODE_ENV=development
+    # depends_on:
+    #   - core
 
 volumes:
   redis_data:
-
-networks:
-  lute_network:
-    driver: bridge
-    name: lute_network
