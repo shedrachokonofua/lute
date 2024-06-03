@@ -1,4 +1,5 @@
 pub mod albums;
+pub mod artists;
 pub mod context;
 pub mod crawler;
 pub mod events;

@@ -26,7 +26,7 @@ async fn crawl_similar_albums(
   _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::ProfileAlbumAdded { file_name, .. } = event_data.payload.event {
-    let album = app_context.album_repository.get(&file_name).await?;
+    let album = app_context.album_interactor.get(&file_name).await?;
     let file_name_string = file_name.to_string();
     let release_type = file_name_string.split('/').collect::<Vec<&str>>()[1];
 

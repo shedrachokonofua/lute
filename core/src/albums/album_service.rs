@@ -1,7 +1,7 @@
 use super::{
   album_interactor::{AlbumInteractor, AlbumMonitor},
-  album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
-  album_search_index::{AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQuery},
+  album_repository::{GenreAggregate, ItemAndCount},
+  album_search_index::{AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchQuery},
   embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
 use crate::{
@@ -128,8 +128,6 @@ impl TryFrom<SpotifyAlbum> for proto::SpotifyAlbum {
 pub struct AlbumService {
   album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
   album_interactor: Arc<AlbumInteractor>,
-  album_repository: Arc<AlbumRepository>,
-  album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   spotify_client: Arc<SpotifyClient>,
 }
 
@@ -139,12 +137,7 @@ impl AlbumService {
       album_embedding_providers_interactor: Arc::clone(
         &app_context.album_embedding_providers_interactor,
       ),
-      album_repository: Arc::clone(&app_context.album_repository),
-      album_search_index: Arc::clone(&app_context.album_search_index),
-      album_interactor: Arc::new(AlbumInteractor::new(
-        Arc::clone(&app_context.album_repository),
-        Arc::clone(&app_context.album_search_index),
-      )),
+      album_interactor: Arc::clone(&app_context.album_interactor),
       spotify_client: Arc::clone(&app_context.spotify_client),
     }
   }
@@ -174,7 +167,7 @@ impl proto::AlbumService for AlbumService {
     let file_name = FileName::try_from(request.into_inner().file_name)
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
     let album = self
-      .album_repository
+      .album_interactor
       .get(&file_name)
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
@@ -196,7 +189,7 @@ impl proto::AlbumService for AlbumService {
       .collect::<Result<Vec<FileName>, Error>>()
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
     let albums = self
-      .album_repository
+      .album_interactor
       .get_many(file_names)
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
@@ -219,7 +212,7 @@ impl proto::AlbumService for AlbumService {
       .unwrap_or_default();
     let pagination = request.pagination.map(|p| p.into());
     let results = self
-      .album_search_index
+      .album_interactor
       .search(&query, pagination.as_ref())
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
@@ -270,7 +263,7 @@ impl proto::AlbumService for AlbumService {
     }
 
     let embedding = self
-      .album_search_index
+      .album_interactor
       .find_embedding(&file_name, &embedding_key)
       .await
       .map_err(|e| Status::internal(e.to_string()))?
@@ -278,7 +271,7 @@ impl proto::AlbumService for AlbumService {
       .embedding;
 
     let results = self
-      .album_search_index
+      .album_interactor
       .embedding_similarity_search(&AlbumEmbeddingSimilarirtySearchQuery {
         embedding,
         embedding_key,
@@ -301,7 +294,7 @@ impl proto::AlbumService for AlbumService {
     let file_name =
       FileName::try_from(request.file_name).map_err(|e| Status::invalid_argument(e.to_string()))?;
     let album = self
-      .album_repository
+      .album_interactor
       .get(&file_name)
       .await
       .map_err(|e| Status::internal(e.to_string()))?;

@@ -3,16 +3,32 @@ use anyhow::Result;
 use rustis::{
   bb8::{Pool, PooledConnection},
   client::PooledClientManager,
-  commands::{FtCreateOptions, FtFieldSchema, SearchCommands},
+  commands::{FtCreateOptions, FtFieldSchema, SearchCommands, SortOrder},
 };
 use std::sync::Arc;
 use tracing::warn;
 use unidecode::unidecode;
 
+#[derive(Debug, Clone)]
+pub enum Sorting {
+  Asc(String),
+  Desc(String),
+}
+
+impl Sorting {
+  pub fn to_redisearch_sort(&self) -> (String, SortOrder) {
+    match self {
+      Sorting::Asc(field) => (field.clone(), SortOrder::Asc),
+      Sorting::Desc(field) => (field.clone(), SortOrder::Desc),
+    }
+  }
+}
+
 #[derive(Debug)]
 pub struct SearchPagination {
   pub offset: Option<usize>,
   pub limit: Option<usize>,
+  pub sort: Option<Sorting>,
 }
 
 impl From<proto::SearchPagination> for SearchPagination {
@@ -20,6 +36,7 @@ impl From<proto::SearchPagination> for SearchPagination {
     SearchPagination {
       offset: value.offset.map(|i| i as usize),
       limit: value.limit.map(|i| i as usize),
+      sort: None,
     }
   }
 }
@@ -144,6 +161,14 @@ pub fn get_tag_query<T: ToString>(tag: &str, items: &Vec<T>) -> String {
 pub fn get_min_num_query(tag: &str, min: Option<usize>) -> String {
   if let Some(min) = min {
     format!("{}:[{}, +inf] ", tag, min)
+  } else {
+    String::from("")
+  }
+}
+
+pub fn get_max_num_query(tag: &str, min: Option<usize>) -> String {
+  if let Some(min) = min {
+    format!("{}:[-inf, {}] ", tag, min)
   } else {
     String::from("")
   }

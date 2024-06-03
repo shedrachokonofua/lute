@@ -1,12 +1,22 @@
 use super::{
   album_read_model::AlbumReadModel,
   album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
-  album_search_index::AlbumSearchIndex,
+  album_search_index::{
+    AlbumEmbedding, AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQuery,
+    AlbumSearchResult,
+  },
 };
-use crate::files::file_metadata::file_name::FileName;
+use crate::{
+  events::{
+    event::{Event, EventPayloadBuilder, Topic},
+    event_publisher::EventPublisher,
+  },
+  files::file_metadata::file_name::FileName,
+  helpers::redisearch::SearchPagination,
+};
 use anyhow::Result;
 use iter_tools::Itertools;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::try_join;
 use tracing::{error, instrument};
 
@@ -27,16 +37,19 @@ pub struct AlbumMonitor {
 pub struct AlbumInteractor {
   album_repository: Arc<AlbumRepository>,
   album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
+  event_publisher: Arc<EventPublisher>,
 }
 
 impl AlbumInteractor {
   pub fn new(
     album_repository: Arc<AlbumRepository>,
     album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
+    event_publisher: Arc<EventPublisher>,
   ) -> Self {
     Self {
       album_repository,
       album_search_index,
+      event_publisher,
     }
   }
 
@@ -156,17 +169,26 @@ impl AlbumInteractor {
     let file_name = album.file_name.clone();
     self.album_repository.put(album.clone()).await?;
     self.album_search_index.put(album.clone()).await?;
-    match self.process_duplicates(&album).await {
-      Ok(_) => Ok(()),
-      Err(err) => {
-        error!(
-          "Failed to process duplicates for {}: {}",
-          file_name.to_string(),
-          err
-        );
-        Ok(())
-      }
+    if let Err(err) = self.process_duplicates(&album).await {
+      error!(
+        "Failed to process duplicates for {}: {}",
+        file_name.to_string(),
+        err
+      );
     }
+    self
+      .event_publisher
+      .publish(
+        Topic::Album,
+        EventPayloadBuilder::default()
+          .key(file_name.clone())
+          .event(Event::AlbumSaved {
+            file_name: file_name.clone(),
+          })
+          .build()?,
+      )
+      .await?;
+    Ok(())
   }
 
   async fn process_duplicates_by_file_name(&self, file_name: &FileName) -> Result<()> {
@@ -190,5 +212,71 @@ impl AlbumInteractor {
       }
     }
     Ok(())
+  }
+
+  pub async fn find_many(
+    &self,
+    album_file_names: Vec<FileName>,
+  ) -> Result<HashMap<FileName, AlbumReadModel>> {
+    let albums = self.album_repository.find_many(album_file_names).await?;
+    Ok(
+      albums
+        .into_iter()
+        .map(|album| (album.file_name.clone(), album))
+        .collect(),
+    )
+  }
+
+  pub async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>> {
+    self.album_repository.find(file_name).await
+  }
+
+  pub async fn get(&self, file_name: &FileName) -> Result<AlbumReadModel> {
+    self.album_repository.get(file_name).await
+  }
+
+  pub async fn get_many(&self, file_names: Vec<FileName>) -> Result<Vec<AlbumReadModel>> {
+    self.album_repository.get_many(file_names).await
+  }
+
+  pub async fn search(
+    &self,
+    query: &AlbumSearchQuery,
+    pagination: Option<&SearchPagination>,
+  ) -> Result<AlbumSearchResult> {
+    self.album_search_index.search(query, pagination).await
+  }
+
+  pub async fn find_many_embeddings(
+    &self,
+    file_names: Vec<FileName>,
+    key: &str,
+  ) -> Result<Vec<AlbumEmbedding>> {
+    self
+      .album_search_index
+      .find_many_embeddings(file_names, key)
+      .await
+  }
+
+  pub async fn find_embedding(
+    &self,
+    file_name: &FileName,
+    key: &str,
+  ) -> Result<Option<AlbumEmbedding>> {
+    self.album_search_index.find_embedding(file_name, key).await
+  }
+
+  pub async fn embedding_similarity_search(
+    &self,
+    query: &AlbumEmbeddingSimilarirtySearchQuery,
+  ) -> Result<Vec<(AlbumReadModel, f32)>> {
+    self
+      .album_search_index
+      .embedding_similarity_search(query)
+      .await
+  }
+
+  pub async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()> {
+    self.album_search_index.put_embedding(embedding).await
   }
 }

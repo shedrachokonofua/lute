@@ -2,7 +2,7 @@ use super::{
   bounded_min_heap::BoundedMinHeap, quantile_rank_assessment::QuantileRankAlbumAssessmentContext,
 };
 use crate::{
-  albums::{album_read_model::AlbumReadModel, album_search_index::AlbumSearchIndex},
+  albums::{album_interactor::AlbumInteractor, album_read_model::AlbumReadModel},
   profile::profile::Profile,
   recommendations::types::{
     AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
@@ -46,14 +46,12 @@ impl Default for QuantileRankAlbumAssessmentSettings {
 }
 
 pub struct QuantileRankInteractor {
-  album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
+  album_interactor: Arc<AlbumInteractor>,
 }
 
 impl QuantileRankInteractor {
-  pub fn new(album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>) -> Self {
-    Self {
-      album_search_index,
-    }
+  pub fn new(album_interactor: Arc<AlbumInteractor>) -> Self {
+    Self { album_interactor }
   }
 }
 
@@ -106,7 +104,7 @@ impl
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
     let search_query = recommendation_settings.to_search_query(profile, profile_albums)?;
-    let mut search_results = self.album_search_index.search(&search_query, None).await?;
+    let mut search_results = self.album_interactor.search(&search_query, None).await?;
     let context =
       QuantileRankAlbumAssessmentContext::new(profile, profile_albums, assessment_settings);
     let mut result_heap = BoundedMinHeap::new(recommendation_settings.count as usize);

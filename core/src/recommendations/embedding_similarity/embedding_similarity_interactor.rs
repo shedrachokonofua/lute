@@ -1,9 +1,8 @@
 use crate::{
   albums::{
+    album_interactor::AlbumInteractor,
     album_read_model::AlbumReadModel,
-    album_search_index::{
-      AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQueryBuilder,
-    },
+    album_search_index::{AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchQueryBuilder},
   },
   helpers::math::average_embedding,
   profile::profile::Profile,
@@ -18,7 +17,7 @@ use std::sync::Arc;
 use tracing::{instrument, warn};
 
 pub struct EmbeddingSimilarityInteractor {
-  album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
+  album_interactor: Arc<AlbumInteractor>,
 }
 
 #[derive(Clone, Debug)]
@@ -27,10 +26,8 @@ pub struct EmbeddingSimilarityAlbumAssessmentSettings {
 }
 
 impl EmbeddingSimilarityInteractor {
-  pub fn new(album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>) -> Self {
-    Self {
-      album_search_index,
-    }
+  pub fn new(album_interactor: Arc<AlbumInteractor>) -> Self {
+    Self { album_interactor }
   }
 
   pub async fn get_average_profile_embedding(
@@ -39,11 +36,9 @@ impl EmbeddingSimilarityInteractor {
     settings: &EmbeddingSimilarityAlbumAssessmentSettings,
   ) -> Result<Vec<f32>> {
     let profile_album_embeddings = self
-      .album_search_index
+      .album_interactor
       .find_many_embeddings(
-        profile
-          .albums.keys().cloned()
-          .collect(),
+        profile.albums.keys().cloned().collect(),
         &settings.embedding_key,
       )
       .await?;
@@ -99,7 +94,7 @@ impl
       .get_average_profile_embedding(profile, &settings)
       .await?;
     let mut search_result = self
-      .album_search_index
+      .album_interactor
       .embedding_similarity_search(&AlbumEmbeddingSimilarirtySearchQuery {
         embedding: profile_embedding,
         embedding_key: settings.embedding_key.clone(),
@@ -132,7 +127,7 @@ impl
       .await?;
     let search_query = recommendation_settings.to_search_query(profile, profile_albums)?;
     let similar_albums = self
-      .album_search_index
+      .album_interactor
       .embedding_similarity_search(&AlbumEmbeddingSimilarirtySearchQuery {
         embedding: profile_embedding,
         embedding_key: assessment_settings.embedding_key.clone(),

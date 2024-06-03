@@ -8,7 +8,7 @@ use super::{
   spotify_import_repository::SpotifyImportRepository,
 };
 use crate::{
-  albums::{album_read_model::AlbumReadModel, album_repository::AlbumRepository},
+  albums::{album_interactor::AlbumInteractor, album_read_model::AlbumReadModel},
   events::{
     event::{Event, EventPayloadBuilder, Topic},
     event_publisher::EventPublisher,
@@ -36,7 +36,7 @@ pub struct PendingSpotifyImport {
 
 pub struct ProfileInteractor {
   profile_repository: ProfileRepository,
-  album_repository: Arc<AlbumRepository>,
+  album_interactor: Arc<AlbumInteractor>,
   event_publisher: EventPublisher,
   spotify_client: Arc<SpotifyClient>,
   lookup_interactor: LookupInteractor,
@@ -48,14 +48,14 @@ impl ProfileInteractor {
     settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
     sqlite_connection: Arc<SqliteConnection>,
-    album_repository: Arc<AlbumRepository>,
+    album_interactor: Arc<AlbumInteractor>,
     spotify_client: Arc<SpotifyClient>,
   ) -> Self {
     Self {
       profile_repository: ProfileRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
-      album_repository: Arc::clone(&album_repository),
+      album_interactor: Arc::clone(&album_interactor),
       event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
       spotify_client,
       lookup_interactor: LookupInteractor::new(
@@ -88,7 +88,7 @@ impl ProfileInteractor {
     file_name: &FileName,
     factor: u32,
   ) -> Result<Profile> {
-    let album = self.album_repository.get(file_name).await?;
+    let album = self.album_interactor.get(file_name).await?;
     let file_name_to_add = album.duplicate_of.unwrap_or(file_name.clone());
     let (profile, new_addition) = self
       .profile_repository
@@ -162,9 +162,12 @@ impl ProfileInteractor {
     let profile = self.profile_repository.get(id).await?;
     let albums = if !profile.albums.is_empty() {
       self
-        .album_repository
+        .album_interactor
         .find_many(profile.albums.keys().cloned().collect())
         .await?
+        .drain()
+        .map(|(_, album)| album)
+        .collect()
     } else {
       vec![]
     };

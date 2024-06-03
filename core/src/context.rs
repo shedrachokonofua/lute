@@ -1,9 +1,10 @@
 use crate::{
   albums::{
-    album_repository::AlbumRepository, album_search_index::AlbumSearchIndex,
-    embedding_provider::AlbumEmbeddingProvidersInteractor,
+    album_interactor::AlbumInteractor, album_repository::AlbumRepository,
+    album_search_index::AlbumSearchIndex, embedding_provider::AlbumEmbeddingProvidersInteractor,
     redis_album_search_index::RedisAlbumSearchIndex,
   },
+  artists::artist_interactor::ArtistInteractor,
   crawler::crawler::Crawler,
   events::event_publisher::EventPublisher,
   files::file_interactor::FileInteractor,
@@ -27,10 +28,10 @@ pub struct ApplicationContext {
   pub kv: Arc<KeyValueStore>,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub crawler: Arc<Crawler>,
-  pub album_repository: Arc<AlbumRepository>,
-  pub album_search_index: Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
   pub album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
   pub spotify_client: Arc<SpotifyClient>,
+  pub artist_interactor: Arc<ArtistInteractor>,
+  pub album_interactor: Arc<AlbumInteractor>,
   pub file_interactor: Arc<FileInteractor>,
   pub event_publisher: Arc<EventPublisher>,
   pub scheduler: Arc<Scheduler>,
@@ -82,6 +83,16 @@ impl ApplicationContext {
     let spotify_track_search_index = Arc::new(SpotifyTrackSearchIndex::new(Arc::clone(
       &redis_connection_pool,
     )));
+    let album_interactor = Arc::new(AlbumInteractor::new(
+      Arc::clone(&album_repository),
+      Arc::clone(&album_search_index) as Arc<dyn AlbumSearchIndex + Send + Sync + 'static>,
+      Arc::clone(&event_publisher),
+    ));
+    let artist_interactor = Arc::new(ArtistInteractor::new(
+      Arc::clone(&sqlite_connection),
+      Arc::clone(&redis_connection_pool),
+      Arc::clone(&album_interactor),
+    ));
 
     Ok(Arc::new(ApplicationContext {
       settings,
@@ -89,14 +100,14 @@ impl ApplicationContext {
       kv,
       redis_connection_pool,
       crawler,
-      album_repository,
-      album_search_index,
       spotify_client,
       album_embedding_providers_interactor,
       file_interactor,
       event_publisher,
       scheduler,
       spotify_track_search_index,
+      artist_interactor,
+      album_interactor,
     }))
   }
 }

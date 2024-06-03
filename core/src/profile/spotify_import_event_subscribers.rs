@@ -23,7 +23,7 @@ pub async fn process_lookup_subscriptions(
     Arc::clone(&app_context.settings),
     Arc::clone(&app_context.redis_connection_pool),
     Arc::clone(&app_context.sqlite_connection),
-    Arc::clone(&app_context.album_repository),
+    Arc::clone(&app_context.album_interactor),
     Arc::clone(&app_context.spotify_client),
   );
   if let Event::LookupAlbumSearchUpdated {

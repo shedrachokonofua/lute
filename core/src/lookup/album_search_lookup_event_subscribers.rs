@@ -6,7 +6,7 @@ use super::{
   lookup_interactor::LookupInteractor,
 };
 use crate::{
-  albums::album_repository::AlbumRepository,
+  albums::album_interactor::AlbumInteractor,
   context::ApplicationContext,
   crawler::crawler::{Crawler, QueuePushParameters},
   events::{
@@ -134,7 +134,7 @@ struct AlbumSearchLookupOrchestrator {
   crawler: Arc<Crawler>,
   lookup_interactor: LookupInteractor,
   event_publisher: Arc<EventPublisher>,
-  album_repository: Arc<AlbumRepository>,
+  album_interactor: Arc<AlbumInteractor>,
 }
 
 impl AlbumSearchLookupOrchestrator {
@@ -147,7 +147,7 @@ impl AlbumSearchLookupOrchestrator {
         Arc::clone(&app_context.sqlite_connection),
       ),
       event_publisher: Arc::clone(&app_context.event_publisher),
-      album_repository: Arc::clone(&app_context.album_repository),
+      album_interactor: Arc::clone(&app_context.album_interactor),
     }
   }
 
@@ -201,7 +201,7 @@ impl AlbumSearchLookupOrchestrator {
       } = lookup
       {
         match self
-          .album_repository
+          .album_interactor
           .find(&parsed_album_search_result.file_name)
           .await?
         {

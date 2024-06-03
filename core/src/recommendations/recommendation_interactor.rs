@@ -16,7 +16,7 @@ use super::{
   },
 };
 use crate::{
-  albums::{album_read_model::AlbumReadModel, album_repository::AlbumRepository},
+  albums::{album_interactor::AlbumInteractor, album_read_model::AlbumReadModel},
   context::ApplicationContext,
   files::file_metadata::file_name::FileName,
   helpers::{math::average_embedding, redisearch::SearchPagination},
@@ -28,6 +28,7 @@ use crate::{
 };
 use anyhow::Result;
 use futures::future::join_all;
+use iter_tools::Itertools;
 use std::sync::Arc;
 
 pub enum AlbumAssessmentSettings {
@@ -38,7 +39,7 @@ pub enum AlbumAssessmentSettings {
 pub struct RecommendationInteractor {
   quantile_rank_interactor: QuantileRankInteractor,
   embedding_similarity_interactor: EmbeddingSimilarityInteractor,
-  album_repository: Arc<AlbumRepository>,
+  album_interactor: Arc<AlbumInteractor>,
   profile_interactor: ProfileInteractor,
   spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
   spotify_client: Arc<SpotifyClient>,
@@ -48,17 +49,17 @@ impl RecommendationInteractor {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
       quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(
-        &app_context.album_search_index,
+        &app_context.album_interactor,
       )),
       embedding_similarity_interactor: EmbeddingSimilarityInteractor::new(Arc::clone(
-        &app_context.album_search_index,
+        &app_context.album_interactor,
       )),
-      album_repository: Arc::clone(&app_context.album_repository),
+      album_interactor: Arc::clone(&app_context.album_interactor),
       profile_interactor: ProfileInteractor::new(
         Arc::clone(&app_context.settings),
         Arc::clone(&app_context.redis_connection_pool),
         Arc::clone(&app_context.sqlite_connection),
-        Arc::clone(&app_context.album_repository),
+        Arc::clone(&app_context.album_interactor),
         Arc::clone(&app_context.spotify_client),
       ),
       spotify_track_search_index: Arc::clone(&app_context.spotify_track_search_index),
@@ -72,9 +73,12 @@ impl RecommendationInteractor {
   ) -> Result<(Profile, Vec<AlbumReadModel>)> {
     let profile = self.profile_interactor.get_profile(profile_id).await?;
     let albums = self
-      .album_repository
+      .album_interactor
       .find_many(profile.album_file_names())
-      .await?;
+      .await?
+      .drain()
+      .map(|(_, album)| album)
+      .collect_vec();
     Ok((profile, albums))
   }
 
@@ -85,7 +89,7 @@ impl RecommendationInteractor {
     settings: AlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
     let (profile, albums) = self.get_profile_and_albums(profile_id).await?;
-    let album = self.album_repository.get(album_file_name).await?;
+    let album = self.album_interactor.get(album_file_name).await?;
     match settings {
       AlbumAssessmentSettings::QuantileRank(settings) => {
         self

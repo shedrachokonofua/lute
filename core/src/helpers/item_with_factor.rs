@@ -9,6 +9,22 @@ pub struct ItemWithFactor {
   pub factor: u32,
 }
 
+pub fn combine_items_with_factors(all_items: &[Vec<ItemWithFactor>]) -> Vec<ItemWithFactor> {
+  let mut item_map = std::collections::HashMap::new();
+  for items in all_items {
+    for item in items {
+      let entry = item_map
+        .entry(item.item.clone())
+        .or_insert_with(|| ItemWithFactor {
+          item: item.item.clone(),
+          factor: 0,
+        });
+      entry.factor += item.factor;
+    }
+  }
+  item_map.into_iter().map(|(_, item)| item).collect()
+}
+
 impl Ord for ItemWithFactor {
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
     self.factor.cmp(&other.factor)

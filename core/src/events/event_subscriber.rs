@@ -293,6 +293,11 @@ impl EventSubscriber {
       .interactor
       .get_events_after_cursor(&self.topics, self.batch_size)
       .await?;
+
+    if event_list.rows.is_empty() {
+      return Ok(None);
+    }
+
     let topic_tags = self.topics.iter().map(|s| s.to_string()).join(",");
     debug!(
       topics = topic_tags.as_str(),

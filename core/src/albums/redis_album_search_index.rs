@@ -62,6 +62,31 @@ impl From<AlbumReadModelArtist> for RedisAlbumReadModelArtist {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
+
+pub struct RedisAlbumReadModelCredit {
+  pub artist: RedisAlbumReadModelArtist,
+  pub roles: Vec<String>,
+}
+
+impl From<RedisAlbumReadModelCredit> for AlbumReadModelCredit {
+  fn from(val: RedisAlbumReadModelCredit) -> Self {
+    AlbumReadModelCredit {
+      artist: val.artist.into(),
+      roles: val.roles,
+    }
+  }
+}
+
+impl From<AlbumReadModelCredit> for RedisAlbumReadModelCredit {
+  fn from(val: AlbumReadModelCredit) -> Self {
+    RedisAlbumReadModelCredit {
+      artist: val.artist.into(),
+      roles: val.roles,
+    }
+  }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct RedisAlbumReadModel {
   pub name: String,
   pub ascii_name: String,
@@ -84,7 +109,7 @@ pub struct RedisAlbumReadModel {
   #[serde(default)]
   pub language_count: u32,
   #[serde(default)]
-  pub credits: Vec<AlbumReadModelCredit>,
+  pub credits: Vec<RedisAlbumReadModelCredit>,
   #[serde(default)]
   pub credit_tags: Vec<String>,
   #[serde(default)]
@@ -117,7 +142,7 @@ impl From<RedisAlbumReadModel> for AlbumReadModel {
       tracks: val.tracks,
       release_date: val.release_date,
       languages: val.languages,
-      credits: val.credits,
+      credits: val.credits.into_iter().map(|c| c.into()).collect(),
       duplicate_of: val.duplicate_of,
       duplicates: val.duplicates,
       cover_image_url: val.cover_image_url,
@@ -158,7 +183,7 @@ impl From<AlbumReadModel> for RedisAlbumReadModel {
       release_year,
       languages: val.languages,
       language_count,
-      credits: val.credits,
+      credits: val.credits.into_iter().map(|c| c.into()).collect(),
       credit_tags,
       credit_tag_count,
       duplicate_of: val.duplicate_of,
@@ -277,7 +302,7 @@ pub struct RedisAlbumSearchIndex {
 }
 
 const NAMESPACE: &str = "album";
-const INDEX_VERSION: u32 = 5;
+const INDEX_VERSION: u32 = 6;
 
 fn redis_key(file_name: &FileName) -> String {
   format!("{}:{}", NAMESPACE, file_name.to_string())
@@ -297,15 +322,13 @@ impl RedisAlbumSearchIndex {
     album_embedding_providers_interactor: &AlbumEmbeddingProvidersInteractor,
   ) -> Vec<FtFieldSchema> {
     let mut schema = vec![
-      FtFieldSchema::identifier("$.name")
-        .as_attribute("name")
-        .field_type(FtFieldType::Text),
+      FtFieldSchema::identifier("$.ascii_name")
+        .as_attribute("ascii_name")
+        .field_type(FtFieldType::Text)
+        .weight(2.0),
       FtFieldSchema::identifier("$.file_name")
         .as_attribute("file_name")
         .field_type(FtFieldType::Tag),
-      FtFieldSchema::identifier("$.artists[*].name")
-        .as_attribute("artist_name")
-        .field_type(FtFieldType::Text),
       FtFieldSchema::identifier("$.artists[*].ascii_name")
         .as_attribute("artist_ascii_name")
         .field_type(FtFieldType::Text),
@@ -317,7 +340,8 @@ impl RedisAlbumSearchIndex {
         .field_type(FtFieldType::Numeric),
       FtFieldSchema::identifier("$.rating_count")
         .as_attribute("rating_count")
-        .field_type(FtFieldType::Numeric),
+        .field_type(FtFieldType::Numeric)
+        .sortable(),
       FtFieldSchema::identifier("$.primary_genres.*")
         .as_attribute("primary_genre")
         .field_type(FtFieldType::Tag),
@@ -351,9 +375,6 @@ impl RedisAlbumSearchIndex {
       FtFieldSchema::identifier("$.name_tag")
         .as_attribute("name_tag")
         .field_type(FtFieldType::Tag),
-      FtFieldSchema::identifier("$.ascii_name")
-        .as_attribute("ascii_name")
-        .field_type(FtFieldType::Text),
     ];
     schema.extend(
       album_embedding_providers_interactor

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use lute::{
   albums::album_event_subscribers::build_album_event_subscribers,
+  artists::artist_event_subscribers::build_artist_event_subscribers,
   context::ApplicationContext,
   crawler::crawler_jobs::setup_crawler_jobs,
   events::{event_subscriber::EventSubscriber, event_subscriber_jobs::setup_event_subscriber_jobs},
@@ -27,6 +28,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
   event_subscribers.extend(build_album_event_subscribers(Arc::clone(&app_context))?);
+  event_subscribers.extend(build_artist_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_lookup_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_parser_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_profile_event_subscribers(Arc::clone(&app_context))?);

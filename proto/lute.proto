@@ -755,6 +755,10 @@ message ProfileAlbumAddedEvent {
   uint32 factor = 3;
 }
 
+message AlbumSavedEvent {
+  string file_name = 1;
+}
+
 message LookupAlbumSearchUpdatedEvent { AlbumSearchLookup lookup = 1; }
 
 message Event {
@@ -765,6 +769,7 @@ message Event {
     ProfileAlbumAddedEvent profile_album_added = 4;
     LookupAlbumSearchUpdatedEvent lookup_album_search_updated = 5;
     FileDeletedEvent file_deleted = 6;
+    AlbumSavedEvent album_saved = 7;
   }
 }
 

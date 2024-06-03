@@ -44,6 +44,9 @@ pub enum Event {
   LookupAlbumSearchUpdated {
     lookup: AlbumSearchLookup,
   },
+  AlbumSaved {
+    file_name: FileName,
+  },
 }
 
 impl From<Event> for proto::Event {
@@ -94,6 +97,11 @@ impl From<Event> for proto::Event {
             lookup: Some(lookup.into()),
           })
         }
+        Event::AlbumSaved { file_name } => {
+          proto::event::Event::AlbumSaved(proto::AlbumSavedEvent {
+            file_name: file_name.to_string(),
+          })
+        }
       }),
     }
   }
@@ -132,5 +140,6 @@ pub enum Topic {
   Parser,
   Profile,
   Lookup,
+  Album,
   All,
 }

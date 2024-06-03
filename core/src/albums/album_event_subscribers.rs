@@ -1,5 +1,4 @@
 use super::{
-  album_interactor::AlbumInteractor,
   album_read_model::{
     AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack,
   },
@@ -52,21 +51,6 @@ impl From<&ParsedCredit> for AlbumReadModelCredit {
   }
 }
 
-struct AlbumSubscriberContext {
-  album_interactor: Arc<AlbumInteractor>,
-}
-
-impl AlbumSubscriberContext {
-  fn new(app_context: Arc<ApplicationContext>) -> Self {
-    Self {
-      album_interactor: Arc::new(AlbumInteractor::new(
-        Arc::clone(&app_context.album_repository),
-        Arc::clone(&app_context.album_search_index),
-      )),
-    }
-  }
-}
-
 async fn update_album_read_models(
   event_data: EventData,
   app_context: Arc<ApplicationContext>,
@@ -79,10 +63,7 @@ async fn update_album_read_models(
   } = &event_data.payload.event
   {
     let album_read_model = AlbumReadModel::from_parsed_album(file_name, parsed_album.clone());
-    AlbumSubscriberContext::new(app_context)
-      .album_interactor
-      .put(album_read_model)
-      .await?;
+    app_context.album_interactor.put(album_read_model).await?;
   }
   Ok(())
 }
@@ -93,10 +74,7 @@ async fn delete_album_read_models(
   _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
   if let Event::FileDeleted { file_name, .. } = &event_data.payload.event {
-    AlbumSubscriberContext::new(app_context)
-      .album_interactor
-      .delete(file_name)
-      .await?;
+    app_context.album_interactor.delete(file_name).await?;
   }
   Ok(())
 }
@@ -181,7 +159,7 @@ async fn update_album_embedding(
     let album_read_model = AlbumReadModel::from_parsed_album(file_name, parsed_album.clone());
     let embedding = provider.generate(&album_read_model).await?;
     app_context
-      .album_search_index
+      .album_interactor
       .put_embedding(&AlbumEmbedding {
         file_name: file_name.clone(),
         key: provider.name().to_string(),
