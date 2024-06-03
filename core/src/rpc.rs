@@ -1,5 +1,6 @@
 use crate::{
   albums::album_service::AlbumService,
+  artists::artist_service::ArtistService,
   context::ApplicationContext,
   crawler::crawler_service::CrawlerService,
   events::event_service::EventService,
@@ -9,10 +10,10 @@ use crate::{
   parser::parser_service::ParserService,
   profile::profile_service::ProfileService,
   proto::{
-    AlbumServiceServer, CrawlerServiceServer, EventServiceServer, FileServiceServer,
-    HealthCheckReply, LookupServiceServer, Lute, LuteServer, OperationsServiceServer,
-    ParserServiceServer, ProfileServiceServer, RecommendationServiceServer, SchedulerServiceServer,
-    SpotifyServiceServer, FILE_DESCRIPTOR_SET,
+    AlbumServiceServer, ArtistServiceServer, CrawlerServiceServer, EventServiceServer,
+    FileServiceServer, HealthCheckReply, LookupServiceServer, Lute, LuteServer,
+    OperationsServiceServer, ParserServiceServer, ProfileServiceServer,
+    RecommendationServiceServer, SchedulerServiceServer, SpotifyServiceServer, FILE_DESCRIPTOR_SET,
   },
   recommendations::recommendation_service::RecommendationService,
   scheduler::scheduler_service::SchedulerService,
@@ -69,6 +70,9 @@ impl RpcServer {
       )))
       .add_service(tonic_web::enable(AlbumServiceServer::new(
         AlbumService::new(Arc::clone(&self.app_context)),
+      )))
+      .add_service(tonic_web::enable(ArtistServiceServer::new(
+        ArtistService::new(Arc::clone(&self.app_context)),
       )))
       .add_service(tonic_web::enable(SpotifyServiceServer::new(
         SpotifyService::new(Arc::clone(&self.app_context)),

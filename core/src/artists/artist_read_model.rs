@@ -1,6 +1,6 @@
 use crate::{
   albums::album_read_model::AlbumReadModel, files::file_metadata::file_name::FileName,
-  helpers::item_with_factor::ItemWithFactor,
+  helpers::item_with_factor::ItemWithFactor, proto,
 };
 use chrono::Datelike;
 use derive_builder::Builder;
@@ -14,11 +14,35 @@ pub struct ArtistReadModelCredit {
   pub roles: Vec<String>,
 }
 
+impl From<ArtistReadModelCredit> for proto::ArtistCredit {
+  fn from(credit: ArtistReadModelCredit) -> Self {
+    Self {
+      album_file_name: credit.album_file_name.to_string(),
+      roles: credit.roles,
+    }
+  }
+}
+
 pub struct ArtistReadModel {
   pub name: String,
   pub file_name: FileName,
   pub album_file_names: Vec<FileName>,
   pub credits: Vec<ArtistReadModelCredit>,
+}
+
+impl From<ArtistReadModel> for proto::Artist {
+  fn from(artist: ArtistReadModel) -> Self {
+    Self {
+      name: artist.name,
+      file_name: artist.file_name.to_string(),
+      album_file_names: artist
+        .album_file_names
+        .iter()
+        .map(|f| f.to_string())
+        .collect(),
+      credits: artist.credits.into_iter().map(Into::into).collect(),
+    }
+  }
 }
 
 impl ArtistReadModel {
@@ -37,6 +61,25 @@ pub struct ArtistAlbumSummary {
   pub primary_genres: Vec<ItemWithFactor>,
   pub secondary_genres: Vec<ItemWithFactor>,
   pub descriptors: Vec<ItemWithFactor>,
+}
+
+impl From<ArtistAlbumSummary> for proto::ArtistAlbumSummary {
+  fn from(summary: ArtistAlbumSummary) -> Self {
+    Self {
+      album_count: summary.album_count,
+      average_rating: summary.average_rating,
+      total_rating_count: summary.total_rating_count,
+      min_year: summary.min_year,
+      max_year: summary.max_year,
+      primary_genres: summary.primary_genres.into_iter().map(Into::into).collect(),
+      secondary_genres: summary
+        .secondary_genres
+        .into_iter()
+        .map(Into::into)
+        .collect(),
+      descriptors: summary.descriptors.into_iter().map(Into::into).collect(),
+    }
+  }
 }
 
 impl ArtistAlbumSummary {
@@ -162,6 +205,18 @@ impl ArtistOverview {
       credit_roles,
       album_summary,
       credited_album_summary,
+    }
+  }
+}
+
+impl From<ArtistOverview> for proto::ArtistOverview {
+  fn from(overview: ArtistOverview) -> Self {
+    Self {
+      name: overview.name,
+      file_name: overview.file_name.to_string(),
+      credit_roles: overview.credit_roles.into_iter().map(Into::into).collect(),
+      album_summary: Some(overview.album_summary.into()),
+      credited_album_summary: Some(overview.credited_album_summary.into()),
     }
   }
 }

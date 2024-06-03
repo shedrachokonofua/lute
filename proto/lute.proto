@@ -904,3 +904,48 @@ service SchedulerService {
   rpc SetJobProcessorStatus(SetProcessorStatusRequest)
       returns (google.protobuf.Empty) {}
 }
+
+message ArtistCredit {
+  string album_file_name = 1;
+  repeated string roles = 2;
+}
+
+message Artist {
+  string name = 1;
+  string file_name = 2;
+  repeated string album_file_names = 3;
+  repeated ArtistCredit credits = 4;
+}
+
+message GetArtistRequest { string file_name = 1; }
+
+message GetArtistReply { Artist artist = 1; }
+
+message ArtistAlbumSummary {
+  uint32 album_count = 1;
+  float average_rating = 2;
+  uint32 total_rating_count = 3;
+  uint32 min_year = 4;
+  uint32 max_year = 5;
+  repeated ItemWithFactor primary_genres = 6;
+  repeated ItemWithFactor secondary_genres = 7;
+  repeated ItemWithFactor descriptors = 8;
+}
+
+message ArtistOverview {
+  string name = 1;
+  string file_name = 2;
+  repeated ItemWithFactor credit_roles = 3;
+  ArtistAlbumSummary album_summary = 4;
+  ArtistAlbumSummary credited_album_summary = 5;
+}
+
+message GetArtistOverviewRequest { string file_name = 1; }
+
+message GetArtistOverviewReply { ArtistOverview overview = 1; }
+
+service ArtistService {
+  rpc GetArtist(GetArtistRequest) returns (GetArtistReply) {}
+  rpc GetArtistOverview(GetArtistOverviewRequest)
+      returns (GetArtistOverviewReply) {}
+}
