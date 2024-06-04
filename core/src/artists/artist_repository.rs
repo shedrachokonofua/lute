@@ -94,7 +94,13 @@ impl ArtistRepository {
           JOIN albums ON credits.album_id = albums.id
           JOIN credit_roles ON credits.id = credit_roles.credit_id
           JOIN roles ON credit_roles.role_id = roles.id
+          JOIN album_artists ON albums.id = album_artists.album_id
           WHERE artists.file_name IN rarray(?)
+          AND credits.album_id NOT IN (
+            SELECT album_id
+            FROM album_artists
+            WHERE artist_id = artists.id
+          )
           ",
         )?;
         let rows = stmt

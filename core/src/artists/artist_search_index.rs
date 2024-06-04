@@ -6,9 +6,11 @@ use crate::{
     escape_search_query_text, get_min_num_query, get_tag_query, SearchIndexVersionManager,
     SearchPagination,
   },
+  proto,
 };
 use anyhow::{anyhow, Result};
 use derive_builder::Builder;
+use rustis::commands::SortOrder;
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
@@ -43,7 +45,7 @@ impl TryFrom<Vec<(String, String)>> for ArtistSearchRecord {
 
   fn try_from(values: Vec<(String, String)>) -> Result<Self> {
     let json = values
-      .first()
+      .get(1)
       .map(|(_, json)| json)
       .ok_or(anyhow!("invalid ArtistSearchRecord: missing json"))?;
     let record: ArtistSearchRecord = serde_json::from_str(json)?;
@@ -133,6 +135,34 @@ pub struct ArtistSearchQuery {
   pub min_album_count: Option<u32>,
 }
 
+impl TryFrom<proto::ArtistSearchQuery> for ArtistSearchQuery {
+  type Error = anyhow::Error;
+
+  fn try_from(value: proto::ArtistSearchQuery) -> Result<Self> {
+    Ok(Self {
+      text: value.text,
+      include_file_names: value
+        .include_file_names
+        .into_iter()
+        .map(FileName::try_from)
+        .collect::<Result<Vec<_>>>()?,
+      exclude_file_names: value
+        .exclude_file_names
+        .into_iter()
+        .map(FileName::try_from)
+        .collect::<Result<Vec<_>>>()?,
+      include_primary_genres: value.include_primary_genres,
+      exclude_primary_genres: value.exclude_primary_genres,
+      include_secondary_genres: value.include_secondary_genres,
+      exclude_secondary_genres: value.exclude_secondary_genres,
+      include_credit_roles: value.include_credit_roles,
+      exclude_credit_roles: value.exclude_credit_roles,
+      active_years_range: value.active_years_range.map(|r| (r.min, r.max)),
+      min_album_count: value.min_album_count,
+    })
+  }
+}
+
 impl ArtistSearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     let mut ft_search_query = String::from("");
@@ -145,24 +175,24 @@ impl ArtistSearchQuery {
     }
     ft_search_query.push_str(&get_tag_query("@file_name", &self.include_file_names));
     ft_search_query.push_str(&get_tag_query(
-      "@primary_genre",
+      "@primary_genres",
       &self.include_primary_genres,
     ));
     ft_search_query.push_str(&get_tag_query(
-      "@secondary_genre",
+      "@secondary_genres",
       &self.include_secondary_genres,
     ));
-    ft_search_query.push_str(&get_tag_query("@credit_role", &self.include_credit_roles));
+    ft_search_query.push_str(&get_tag_query("@credit_roles", &self.include_credit_roles));
     ft_search_query.push_str(&get_tag_query("-@file_name", &self.exclude_file_names));
     ft_search_query.push_str(&get_tag_query(
-      "-@primary_genre",
+      "-@primary_genres",
       &self.exclude_primary_genres,
     ));
     ft_search_query.push_str(&get_tag_query(
-      "-@secondary_genre",
+      "-@secondary_genres",
       &self.exclude_secondary_genres,
     ));
-    ft_search_query.push_str(&get_tag_query("-@credit_role", &self.exclude_credit_roles));
+    ft_search_query.push_str(&get_tag_query("-@credit_roles", &self.exclude_credit_roles));
     ft_search_query.trim().to_string()
   }
 }
@@ -267,17 +297,17 @@ impl ArtistSearchIndex {
   ) -> Result<ArtistSearchResult> {
     let limit = pagination.and_then(|p| p.limit).unwrap_or(50);
     let offset = pagination.and_then(|p| p.offset).unwrap_or(0);
-    let sort = pagination.and_then(|p| p.sort.clone());
-    let mut options = FtSearchOptions::default().limit(offset, limit);
-    if let Some((key, order)) = sort.map(|s| s.to_redisearch_sort()) {
-      options = options.sortby(key, order);
-    }
-
     let result = self
       .redis_connection_pool
       .get()
       .await?
-      .ft_search(self.index_name(), query.to_ft_search_query(), options)
+      .ft_search(
+        self.index_name(),
+        query.to_ft_search_query(),
+        FtSearchOptions::default()
+          .limit(offset, limit)
+          .sortby("total_rating_count", SortOrder::Desc),
+      )
       .await?;
 
     let records = result

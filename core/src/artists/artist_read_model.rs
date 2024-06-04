@@ -23,6 +23,7 @@ impl From<ArtistReadModelCredit> for proto::ArtistCredit {
   }
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct ArtistReadModel {
   pub name: String,
   pub file_name: FileName,

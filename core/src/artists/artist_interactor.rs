@@ -114,7 +114,7 @@ impl ArtistInteractor {
     pagination: Option<&SearchPagination>,
   ) -> Result<(Vec<ArtistOverview>, usize)> {
     let result = self.artist_search_index.search(query, pagination).await?;
-    let overviews = self
+    let mut overviews = self
       .get_overviews(
         result
           .artists
@@ -125,6 +125,15 @@ impl ArtistInteractor {
           .collect(),
       )
       .await?;
-    Ok((overviews.values().cloned().collect(), result.total))
+    let sorted_overviews = result
+      .artists
+      .into_iter()
+      .filter_map(|artist| {
+        FileName::try_from(artist.file_name.clone())
+          .ok()
+          .and_then(|file_name| overviews.remove(&file_name))
+      })
+      .collect();
+    Ok((sorted_overviews, result.total))
   }
 }
