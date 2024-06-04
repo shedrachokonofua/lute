@@ -4,7 +4,7 @@ use super::album_read_model::{
 use crate::{files::file_metadata::file_name::FileName, sqlite::SqliteConnection};
 use anyhow::{anyhow, Result};
 use chrono::NaiveDate;
-use rusqlite::{params, types::Value};
+use rusqlite::{params, types::Value, OptionalExtension};
 use std::{
   collections::{HashMap, HashSet},
   rc::Rc,
@@ -786,16 +786,24 @@ impl AlbumRepository {
           params![album_id],
         )?;
         for credit in album.credits {
-          let artist_id: i64 = tx.query_row(
-            "
-            INSERT INTO artists (file_name, name) 
-            VALUES (?, ?) 
-            ON CONFLICT(file_name) DO UPDATE SET name = excluded.name
-            RETURNING id
-            ",
-            params![credit.artist.file_name.to_string(), credit.artist.name],
-            |row| row.get(0),
-          )?;
+          let artist_id = match tx.query_row(
+            "SELECT id FROM artists WHERE file_name = ?",
+            params![credit.artist.file_name.to_string()],
+            |row| row.get::<_, i64>(0)
+          ).optional()? {
+            Some(id) => id,
+            None => {
+              tx.query_row(
+                "
+                INSERT INTO artists (file_name, name) 
+                VALUES (?, ?) 
+                RETURNING id
+                ",
+                params![credit.artist.file_name.to_string(), credit.artist.name],
+                |row| row.get::<_, i64>(0)
+              )?
+            }
+          };
           let credit_id: i64 = tx.query_row(
             "
             INSERT INTO credits (album_id, artist_id)
