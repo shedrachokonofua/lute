@@ -1,59 +1,17 @@
 # Todo
 
 - V1:
-
+  - [ ] Artist similarity search using elasticsearch
+  - [ ] Migrate from redisearch to elasticsearch
+  - [ ] Migrate from remaining redis usage to sqlite
+  - [ ] Clean-up UI glitches on web caused by mantine update
+  - [ ] Scheduler error handling: Retry, backoff, circuit breaker
+  - [ ] Event bus error handling: Retry, backoff, circuit breaker
+  - [ ] Lookup module refactor
+  - [ ] Add profile switcher to discord bot
   - [ ] Docker images
   - [ ] Versioning
   - [ ] Release tagging
-  - Readme:
-    - [ ] Example docker compose file, simple setup
-  - Features:
-    - Misc:
-      - [x] Scheduled tasks
-      - [x] Make telemetry optional
-    - Files:
-      - [x] Fix staleness check
-      - [ ] Support local disk file content storage
-      - [ ] Migrate to SQLite
-      - [x] Deletion + RPC method
-    - Web:
-      - [ ] Add to docker image
-    - Crawler:
-      - [x] Migrate to scheduler
-      - [ ] RYM IP ban detection
-      - [x] Automatic rate limit reset
-      - [x] Make crawler proxy optional
-    - Events:
-      - [x] Migrate to SQLite
-      - [x] Support ordered processing groups
-    - Album read model:
-      - [x] Duplicate album detection
-
-- Backlog:
-  - [x] Parser: Extract album spotify id
-  - [x] Recommendations(Vector similarity): Generate album embeddings using OpenAI api
-  - [x] Recommendations(Vector similarity): Album recommendations, rpc method
-  - [x] Extension: Album assessment popup
-  - [ ] Events: Full correlation id and causation id support
-  - [x] Files: File content download rpc method
-  - [ ] Files: File content not found event. Should trigger crawling.
-  - [ ] Connector: P2P
-  - [ ] SSL support
-  - [x] Events: Subscriber monitor(status, etc)
-  - [x] Events: Subscriber statuses, iterator reset
-  - [ ] Web(Recommendation page): Album context menu: Delete File, Add to profile
-  - [ ] Lookup: Chart
-  - [ ] Web(Recommendation page): Expose novelty score setting
-  - [x] Web(Profile page): Bootstrap basic page for profile CRUD
-  - [ ] Flag to rebuild redisearch indexes on startup
-  - [x] Parser: Extract album cover image
-  - [ ] Web(Recommendation page): Settings presets
-  - [x] Album read model repository stats, rpc method
-  - [ ] Parser: Retry queue monitor, rpc method
-  - [ ] Profile: Import data from spotify most played tracks
-  - [ ] Lookup: Artist
-  - [x] Recommendations: Export to spotify playlist
-  - [ ] Parser: Parser versioning, Target site change detection + playbook
-  - [ ] Recommendations: T-SNE Visualization export
-  - [ ] RYM Reviews: Crawl, parse, store, generate embeddings
-  - [ ] Telemetry: Export logs to otel collector(Blocked, crate support currently WIP)
+  - [ ] Example docker compose file, simple setup
+  - [ ] Add web to core docker image
+  - [ ] Support local disk file content storage
