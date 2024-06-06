@@ -15,6 +15,10 @@ export const lute = {
     config.coreUrl,
     ChannelCredentials.createInsecure()
   ),
+  artists: new core.ArtistServiceClient(
+    config.coreUrl,
+    ChannelCredentials.createInsecure()
+  ),
 };
 
 export const getAlbumMonitor = async () => {
@@ -141,4 +145,51 @@ export const findSimilarAlbums = async (params: FindSimilarAlbumsParams) => {
   });
   const results = await lute.albums.FindSimilarAlbums(request);
   return results.albums.map((album) => album.toObject());
+};
+
+export interface ArtistQuery {
+  text: string;
+  excludeFileNames: string[];
+  includePrimaryGenres: string[];
+  excludePrimaryGenres: string[];
+  includeSecondaryGenres: string[];
+  excludeSecondaryGenres: string[];
+  includeCreditRoles: string[];
+  excludeCreditRoles: string[];
+  activeYearsRange?: [number, number];
+  minAlbumCount?: number;
+}
+
+const toArtistSearchQuery = (query?: ArtistQuery) => {
+  return new core.ArtistSearchQuery({
+    text: query?.text,
+    excludeFileNames: query?.excludeFileNames,
+    includePrimaryGenres: query?.includePrimaryGenres,
+    excludePrimaryGenres: query?.excludePrimaryGenres,
+    includeSecondaryGenres: query?.includeSecondaryGenres,
+    excludeSecondaryGenres: query?.excludeSecondaryGenres,
+    includeCreditRoles: query?.includeCreditRoles,
+    excludeCreditRoles: query?.excludeCreditRoles,
+    activeYearsRange: query?.activeYearsRange ? new core.YearRange({
+      start: query?.activeYearsRange?.[0],
+      end: query?.activeYearsRange?.[1],
+    }) : undefined,
+    minAlbumCount: query?.minAlbumCount,
+  });
+};
+
+export interface ArtistSearchParams {
+  query: ArtistQuery;
+  pagination: Pagination;
+}
+
+export const searchArtists = async (params: ArtistSearchParams) => {
+  console.log(params)
+  const request = new core.SearchArtistsRequest({
+    query: toArtistSearchQuery(params.query),
+    pagination: toPagination(params.pagination),
+  });
+  const results = await lute.artists.SearchArtists(request);
+  console.log(results)
+  return results.artists.map((artist) => artist.toObject());
 };

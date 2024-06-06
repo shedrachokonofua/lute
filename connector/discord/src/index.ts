@@ -5,6 +5,7 @@ import {
   getAlbumMonitor,
   recommendAlbums,
   searchAlbums,
+  searchArtists,
 } from "./lute";
 import OpenAI from "openai";
 import { RunnableToolFunction } from "openai/lib/RunnableFunction";
@@ -244,6 +245,64 @@ class ChatSession {
                 required: ["query.text"],
               },
               function: async (args: any) => searchAlbums(args),
+              parse: JSON.parse,
+            },
+          } as RunnableToolFunction<any>,
+          {
+            type: "function",
+            function: {
+              name: "searchArtists",
+              description:
+                "Search artists based on user query. You can use this to search up for a specific artist, but don't rely on this for recommendations, but use this to build more context. Don't use this to determine good/bad. You can also use this to get the fileName of the album to use in other functions.",
+              parameters: {
+                type: "object",
+                properties: {
+                  pagination: {
+                    type: "object",
+                    properties: {
+                      offset: {
+                        type: "number",
+                        description: "Offset for search results",
+                      },
+                      limit: {
+                        type: "number",
+                        description:
+                          "Number of results to return. Be liberal with this for artist you think have a lot of albums.",
+                      },
+                    },
+                  },
+                  query: {
+                    type: "object",
+                    properties: {
+                      text: {
+                        type: "string",
+                        description:
+                          "Text to search for. Can ONLY be an artist name. Don't put genres, languages or descriptors here, it will be incorrect.",
+                      },
+                      excludeFileNames: {
+                        type: "array",
+                        items: {
+                          type: "string",
+                        },
+                        description:
+                          "File names to exclude from search results.",
+                      },
+                      includePrimaryGenres: {
+                        description:
+                          "Primary genres to include in recommendations",
+                        $ref: "#/definitions/genreArray",
+                      },
+                      includeSecondaryGenres: {
+                        description:
+                          "Secondary genres to include in recommendations",
+                        $ref: "#/definitions/genreArray",
+                      },
+                    },
+                  },
+                },
+                required: ["query.text"],
+              },
+              function: async (args: any) => searchArtists(args),
               parse: JSON.parse,
             },
           } as RunnableToolFunction<any>,
