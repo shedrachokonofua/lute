@@ -91,6 +91,7 @@ export const AlbumSearchInput = ({
       onChange={setValue}
       renderOption={renderSelectOption}
       maxDropdownHeight={350}
+      filter={({ options }) => options}
       required
     />
   );
