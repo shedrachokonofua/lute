@@ -1,15 +1,14 @@
 use super::{
   artist_read_model::{ArtistOverview, ArtistReadModel},
   artist_repository::ArtistRepository,
-  artist_search_index::{ArtistSearchIndex, ArtistSearchQuery},
+  artist_search_index::{ArtistSearchIndex, ArtistSearchQuery, ArtistSearchRecord},
 };
 use crate::{
   albums::album_interactor::AlbumInteractor, files::file_metadata::file_name::FileName,
   helpers::redisearch::SearchPagination, sqlite::SqliteConnection,
 };
 use anyhow::Result;
-use futures::future::join_all;
-use rustis::{bb8::Pool, client::PooledClientManager};
+use elasticsearch::Elasticsearch;
 use std::{
   collections::{HashMap, HashSet},
   sync::Arc,
@@ -25,12 +24,12 @@ pub struct ArtistInteractor {
 impl ArtistInteractor {
   pub fn new(
     sqlite_connection: Arc<SqliteConnection>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
+    elasticsearch_client: Arc<Elasticsearch>,
     album_interactor: Arc<AlbumInteractor>,
   ) -> Self {
     Self {
       artist_repository: ArtistRepository::new(sqlite_connection),
-      artist_search_index: ArtistSearchIndex::new(redis_connection_pool),
+      artist_search_index: ArtistSearchIndex::new(elasticsearch_client),
       album_interactor,
     }
   }
@@ -102,15 +101,18 @@ impl ArtistInteractor {
       .map(|mut overviews| overviews.remove(&artist_file_name))
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip_all, fields(artists = artist_file_names.len()))]
   pub async fn update_search_records(&self, artist_file_names: Vec<FileName>) -> Result<()> {
     let overviews = self.get_overviews(artist_file_names).await?;
-    join_all(
-      overviews
-        .into_iter()
-        .map(|(_, overview)| self.artist_search_index.put(overview)),
-    )
-    .await;
+    self
+      .artist_search_index
+      .put_many(
+        overviews
+          .into_iter()
+          .map(|(_, overview)| overview.into())
+          .collect::<Vec<ArtistSearchRecord>>(),
+      )
+      .await?;
     Ok(())
   }
 

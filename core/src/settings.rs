@@ -99,6 +99,11 @@ pub struct EmbeddingProviderSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct ElasticSearchSettings {
+  pub url: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Settings {
   pub crawler: CrawlerSettings,
   pub file: FileSettings,
@@ -109,6 +114,7 @@ pub struct Settings {
   pub tracing: TracingSettings,
   pub parser: ParserSettings,
   pub embedding_provider: EmbeddingProviderSettings,
+  pub elasticsearch: ElasticSearchSettings,
 }
 
 impl Settings {

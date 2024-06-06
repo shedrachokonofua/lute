@@ -78,7 +78,5 @@ pub async fn setup_redis_indexes(app_context: Arc<ApplicationContext>) -> Result
     .setup_index()
     .await?;
 
-  app_context.artist_interactor.setup_search_index().await?;
-
   Ok(())
 }

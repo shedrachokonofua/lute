@@ -1,33 +1,20 @@
 use super::artist_read_model::ArtistOverview;
-use crate::helpers::redisearch::get_max_num_query;
 use crate::{
-  files::file_metadata::file_name::FileName,
-  helpers::redisearch::{
-    escape_search_query_text, get_min_num_query, get_tag_query, SearchIndexVersionManager,
-    SearchPagination,
-  },
-  proto,
+  files::file_metadata::file_name::FileName, helpers::redisearch::SearchPagination, proto,
 };
 use anyhow::{anyhow, Result};
 use derive_builder::Builder;
-use rustis::commands::SortOrder;
-use rustis::{
-  bb8::Pool,
-  client::PooledClientManager,
-  commands::{
-    FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtSearchOptions, JsonCommands,
-    SearchCommands, SetCondition,
-  },
-};
+use elasticsearch::http::request::JsonBody;
+use elasticsearch::{BulkParts, Elasticsearch, IndexParts, SearchParts};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::cmp::{max, min};
 use std::sync::Arc;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct ArtistSearchRecord {
   pub name: String,
-  pub ascii_name: String,
   pub file_name: String,
   pub total_rating_count: u32,
   pub min_year: u32,
@@ -73,7 +60,6 @@ impl From<ArtistOverview> for ArtistSearchRecord {
   fn from(overview: ArtistOverview) -> Self {
     Self {
       name: overview.name.clone(),
-      ascii_name: overview.ascii_name(),
       file_name: overview.file_name.to_string(),
       total_rating_count: overview.album_summary.total_rating_count
         + overview.credited_album_summary.total_rating_count,
@@ -158,128 +144,224 @@ impl TryFrom<proto::ArtistSearchQuery> for ArtistSearchQuery {
 }
 
 impl ArtistSearchQuery {
-  pub fn to_ft_search_query(&self) -> String {
-    let mut ft_search_query = String::from("");
+  pub fn to_es_query(&self) -> Value {
+    let mut query = json!({
+      "bool": {
+        "must": [],
+        "must_not": []
+      }
+    });
     if let Some(text) = &self.text {
-      ft_search_query.push_str(&format!("({}) ", escape_search_query_text(text)));
+      query["bool"]["must"].as_array_mut().unwrap().push(json!({
+        "match": {
+          "name": {
+            "query": text,
+            "fuzziness": "AUTO"
+          }
+        }
+      }));
     }
     if let Some((start_year, end_year)) = self.active_years_range {
-      ft_search_query.push_str(&get_min_num_query("@min_year", Some(start_year as usize)));
-      ft_search_query.push_str(&get_max_num_query("@max_year", Some(end_year as usize)));
+      query["bool"]["must"].as_array_mut().unwrap().push(json!({
+        "range": {
+          "min_year": {
+            "gte": start_year
+          }
+        }
+      }));
+      query["bool"]["must"].as_array_mut().unwrap().push(json!({
+        "range": {
+          "max_year": {
+            "lte": end_year
+          }
+        }
+      }));
     }
-    ft_search_query.push_str(&get_tag_query(
-      "@primary_genres",
-      &self.include_primary_genres,
-    ));
-    ft_search_query.push_str(&get_tag_query(
-      "@secondary_genres",
-      &self.include_secondary_genres,
-    ));
-    ft_search_query.push_str(&get_tag_query("@credit_roles", &self.include_credit_roles));
-    ft_search_query.push_str(&get_tag_query("-@file_name", &self.exclude_file_names));
-    ft_search_query.push_str(&get_tag_query(
-      "-@primary_genres",
-      &self.exclude_primary_genres,
-    ));
-    ft_search_query.push_str(&get_tag_query(
-      "-@secondary_genres",
-      &self.exclude_secondary_genres,
-    ));
-    ft_search_query.push_str(&get_tag_query("-@credit_roles", &self.exclude_credit_roles));
-    ft_search_query.trim().to_string()
+    if !self.include_primary_genres.is_empty() {
+      query["bool"]["must"].as_array_mut().unwrap().push(json!({
+        "terms": {
+          "primary_genres": self.include_primary_genres
+        }
+      }));
+    }
+    if !self.include_secondary_genres.is_empty() {
+      query["bool"]["must"].as_array_mut().unwrap().push(json!({
+        "terms": {
+          "secondary_genres": self.include_secondary_genres
+        }
+      }));
+    }
+    if !self.include_credit_roles.is_empty() {
+      query["bool"]["must"].as_array_mut().unwrap().push(json!({
+        "terms": {
+          "credit_roles": self.include_credit_roles
+        }
+      }));
+    }
+    if !self.exclude_file_names.is_empty() {
+      query["bool"]["must_not"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+          "terms": {
+            "file_name": self.exclude_file_names
+          }
+        }));
+    }
+    if !self.exclude_primary_genres.is_empty() {
+      query["bool"]["must_not"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+            "terms": {
+              "primary_genres": self.exclude_primary_genres
+          }
+        }));
+    }
+    if !self.exclude_secondary_genres.is_empty() {
+      query["bool"]["must_not"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+            "terms": {
+              "secondary_genres": self.exclude_secondary_genres
+          }
+        }));
+    }
+    if !self.exclude_credit_roles.is_empty() {
+      query["bool"]["must_not"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+          "terms": {
+            "credit_roles": self.exclude_credit_roles
+          }
+        }));
+    }
+    if query["bool"]["must"].as_array().unwrap().is_empty()
+      && query["bool"]["must_not"].as_array().unwrap().is_empty()
+    {
+      query = json!({
+          "match_all": {}
+      });
+    }
+    query
   }
 }
 
+const INDEX_NAME: &str = "poc-artists";
+
 pub struct ArtistSearchIndex {
-  redis_connection_pool: Arc<Pool<PooledClientManager>>,
-  version_manager: SearchIndexVersionManager,
-}
-
-const NAMESPACE: &str = "artist";
-const INDEX_VERSION: u32 = 1;
-
-fn redis_key(file_name: &FileName) -> String {
-  format!("{}:{}", NAMESPACE, file_name.to_string())
+  elasticsearch_client: Arc<Elasticsearch>,
 }
 
 impl ArtistSearchIndex {
-  fn get_schema() -> Vec<FtFieldSchema> {
-    let schema = vec![
-      FtFieldSchema::identifier("$.ascii_name")
-        .as_attribute("ascii_name")
-        .field_type(FtFieldType::Text)
-        .weight(2.0),
-      FtFieldSchema::identifier("$.file_name")
-        .as_attribute("file_name")
-        .field_type(FtFieldType::Tag),
-      FtFieldSchema::identifier("$.total_rating_count")
-        .as_attribute("total_rating_count")
-        .field_type(FtFieldType::Numeric)
-        .sortable(),
-      FtFieldSchema::identifier("$.min_year")
-        .as_attribute("min_year")
-        .field_type(FtFieldType::Numeric)
-        .sortable(),
-      FtFieldSchema::identifier("$.max_year")
-        .as_attribute("max_year")
-        .field_type(FtFieldType::Numeric)
-        .sortable(),
-      FtFieldSchema::identifier("$.album_count")
-        .as_attribute("album_count")
-        .field_type(FtFieldType::Numeric),
-      FtFieldSchema::identifier("$.credit_roles.*")
-        .as_attribute("credit_roles")
-        .field_type(FtFieldType::Tag),
-      FtFieldSchema::identifier("$.primary_genres.*")
-        .as_attribute("primary_genres")
-        .field_type(FtFieldType::Tag),
-      FtFieldSchema::identifier("$.secondary_genres.*")
-        .as_attribute("secondary_genres")
-        .field_type(FtFieldType::Tag),
-    ];
-    schema
-  }
-
-  pub fn new(redis_connection_pool: Arc<Pool<PooledClientManager>>) -> Self {
+  pub fn new(elasticsearch_client: Arc<Elasticsearch>) -> Self {
     Self {
-      version_manager: SearchIndexVersionManager::new(
-        Arc::clone(&redis_connection_pool),
-        INDEX_VERSION,
-        "artist-idx".to_string(),
-      ),
-      redis_connection_pool,
+      elasticsearch_client,
     }
   }
 
   pub async fn setup_index(&self) -> Result<()> {
-    self
-      .version_manager
-      .setup_index(
-        FtCreateOptions::default()
-          .on(FtIndexDataType::Json)
-          .prefix(format!("{}:", NAMESPACE)),
-        ArtistSearchIndex::get_schema(),
-      )
-      .await
-  }
-
-  fn index_name(&self) -> String {
-    self.version_manager.latest_index_name()
-  }
-
-  pub async fn put(&self, artist: ArtistOverview) -> Result<()> {
-    let connection = self.redis_connection_pool.get().await?;
-    let file_name = artist.file_name.clone();
-    let record = ArtistSearchRecord::from(artist);
-    connection
-      .json_set(
-        redis_key(&file_name),
-        "$",
-        serde_json::to_string(&record)?,
-        SetCondition::default(),
-      )
+    let res = self
+      .elasticsearch_client
+      .index(IndexParts::Index(INDEX_NAME))
+      .body(json!({
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "analysis": {
+            "analyzer": {
+              "ascii_analyzer": {
+                "tokenizer": "standard",
+                "filter": [
+                  "lowercase",
+                  "asciifolding"
+                ]
+              }
+            }
+          }
+        },
+        "mappings": {
+          "properties": {
+            "name": {
+              "type": "text",
+              "analyzer": "ascii_analyzer"
+            },
+            "file_name": {
+              "type": "keyword"
+            },
+            "total_rating_count": {
+              "type": "integer"
+            },
+            "min_year": {
+              "type": "integer"
+            },
+            "max_year": {
+              "type": "integer"
+            },
+            "album_count": {
+              "type": "integer"
+            },
+            "credit_roles": {
+              "type": "keyword"
+            },
+            "primary_genres": {
+              "type": "keyword"
+            },
+            "creditted_primary_genres": {
+              "type": "keyword"
+            },
+            "secondary_genres": {
+              "type": "keyword"
+            },
+            "creditted_secondary_genres": {
+              "type": "keyword"
+            }
+          }
+        },
+      }))
+      .send()
       .await?;
+    let response_body = res.json::<Value>().await?;
+    info!("ElasticSearch index setup: {:?}", response_body);
     Ok(())
+  }
+
+  #[instrument(skip_all, fields(artists = artists.len()))]
+  pub async fn put_many(&self, artists: Vec<ArtistSearchRecord>) -> Result<()> {
+    let count = artists.len();
+    let body = artists
+      .into_iter()
+      .flat_map(|artist| {
+        vec![
+          json!({
+            "index": {
+              "_id": artist.file_name
+            }
+          })
+          .into(),
+          json!(artist).into(),
+        ]
+      })
+      .collect::<Vec<JsonBody<Value>>>();
+    let res = self
+      .elasticsearch_client
+      .bulk(BulkParts::Index(INDEX_NAME))
+      .body(body)
+      .send()
+      .await?;
+    let response_body = res.json::<Value>().await?;
+    if response_body["errors"].as_bool().unwrap_or(false) {
+      return Err(anyhow!("Failed to put artists: {:?}", response_body));
+    }
+    let took = response_body["took"].as_i64().unwrap();
+    info!("ElasticSearch put {} artists in {}ms", count, took);
+    Ok(())
+  }
+
+  pub async fn put(&self, artist: ArtistSearchRecord) -> Result<()> {
+    self.put_many(vec![artist]).await
   }
 
   #[instrument(skip(self))]
@@ -288,36 +370,47 @@ impl ArtistSearchIndex {
     query: &ArtistSearchQuery,
     pagination: Option<&SearchPagination>,
   ) -> Result<ArtistSearchResult> {
-    let limit = pagination.and_then(|p| p.limit).unwrap_or(50);
-    let offset = pagination.and_then(|p| p.offset).unwrap_or(0);
-    let result = self
-      .redis_connection_pool
-      .get()
-      .await?
-      .ft_search(
-        self.index_name(),
-        query.to_ft_search_query(),
-        FtSearchOptions::default()
-          .limit(offset, limit)
-          .sortby("total_rating_count", SortOrder::Desc),
-      )
+    let offset = pagination
+      .and_then(|p: &SearchPagination| p.offset)
+      .unwrap_or(0) as i64;
+    let limit = pagination.and_then(|p| p.limit).unwrap_or(50) as i64;
+    let query = query.to_es_query();
+    let res = self
+      .elasticsearch_client
+      .search(SearchParts::Index(&[INDEX_NAME]))
+      .from(offset)
+      .size(limit)
+      .body(json!({
+        "query": query,
+      }))
+      .send()
       .await?;
 
-    let records = result
-      .results
+    let mut response_body = res.json::<Value>().await?;
+
+    let took = response_body["took"].as_i64().unwrap();
+    let total = response_body["hits"]["total"]["value"].as_i64().unwrap();
+    info!(
+      "ElasticSearch returned artists in {}ms, total: {}",
+      took, total
+    );
+
+    let records = response_body["hits"]["hits"]
+      .as_array_mut()
+      .unwrap()
       .into_iter()
-      .filter_map(|r| match r.values.try_into() {
-        Ok(record) => Some(record),
-        Err(e) => {
-          tracing::warn!("Failed to deserialize ArtistSearchRecord: {}", e);
-          None
-        }
+      .filter_map(|hit| {
+        serde_json::from_value::<ArtistSearchRecord>(hit["_source"].take())
+          .inspect_err(|e| {
+            info!("Failed to parse ArtistSearchRecord: {:?}", e);
+          })
+          .ok()
       })
-      .collect::<Vec<_>>();
+      .collect::<Vec<ArtistSearchRecord>>();
 
     Ok(ArtistSearchResult {
       artists: records,
-      total: result.total_results,
+      total: total as usize,
     })
   }
 }

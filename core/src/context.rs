@@ -19,6 +19,7 @@ use crate::{
 };
 use anyhow::Result;
 use dotenv::dotenv;
+use elasticsearch::{http::transport::Transport, Elasticsearch};
 use rustis::{bb8::Pool, client::PooledClientManager};
 use std::sync::Arc;
 
@@ -36,6 +37,7 @@ pub struct ApplicationContext {
   pub event_publisher: Arc<EventPublisher>,
   pub scheduler: Arc<Scheduler>,
   pub spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
+  pub elasticsearch_client: Arc<Elasticsearch>,
 }
 
 impl ApplicationContext {
@@ -44,6 +46,9 @@ impl ApplicationContext {
     let settings = Arc::new(Settings::new()?);
     setup_tracing(&settings.tracing)?;
 
+    let elasticsearch_client = Arc::new(Elasticsearch::new(Transport::single_node(
+      &settings.elasticsearch.url,
+    )?));
     let sqlite_connection = Arc::new(SqliteConnection::new(Arc::clone(&settings)).await?);
     let kv = Arc::new(KeyValueStore::new(Arc::clone(&sqlite_connection)));
     let redis_connection_pool =
@@ -90,7 +95,7 @@ impl ApplicationContext {
     ));
     let artist_interactor = Arc::new(ArtistInteractor::new(
       Arc::clone(&sqlite_connection),
-      Arc::clone(&redis_connection_pool),
+      Arc::clone(&elasticsearch_client),
       Arc::clone(&album_interactor),
     ));
 
@@ -108,6 +113,7 @@ impl ApplicationContext {
       spotify_track_search_index,
       artist_interactor,
       album_interactor,
+      elasticsearch_client,
     }))
   }
 }

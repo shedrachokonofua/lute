@@ -50,9 +50,15 @@ async fn setup_jobs(context: Arc<ApplicationContext>) -> Result<()> {
   Ok(())
 }
 
+async fn setup_elasticsearch_indexes(context: Arc<ApplicationContext>) -> Result<()> {
+  context.artist_interactor.setup_search_index().await?;
+  Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
   let context = ApplicationContext::init().await?;
+  setup_elasticsearch_indexes(Arc::clone(&context)).await?;
   setup_redis_indexes(Arc::clone(&context)).await?;
   start_event_subscribers(Arc::clone(&context))?;
   setup_jobs(Arc::clone(&context)).await?;
