@@ -170,7 +170,7 @@ impl ArtistOverview {
     unidecode(&self.name)
   }
 
-  pub fn new(artist: ArtistReadModel, albums: &HashMap<FileName, AlbumReadModel>) -> Self {
+  pub fn new(artist: &ArtistReadModel, albums: &HashMap<FileName, AlbumReadModel>) -> Self {
     let mut credit_roles = HashMap::new();
     for credit in &artist.credits {
       for role in &credit.roles {
@@ -201,8 +201,8 @@ impl ArtistOverview {
     );
 
     Self {
-      name: artist.name,
-      file_name: artist.file_name,
+      name: artist.name.clone(),
+      file_name: artist.file_name.clone(),
       credit_roles,
       album_summary,
       credited_album_summary,

@@ -123,7 +123,6 @@ impl From<ArtistOverview> for ArtistSearchRecord {
 #[builder(setter(into), default)]
 pub struct ArtistSearchQuery {
   pub text: Option<String>,
-  pub include_file_names: Vec<FileName>,
   pub exclude_file_names: Vec<FileName>,
   pub include_primary_genres: Vec<String>,
   pub exclude_primary_genres: Vec<String>,
@@ -141,11 +140,6 @@ impl TryFrom<proto::ArtistSearchQuery> for ArtistSearchQuery {
   fn try_from(value: proto::ArtistSearchQuery) -> Result<Self> {
     Ok(Self {
       text: value.text,
-      include_file_names: value
-        .include_file_names
-        .into_iter()
-        .map(FileName::try_from)
-        .collect::<Result<Vec<_>>>()?,
       exclude_file_names: value
         .exclude_file_names
         .into_iter()
@@ -157,7 +151,7 @@ impl TryFrom<proto::ArtistSearchQuery> for ArtistSearchQuery {
       exclude_secondary_genres: value.exclude_secondary_genres,
       include_credit_roles: value.include_credit_roles,
       exclude_credit_roles: value.exclude_credit_roles,
-      active_years_range: value.active_years_range.map(|r| (r.min, r.max)),
+      active_years_range: value.active_years_range.map(|r| (r.start, r.end)),
       min_album_count: value.min_album_count,
     })
   }
@@ -173,7 +167,6 @@ impl ArtistSearchQuery {
       ft_search_query.push_str(&get_min_num_query("@min_year", Some(start_year as usize)));
       ft_search_query.push_str(&get_max_num_query("@max_year", Some(end_year as usize)));
     }
-    ft_search_query.push_str(&get_tag_query("@file_name", &self.include_file_names));
     ft_search_query.push_str(&get_tag_query(
       "@primary_genres",
       &self.include_primary_genres,

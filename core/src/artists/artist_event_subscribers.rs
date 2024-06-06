@@ -10,7 +10,7 @@ use crate::{
   group_event_handler,
 };
 use anyhow::Result;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 use tracing::info;
 
 pub async fn update_artist_search_records(
@@ -42,6 +42,8 @@ pub async fn update_artist_search_records(
         .map(|credit| credit.artist.file_name.clone())
         .chain(album.artists.iter().map(|artist| artist.file_name.clone()))
     })
+    .collect::<HashSet<_>>()
+    .into_iter()
     .collect::<Vec<_>>();
   info!(count = artist_file_names.len(), "Found artist file names");
 

@@ -60,13 +60,19 @@ impl proto::ArtistService for ArtistService {
       .map(|q| ArtistSearchQuery::try_from(q).map_err(|e| Status::invalid_argument(e.to_string())))
       .transpose()?
       .unwrap_or_default();
-    let (overviews, total) = self
+    let (results, total) = self
       .artist_interactor
       .search(&query, request.pagination.map(Into::into).as_ref())
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
     Ok(Response::new(proto::SearchArtistsReply {
-      overviews: overviews.into_iter().map(Into::into).collect(),
+      artists: results
+        .into_iter()
+        .map(|(artist, overview)| proto::ArtistSearchResultItem {
+          artist: Some(artist.into()),
+          overview: Some(overview.into()),
+        })
+        .collect(),
       total: total as u32,
     }))
   }

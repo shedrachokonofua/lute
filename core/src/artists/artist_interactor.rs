@@ -58,12 +58,10 @@ impl ArtistInteractor {
   }
 
   #[instrument(skip(self))]
-  pub async fn get_overviews(
+  async fn get_overviews_with_artist_map(
     &self,
-    artist_file_names: Vec<FileName>,
+    artists: &HashMap<FileName, ArtistReadModel>,
   ) -> Result<HashMap<FileName, ArtistOverview>> {
-    let artists = self.find_many(artist_file_names).await?;
-
     let mut album_file_names = HashSet::new();
     for artist in artists.values() {
       for album_file_name in &artist.album_file_names {
@@ -81,10 +79,19 @@ impl ArtistInteractor {
     let mut overviews = HashMap::new();
     for (file_name, artist) in artists {
       let overview = ArtistOverview::new(artist, &albums);
-      overviews.insert(file_name, overview);
+      overviews.insert(file_name.clone(), overview);
     }
 
     Ok(overviews)
+  }
+
+  #[instrument(skip(self))]
+  pub async fn get_overviews(
+    &self,
+    artist_file_names: Vec<FileName>,
+  ) -> Result<HashMap<FileName, ArtistOverview>> {
+    let artists = self.find_many(artist_file_names).await?;
+    self.get_overviews_with_artist_map(&artists).await
   }
 
   #[instrument(skip(self))]
@@ -112,28 +119,29 @@ impl ArtistInteractor {
     &self,
     query: &ArtistSearchQuery,
     pagination: Option<&SearchPagination>,
-  ) -> Result<(Vec<ArtistOverview>, usize)> {
+  ) -> Result<(Vec<(ArtistReadModel, ArtistOverview)>, usize)> {
     let result = self.artist_search_index.search(query, pagination).await?;
-    let mut overviews = self
-      .get_overviews(
-        result
-          .artists
-          .iter()
-          .filter_map(|artist: &super::artist_search_index::ArtistSearchRecord| {
-            FileName::try_from(artist.file_name.clone()).ok()
-          })
-          .collect(),
-      )
-      .await?;
-    let sorted_overviews = result
+    let file_names = result
+      .artists
+      .iter()
+      .filter_map(|artist| FileName::try_from(artist.file_name.clone()).ok())
+      .collect();
+    let mut artists = self.find_many(file_names).await?;
+    let mut overviews = self.get_overviews_with_artist_map(&artists).await?;
+    let output = result
       .artists
       .into_iter()
       .filter_map(|artist| {
         FileName::try_from(artist.file_name.clone())
           .ok()
-          .and_then(|file_name| overviews.remove(&file_name))
+          .and_then(
+            |file_name| match (artists.remove(&file_name), overviews.remove(&file_name)) {
+              (Some(artist), Some(overview)) => Some((artist, overview)),
+              _ => None,
+            },
+          )
       })
       .collect();
-    Ok((sorted_overviews, result.total))
+    Ok((output, result.total))
   }
 }
