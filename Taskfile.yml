@@ -174,3 +174,7 @@ tasks:
   "discord-connector:down":
     cmds:
       - docker-compose -f ./infra/dev/docker-compose.yml down discord-bot -v
+
+  "elasticsearch:up":
+    cmds:
+      - docker-compose -f ./infra/dev/docker-compose.yml up kibana -d
