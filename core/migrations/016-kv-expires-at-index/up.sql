@@ -1,0 +1,1 @@
+CREATE INDEX idx_key_value_store_expires_at ON key_value_store (expires_at);

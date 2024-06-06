@@ -1,0 +1,1 @@
+DROP INDEX idx_key_value_store_expires_at;
