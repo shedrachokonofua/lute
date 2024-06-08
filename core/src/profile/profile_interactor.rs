@@ -16,17 +16,17 @@ use crate::{
   files::file_metadata::file_name::FileName,
   helpers::document_store::DocumentStore,
   lookup::{
-    album_search_lookup::{AlbumSearchLookup, AlbumSearchLookupQuery, AlbumSearchLookupStatus},
+    album_search_lookup::{
+      AlbumSearchLookup, AlbumSearchLookupDiscriminants, AlbumSearchLookupQuery,
+    },
     lookup_interactor::LookupInteractor,
   },
-  settings::Settings,
   spotify::spotify_client::{SpotifyClient, SpotifyTrack},
-  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use futures::future::join_all;
 use rustis::{bb8::Pool, client::PooledClientManager};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tracing::{instrument, warn};
 
 pub struct PendingSpotifyImport {
@@ -38,18 +38,18 @@ pub struct PendingSpotifyImport {
 pub struct ProfileInteractor {
   profile_repository: ProfileRepository,
   album_interactor: Arc<AlbumInteractor>,
-  event_publisher: EventPublisher,
+  event_publisher: Arc<EventPublisher>,
   spotify_client: Arc<SpotifyClient>,
-  lookup_interactor: LookupInteractor,
+  lookup_interactor: Arc<LookupInteractor>,
   spotify_import_repository: SpotifyImportRepository,
 }
 
 impl ProfileInteractor {
   pub fn new(
-    settings: Arc<Settings>,
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
+    event_publisher: Arc<EventPublisher>,
     album_interactor: Arc<AlbumInteractor>,
+    lookup_interactor: Arc<LookupInteractor>,
     spotify_client: Arc<SpotifyClient>,
     doc_store: Arc<DocumentStore>,
   ) -> Self {
@@ -57,14 +57,10 @@ impl ProfileInteractor {
       profile_repository: ProfileRepository {
         redis_connection_pool: Arc::clone(&redis_connection_pool),
       },
-      album_interactor: Arc::clone(&album_interactor),
-      event_publisher: EventPublisher::new(Arc::clone(&settings), Arc::clone(&sqlite_connection)),
+      album_interactor,
+      event_publisher,
       spotify_client,
-      lookup_interactor: LookupInteractor::new(
-        Arc::clone(&settings),
-        Arc::clone(&redis_connection_pool),
-        Arc::clone(&sqlite_connection),
-      ),
+      lookup_interactor,
       spotify_import_repository: SpotifyImportRepository::new(Arc::clone(&doc_store)),
     }
   }
@@ -217,7 +213,7 @@ impl ProfileInteractor {
     .await;
     let complete_pairs = pairs
       .into_iter()
-      .filter(|(lookup, _)| lookup.status() == AlbumSearchLookupStatus::AlbumParsed)
+      .filter(|(lookup, _)| lookup.status() == AlbumSearchLookupDiscriminants::AlbumParsed)
       .collect::<Vec<_>>();
     self
       .put_many_albums_on_profile(
@@ -301,23 +297,22 @@ impl ProfileInteractor {
       )
       .await?
       .into_iter()
-      .flatten()
-      .filter(|lookup| lookup.status() != AlbumSearchLookupStatus::AlbumParsed)
-      .collect::<Vec<_>>();
-    let pending_imports: Vec<PendingSpotifyImport> = lookups
+      .filter(|(_, lookup)| lookup.status() != AlbumSearchLookupDiscriminants::AlbumParsed)
+      .collect::<HashMap<_, _>>();
+
+    let pending_imports = subscriptions
       .into_iter()
-      .map(|lookup| {
-        let subscription = subscriptions
-          .iter()
-          .find(|subscription| &subscription.album_search_lookup_query == lookup.query())
-          .unwrap();
-        PendingSpotifyImport {
-          profile_id: profile_id.clone(),
-          factor: subscription.factor,
-          album_search_lookup: lookup,
-        }
+      .filter_map(|subscription| {
+        lookups
+          .get(&subscription.album_search_lookup_query.to_encoded_string())
+          .map(|lookup| PendingSpotifyImport {
+            profile_id: profile_id.clone(),
+            factor: subscription.factor,
+            album_search_lookup: lookup.clone(),
+          })
       })
       .collect::<Vec<_>>();
+
     Ok(pending_imports)
   }
 

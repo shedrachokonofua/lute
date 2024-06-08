@@ -132,7 +132,7 @@ impl AlbumSearchLookup {
 
 struct AlbumSearchLookupOrchestrator {
   crawler: Arc<Crawler>,
-  lookup_interactor: LookupInteractor,
+  lookup_interactor: Arc<LookupInteractor>,
   event_publisher: Arc<EventPublisher>,
   album_interactor: Arc<AlbumInteractor>,
 }
@@ -141,11 +141,7 @@ impl AlbumSearchLookupOrchestrator {
   fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
       crawler: Arc::clone(&app_context.crawler),
-      lookup_interactor: LookupInteractor::new(
-        Arc::clone(&app_context.settings),
-        Arc::clone(&app_context.redis_connection_pool),
-        Arc::clone(&app_context.sqlite_connection),
-      ),
+      lookup_interactor: Arc::clone(&app_context.lookup_interactor),
       event_publisher: Arc::clone(&app_context.event_publisher),
       album_interactor: Arc::clone(&app_context.album_interactor),
     }

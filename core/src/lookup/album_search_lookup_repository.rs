@@ -1,157 +1,71 @@
-use super::album_search_lookup::{AlbumSearchLookup, AlbumSearchLookupQuery};
+use super::album_search_lookup::{
+  AlbumSearchLookup, AlbumSearchLookupDiscriminants, AlbumSearchLookupQuery,
+};
 use crate::{
   files::file_metadata::file_name::FileName,
-  helpers::redisearch::{does_ft_index_exist, escape_tag_value},
+  helpers::document_store::{DocumentIndexReadCursorBuilder, DocumentStore},
 };
 use anyhow::{anyhow, Result};
-use rustis::{
-  bb8::Pool,
-  client::{BatchPreparedCommand, PooledClientManager},
-  commands::{
-    FtAggregateOptions, FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtReducer,
-    FtSearchOptions, GenericCommands, HashCommands, SearchCommands,
-  },
-};
 use std::{collections::HashMap, sync::Arc};
-use tracing::warn;
+use strum::VariantArray;
 
-const NAMESPACE: &str = "lookup:album_search";
-const INDEX_NAME: &str = "lookup:album_search_idx";
-
-fn key(query: &AlbumSearchLookupQuery) -> String {
-  format!("{}:{}", NAMESPACE, query.to_encoded_string())
-}
+const COLLECTION: &str = "album_search_lookup";
 
 pub struct AggregatedStatus {
   pub status: String,
   pub count: u32,
 }
 
-impl From<Vec<(String, String)>> for AggregatedStatus {
-  fn from(val: Vec<(String, String)>) -> Self {
-    let mut status = None;
-    let mut count = None;
-
-    for (key, value) in val {
-      match key.as_str() {
-        "status" => status = Some(value),
-        "count" => count = Some(value.parse().expect("invalid count")),
-        _ => {}
-      }
-    }
-
-    Self {
-      status: status.expect("status not found"),
-      count: count.expect("count not found"),
-    }
-  }
-}
-
 pub struct AlbumSearchLookupRepository {
-  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  pub doc_store: Arc<DocumentStore>,
 }
 
 impl AlbumSearchLookupRepository {
-  pub async fn setup_index(&self) -> Result<()> {
-    let connection = self.redis_connection_pool.get().await?;
-    if !does_ft_index_exist(&connection, &INDEX_NAME.to_string()).await {
-      connection
-        .ft_create(
-          INDEX_NAME,
-          FtCreateOptions::default()
-            .on(FtIndexDataType::Hash)
-            .prefix(format!("{}:", NAMESPACE)),
-          [
-            FtFieldSchema::identifier("status").field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("album_search_file_name").field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("album_file_name").field_type(FtFieldType::Tag),
-          ],
-        )
-        .await?;
-    }
-    Ok(())
+  pub fn new(doc_store: Arc<DocumentStore>) -> Self {
+    Self { doc_store }
   }
 
   pub async fn find(&self, query: &AlbumSearchLookupQuery) -> Result<Option<AlbumSearchLookup>> {
-    let res: HashMap<String, String> = self
-      .redis_connection_pool
-      .get()
-      .await?
-      .hgetall(key(query))
-      .await?;
-
-    match res.is_empty() {
-      true => Ok(None),
-      false => Ok(Some(AlbumSearchLookup::try_from(res)?)),
-    }
+    self
+      .doc_store
+      .find::<AlbumSearchLookup>(COLLECTION, &query.to_encoded_string())
+      .await
+      .map(|d| d.map(|d| d.document))
   }
 
   pub async fn find_many(
     &self,
     queries: Vec<&AlbumSearchLookupQuery>,
-  ) -> Result<Vec<Option<AlbumSearchLookup>>> {
-    if queries.is_empty() {
-      return Ok(vec![]);
-    }
-
-    if queries.len() == 1 {
-      return Ok(vec![self.find(queries[0]).await?]);
-    }
-
-    let connection = self.redis_connection_pool.get().await?;
-    let mut pipeline = connection.create_pipeline();
-    for query in queries {
-      pipeline
-        .hgetall::<String, _, _, HashMap<String, String>>(key(query))
-        .queue();
-    }
-    let results: Vec<HashMap<String, String>> = pipeline.execute().await?;
-    results
+  ) -> Result<HashMap<String, AlbumSearchLookup>> {
+    let keys = queries
       .into_iter()
-      .map(|res| match res.is_empty() {
-        true => Ok(None),
-        false => Ok(Some(AlbumSearchLookup::try_from(res)?)),
-      })
-      .collect::<Result<Vec<_>>>()
+      .map(|q| q.to_encoded_string())
+      .collect::<Vec<_>>();
+    self
+      .doc_store
+      .find_many::<AlbumSearchLookup>(COLLECTION, keys)
+      .await?
+      .into_iter()
+      .map(|(k, v)| Ok((k, v.document)))
+      .collect()
   }
 
   pub async fn find_many_by_album_file_name(
     &self,
     file_name: &FileName,
   ) -> Result<Vec<AlbumSearchLookup>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let search_result = connection
-      .ft_search(
-        INDEX_NAME,
-        format!(
-          "@album_file_name:{{ {} }}",
-          escape_tag_value(&file_name.to_string())
-        ),
-        FtSearchOptions::default().limit(0, 10000),
+    self
+      .doc_store
+      .read_index::<AlbumSearchLookup>(
+        COLLECTION,
+        "parsed_album_search_result.file_name",
+        DocumentIndexReadCursorBuilder::default()
+          .start_key(file_name.to_string())
+          .limit(10000)
+          .build()?,
       )
-      .await?;
-    let result = search_result
-      .results
-      .iter()
-      .map(|r| {
-        let lookup: Result<AlbumSearchLookup> = r
-          .values
-          .clone()
-          .into_iter()
-          .collect::<HashMap<_, _>>()
-          .try_into();
-        lookup
-      })
-      .filter_map(|r| match r {
-        Ok(lookup) => Some(lookup),
-        Err(err) => {
-          warn!("Failed to deserialize AlbumSearchLookup: {}", err);
-          None
-        }
-      })
-      .collect::<Vec<_>>();
-
-    Ok(result)
+      .await
+      .map(|d| d.documents.into_iter().map(|d| d.document).collect())
   }
 
   pub async fn get(&self, query: &AlbumSearchLookupQuery) -> Result<AlbumSearchLookup> {
@@ -162,42 +76,41 @@ impl AlbumSearchLookupRepository {
   }
 
   pub async fn put(&self, lookup: &AlbumSearchLookup) -> Result<()> {
-    let key = key(lookup.query());
-    let map: HashMap<String, String> = (*lookup).clone().into();
     self
-      .redis_connection_pool
-      .get()
-      .await?
-      .hset(key, map)
-      .await?;
-    Ok(())
+      .doc_store
+      .put(
+        COLLECTION,
+        &lookup.query().to_encoded_string(),
+        lookup,
+        None,
+      )
+      .await
   }
 
   pub async fn aggregate_statuses(&self) -> Result<Vec<AggregatedStatus>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let result = connection
-      .ft_aggregate(
-        INDEX_NAME,
-        "*",
-        FtAggregateOptions::default().groupby("@status", FtReducer::count().as_name("count")),
-      )
-      .await?;
-    let aggregates = result
-      .results
+    let statuses = AlbumSearchLookupDiscriminants::VARIANTS
       .iter()
-      .map(|r| AggregatedStatus::from(r.to_owned()))
+      .map(|status| status.to_string())
       .collect::<Vec<_>>();
-
-    Ok(aggregates)
+    let counts = self
+      .doc_store
+      .count_many_by_index_key(COLLECTION, "status", statuses)
+      .await?;
+    Ok(
+      counts
+        .into_iter()
+        .map(|(status, count)| AggregatedStatus {
+          status,
+          count: count as u32,
+        })
+        .collect(),
+    )
   }
 
   pub async fn delete(&self, query: &AlbumSearchLookupQuery) -> Result<()> {
     self
-      .redis_connection_pool
-      .get()
-      .await?
-      .del(key(query))
-      .await?;
-    Ok(())
+      .doc_store
+      .delete(COLLECTION, &query.to_encoded_string())
+      .await
   }
 }

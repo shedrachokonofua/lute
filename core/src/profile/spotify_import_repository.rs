@@ -6,6 +6,7 @@ use crate::{
   lookup::album_search_lookup::AlbumSearchLookupQuery,
 };
 use anyhow::Result;
+use futures::{pin_mut, TryStreamExt};
 use std::sync::Arc;
 
 pub struct SpotifyImportRepository {
@@ -36,27 +37,30 @@ impl SpotifyImportRepository {
     key: String,
     value: String,
   ) -> Result<Vec<SpotifyImportLookupSubscription>> {
-    let mut docs = vec![];
-    let mut next_id_cursor = None;
-    loop {
-      let mut cursor = DocumentIndexReadCursorBuilder::default();
-      cursor.start_key(value.clone()).limit(500);
-      if let Some(next_id_cursor) = next_id_cursor {
-        cursor.id_cursor(next_id_cursor);
-      }
-      let cursor = cursor.build()?;
-      let res = self
-        .doc_store
-        .read_index::<SpotifyImportLookupSubscription>(COLLECTION, &key, cursor)
-        .await?;
-      docs.extend(res.documents);
-      if res.next_id_cursor.is_none() {
-        break;
-      }
-      next_id_cursor = res.next_id_cursor;
-    }
+    let doc_stream = self
+      .doc_store
+      .stream_index::<SpotifyImportLookupSubscription>(
+        COLLECTION,
+        &key,
+        DocumentIndexReadCursorBuilder::default()
+          .start_key(value)
+          .limit(500)
+          .build()?,
+        None,
+      )
+      .await;
 
-    Ok(docs.into_iter().map(|doc| doc.document).collect())
+    pin_mut!(doc_stream);
+
+    let docs = doc_stream.try_collect::<Vec<_>>().await?;
+
+    Ok(
+      docs
+        .into_iter()
+        .flat_map(|d| d.documents)
+        .map(|d| d.document)
+        .collect::<Vec<_>>(),
+    )
   }
 
   pub async fn find_subscriptions_by_query(

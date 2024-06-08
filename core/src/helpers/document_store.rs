@@ -1,10 +1,12 @@
 use crate::sqlite::SqliteConnection;
 use anyhow::{anyhow, Result};
+use async_stream::try_stream;
 use chrono::{Duration, NaiveDateTime};
 use derive_builder::Builder;
-use rusqlite::{named_params, params, OptionalExtension, ToSql};
+use futures::stream::Stream;
+use rusqlite::{params, types::Value, ToSql};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use std::{cmp::min, collections::HashMap, rc::Rc, sync::Arc};
 use tracing::{error, instrument};
 
 #[derive(Debug, Clone)]
@@ -106,40 +108,45 @@ impl DocumentStore {
       })?
   }
 
-  #[instrument(skip(self, document))]
-  pub async fn put<T: Serialize + Send + Sync>(
+  #[instrument(skip(self, entries))]
+  pub async fn put_many<T: Serialize + Send + Sync>(
     &self,
     collection: &str,
-    key: &str,
-    document: T,
-    ttl: Option<Duration>,
+    entries: Vec<(&str, T, Option<Duration>)>,
   ) -> Result<()> {
-    let expires_at = ttl.map(|ttl| chrono::Utc::now().naive_utc() + ttl);
-    let json = serde_json::to_string(&document)?;
+    let entries = entries
+      .into_iter()
+      .map(|(key, document, ttl)| {
+        let expires_at = ttl.map(|ttl| chrono::Utc::now().naive_utc() + ttl);
+        let json = serde_json::to_string(&document)?;
+        Ok((key.to_string(), json, expires_at))
+      })
+      .collect::<Result<Vec<(String, String, Option<NaiveDateTime>)>>>()?;
     let collection = collection.to_string();
-    let key = key.to_string();
     self
       .sqlite_connection
       .write()
       .await?
       .interact(move |conn| {
         let tx = conn.transaction()?;
-        tx.execute(
-          "
-          INSERT INTO document_store (collection, key, json, expires_at)
-          VALUES (?, ?, jsonb(?), ?)
-          ON CONFLICT(collection, key) DO UPDATE SET 
-            json = excluded.json,
-            expires_at = excluded.expires_at,
-            updated_at = CURRENT_TIMESTAMP;
-          ",
-          params![collection, key, json, expires_at],
-        )?;
+        for (key, json, expires_at) in entries.into_iter() {
+          tx.execute(
+            "
+            INSERT INTO document_store (collection, key, json, expires_at)
+            VALUES (?, ?, jsonb(?), ?)
+            ON CONFLICT(collection, key) DO UPDATE SET 
+              json = excluded.json,
+              expires_at = excluded.expires_at,
+              updated_at = CURRENT_TIMESTAMP;
+            ",
+            params![collection, key, json, expires_at],
+          )?;
+        }
         tx.commit()
           .map_err(|e| {
             error!(
               message = e.to_string(),
-              "Failed to put document in sqlite database"
+              "Failed to put documents in sqlite database"
             );
             e
           })
@@ -150,11 +157,22 @@ impl DocumentStore {
       .map_err(|e| {
         error!(
           message = e.to_string(),
-          "Failed to put document in sqlite database"
+          "Failed to put documents in sqlite database"
         );
-        anyhow!("Failed to put document in sqlite database")
+        anyhow!("Failed to put documents in sqlite database")
       })??;
     Ok(())
+  }
+
+  #[instrument(skip(self, document))]
+  pub async fn put<T: Serialize + Send + Sync>(
+    &self,
+    collection: &str,
+    key: &str,
+    document: T,
+    ttl: Option<Duration>,
+  ) -> Result<()> {
+    self.put_many(collection, vec![(key, document, ttl)]).await
   }
 
   #[instrument(skip(self))]
@@ -309,6 +327,97 @@ impl DocumentStore {
     Ok(result)
   }
 
+  pub async fn stream_index<'a, T: DeserializeOwned + Send + Sync + 'a>(
+    &'a self,
+    collection: &'a str,
+    index: &'a str,
+    start_cursor: DocumentIndexReadCursor,
+    max_results: Option<usize>,
+  ) -> impl Stream<Item = Result<DocumentIndexReadResult<T>>> + 'a {
+    try_stream! {
+      let mut returned = 0;
+      let mut cursor = start_cursor.clone();
+      loop {
+        if max_results.is_some_and(|mr| returned >= mr) {
+          break;
+        }
+
+        cursor.limit = max_results.map(|mr| min(
+          mr - returned,
+          start_cursor.limit,
+        )).unwrap_or(cursor.limit);
+
+        let res = self
+        .read_index::<T>(collection, index, cursor.clone())
+        .await?;
+
+       let next_id_cursor = res.next_id_cursor.clone();
+       let range_size = res.range_size;
+        returned += res.documents.len();
+        yield res;
+
+        if let Some(next_id_cursor) = next_id_cursor {
+          cursor.id_cursor = Some(next_id_cursor);
+        } else {
+          break;
+        }
+
+        if returned >= range_size {
+          break;
+        }
+      }
+    }
+  }
+
+  #[instrument(skip(self))]
+  pub async fn count_many_by_index_key(
+    &self,
+    collection: &str,
+    index: &str,
+    index_key: Vec<String>,
+  ) -> Result<HashMap<String, usize>> {
+    let collection = collection.to_string();
+    let index = index.to_string();
+    let index_key: Vec<Value> = index_key
+      .into_iter()
+      .map(|k| Value::from(k.to_string()))
+      .collect::<Vec<Value>>();
+    let counts = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare(
+          format!(
+            "
+            SELECT jsonb_extract(json, '$.{}'), COUNT(*)
+            FROM document_store
+            WHERE collection = ?
+            AND jsonb_extract(json, '$.{}') IN rarray(?)
+            AND expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP
+            GROUP BY jsonb_extract(json, '$.{}');
+            ",
+            index, index, index
+          )
+          .as_str(),
+        )?;
+        let rows = stmt.query_map(params![collection, Rc::new(index_key)], |row| {
+          Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+        })?;
+        let rows = rows.collect::<Result<Vec<_>, _>>()?;
+        Ok::<_, rusqlite::Error>(rows)
+      })
+      .await
+      .map_err(|e| {
+        error!(
+          message = e.to_string(),
+          "Failed to count many by index key in sqlite database"
+        );
+        anyhow!("Failed to count many by index key in sqlite database")
+      })??;
+    Ok(counts.into_iter().collect::<HashMap<String, usize>>())
+  }
+
   #[instrument(skip(self))]
   pub async fn count_by_index_key(
     &self,
@@ -316,83 +425,52 @@ impl DocumentStore {
     index: &str,
     index_key: &str,
   ) -> Result<usize> {
-    let collection = collection.to_string();
-    let index = index.to_string();
-    let index_key = index_key.to_string();
-    let count = self
-      .sqlite_connection
-      .read()
-      .await?
-      .interact(move |conn| {
-        let count = conn.query_row(
-          format!(
-            "
-            SELECT COUNT(*)
-            FROM document_store
-            WHERE collection = :collection
-            AND jsonb_extract(json, '$.{}') = :index_key
-            AND expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP;
-            ",
-            index
-          )
-          .as_str(),
-          named_params! {
-            ":collection": collection,
-            ":index_key": index_key,
-          },
-          |row| row.get::<_, i64>(0),
-        )?;
-        Ok::<_, rusqlite::Error>(count as usize)
-      })
-      .await
-      .map_err(|e| {
-        error!(
-          message = e.to_string(),
-          "Failed to count by index key in sqlite database"
-        );
-        anyhow!("Failed to count by index key in sqlite database")
-      })??;
-    Ok(count)
+    Ok(
+      self
+        .count_many_by_index_key(collection, index, vec![index_key.to_string()])
+        .await?
+        .remove(index_key)
+        .unwrap_or(0),
+    )
   }
 
   #[instrument(skip(self))]
-  pub async fn get<T: DeserializeOwned + Send + Sync>(
+  pub async fn find_many<T: DeserializeOwned + Send + Sync>(
     &self,
     collection: &str,
-    key: &str,
-  ) -> Result<Option<Document<T>>> {
+    keys: Vec<String>,
+  ) -> Result<HashMap<String, Document<T>>> {
     let collection = collection.to_string();
-    let key = key.to_string();
-    let document = self
+    let keys: Vec<Value> = keys
+      .into_iter()
+      .map(|k| Value::from(k.to_string()))
+      .collect::<Vec<Value>>();
+    let documents = self
       .sqlite_connection
       .read()
       .await?
       .interact(move |conn| {
-        conn
-          .query_row(
-            "
-            SELECT id, collection, key, json(json), created_at, updated_at, expires_at
-            FROM document_store
-            WHERE collection = ? AND key = ? AND expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP;
-            ",
-            params![collection, key],
-            |row| {
-              Ok((
-                row.get::<_, u64>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, NaiveDateTime>(4)?,
-                row.get::<_, NaiveDateTime>(5)?,
-                row.get::<_, Option<NaiveDateTime>>(6)?,
-              ))
-            },
-          )
-          .optional()
-          .map_err(|e| {
-            error!(message = e.to_string(), "Failed to get key value");
-            rusqlite::Error::ExecuteReturnedResults
-          })
+        let mut stmt = conn.prepare(
+          "
+          SELECT id, collection, key, json(json), created_at, updated_at, expires_at
+          FROM document_store
+          WHERE collection = ? AND key IN rarray(?)
+          AND expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP;
+          ",
+        )?;
+        let rows = stmt.query_map(params![collection, Rc::new(keys)], |row| {
+          Ok((
+            row.get::<_, u64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, NaiveDateTime>(4)?,
+            row.get::<_, NaiveDateTime>(5)?,
+            row.get::<_, Option<NaiveDateTime>>(6)?,
+          ))
+        })?;
+        let rows = rows.collect::<Result<Vec<_>, _>>()?;
+        Ok::<_, rusqlite::Error>(rows)
       })
       .await
       .map_err(|e| {
@@ -402,23 +480,44 @@ impl DocumentStore {
         );
         anyhow!("Failed to get document from sqlite database")
       })??
-      .and_then(
+      .into_iter()
+      .filter_map(
         |(id, collection, key, json, created_at, updated_at, expires_at)| {
           serde_json::from_str::<T>(&json)
             .inspect_err(|e| error!(err = e.to_string(), "Failed to deserialize document"))
             .ok()
-            .map(|document| Document {
-              id,
-              collection,
-              key,
-              document,
-              created_at,
-              updated_at,
-              expires_at,
+            .map(|document| {
+              (
+                key.clone(),
+                Document {
+                  id,
+                  collection,
+                  key,
+                  document,
+                  created_at,
+                  updated_at,
+                  expires_at,
+                },
+              )
             })
         },
-      );
-    Ok(document)
+      )
+      .collect::<HashMap<String, Document<T>>>();
+    Ok(documents)
+  }
+
+  #[instrument(skip(self))]
+  pub async fn find<T: DeserializeOwned + Send + Sync>(
+    &self,
+    collection: &str,
+    key: &str,
+  ) -> Result<Option<Document<T>>> {
+    Ok(
+      self
+        .find_many(collection, vec![key.to_string()])
+        .await?
+        .remove(key),
+    )
   }
 
   #[instrument(skip(self))]

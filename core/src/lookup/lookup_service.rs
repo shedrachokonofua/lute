@@ -45,17 +45,13 @@ impl From<AlbumSearchLookup> for proto::AlbumSearchLookup {
 }
 
 pub struct LookupService {
-  lookup_interactor: LookupInteractor,
+  lookup_interactor: Arc<LookupInteractor>,
 }
 
 impl LookupService {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      lookup_interactor: LookupInteractor::new(
-        Arc::clone(&app_context.settings),
-        Arc::clone(&app_context.redis_connection_pool),
-        Arc::clone(&app_context.sqlite_connection),
-      ),
+      lookup_interactor: Arc::clone(&app_context.lookup_interactor),
     }
   }
 }

@@ -60,10 +60,16 @@ async fn main() -> Result<()> {
   let context = ApplicationContext::init().await?;
   context
     .doc_store
-    .setup_indexes(HashMap::from([(
-      "profile_spotify_import",
-      vec!["album_search_lookup_encoded_query", "profile_id"],
-    )]))
+    .setup_indexes(HashMap::from([
+      (
+        "profile_spotify_import",
+        vec!["album_search_lookup_encoded_query", "profile_id"],
+      ),
+      (
+        "album_search_lookup",
+        vec!["status", "parsed_album_search_result.file_name"],
+      ),
+    ]))
     .await?;
   setup_elasticsearch_indexes(Arc::clone(&context)).await?;
   setup_redis_indexes(Arc::clone(&context)).await?;

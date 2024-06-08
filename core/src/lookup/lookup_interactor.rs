@@ -10,29 +10,21 @@ use crate::{
     event_publisher::EventPublisher,
   },
   files::file_metadata::file_name::FileName,
-  settings::Settings,
-  sqlite::SqliteConnection,
+  helpers::document_store::DocumentStore,
 };
 use anyhow::Result;
-use rustis::{bb8::Pool, client::PooledClientManager};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 pub struct LookupInteractor {
   album_search_lookup_repository: AlbumSearchLookupRepository,
-  event_publisher: EventPublisher,
+  event_publisher: Arc<EventPublisher>,
 }
 
 impl LookupInteractor {
-  pub fn new(
-    settings: Arc<Settings>,
-    redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    sqlite_connection: Arc<SqliteConnection>,
-  ) -> Self {
+  pub fn new(doc_store: Arc<DocumentStore>, event_publisher: Arc<EventPublisher>) -> Self {
     Self {
-      album_search_lookup_repository: AlbumSearchLookupRepository {
-        redis_connection_pool: Arc::clone(&redis_connection_pool),
-      },
-      event_publisher: EventPublisher::new(settings, sqlite_connection),
+      album_search_lookup_repository: AlbumSearchLookupRepository::new(doc_store),
+      event_publisher,
     }
   }
 
@@ -94,7 +86,7 @@ impl LookupInteractor {
   pub async fn find_many_album_search_lookups(
     &self,
     queries: Vec<&AlbumSearchLookupQuery>,
-  ) -> Result<Vec<Option<AlbumSearchLookup>>> {
+  ) -> Result<HashMap<String, AlbumSearchLookup>> {
     self.album_search_lookup_repository.find_many(queries).await
   }
 

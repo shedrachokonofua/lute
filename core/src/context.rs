@@ -9,6 +9,7 @@ use crate::{
   events::event_publisher::EventPublisher,
   files::file_interactor::FileInteractor,
   helpers::{document_store::DocumentStore, key_value_store::KeyValueStore},
+  lookup::lookup_interactor::LookupInteractor,
   profile::profile_interactor::ProfileInteractor,
   recommendations::spotify_track_search_index::SpotifyTrackSearchIndex,
   redis::build_redis_connection_pool,
@@ -37,6 +38,7 @@ pub struct ApplicationContext {
   pub album_interactor: Arc<AlbumInteractor>,
   pub file_interactor: Arc<FileInteractor>,
   pub profile_interactor: Arc<ProfileInteractor>,
+  pub lookup_interactor: Arc<LookupInteractor>,
   pub event_publisher: Arc<EventPublisher>,
   pub scheduler: Arc<Scheduler>,
   pub spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
@@ -102,11 +104,15 @@ impl ApplicationContext {
       Arc::clone(&elasticsearch_client),
       Arc::clone(&album_interactor),
     ));
+    let lookup_interactor = Arc::new(LookupInteractor::new(
+      Arc::clone(&doc_store),
+      Arc::clone(&event_publisher),
+    ));
     let profile_interactor = Arc::new(ProfileInteractor::new(
-      Arc::clone(&settings),
       Arc::clone(&redis_connection_pool),
-      Arc::clone(&sqlite_connection),
+      Arc::clone(&event_publisher),
       Arc::clone(&album_interactor),
+      Arc::clone(&lookup_interactor),
       Arc::clone(&spotify_client),
       Arc::clone(&doc_store),
     ));
@@ -127,6 +133,7 @@ impl ApplicationContext {
       artist_interactor,
       album_interactor,
       profile_interactor,
+      lookup_interactor,
       elasticsearch_client,
     }))
   }
