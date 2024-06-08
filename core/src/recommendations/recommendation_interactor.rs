@@ -40,7 +40,7 @@ pub struct RecommendationInteractor {
   quantile_rank_interactor: QuantileRankInteractor,
   embedding_similarity_interactor: EmbeddingSimilarityInteractor,
   album_interactor: Arc<AlbumInteractor>,
-  profile_interactor: ProfileInteractor,
+  profile_interactor: Arc<ProfileInteractor>,
   spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
   spotify_client: Arc<SpotifyClient>,
 }
@@ -55,13 +55,7 @@ impl RecommendationInteractor {
         &app_context.album_interactor,
       )),
       album_interactor: Arc::clone(&app_context.album_interactor),
-      profile_interactor: ProfileInteractor::new(
-        Arc::clone(&app_context.settings),
-        Arc::clone(&app_context.redis_connection_pool),
-        Arc::clone(&app_context.sqlite_connection),
-        Arc::clone(&app_context.album_interactor),
-        Arc::clone(&app_context.spotify_client),
-      ),
+      profile_interactor: Arc::clone(&app_context.profile_interactor),
       spotify_track_search_index: Arc::clone(&app_context.spotify_track_search_index),
       spotify_client: Arc::clone(&app_context.spotify_client),
     }

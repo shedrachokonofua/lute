@@ -19,7 +19,7 @@ use lute::{
   rpc::RpcServer,
 };
 use mimalloc::MiMalloc;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::spawn;
 
 #[global_allocator]
@@ -58,6 +58,13 @@ async fn setup_elasticsearch_indexes(context: Arc<ApplicationContext>) -> Result
 #[tokio::main]
 async fn main() -> Result<()> {
   let context = ApplicationContext::init().await?;
+  context
+    .doc_store
+    .setup_indexes(HashMap::from([(
+      "profile_spotify_import",
+      vec!["album_search_lookup_encoded_query", "profile_id"],
+    )]))
+    .await?;
   setup_elasticsearch_indexes(Arc::clone(&context)).await?;
   setup_redis_indexes(Arc::clone(&context)).await?;
   start_event_subscribers(Arc::clone(&context))?;

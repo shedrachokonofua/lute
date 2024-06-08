@@ -2,78 +2,33 @@ use super::{
   profile::ProfileId, spotify_import_lookup_subscription::SpotifyImportLookupSubscription,
 };
 use crate::{
-  helpers::redisearch::{does_ft_index_exist, escape_tag_value},
+  helpers::document_store::{DocumentIndexReadCursorBuilder, DocumentStore},
   lookup::album_search_lookup::AlbumSearchLookupQuery,
 };
-use anyhow::{anyhow, Error, Result};
-use rustis::{
-  bb8::Pool,
-  client::PooledClientManager,
-  commands::{
-    FtCreateOptions, FtFieldSchema, FtFieldType, FtIndexDataType, FtSearchOptions, JsonCommands,
-    SearchCommands, SetCondition,
-  },
-};
+use anyhow::Result;
 use std::sync::Arc;
-use tracing::{info, warn};
 
 pub struct SpotifyImportRepository {
-  pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
+  doc_store: Arc<DocumentStore>,
 }
 
-impl TryFrom<Vec<(String, String)>> for SpotifyImportLookupSubscription {
-  type Error = Error;
-
-  fn try_from(values: Vec<(String, String)>) -> Result<Self> {
-    let json = values.first().map(|(_, json)| json).ok_or(anyhow!(
-      "invalid SpotifyImportLookupSubscription: missing json"
-    ))?;
-    let subscription: SpotifyImportLookupSubscription = serde_json::from_str(json)?;
-    Ok(subscription)
-  }
-}
-
-const NAMESPACE: &str = "profile_spotify_import";
-const INDEX_NAME: &str = "profile_spotify_import_idx";
+const COLLECTION: &str = "profile_spotify_import";
 
 impl SpotifyImportRepository {
+  pub fn new(doc_store: Arc<DocumentStore>) -> Self {
+    Self { doc_store }
+  }
+
   fn lookup_subscriptions_key(
     &self,
     album_search_lookup_encoded_query: String,
     profile_id: &ProfileId,
   ) -> String {
     format!(
-      "{}:{}:{}",
-      NAMESPACE,
+      "{}:{}",
       album_search_lookup_encoded_query,
       profile_id.to_string()
     )
-  }
-
-  pub async fn setup_index(&self) -> Result<()> {
-    let connection = self.redis_connection_pool.get().await?;
-
-    if !does_ft_index_exist(&connection, &INDEX_NAME.to_string()).await {
-      info!("Creating new search index: {}", INDEX_NAME);
-      connection
-        .ft_create(
-          INDEX_NAME,
-          FtCreateOptions::default()
-            .on(FtIndexDataType::Json)
-            .prefix(format!("{}:", NAMESPACE)),
-          [
-            FtFieldSchema::identifier("$.album_search_lookup_encoded_query")
-              .as_attribute("album_search_lookup_encoded_query")
-              .field_type(FtFieldType::Tag),
-            FtFieldSchema::identifier("$.profile_id")
-              .as_attribute("profile_id")
-              .field_type(FtFieldType::Tag),
-          ],
-        )
-        .await?;
-    }
-
-    Ok(())
   }
 
   async fn find_subscriptions(
@@ -81,31 +36,27 @@ impl SpotifyImportRepository {
     key: String,
     value: String,
   ) -> Result<Vec<SpotifyImportLookupSubscription>> {
-    let connection = self.redis_connection_pool.get().await?;
-    let search_result = connection
-      .ft_search(
-        INDEX_NAME,
-        format!("@{}:{{ {} }}", key, escape_tag_value(&value)),
-        FtSearchOptions::default().limit(0, 10000),
-      )
-      .await?;
+    let mut docs = vec![];
+    let mut next_id_cursor = None;
+    loop {
+      let mut cursor = DocumentIndexReadCursorBuilder::default();
+      cursor.start_key(value.clone()).limit(500);
+      if let Some(next_id_cursor) = next_id_cursor {
+        cursor.id_cursor(next_id_cursor);
+      }
+      let cursor = cursor.build()?;
+      let res = self
+        .doc_store
+        .read_index::<SpotifyImportLookupSubscription>(COLLECTION, &key, cursor)
+        .await?;
+      docs.extend(res.documents);
+      if res.next_id_cursor.is_none() {
+        break;
+      }
+      next_id_cursor = res.next_id_cursor;
+    }
 
-    let result = search_result
-      .results
-      .into_iter()
-      .filter_map(|r| match r.values.try_into() {
-        Ok(subscription) => Some(subscription),
-        Err(e) => {
-          warn!(
-            "Failed to deserialize SpotifyImportLookupSubscription: {}",
-            e
-          );
-          None
-        }
-      })
-      .collect::<Vec<_>>();
-
-    Ok(result)
+    Ok(docs.into_iter().map(|doc| doc.document).collect())
   }
 
   pub async fn find_subscriptions_by_query(
@@ -142,18 +93,14 @@ impl SpotifyImportRepository {
       factor,
     };
     self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_set(
-        self.lookup_subscriptions_key(album_search_lookup_query.to_encoded_string(), profile_id),
-        "$",
-        serde_json::to_string(&subscription)?,
-        SetCondition::default(),
+      .doc_store
+      .put(
+        COLLECTION,
+        &self.lookup_subscriptions_key(album_search_lookup_query.to_encoded_string(), profile_id),
+        subscription,
+        None,
       )
-      .await?;
-
-    Ok(())
+      .await
   }
 
   pub async fn delete_subscription(
@@ -162,15 +109,11 @@ impl SpotifyImportRepository {
     album_search_lookup_query: &AlbumSearchLookupQuery,
   ) -> Result<()> {
     self
-      .redis_connection_pool
-      .get()
-      .await?
-      .json_del(
-        self.lookup_subscriptions_key(album_search_lookup_query.to_encoded_string(), profile_id),
-        "$",
+      .doc_store
+      .delete(
+        COLLECTION,
+        &self.lookup_subscriptions_key(album_search_lookup_query.to_encoded_string(), profile_id),
       )
-      .await?;
-
-    Ok(())
+      .await
   }
 }

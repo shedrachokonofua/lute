@@ -8,7 +8,8 @@ use crate::{
   crawler::crawler::Crawler,
   events::event_publisher::EventPublisher,
   files::file_interactor::FileInteractor,
-  helpers::key_value_store::KeyValueStore,
+  helpers::{document_store::DocumentStore, key_value_store::KeyValueStore},
+  profile::profile_interactor::ProfileInteractor,
   recommendations::spotify_track_search_index::SpotifyTrackSearchIndex,
   redis::build_redis_connection_pool,
   scheduler::scheduler::Scheduler,
@@ -27,6 +28,7 @@ pub struct ApplicationContext {
   pub settings: Arc<Settings>,
   pub sqlite_connection: Arc<SqliteConnection>,
   pub kv: Arc<KeyValueStore>,
+  pub doc_store: Arc<DocumentStore>,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub crawler: Arc<Crawler>,
   pub album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
@@ -34,6 +36,7 @@ pub struct ApplicationContext {
   pub artist_interactor: Arc<ArtistInteractor>,
   pub album_interactor: Arc<AlbumInteractor>,
   pub file_interactor: Arc<FileInteractor>,
+  pub profile_interactor: Arc<ProfileInteractor>,
   pub event_publisher: Arc<EventPublisher>,
   pub scheduler: Arc<Scheduler>,
   pub spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
@@ -51,6 +54,7 @@ impl ApplicationContext {
     )?));
     let sqlite_connection = Arc::new(SqliteConnection::new(Arc::clone(&settings)).await?);
     let kv = Arc::new(KeyValueStore::new(Arc::clone(&sqlite_connection)));
+    let doc_store = Arc::new(DocumentStore::new(Arc::clone(&sqlite_connection)));
     let redis_connection_pool =
       Arc::new(build_redis_connection_pool(settings.redis.clone()).await?);
     let event_publisher = Arc::new(EventPublisher::new(
@@ -98,11 +102,20 @@ impl ApplicationContext {
       Arc::clone(&elasticsearch_client),
       Arc::clone(&album_interactor),
     ));
+    let profile_interactor = Arc::new(ProfileInteractor::new(
+      Arc::clone(&settings),
+      Arc::clone(&redis_connection_pool),
+      Arc::clone(&sqlite_connection),
+      Arc::clone(&album_interactor),
+      Arc::clone(&spotify_client),
+      Arc::clone(&doc_store),
+    ));
 
     Ok(Arc::new(ApplicationContext {
       settings,
       sqlite_connection,
       kv,
+      doc_store,
       redis_connection_pool,
       crawler,
       spotify_client,
@@ -113,6 +126,7 @@ impl ApplicationContext {
       spotify_track_search_index,
       artist_interactor,
       album_interactor,
+      profile_interactor,
       elasticsearch_client,
     }))
   }

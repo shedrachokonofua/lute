@@ -13,9 +13,9 @@ use chrono::{NaiveDateTime, TimeDelta, Utc};
 use rusqlite::{params, types::Value, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct KeyValueStore {
   sqlite_connection: Arc<SqliteConnection>,
 }
@@ -25,7 +25,7 @@ impl KeyValueStore {
     Self { sqlite_connection }
   }
 
-  #[tracing::instrument(name = "KeyValueStore::clear", skip(self))]
+  #[instrument(name = "KeyValueStore::clear", skip(self))]
   pub async fn clear(&self) -> Result<()> {
     self
       .sqlite_connection
@@ -47,7 +47,7 @@ impl KeyValueStore {
     Ok(())
   }
 
-  #[tracing::instrument(name = "KeyValueStore::increment", skip(self))]
+  #[instrument(name = "KeyValueStore::increment", skip(self))]
   pub async fn increment(&self, key: &str, delta: i64) -> Result<i64> {
     let key = key.to_string();
     let value = self
@@ -81,7 +81,7 @@ impl KeyValueStore {
     Ok(value)
   }
 
-  #[tracing::instrument(name = "KeyValueStore::size", skip(self))]
+  #[instrument(name = "KeyValueStore::size", skip(self))]
   pub async fn size(&self) -> Result<usize> {
     let size: usize = self
       .sqlite_connection
@@ -111,7 +111,7 @@ impl KeyValueStore {
     Ok(size)
   }
 
-  #[tracing::instrument(name = "KeyValueStore::many_exists", skip(self))]
+  #[instrument(name = "KeyValueStore::many_exists", skip(self))]
   pub async fn many_exists(&self, keys: Vec<String>) -> Result<HashMap<String, bool>> {
     let key_params = keys
       .iter()
@@ -157,7 +157,7 @@ impl KeyValueStore {
     Ok(results)
   }
 
-  #[tracing::instrument(name = "KeyValueStore::exists", skip(self))]
+  #[instrument(name = "KeyValueStore::exists", skip(self))]
   pub async fn exists(&self, key: String) -> Result<bool> {
     let exists = self
       .sqlite_connection
@@ -189,7 +189,7 @@ impl KeyValueStore {
     Ok(exists)
   }
 
-  #[tracing::instrument(name = "KeyValueStore::get", skip(self))]
+  #[instrument(name = "KeyValueStore::get", skip(self))]
   pub async fn get<T: DeserializeOwned + Send + Sync>(&self, key: &str) -> Result<Option<T>> {
     let key = key.to_string();
     let req_key = key.clone();
@@ -235,7 +235,7 @@ impl KeyValueStore {
     }
   }
 
-  #[tracing::instrument(name = "KeyValueStore::set_many", skip_all)]
+  #[instrument(name = "KeyValueStore::set_many", skip_all)]
   pub async fn set_many<T: Serialize + Send + Sync>(
     &self,
     key_values: Vec<(String, T, Option<Duration>)>,
@@ -277,7 +277,7 @@ impl KeyValueStore {
       })?
   }
 
-  #[tracing::instrument(name = "KeyValueStore::set", skip_all)]
+  #[instrument(name = "KeyValueStore::set", skip_all)]
   pub async fn set<T: Serialize + Send + Sync>(
     &self,
     key: &str,
@@ -287,7 +287,7 @@ impl KeyValueStore {
     self.set_many(vec![(key.to_string(), value, ttl)]).await
   }
 
-  #[tracing::instrument(name = "KeyValueStore::delete", skip(self))]
+  #[instrument(name = "KeyValueStore::delete", skip(self))]
   pub async fn delete(&self, key: &str) -> Result<()> {
     let key = key.to_string();
     self
@@ -306,7 +306,7 @@ impl KeyValueStore {
       })?
   }
 
-  #[tracing::instrument(name = "KeyValueStore::delete_matching", skip(self))]
+  #[instrument(name = "KeyValueStore::delete_matching", skip(self))]
   pub async fn delete_matching(&self, pattern: &str) -> Result<()> {
     let pattern = pattern.to_string();
     self
@@ -325,7 +325,7 @@ impl KeyValueStore {
       })?
   }
 
-  #[tracing::instrument(name = "KeyValueStore::delete_expired", skip(self))]
+  #[instrument(name = "KeyValueStore::delete_expired", skip(self))]
   pub async fn delete_expired(&self) -> Result<usize> {
     let count = self
       .sqlite_connection
@@ -356,7 +356,7 @@ impl KeyValueStore {
     Ok(count)
   }
 
-  #[tracing::instrument(name = "KeyValueStore::count_matching", skip(self))]
+  #[instrument(name = "KeyValueStore::count_matching", skip(self))]
   pub async fn count_matching(&self, pattern: &str) -> Result<usize> {
     let pattern = pattern.to_string();
     let count: usize = self

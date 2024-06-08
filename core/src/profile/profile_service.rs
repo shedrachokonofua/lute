@@ -53,19 +53,13 @@ impl From<ProfileSummary> for proto::ProfileSummary {
 }
 
 pub struct ProfileService {
-  profile_interactor: ProfileInteractor,
+  profile_interactor: Arc<ProfileInteractor>,
 }
 
 impl ProfileService {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      profile_interactor: ProfileInteractor::new(
-        Arc::clone(&app_context.settings),
-        Arc::clone(&app_context.redis_connection_pool),
-        Arc::clone(&app_context.sqlite_connection),
-        Arc::clone(&app_context.album_interactor),
-        Arc::clone(&app_context.spotify_client),
-      ),
+      profile_interactor: Arc::clone(&app_context.profile_interactor),
     }
   }
 }

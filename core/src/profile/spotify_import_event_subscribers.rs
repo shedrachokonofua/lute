@@ -1,4 +1,3 @@
-use super::profile_interactor::ProfileInteractor;
 use crate::{
   context::ApplicationContext,
   event_handler,
@@ -19,13 +18,6 @@ pub async fn process_lookup_subscriptions(
   app_context: Arc<ApplicationContext>,
   _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
-  let profile_interactor = ProfileInteractor::new(
-    Arc::clone(&app_context.settings),
-    Arc::clone(&app_context.redis_connection_pool),
-    Arc::clone(&app_context.sqlite_connection),
-    Arc::clone(&app_context.album_interactor),
-    Arc::clone(&app_context.spotify_client),
-  );
   if let Event::LookupAlbumSearchUpdated {
     lookup:
       AlbumSearchLookup::AlbumParsed {
@@ -35,18 +27,21 @@ pub async fn process_lookup_subscriptions(
       },
   } = event_data.payload.event
   {
-    let subscriptions = profile_interactor
+    let subscriptions = app_context
+      .profile_interactor
       .find_spotify_import_subscriptions_by_query(&query)
       .await?;
     for subscription in subscriptions {
-      profile_interactor
+      app_context
+        .profile_interactor
         .put_album_on_profile(
           &subscription.profile_id,
           &parsed_album_search_result.file_name,
           subscription.factor,
         )
         .await?;
-      profile_interactor
+      app_context
+        .profile_interactor
         .delete_spotify_import_subscription(&subscription.profile_id, &query)
         .await?;
     }

@@ -6,7 +6,6 @@ use crate::{
   context::ApplicationContext,
   lookup::album_search_lookup_repository::AlbumSearchLookupRepository,
   parser::failed_parse_files_repository::FailedParseFilesRepository,
-  profile::spotify_import_repository::SpotifyImportRepository,
   recommendations::spotify_track_search_index::SpotifyTrackSearchIndex,
   settings::RedisSettings,
 };
@@ -53,12 +52,6 @@ pub async fn setup_redis_indexes(app_context: Arc<ApplicationContext>) -> Result
   .await?;
 
   AlbumSearchLookupRepository {
-    redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
-  }
-  .setup_index()
-  .await?;
-
-  SpotifyImportRepository {
     redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
   }
   .setup_index()
