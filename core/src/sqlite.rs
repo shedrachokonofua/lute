@@ -38,11 +38,11 @@ fn get_pool_builder(config: &Config) -> Result<PoolBuilder> {
             .await
             .map_err(|e| {
               error!("Failed to initialize SQLite connection: {:?}", e);
-              HookError::Message(format!("Failed to initialize SQLite connection: {:?}", e))
+              HookError::Message(format!("Failed to initialize SQLite connection: {:?}", e).into())
             })?
             .map_err(|e| {
               error!("Failed to initialize SQLite connection: {:?}", e);
-              HookError::Message(format!("Failed to initialize SQLite connection: {:?}", e))
+              HookError::Message(format!("Failed to initialize SQLite connection: {:?}", e).into())
             })
         })
       })),

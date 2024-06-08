@@ -1,5 +1,6 @@
 pub mod async_utils;
 pub mod batch_loader;
+pub mod document_store;
 pub mod item_with_factor;
 pub mod key_value_store;
 pub mod math;

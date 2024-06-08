@@ -11,7 +11,7 @@ async-trait = "0.1.72"
 chrono = { version = "0.4.24", features = ["serde"] }
 config = "0.14.0"
 data-encoding = "2.4.0"
-deadpool-sqlite = "0.7.0"
+deadpool-sqlite = "0.8.1"
 derive_builder = "0.20.0"
 dotenv = "0.15.0"
 elasticsearch = "8.5.0-alpha.1"
@@ -36,8 +36,8 @@ reqwest = { version = "0.12.4", features = ["json"] }
 reqwest-middleware = "0.3.1"
 reqwest-tracing = "0.5.0"
 rspotify = { git = "https://github.com/shedrachokonofua/rspotify.git" }
-rusqlite = { version = "0.30.0", features = ["array", "bundled", "chrono"] }
-rusqlite_migration = { version = "1.1.0-beta.1", features = ["from-directory"] }
+rusqlite = { version = "0.31.0", features = ["array", "bundled", "chrono"] }
+rusqlite_migration = { version = "1.2.0", features = ["from-directory"] }
 rust-s3 = "0.34.0-rc4"
 rustis = { version = "0.13.1", features = [
   "pool",
