@@ -1,6 +1,6 @@
 use super::{
-  failed_parse_files_repository::{FailedParseFile, FailedParseFilesRepository},
   parser::parse_file_on_store,
+  parser_failure_repository::{ParserFailure, ParserFailureRepository},
 };
 use crate::{
   context::ApplicationContext,
@@ -33,22 +33,21 @@ async fn parse_saved_file(
   Ok(())
 }
 
-async fn populate_failed_parse_files_repository(
+async fn populate_parser_failure_repository(
   event_data: EventData,
   app_context: Arc<ApplicationContext>,
   _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
-  let failed_parse_files_repository = FailedParseFilesRepository {
-    redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
-  };
+  let parser_failure_repository = ParserFailureRepository::new(Arc::clone(&app_context.doc_store));
+
   match event_data.payload.event {
     Event::FileParseFailed {
       file_id: _,
       file_name,
       error,
     } => {
-      failed_parse_files_repository
-        .put(FailedParseFile {
+      parser_failure_repository
+        .put(ParserFailure {
           file_name,
           error,
           last_attempted_at: Utc::now().naive_utc(),
@@ -60,7 +59,7 @@ async fn populate_failed_parse_files_repository(
       file_name,
       data: _,
     } => {
-      failed_parse_files_repository.remove(&file_name).await?;
+      parser_failure_repository.remove(&file_name).await?;
     }
     _ => {}
   }
@@ -79,11 +78,11 @@ pub fn build_parser_event_subscribers(
       .handler(event_handler!(parse_saved_file))
       .build()?,
     EventSubscriberBuilder::default()
-      .id("populate_failed_parse_files_repository")
+      .id("populate_parser_failure_repository")
       .app_context(Arc::clone(&app_context))
       .topic(Topic::Parser)
       .batch_size(250)
-      .handler(event_handler!(populate_failed_parse_files_repository))
+      .handler(event_handler!(populate_parser_failure_repository))
       .build()?,
   ])
 }

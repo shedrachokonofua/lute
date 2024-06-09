@@ -1,44 +1,11 @@
+use super::document_filter::DocumentFilter;
 use crate::sqlite::SqliteConnection;
 use anyhow::{anyhow, Result};
-use async_stream::try_stream;
 use chrono::{Duration, NaiveDateTime};
-use derive_builder::Builder;
-use futures::stream::Stream;
 use rusqlite::{params, types::Value, ToSql};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{cmp::min, collections::HashMap, rc::Rc, sync::Arc};
+use std::{borrow::BorrowMut, collections::HashMap, rc::Rc, sync::Arc};
 use tracing::{error, instrument};
-
-#[derive(Debug, Clone)]
-pub enum DocumentReadDirection {
-  Forward,
-  Backward,
-}
-
-#[derive(Builder, Debug, Clone)]
-pub struct DocumentIndexReadCursor {
-  #[builder(setter(into))]
-  pub start_key: String,
-  #[builder(setter(into), default = "None")]
-  pub id_cursor: Option<u64>,
-  #[builder(default = "100")]
-  pub limit: usize,
-  #[builder(default = "DocumentReadDirection::Forward")]
-  pub direction: DocumentReadDirection,
-  // Optional key for range queries. This is the index key to stop at
-  #[builder(setter(into), default = "self.start_key.clone().unwrap()")]
-  pub stop_key: String,
-  // If true, the stop key is inclusive, meaning the document with the stop key will be included in the results
-  #[builder(default = "true")]
-  pub stop_key_inclusive: bool,
-}
-
-#[derive(Debug)]
-pub struct DocumentIndexReadResult<T> {
-  pub documents: Vec<Document<T>>,
-  pub next_id_cursor: Option<u64>,
-  pub range_size: usize,
-}
 
 #[derive(Debug)]
 pub struct Document<T> {
@@ -51,11 +18,37 @@ pub struct Document<T> {
   pub expires_at: Option<NaiveDateTime>,
 }
 
+#[derive(Debug, Clone)]
+pub struct DocumentCursor {
+  pub cursor: Option<String>,
+  pub limit: usize,
+}
+
+impl DocumentCursor {
+  pub fn new(cursor: Option<String>, limit: usize) -> Self {
+    Self { cursor, limit }
+  }
+
+  pub fn with_limit(limit: usize) -> Self {
+    Self {
+      cursor: None,
+      limit,
+    }
+  }
+}
+
+#[derive(Debug)]
+pub struct DocumentFindResult<T> {
+  pub documents: Vec<Document<T>>,
+  pub next_cursor: Option<String>,
+  pub range_size: usize,
+}
+
 /**
  * DocumentStore is a lightweight helper for interacting with jsonb documents in the sqlite database
  * as if it were a document store. This is for simple use cases where a rigid relational schema is
  * not wanted and advanced querying or search capabilities are not needed. In those cases, using
- * a sqlite table or elasticsearch would be more appropriate.
+ * a sqlite directly or elasticsearch would be more appropriate.
  */
 #[derive(Debug, Clone)]
 pub struct DocumentStore {
@@ -70,7 +63,7 @@ impl DocumentStore {
   #[instrument(skip(self))]
   pub async fn setup_indexes(
     &self,
-    mappings: HashMap<&'static str, Vec<&'static str>>,
+    mappings: HashMap<&'static str, Vec<Vec<&'static str>>>,
   ) -> Result<()> {
     self
       .sqlite_connection
@@ -80,15 +73,25 @@ impl DocumentStore {
         let tx = conn.transaction()?;
         for (collection, keys) in mappings.into_iter() {
           for key in keys.into_iter() {
-            let index_name = format!("{}_{}_index", collection, key.replace(".", "_"));
+            let index_name = format!("idx_{}_{}", collection, key.join("_").replace(".", "_"));
+            let mut index_keys = vec!["collection".to_string()];
+            index_keys.extend(
+              key
+                .into_iter()
+                .map(|k| format!("jsonb_extract(json, '$.{}')", k))
+                .collect::<Vec<String>>(),
+            );
+            index_keys.push("key".to_string());
+            index_keys.push("expires_at".to_string());
+            let index_keys = index_keys.join(", ");
             tx.execute(
               format!(
                 "
                 CREATE INDEX IF NOT EXISTS {}
-                ON document_store (jsonb_extract(json, '$.{}'), id)
+                ON document_store ({})
                 WHERE collection = '{}';
                 ",
-                index_name, key, collection
+                index_name, index_keys, collection
               )
               .as_str(),
               [],
@@ -106,6 +109,102 @@ impl DocumentStore {
         );
         anyhow!("Failed to setup indexes in sqlite database")
       })?
+  }
+
+  #[instrument(skip(self))]
+  pub async fn find_many<T: DeserializeOwned + Send + Sync>(
+    &self,
+    collection: &str,
+    filter: DocumentFilter,
+    cursor: Option<DocumentCursor>,
+  ) -> Result<DocumentFindResult<T>> {
+    let collection = collection.to_string();
+    let mut filter = filter;
+    let (sql, params) = filter.borrow_mut().to_sql(collection.clone())?;
+    let cursor_limit = cursor.as_ref().map(|c| c.limit);
+    let (range_size, rows) = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut count_stmt = conn.prepare(
+          sql
+            .replace(&DocumentFilter::columns_select_list(), "COUNT(*)")
+            .as_str(),
+        )?;
+        let mut params = params
+          .iter()
+          .map(|(k, v)| (k.as_ref(), v as &dyn ToSql))
+          .collect::<Vec<_>>();
+        let count =
+          count_stmt.query_row(params.clone().as_slice(), |row| row.get::<_, usize>(0))?;
+
+        let mut row_sql = sql;
+        let cursor_key = cursor.as_ref().and_then(|c| c.cursor.clone());
+        let cursor_limit = cursor.map(|c| c.limit);
+        if cursor_key.is_some() {
+          row_sql = format!("{} AND key > :cursor_key", row_sql);
+          params.push((":cursor_key", &cursor_key as &dyn ToSql));
+        }
+        row_sql = format!("{} ORDER BY key ASC", row_sql);
+        if cursor_limit.is_some() {
+          row_sql = format!("{} LIMIT :cursor_limit", row_sql);
+          params.push((":cursor_limit", &cursor_limit as &dyn ToSql));
+        }
+
+        let mut stmt = conn.prepare(&row_sql)?;
+        let rows = stmt.query_map(params.as_slice(), |row| {
+          Ok((
+            row.get::<_, u64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, NaiveDateTime>(4)?,
+            row.get::<_, NaiveDateTime>(5)?,
+            row.get::<_, Option<NaiveDateTime>>(6)?,
+          ))
+        })?;
+        let rows = rows.collect::<Result<Vec<_>, _>>()?;
+        Ok::<_, rusqlite::Error>((count, rows))
+      })
+      .await
+      .map_err(|e| {
+        error!(
+          message = e.to_string(),
+          "Failed to find many from sqlite database"
+        );
+        anyhow!("Failed to find many from sqlite database")
+      })??;
+    let mut documents = rows
+      .into_iter()
+      .filter_map(
+        |(id, collection, key, json, created_at, updated_at, expires_at)| {
+          serde_json::from_str::<T>(&json)
+            .inspect_err(|e| error!(err = e.to_string(), "Failed to deserialize document"))
+            .ok()
+            .map(|document| Document {
+              id,
+              collection,
+              key,
+              document,
+              created_at,
+              updated_at,
+              expires_at,
+            })
+        },
+      )
+      .collect::<Vec<_>>();
+    let next_cursor = if cursor_limit.is_some_and(|l| documents.len() > l) {
+      documents.pop().map(|d| d.key)
+    } else {
+      None
+    };
+    let result = DocumentFindResult {
+      documents,
+      range_size,
+      next_cursor,
+    };
+    Ok(result)
   }
 
   #[instrument(skip(self, entries))]
@@ -176,209 +275,64 @@ impl DocumentStore {
   }
 
   #[instrument(skip(self))]
-  pub async fn read_index<T: DeserializeOwned + Send + Sync>(
+  pub async fn count_each_field_value(
     &self,
     collection: &str,
-    index: &str,
-    cursor: DocumentIndexReadCursor,
-  ) -> Result<DocumentIndexReadResult<T>> {
+    field: &str,
+    filter: Option<DocumentFilter>,
+  ) -> Result<HashMap<String, usize>> {
     let collection = collection.to_string();
-    let index = index.to_string();
-    let limit = cursor.limit;
-    let results = self
+    let field = field.to_string();
+    let mut filter = filter.unwrap_or_default();
+    let (sql, params) = filter.borrow_mut().to_sql(collection.clone())?;
+    let counts = self
       .sqlite_connection
       .read()
       .await?
       .interact(move |conn| {
-        let is_single_key = cursor.start_key == cursor.stop_key;
-        let start_clause = format!(
-          "AND jsonb_extract(json, '$.{}') {} :start_key",
-          index,
-          if is_single_key { "=" } else { ">=" }
-        );
-        let end_clause = if is_single_key {
-          "".to_string()
-        } else {
-          format!(
-            "AND jsonb_extract(json, '$.{}') {} :stop_key",
-            index,
-            if cursor.stop_key_inclusive { "<=" } else { "<" }
-          )
-        };
-        let mut count_params: Vec<(&str, &dyn ToSql)> = vec![
-          (":collection", &collection),
-          (":start_key", &cursor.start_key),
-        ];
-        if !is_single_key {
-          count_params.push((":stop_key", &cursor.stop_key));
-        }
-        let count = conn.query_row(
-          format!(
-            "
-            SELECT COUNT(*)
-            FROM document_store
-            WHERE collection = :collection
-            {}
-            {}
-            AND expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP;
-            ",
-            start_clause, end_clause
-          )
-          .as_str(),
-          count_params.as_slice(),
-          |row| row.get::<_, usize>(0),
-        )?;
-
-        let id_clause = match &cursor.id_cursor {
-          Some(_) => format!(
-            "AND id {} :id_cursor",
-            match cursor.direction {
-              DocumentReadDirection::Forward => ">=",
-              DocumentReadDirection::Backward => "<=",
-            }
+        let sql = format!(
+          "
+          {}
+          GROUP BY jsonb_extract(json, '$.{}');
+          ",
+          sql.replace(
+            &DocumentFilter::columns_select_list(),
+            format!("jsonb_extract(json, '$.{}'), COUNT(*)", field).as_str()
           ),
-          None => "".to_string(),
-        };
-        let extended_limit = limit + 1;
-        let mut stmt_params: Vec<(&str, &dyn ToSql)> = vec![
-          (":collection", &collection),
-          (":start_key", &cursor.start_key),
-          (":limit", &extended_limit),
-        ];
-        if let Some(id_cursor) = cursor.id_cursor.as_ref() {
-          stmt_params.push((":id_cursor", id_cursor));
-        }
-        if !is_single_key {
-          stmt_params.push((":stop_key", &cursor.stop_key));
-        }
-        let direction = match cursor.direction {
-          DocumentReadDirection::Forward => "ASC",
-          DocumentReadDirection::Backward => "DESC",
-        };
-        let mut stmt = conn.prepare(
-          format!(
-            "
-            SELECT id, collection, key, json(json), created_at, updated_at, expires_at
-            FROM document_store
-            WHERE collection = :collection
-            {}
-            {}
-            {}
-            AND expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP
-            ORDER BY jsonb_extract(json, '$.{}') {}, id {}
-            LIMIT :limit;
-            ",
-            start_clause, end_clause, id_clause, index, direction, direction
-          )
-          .as_str(),
-        )?;
-        let rows = stmt.query_map(stmt_params.as_slice(), |row| {
-          Ok((
-            row.get::<_, u64>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, String>(3)?,
-            row.get::<_, NaiveDateTime>(4)?,
-            row.get::<_, NaiveDateTime>(5)?,
-            row.get::<_, Option<NaiveDateTime>>(6)?,
-          ))
+          field
+        );
+        let params = params
+          .iter()
+          .map(|(k, v)| (k.as_ref(), v as &dyn ToSql))
+          .collect::<Vec<_>>();
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(params.as_slice(), |row| {
+          Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
         })?;
         let rows = rows.collect::<Result<Vec<_>, _>>()?;
-        Ok::<_, rusqlite::Error>((count, rows))
+        Ok::<_, rusqlite::Error>(rows)
       })
       .await
       .map_err(|e| {
         error!(
           message = e.to_string(),
-          "Failed to read index from sqlite database"
+          "Failed to count each field in sqlite database"
         );
-        anyhow!("Failed to read index from sqlite database")
+        anyhow!("Failed to count each field in sqlite database")
       })??;
-    let (range_size, rows) = results;
-    let mut documents = rows
-      .into_iter()
-      .filter_map(
-        |(id, collection, key, json, created_at, updated_at, expires_at)| {
-          serde_json::from_str::<T>(&json)
-            .inspect_err(|e| error!(err = e.to_string(), "Failed to deserialize document"))
-            .ok()
-            .map(|document| Document {
-              id,
-              collection,
-              key,
-              document,
-              created_at,
-              updated_at,
-              expires_at,
-            })
-        },
-      )
-      .collect::<Vec<_>>();
-    let next_cursor_doc = if documents.len() > limit {
-      documents.pop()
-    } else {
-      None
-    };
-    let result = DocumentIndexReadResult {
-      documents,
-      range_size,
-      next_id_cursor: next_cursor_doc.map(|doc| doc.id),
-    };
-    Ok(result)
-  }
-
-  pub async fn stream_index<'a, T: DeserializeOwned + Send + Sync + 'a>(
-    &'a self,
-    collection: &'a str,
-    index: &'a str,
-    start_cursor: DocumentIndexReadCursor,
-    max_results: Option<usize>,
-  ) -> impl Stream<Item = Result<DocumentIndexReadResult<T>>> + 'a {
-    try_stream! {
-      let mut returned = 0;
-      let mut cursor = start_cursor.clone();
-      loop {
-        if max_results.is_some_and(|mr| returned >= mr) {
-          break;
-        }
-
-        cursor.limit = max_results.map(|mr| min(
-          mr - returned,
-          start_cursor.limit,
-        )).unwrap_or(cursor.limit);
-
-        let res = self
-        .read_index::<T>(collection, index, cursor.clone())
-        .await?;
-
-       let next_id_cursor = res.next_id_cursor.clone();
-       let range_size = res.range_size;
-        returned += res.documents.len();
-        yield res;
-
-        if let Some(next_id_cursor) = next_id_cursor {
-          cursor.id_cursor = Some(next_id_cursor);
-        } else {
-          break;
-        }
-
-        if returned >= range_size {
-          break;
-        }
-      }
-    }
+    Ok(counts.into_iter().collect::<HashMap<String, usize>>())
   }
 
   #[instrument(skip(self))]
-  pub async fn count_many_by_index_key(
+  pub async fn count_many_by_field_value(
     &self,
     collection: &str,
-    index: &str,
-    index_key: Vec<String>,
+    field: &str,
+    values: Vec<String>,
   ) -> Result<HashMap<String, usize>> {
     let collection = collection.to_string();
-    let index = index.to_string();
-    let index_key: Vec<Value> = index_key
+    let field = field.to_string();
+    let values: Vec<Value> = values
       .into_iter()
       .map(|k| Value::from(k.to_string()))
       .collect::<Vec<Value>>();
@@ -397,11 +351,11 @@ impl DocumentStore {
             AND expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP
             GROUP BY jsonb_extract(json, '$.{}');
             ",
-            index, index, index
+            field, field, field
           )
           .as_str(),
         )?;
-        let rows = stmt.query_map(params![collection, Rc::new(index_key)], |row| {
+        let rows = stmt.query_map(params![collection, Rc::new(values)], |row| {
           Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
         })?;
         let rows = rows.collect::<Result<Vec<_>, _>>()?;
@@ -411,31 +365,31 @@ impl DocumentStore {
       .map_err(|e| {
         error!(
           message = e.to_string(),
-          "Failed to count many by index key in sqlite database"
+          "Failed to count many by field value in sqlite database"
         );
-        anyhow!("Failed to count many by index key in sqlite database")
+        anyhow!("Failed to count many by field value in sqlite database")
       })??;
     Ok(counts.into_iter().collect::<HashMap<String, usize>>())
   }
 
   #[instrument(skip(self))]
-  pub async fn count_by_index_key(
+  pub async fn count_field_value(
     &self,
     collection: &str,
-    index: &str,
-    index_key: &str,
+    field: &str,
+    value: &str,
   ) -> Result<usize> {
     Ok(
       self
-        .count_many_by_index_key(collection, index, vec![index_key.to_string()])
+        .count_many_by_field_value(collection, field, vec![value.to_string()])
         .await?
-        .remove(index_key)
+        .remove(value)
         .unwrap_or(0),
     )
   }
 
   #[instrument(skip(self))]
-  pub async fn find_many<T: DeserializeOwned + Send + Sync>(
+  pub async fn find_many_by_key<T: DeserializeOwned + Send + Sync>(
     &self,
     collection: &str,
     keys: Vec<String>,
@@ -507,14 +461,14 @@ impl DocumentStore {
   }
 
   #[instrument(skip(self))]
-  pub async fn find<T: DeserializeOwned + Send + Sync>(
+  pub async fn find_by_key<T: DeserializeOwned + Send + Sync>(
     &self,
     collection: &str,
     key: &str,
   ) -> Result<Option<Document<T>>> {
     Ok(
       self
-        .find_many(collection, vec![key.to_string()])
+        .find_many_by_key(collection, vec![key.to_string()])
         .await?
         .remove(key),
     )

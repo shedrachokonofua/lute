@@ -63,11 +63,18 @@ async fn main() -> Result<()> {
     .setup_indexes(HashMap::from([
       (
         "profile_spotify_import",
-        vec!["album_search_lookup_encoded_query", "profile_id"],
+        vec![
+          vec!["album_search_lookup_encoded_query"],
+          vec!["profile_id"],
+        ],
       ),
       (
         "album_search_lookup",
-        vec!["status", "parsed_album_search_result.file_name"],
+        vec![vec!["status"], vec!["parsed_album_search_result.file_name"]],
+      ),
+      (
+        "parser_failure",
+        vec![vec!["page_type", "error"], vec!["error"]],
       ),
     ]))
     .await?;

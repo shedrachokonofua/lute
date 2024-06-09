@@ -1,10 +1,10 @@
 use super::{
-  failed_parse_files_repository::{AggregatedError, FailedParseFilesRepository},
   parsed_file_data::{
     ParsedAlbum, ParsedAlbumSearchResult, ParsedArtist, ParsedArtistAlbum, ParsedArtistReference,
     ParsedChartAlbum, ParsedCredit, ParsedFileData, ParsedTrack,
   },
   parser::parse_file_on_store,
+  parser_failure_repository::{AggregatedError, ParserFailureRepository},
 };
 use crate::{
   context::ApplicationContext,
@@ -23,7 +23,7 @@ use tracing::error;
 use ulid::Ulid;
 
 pub struct ParserService {
-  failed_parse_files_repository: FailedParseFilesRepository,
+  parser_failure_repository: ParserFailureRepository,
   app_context: Arc<ApplicationContext>,
 }
 
@@ -186,9 +186,7 @@ impl From<ParsedFileData> for proto::ParsedFileData {
 impl ParserService {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      failed_parse_files_repository: FailedParseFilesRepository {
-        redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
-      },
+      parser_failure_repository: ParserFailureRepository::new(Arc::clone(&app_context.doc_store)),
       app_context,
     }
   }
@@ -207,7 +205,7 @@ impl proto::ParserService for ParserService {
       })
     });
     let aggregated_errors = self
-      .failed_parse_files_repository
+      .parser_failure_repository
       .aggregate_errors(page_type)
       .await
       .map_err(|err| {
@@ -270,8 +268,8 @@ impl proto::ParserService for ParserService {
     let request: EnqueueRetriesRequest = request.into_inner();
     let error_type = request.error.to_string();
     let failures = self
-      .failed_parse_files_repository
-      .find_many(Some(&error_type))
+      .parser_failure_repository
+      .find_many(Some(error_type))
       .await
       .map_err(|err| {
         error!(err = err.to_string(), "failed to find many by error");

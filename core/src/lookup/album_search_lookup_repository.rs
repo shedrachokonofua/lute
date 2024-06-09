@@ -3,7 +3,7 @@ use super::album_search_lookup::{
 };
 use crate::{
   files::file_metadata::file_name::FileName,
-  helpers::document_store::{DocumentIndexReadCursorBuilder, DocumentStore},
+  helpers::document_store::{DocumentFilter, DocumentStore},
 };
 use anyhow::{anyhow, Result};
 use std::{collections::HashMap, sync::Arc};
@@ -28,7 +28,7 @@ impl AlbumSearchLookupRepository {
   pub async fn find(&self, query: &AlbumSearchLookupQuery) -> Result<Option<AlbumSearchLookup>> {
     self
       .doc_store
-      .find::<AlbumSearchLookup>(COLLECTION, &query.to_encoded_string())
+      .find_by_key::<AlbumSearchLookup>(COLLECTION, &query.to_encoded_string())
       .await
       .map(|d| d.map(|d| d.document))
   }
@@ -43,7 +43,7 @@ impl AlbumSearchLookupRepository {
       .collect::<Vec<_>>();
     self
       .doc_store
-      .find_many::<AlbumSearchLookup>(COLLECTION, keys)
+      .find_many_by_key::<AlbumSearchLookup>(COLLECTION, keys)
       .await?
       .into_iter()
       .map(|(k, v)| Ok((k, v.document)))
@@ -56,13 +56,16 @@ impl AlbumSearchLookupRepository {
   ) -> Result<Vec<AlbumSearchLookup>> {
     self
       .doc_store
-      .read_index::<AlbumSearchLookup>(
+      .find_many(
         COLLECTION,
-        "parsed_album_search_result.file_name",
-        DocumentIndexReadCursorBuilder::default()
-          .start_key(file_name.to_string())
-          .limit(10000)
-          .build()?,
+        DocumentFilter::new()
+          .condition(
+            "parsed_album_search_result.file_name",
+            "=",
+            file_name.to_string(),
+          )
+          .build(),
+        None,
       )
       .await
       .map(|d| d.documents.into_iter().map(|d| d.document).collect())
@@ -94,7 +97,7 @@ impl AlbumSearchLookupRepository {
       .collect::<Vec<_>>();
     let counts = self
       .doc_store
-      .count_many_by_index_key(COLLECTION, "status", statuses)
+      .count_many_by_field_value(COLLECTION, "status", statuses)
       .await?;
     Ok(
       counts

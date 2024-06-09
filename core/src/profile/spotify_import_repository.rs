@@ -2,11 +2,10 @@ use super::{
   profile::ProfileId, spotify_import_lookup_subscription::SpotifyImportLookupSubscription,
 };
 use crate::{
-  helpers::document_store::{DocumentIndexReadCursorBuilder, DocumentStore},
+  helpers::document_store::{DocumentFilter, DocumentStore},
   lookup::album_search_lookup::AlbumSearchLookupQuery,
 };
 use anyhow::Result;
-use futures::{pin_mut, TryStreamExt};
 use std::sync::Arc;
 
 pub struct SpotifyImportRepository {
@@ -34,33 +33,22 @@ impl SpotifyImportRepository {
 
   async fn find_subscriptions(
     &self,
-    key: String,
+    key: &str,
     value: String,
   ) -> Result<Vec<SpotifyImportLookupSubscription>> {
-    let doc_stream = self
+    let docs = self
       .doc_store
-      .stream_index::<SpotifyImportLookupSubscription>(
+      .find_many(
         COLLECTION,
-        &key,
-        DocumentIndexReadCursorBuilder::default()
-          .start_key(value)
-          .limit(500)
-          .build()?,
+        DocumentFilter::new().condition(&key, "=", value).build(),
         None,
       )
-      .await;
-
-    pin_mut!(doc_stream);
-
-    let docs = doc_stream.try_collect::<Vec<_>>().await?;
-
-    Ok(
-      docs
-        .into_iter()
-        .flat_map(|d| d.documents)
-        .map(|d| d.document)
-        .collect::<Vec<_>>(),
-    )
+      .await?
+      .documents
+      .into_iter()
+      .map(|d| d.document)
+      .collect();
+    Ok(docs)
   }
 
   pub async fn find_subscriptions_by_query(
@@ -69,7 +57,7 @@ impl SpotifyImportRepository {
   ) -> Result<Vec<SpotifyImportLookupSubscription>> {
     self
       .find_subscriptions(
-        "album_search_lookup_encoded_query".to_string(),
+        "album_search_lookup_encoded_query",
         album_search_lookup_query.to_encoded_string(),
       )
       .await
@@ -80,7 +68,7 @@ impl SpotifyImportRepository {
     profile_id: &ProfileId,
   ) -> Result<Vec<SpotifyImportLookupSubscription>> {
     self
-      .find_subscriptions("profile_id".to_string(), profile_id.to_string())
+      .find_subscriptions("profile_id", profile_id.to_string())
       .await
   }
 

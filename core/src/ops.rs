@@ -4,7 +4,7 @@ use crate::{
   events::event_repository::EventRepository,
   files::file_interactor::FileInteractor,
   helpers::{key_value_store::KeyValueStore, priority::Priority},
-  parser::failed_parse_files_repository::FailedParseFilesRepository,
+  parser::parser_failure_repository::ParserFailureRepository,
   proto::{
     self, CrawlParseFailedFilesReply, CrawlParseFailedFilesRequest,
     GetEventKeyMigrationMonitorReply, KeyCountReply, MigrateSqliteRequest,
@@ -28,7 +28,7 @@ pub struct OperationsService {
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   crawler: Arc<Crawler>,
   file_interactor: Arc<FileInteractor>,
-  failed_parse_files_repository: FailedParseFilesRepository,
+  parser_failure_repository: ParserFailureRepository,
   kv: Arc<KeyValueStore>,
   event_repository: EventRepository,
 }
@@ -41,9 +41,7 @@ impl OperationsService {
       kv: Arc::clone(&app_context.kv),
       redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
       file_interactor: Arc::clone(&app_context.file_interactor),
-      failed_parse_files_repository: FailedParseFilesRepository {
-        redis_connection_pool: Arc::clone(&app_context.redis_connection_pool),
-      },
+      parser_failure_repository: ParserFailureRepository::new(Arc::clone(&app_context.doc_store)),
       event_repository: EventRepository::new(Arc::clone(&app_context.sqlite_connection)),
     }
   }
@@ -211,8 +209,8 @@ impl proto::OperationsService for OperationsService {
   ) -> Result<Response<CrawlParseFailedFilesReply>, Status> {
     let error = request.into_inner().error;
     let files = self
-      .failed_parse_files_repository
-      .find_many(error.as_deref())
+      .parser_failure_repository
+      .find_many(error)
       .await
       .map_err(|e| {
         error!("Error: {:?}", e);
