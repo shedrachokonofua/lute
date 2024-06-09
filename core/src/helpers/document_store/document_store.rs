@@ -60,7 +60,7 @@ impl DocumentStore {
     Self { sqlite_connection }
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), name = "DocumentStore::setup_indexes")]
   pub async fn setup_indexes(
     &self,
     mappings: HashMap<&'static str, Vec<Vec<&'static str>>>,
@@ -111,7 +111,7 @@ impl DocumentStore {
       })?
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), name = "DocumentStore::find_many")]
   pub async fn find_many<T: DeserializeOwned + Send + Sync>(
     &self,
     collection: &str,
@@ -207,7 +207,7 @@ impl DocumentStore {
     Ok(result)
   }
 
-  #[instrument(skip(self, entries))]
+  #[instrument(skip(self, entries), name = "DocumentStore::put_many")]
   pub async fn put_many<T: Serialize + Send + Sync>(
     &self,
     collection: &str,
@@ -263,7 +263,7 @@ impl DocumentStore {
     Ok(())
   }
 
-  #[instrument(skip(self, document))]
+  #[instrument(skip(self, document), name = "DocumentStore::put")]
   pub async fn put<T: Serialize + Send + Sync>(
     &self,
     collection: &str,
@@ -276,7 +276,7 @@ impl DocumentStore {
       .await
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), name = "DocumentStore::count_each_field_value")]
   pub async fn count_each_field_value(
     &self,
     collection: &str,
@@ -325,7 +325,7 @@ impl DocumentStore {
     Ok(counts.into_iter().collect::<HashMap<String, usize>>())
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), name = "DocumentStore::count_many_by_field_value")]
   pub async fn count_many_by_field_value(
     &self,
     collection: &str,
@@ -374,7 +374,7 @@ impl DocumentStore {
     Ok(counts.into_iter().collect::<HashMap<String, usize>>())
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), name = "DocumentStore::count_field_value")]
   pub async fn count_field_value(
     &self,
     collection: &str,
@@ -390,7 +390,7 @@ impl DocumentStore {
     )
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), name = "DocumentStore::find_many_by_key")]
   pub async fn find_many_by_key<T: DeserializeOwned + Send + Sync>(
     &self,
     collection: &str,
@@ -462,7 +462,7 @@ impl DocumentStore {
     Ok(documents)
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), name = "DocumentStore::find_by_key")]
   pub async fn find_by_key<T: DeserializeOwned + Send + Sync>(
     &self,
     collection: &str,
@@ -476,7 +476,7 @@ impl DocumentStore {
     )
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), name = "DocumentStore::delete_many")]
   pub async fn delete_many(&self, collection: &str, keys: Vec<String>) -> Result<()> {
     let collection = collection.to_string();
     let keys = keys.into_iter().map(Value::from).collect::<Vec<_>>();
@@ -507,7 +507,7 @@ impl DocumentStore {
     Ok(())
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), name = "DocumentStore::delete")]
   pub async fn delete(&self, collection: &str, key: &str) -> Result<()> {
     self.delete_many(collection, vec![key.to_string()]).await
   }
