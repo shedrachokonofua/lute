@@ -59,22 +59,29 @@ impl ParserFailureRepository {
     Self { doc_store }
   }
 
-  pub async fn put(&self, parser_failure: ParserFailure) -> Result<()> {
+  pub async fn put_many(&self, failures: Vec<ParserFailure>) -> Result<()> {
     self
       .doc_store
-      .put::<ParserFailureDocument>(
+      .put_many::<ParserFailureDocument>(
         COLLECTION,
-        &parser_failure.file_name.to_string(),
-        parser_failure.into(),
-        None,
+        failures
+          .into_iter()
+          .map(|f| (f.file_name.to_string(), f.into(), None))
+          .collect::<Vec<_>>(),
       )
       .await
   }
 
-  pub async fn remove(&self, file_name: &FileName) -> Result<()> {
+  pub async fn delete_many(&self, file_name: Vec<FileName>) -> Result<()> {
     self
       .doc_store
-      .delete(COLLECTION, &file_name.to_string())
+      .delete_many(
+        COLLECTION,
+        file_name
+          .into_iter()
+          .map(|f| f.to_string())
+          .collect::<Vec<_>>(),
+      )
       .await
   }
 

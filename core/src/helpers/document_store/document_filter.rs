@@ -161,7 +161,10 @@ impl DocumentFilter {
       ));
       params.extend(group_params);
     }
-    sql.push_str(format!("AND ({})", added_sql.trim_end()).as_str());
+    added_sql = added_sql.trim().to_string();
+    if !added_sql.is_empty() {
+      sql.push_str(format!("AND ({})", added_sql).as_str());
+    }
     sql = condense_whitespace(&sql);
 
     Ok((sql, params))

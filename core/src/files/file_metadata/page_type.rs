@@ -3,7 +3,9 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, strum_macros::Display)]
+#[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum PageType {
   Artist,
   Album,
@@ -43,17 +45,6 @@ impl TryFrom<&str> for PageType {
       file_name if is_album_search_result_page(file_name) => Ok(PageType::AlbumSearchResult),
       file_name if file_name.starts_with("artist") => Ok(PageType::Artist),
       _ => Err(()),
-    }
-  }
-}
-
-impl ToString for PageType {
-  fn to_string(&self) -> String {
-    match self {
-      PageType::Artist => "artist".to_string(),
-      PageType::Album => "album".to_string(),
-      PageType::Chart => "chart".to_string(),
-      PageType::AlbumSearchResult => "album_search_result".to_string(),
     }
   }
 }

@@ -211,7 +211,7 @@ impl DocumentStore {
   pub async fn put_many<T: Serialize + Send + Sync>(
     &self,
     collection: &str,
-    entries: Vec<(&str, T, Option<Duration>)>,
+    entries: Vec<(String, T, Option<Duration>)>,
   ) -> Result<()> {
     let entries = entries
       .into_iter()
@@ -271,7 +271,9 @@ impl DocumentStore {
     document: T,
     ttl: Option<Duration>,
   ) -> Result<()> {
-    self.put_many(collection, vec![(key, document, ttl)]).await
+    self
+      .put_many(collection, vec![(key.to_string(), document, ttl)])
+      .await
   }
 
   #[instrument(skip(self))]
@@ -475,9 +477,9 @@ impl DocumentStore {
   }
 
   #[instrument(skip(self))]
-  pub async fn delete(&self, collection: &str, key: &str) -> Result<()> {
+  pub async fn delete_many(&self, collection: &str, keys: Vec<String>) -> Result<()> {
     let collection = collection.to_string();
-    let key = key.to_string();
+    let keys = keys.into_iter().map(Value::from).collect::<Vec<_>>();
     self
       .sqlite_connection
       .write()
@@ -487,9 +489,9 @@ impl DocumentStore {
         tx.execute(
           "
           DELETE FROM document_store
-          WHERE collection = ? AND key = ?;
+          WHERE collection = ? AND key IN rarray(?);
           ",
-          params![collection, key],
+          params![collection, Rc::new(keys)],
         )?;
         tx.commit()?;
         Ok::<_, rusqlite::Error>(())
@@ -503,5 +505,10 @@ impl DocumentStore {
         anyhow!("Failed to delete document from sqlite database")
       })??;
     Ok(())
+  }
+
+  #[instrument(skip(self))]
+  pub async fn delete(&self, collection: &str, key: &str) -> Result<()> {
+    self.delete_many(collection, vec![key.to_string()]).await
   }
 }
