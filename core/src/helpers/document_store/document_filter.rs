@@ -236,4 +236,29 @@ mod tests {
       assert_eq!(expected, actual);
     }
   }
+
+  #[test]
+  fn test_optional_and() {
+    let mut left_filter = DocumentFilter::new();
+    left_filter
+      .condition("name", "=", "Jane")
+      .and()
+      .condition("age", ">", 18)
+      .and()
+      .condition("city", "=", "New York")
+      .or()
+      .condition("city", "=", "Barcelona");
+    let left_output = left_filter.to_sql("users".to_string()).unwrap();
+
+    let mut right_filter = DocumentFilter::new();
+    right_filter
+      .condition("name", "=", "Jane")
+      .condition("age", ">", 18)
+      .condition("city", "=", "New York")
+      .or()
+      .condition("city", "=", "Barcelona");
+    let right_output = right_filter.to_sql("users".to_string()).unwrap();
+
+    assert_eq!(left_output.0, right_output.0);
+  }
 }
