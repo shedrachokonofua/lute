@@ -1,11 +1,11 @@
 use crate::{
   albums::{
     album_interactor::AlbumInteractor, album_repository::AlbumRepository,
-    album_search_index::AlbumSearchIndex, embedding_provider::AlbumEmbeddingProvidersInteractor,
-    redis_album_search_index::RedisAlbumSearchIndex,
+    album_search_index::AlbumSearchIndex, redis_album_search_index::RedisAlbumSearchIndex,
   },
   artists::artist_interactor::ArtistInteractor,
   crawler::crawler::Crawler,
+  embedding_provider::embedding_provider_interactor::EmbeddingProviderInteractor,
   events::event_publisher::EventPublisher,
   files::file_interactor::FileInteractor,
   helpers::{document_store::DocumentStore, key_value_store::KeyValueStore},
@@ -32,7 +32,7 @@ pub struct ApplicationContext {
   pub doc_store: Arc<DocumentStore>,
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
   pub crawler: Arc<Crawler>,
-  pub album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
+  pub embedding_provider_interactor: Arc<EmbeddingProviderInteractor>,
   pub spotify_client: Arc<SpotifyClient>,
   pub artist_interactor: Arc<ArtistInteractor>,
   pub album_interactor: Arc<AlbumInteractor>,
@@ -79,13 +79,13 @@ impl ApplicationContext {
       Arc::clone(&file_interactor),
     )?);
     let album_repository = Arc::new(AlbumRepository::new(Arc::clone(&sqlite_connection)));
-    let album_embedding_providers_interactor = Arc::new(AlbumEmbeddingProvidersInteractor::new(
+    let embedding_provider_interactor = Arc::new(EmbeddingProviderInteractor::new(
       Arc::clone(&settings),
       Arc::clone(&kv),
     ));
     let album_search_index = Arc::new(RedisAlbumSearchIndex::new(
       Arc::clone(&redis_connection_pool),
-      Arc::clone(&album_embedding_providers_interactor),
+      Arc::clone(&embedding_provider_interactor),
     ));
     let spotify_client = Arc::new(SpotifyClient::new(
       &settings.spotify.clone(),
@@ -125,7 +125,7 @@ impl ApplicationContext {
       redis_connection_pool,
       crawler,
       spotify_client,
-      album_embedding_providers_interactor,
+      embedding_provider_interactor,
       file_interactor,
       event_publisher,
       scheduler,

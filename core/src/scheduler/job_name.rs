@@ -13,4 +13,6 @@ pub enum JobName {
   Crawl,
   FetchSpotifyTracksByAlbumIds,
   FetchSpotifyTracksByAlbumSearch,
+  GenerateOpenAIEmbeddings,
+  GenerateVoyageAIEmbeddings,
 }

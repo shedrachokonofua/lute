@@ -12,6 +12,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  metabase:
+    image: metabase/metabase:latest
+    volumes:
+    - /dev/urandom:/dev/random:ro
+    ports:
+      - 22004:3000
+
   adminer:
     image: adminer
     restart: always

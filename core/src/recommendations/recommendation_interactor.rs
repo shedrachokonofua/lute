@@ -19,7 +19,7 @@ use crate::{
   albums::{album_interactor::AlbumInteractor, album_read_model::AlbumReadModel},
   context::ApplicationContext,
   files::file_metadata::file_name::FileName,
-  helpers::{math::average_embedding, redisearch::SearchPagination},
+  helpers::{embedding::average_embedding, redisearch::SearchPagination},
   profile::{
     profile::{Profile, ProfileId},
     profile_interactor::ProfileInteractor,

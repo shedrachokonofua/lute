@@ -1,16 +1,16 @@
 use super::artist_read_model::ArtistOverview;
+use crate::helpers::elasticsearch_index::{ElasticsearchIndex, ElasticsearchResult};
+use crate::helpers::embedding::EmbeddingDocument;
 use crate::{
   files::file_metadata::file_name::FileName, helpers::redisearch::SearchPagination, proto,
 };
 use anyhow::{anyhow, Result};
 use derive_builder::Builder;
-use elasticsearch::http::request::JsonBody;
-use elasticsearch::{BulkParts, Elasticsearch, IndexParts, SearchParts};
+use elasticsearch::Elasticsearch;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::cmp::{max, min};
 use std::sync::Arc;
-use tracing::{info, instrument};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct ArtistSearchRecord {
@@ -44,6 +44,15 @@ impl TryFrom<Vec<(String, String)>> for ArtistSearchRecord {
 pub struct ArtistSearchResult {
   pub artists: Vec<ArtistSearchRecord>,
   pub total: usize,
+}
+
+impl Into<ArtistSearchResult> for ElasticsearchResult<ArtistSearchRecord> {
+  fn into(self) -> ArtistSearchResult {
+    ArtistSearchResult {
+      artists: self.results,
+      total: self.total,
+    }
+  }
 }
 
 fn get_min_year(left: u32, right: u32) -> u32 {
@@ -249,114 +258,54 @@ impl ArtistSearchQuery {
   }
 }
 
-const INDEX_NAME: &str = "poc-artists";
+const INDEX_NAME: &str = "artists";
 
 pub struct ArtistSearchIndex {
-  elasticsearch_client: Arc<Elasticsearch>,
+  index: ElasticsearchIndex,
 }
 
 impl ArtistSearchIndex {
   pub fn new(elasticsearch_client: Arc<Elasticsearch>) -> Self {
     Self {
-      elasticsearch_client,
+      index: ElasticsearchIndex::new(elasticsearch_client, INDEX_NAME.to_string()),
     }
   }
 
   pub async fn setup_index(&self) -> Result<()> {
-    let res = self
-      .elasticsearch_client
-      .index(IndexParts::Index(INDEX_NAME))
-      .body(json!({
-        "settings": {
-          "number_of_shards": 1,
-          "number_of_replicas": 0,
-          "analysis": {
-            "analyzer": {
-              "ascii_analyzer": {
-                "tokenizer": "standard",
-                "filter": [
-                  "lowercase",
-                  "asciifolding"
-                ]
-              }
-            }
-          }
-        },
-        "mappings": {
-          "properties": {
-            "name": {
-              "type": "text",
-              "analyzer": "ascii_analyzer"
-            },
-            "file_name": {
-              "type": "keyword"
-            },
-            "total_rating_count": {
-              "type": "integer"
-            },
-            "min_year": {
-              "type": "integer"
-            },
-            "max_year": {
-              "type": "integer"
-            },
-            "album_count": {
-              "type": "integer"
-            },
-            "credit_roles": {
-              "type": "keyword"
-            },
-            "primary_genres": {
-              "type": "keyword"
-            },
-            "creditted_primary_genres": {
-              "type": "keyword"
-            },
-            "secondary_genres": {
-              "type": "keyword"
-            },
-            "creditted_secondary_genres": {
-              "type": "keyword"
-            }
-          }
-        },
-      }))
-      .send()
-      .await?;
-    let response_body = res.json::<Value>().await?;
-    info!("ElasticSearch index setup: {:?}", response_body);
+    self.index.setup().await?;
     Ok(())
   }
 
-  #[instrument(skip_all, fields(artists = artists.len()))]
-  pub async fn put_many(&self, artists: Vec<ArtistSearchRecord>) -> Result<()> {
-    let count = artists.len();
-    let body = artists
-      .into_iter()
-      .flat_map(|artist| {
-        vec![
-          json!({
-            "index": {
-              "_id": artist.file_name
-            }
+  pub async fn put_many_embeddings(&self, docs: Vec<EmbeddingDocument>) -> Result<()> {
+    self
+      .index
+      .put_many(
+        docs
+          .into_iter()
+          .map(|doc| {
+            (
+              doc.file_name.to_string(),
+              json!({
+                format!("embedding_vector_{}", doc.key): doc.embedding
+              }),
+            )
           })
-          .into(),
-          json!(artist).into(),
-        ]
-      })
-      .collect::<Vec<JsonBody<Value>>>();
-    let res = self
-      .elasticsearch_client
-      .bulk(BulkParts::Index(INDEX_NAME))
-      .body(body)
-      .send()
+          .collect::<Vec<(String, Value)>>(),
+      )
       .await?;
-    let response_body = res.json::<Value>().await?;
-    if response_body["errors"].as_bool().unwrap_or(false) {
-      return Err(anyhow!("Failed to put artists: {:?}", response_body));
-    }
-    let took = response_body["took"].as_i64().unwrap();
-    info!("ElasticSearch put {} artists in {}ms", count, took);
+    Ok(())
+  }
+
+  pub async fn put_many(&self, artists: Vec<ArtistSearchRecord>) -> Result<()> {
+    self
+      .index
+      .put_many(
+        artists
+          .into_iter()
+          .map(|artist| (artist.file_name.clone(), json!(artist)))
+          .collect::<Vec<(String, Value)>>(),
+      )
+      .await?;
     Ok(())
   }
 
@@ -364,53 +313,20 @@ impl ArtistSearchIndex {
     self.put_many(vec![artist]).await
   }
 
-  #[instrument(skip(self))]
   pub async fn search(
     &self,
     query: &ArtistSearchQuery,
     pagination: Option<&SearchPagination>,
   ) -> Result<ArtistSearchResult> {
-    let offset = pagination
-      .and_then(|p: &SearchPagination| p.offset)
-      .unwrap_or(0) as i64;
-    let limit = pagination.and_then(|p| p.limit).unwrap_or(50) as i64;
-    let query = query.to_es_query();
-    let res = self
-      .elasticsearch_client
-      .search(SearchParts::Index(&[INDEX_NAME]))
-      .from(offset)
-      .size(limit)
-      .body(json!({
-        "query": query,
-      }))
-      .send()
+    let result = self
+      .index
+      .search(
+        json!({
+          "query": query.to_es_query(),
+        }),
+        pagination,
+      )
       .await?;
-
-    let mut response_body = res.json::<Value>().await?;
-
-    let took = response_body["took"].as_i64().unwrap();
-    let total = response_body["hits"]["total"]["value"].as_i64().unwrap();
-    info!(
-      "ElasticSearch returned artists in {}ms, total: {}",
-      took, total
-    );
-
-    let records = response_body["hits"]["hits"]
-      .as_array_mut()
-      .unwrap()
-      .into_iter()
-      .filter_map(|hit| {
-        serde_json::from_value::<ArtistSearchRecord>(hit["_source"].take())
-          .inspect_err(|e| {
-            info!("Failed to parse ArtistSearchRecord: {:?}", e);
-          })
-          .ok()
-      })
-      .collect::<Vec<ArtistSearchRecord>>();
-
-    Ok(ArtistSearchResult {
-      artists: records,
-      total: total as usize,
-    })
+    Ok(result.into())
   }
 }

@@ -1,9 +1,5 @@
-use super::{
-  album_read_model::{
-    AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack,
-  },
-  album_search_index::AlbumEmbedding,
-  embedding_provider::provider::AlbumEmbeddingProvider,
+use super::album_read_model::{
+  AlbumReadModel, AlbumReadModelArtist, AlbumReadModelCredit, AlbumReadModelTrack,
 };
 use crate::{
   context::ApplicationContext,
@@ -145,62 +141,10 @@ async fn crawl_artist_albums(
   Ok(())
 }
 
-async fn update_album_embedding(
-  provider: Arc<dyn AlbumEmbeddingProvider + Send + Sync + 'static>,
-  event_data: EventData,
-  app_context: Arc<ApplicationContext>,
-) -> Result<()> {
-  if let Event::FileParsed {
-    file_id: _,
-    file_name,
-    data: ParsedFileData::Album(parsed_album),
-  } = &event_data.payload.event
-  {
-    let album_read_model = AlbumReadModel::from_parsed_album(file_name, parsed_album.clone());
-    let embedding = provider.generate(&album_read_model).await?;
-    app_context
-      .album_interactor
-      .put_embedding(&AlbumEmbedding {
-        file_name: file_name.clone(),
-        key: provider.name().to_string(),
-        embedding,
-      })
-      .await?;
-  }
-  Ok(())
-}
-
-fn build_embedding_provider_event_subscribers(
-  app_context: Arc<ApplicationContext>,
-) -> Result<Vec<EventSubscriber>> {
-  let subscribers = app_context
-    .album_embedding_providers_interactor
-    .providers
-    .iter()
-    .filter_map(|provider| {
-      let provider = Arc::clone(provider);
-      EventSubscriberBuilder::default()
-        .id(format!("update_album_embedding:{}", provider.name()))
-        .topic(Topic::Parser)
-        .batch_size(provider.concurrency())
-        .app_context(Arc::clone(&app_context))
-        .handler(EventHandler::Single(Arc::new(
-          move |(event_data, app_context, _)| {
-            let provider = Arc::clone(&provider);
-            Box::pin(async move { update_album_embedding(provider, event_data, app_context).await })
-          },
-        )))
-        .build()
-        .ok()
-    })
-    .collect::<Vec<EventSubscriber>>();
-  Ok(subscribers)
-}
-
 pub fn build_album_event_subscribers(
   app_context: Arc<ApplicationContext>,
 ) -> Result<Vec<EventSubscriber>> {
-  let mut subscribers = vec![
+  Ok(vec![
     EventSubscriberBuilder::default()
       .id("update_album_read_models")
       .topic(Topic::Parser)
@@ -244,9 +188,5 @@ pub fn build_album_event_subscribers(
       .app_context(Arc::clone(&app_context))
       .handler(event_handler!(crawl_artist_albums))
       .build()?,
-  ];
-  subscribers.append(&mut build_embedding_provider_event_subscribers(
-    Arc::clone(&app_context),
-  )?);
-  Ok(subscribers)
+  ])
 }

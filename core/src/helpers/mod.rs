@@ -1,6 +1,8 @@
 pub mod async_utils;
 pub mod batch_loader;
 pub mod document_store;
+pub mod elasticsearch_index;
+pub mod embedding;
 pub mod item_with_factor;
 pub mod key_value_store;
 pub mod math;

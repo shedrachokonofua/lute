@@ -2,10 +2,10 @@ use super::{
   album_interactor::{AlbumInteractor, AlbumMonitor},
   album_repository::{GenreAggregate, ItemAndCount},
   album_search_index::{AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchQuery},
-  embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
 use crate::{
   context::ApplicationContext,
+  embedding_provider::embedding_provider_interactor::EmbeddingProviderInteractor,
   files::file_metadata::file_name::FileName,
   proto,
   spotify::spotify_client::{SpotifyAlbum, SpotifyAlbumType, SpotifyClient},
@@ -126,7 +126,7 @@ impl TryFrom<SpotifyAlbum> for proto::SpotifyAlbum {
   }
 }
 pub struct AlbumService {
-  album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
+  embedding_provider_interactor: Arc<EmbeddingProviderInteractor>,
   album_interactor: Arc<AlbumInteractor>,
   spotify_client: Arc<SpotifyClient>,
 }
@@ -134,9 +134,7 @@ pub struct AlbumService {
 impl AlbumService {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      album_embedding_providers_interactor: Arc::clone(
-        &app_context.album_embedding_providers_interactor,
-      ),
+      embedding_provider_interactor: Arc::clone(&app_context.embedding_provider_interactor),
       album_interactor: Arc::clone(&app_context.album_interactor),
       spotify_client: Arc::clone(&app_context.spotify_client),
     }
@@ -233,10 +231,10 @@ impl proto::AlbumService for AlbumService {
   ) -> Result<Response<proto::GetEmbeddingKeysReply>, Status> {
     let reply = proto::GetEmbeddingKeysReply {
       keys: self
-        .album_embedding_providers_interactor
+        .embedding_provider_interactor
         .providers
-        .iter()
-        .map(|provider| provider.name().to_string())
+        .keys()
+        .map(|provider| provider.to_string())
         .collect(),
     };
     Ok(Response::new(reply))

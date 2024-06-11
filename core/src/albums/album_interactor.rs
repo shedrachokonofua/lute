@@ -2,8 +2,7 @@ use super::{
   album_read_model::AlbumReadModel,
   album_repository::{AlbumRepository, GenreAggregate, ItemAndCount},
   album_search_index::{
-    AlbumEmbedding, AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQuery,
-    AlbumSearchResult,
+    AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQuery, AlbumSearchResult,
   },
 };
 use crate::{
@@ -12,11 +11,14 @@ use crate::{
     event_publisher::EventPublisher,
   },
   files::file_metadata::file_name::FileName,
-  helpers::redisearch::SearchPagination,
+  helpers::{embedding::EmbeddingDocument, redisearch::SearchPagination},
 };
 use anyhow::Result;
 use iter_tools::Itertools;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+  collections::{HashMap, HashSet},
+  sync::Arc,
+};
 use tokio::try_join;
 use tracing::{error, instrument};
 
@@ -251,7 +253,7 @@ impl AlbumInteractor {
     &self,
     file_names: Vec<FileName>,
     key: &str,
-  ) -> Result<Vec<AlbumEmbedding>> {
+  ) -> Result<Vec<EmbeddingDocument>> {
     self
       .album_search_index
       .find_many_embeddings(file_names, key)
@@ -262,7 +264,7 @@ impl AlbumInteractor {
     &self,
     file_name: &FileName,
     key: &str,
-  ) -> Result<Option<AlbumEmbedding>> {
+  ) -> Result<Option<EmbeddingDocument>> {
     self.album_search_index.find_embedding(file_name, key).await
   }
 
@@ -276,7 +278,34 @@ impl AlbumInteractor {
       .await
   }
 
-  pub async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()> {
+  pub async fn put_embedding(&self, embedding: &EmbeddingDocument) -> Result<()> {
     self.album_search_index.put_embedding(embedding).await
+  }
+
+  pub async fn put_many_embeddings(&self, embeddings: Vec<EmbeddingDocument>) -> Result<()> {
+    for embedding in embeddings {
+      self.album_search_index.put_embedding(&embedding).await?;
+    }
+    Ok(())
+  }
+
+  pub async fn related_artist_file_names(
+    &self,
+    album_file_names: Vec<FileName>,
+  ) -> Result<Vec<FileName>> {
+    let albums = self.find_many(album_file_names).await?;
+    let artist_file_names = albums
+      .values()
+      .flat_map(|album| {
+        album
+          .credits
+          .iter()
+          .map(|credit| credit.artist.file_name.clone())
+          .chain(album.artists.iter().map(|artist| artist.file_name.clone()))
+      })
+      .collect::<HashSet<_>>()
+      .into_iter()
+      .collect::<Vec<_>>();
+    Ok(artist_file_names)
   }
 }

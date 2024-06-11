@@ -4,8 +4,10 @@ use super::{
   artist_search_index::{ArtistSearchIndex, ArtistSearchQuery, ArtistSearchRecord},
 };
 use crate::{
-  albums::album_interactor::AlbumInteractor, files::file_metadata::file_name::FileName,
-  helpers::redisearch::SearchPagination, sqlite::SqliteConnection,
+  albums::album_interactor::AlbumInteractor,
+  files::file_metadata::file_name::FileName,
+  helpers::{embedding::EmbeddingDocument, redisearch::SearchPagination},
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use elasticsearch::Elasticsearch;
@@ -39,7 +41,7 @@ impl ArtistInteractor {
     self.artist_search_index.setup_index().await
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), fields(artists = artist_file_names.len()))]
   pub async fn find_many(
     &self,
     artist_file_names: Vec<FileName>,
@@ -56,7 +58,7 @@ impl ArtistInteractor {
       .map(|mut artists| artists.remove(&artist_file_name))
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip_all, fields(artists = artists.len()))]
   async fn get_overviews_with_artist_map(
     &self,
     artists: &HashMap<FileName, ArtistReadModel>,
@@ -84,7 +86,7 @@ impl ArtistInteractor {
     Ok(overviews)
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip(self), fields(artists = artist_file_names.len()))]
   pub async fn get_overviews(
     &self,
     artist_file_names: Vec<FileName>,
@@ -145,5 +147,10 @@ impl ArtistInteractor {
       })
       .collect();
     Ok((output, result.total))
+  }
+
+  #[instrument(skip_all, fields(count = docs.len()))]
+  pub async fn put_many_embeddings(&self, docs: Vec<EmbeddingDocument>) -> Result<()> {
+    self.artist_search_index.put_many_embeddings(docs).await
   }
 }

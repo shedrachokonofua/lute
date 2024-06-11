@@ -208,6 +208,73 @@ impl ArtistOverview {
       credited_album_summary,
     }
   }
+
+  pub fn embedding_body(&self) -> String {
+    let mut parts = vec![
+      self.name.clone(),
+      self.album_summary.album_count.to_string(),
+      self.album_summary.average_rating.to_string(),
+      self.album_summary.total_rating_count.to_string(),
+      self.album_summary.min_year.to_string(),
+      self.album_summary.max_year.to_string(),
+    ];
+    parts.extend(
+      self
+        .album_summary
+        .primary_genres
+        .iter()
+        .map(|g| format!("{}({})", g.item, g.factor)),
+    );
+    parts.extend(
+      self
+        .album_summary
+        .secondary_genres
+        .iter()
+        .map(|g| format!("{}({})", g.item, g.factor)),
+    );
+    parts.extend(
+      self
+        .album_summary
+        .descriptors
+        .iter()
+        .map(|d| format!("{}({})", d.item, d.factor)),
+    );
+    parts.extend(
+      self
+        .credit_roles
+        .iter()
+        .map(|r| format!("{}({})", r.item, r.factor)),
+    );
+    parts.extend(vec![
+      self.credited_album_summary.album_count.to_string(),
+      self.credited_album_summary.average_rating.to_string(),
+      self.credited_album_summary.total_rating_count.to_string(),
+      self.credited_album_summary.min_year.to_string(),
+      self.credited_album_summary.max_year.to_string(),
+    ]);
+    parts.extend(
+      self
+        .credited_album_summary
+        .primary_genres
+        .iter()
+        .map(|g| format!("{}({})", g.item, g.factor)),
+    );
+    parts.extend(
+      self
+        .credited_album_summary
+        .secondary_genres
+        .iter()
+        .map(|g| format!("{}({})", g.item, g.factor)),
+    );
+    parts.extend(
+      self
+        .credited_album_summary
+        .descriptors
+        .iter()
+        .map(|d| format!("{}({})", d.item, d.factor)),
+    );
+    parts.join(", ")
+  }
 }
 
 impl From<ArtistOverview> for proto::ArtistOverview {

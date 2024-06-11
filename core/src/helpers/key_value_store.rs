@@ -10,7 +10,7 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use chrono::{NaiveDateTime, TimeDelta, Utc};
-use rusqlite::{params, types::Value, OptionalExtension};
+use rusqlite::{params, types::Value};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
 use tracing::{error, info, instrument};
@@ -189,30 +189,42 @@ impl KeyValueStore {
     Ok(exists)
   }
 
-  #[instrument(name = "KeyValueStore::get", skip(self))]
-  pub async fn get<T: DeserializeOwned + Send + Sync>(&self, key: &str) -> Result<Option<T>> {
-    let key = key.to_string();
-    let req_key = key.clone();
-    let result: Option<(Vec<u8>, Option<NaiveDateTime>)> = self
+  #[instrument(name = "KeyValueStore::get_many", skip_all, fields(count = key.len()))]
+  pub async fn get_many<T: DeserializeOwned + Send + Sync>(
+    &self,
+    key: Vec<String>,
+  ) -> Result<HashMap<String, T>> {
+    let key_params = key
+      .iter()
+      .map(|f| Value::from(f.clone()))
+      .collect::<Vec<Value>>();
+    let results = self
       .sqlite_connection
       .read()
       .await?
-      .interact(|conn| {
-        conn
-          .query_row(
-            "SELECT CAST(value as BLOB), expires_at FROM key_value_store WHERE key = ?1",
-            [req_key],
-            |row| {
-              let value = row.get::<_, Vec<u8>>(0)?;
-              let expires_at = row.get::<_, Option<NaiveDateTime>>(1)?;
-              Ok((value, expires_at))
-            },
-          )
-          .optional()
-          .map_err(|e| {
-            error!(message = e.to_string(), "Failed to get key value");
-            rusqlite::Error::ExecuteReturnedResults
-          })
+      .interact(move |conn| {
+        let mut stmt = conn.prepare(
+          "
+          SELECT
+            key as k,
+            CAST(value as BLOB) as v,
+            expires_at
+          FROM key_value_store
+          WHERE key IN rarray(?1)
+          ",
+        )?;
+        let rows = stmt.query_map([Rc::new(key_params)], |row| {
+          let key = row.get::<_, String>(0)?;
+          let value = row.get::<_, Vec<u8>>(1)?;
+          let expires_at = row.get::<_, Option<NaiveDateTime>>(2)?;
+          Ok((key, value, expires_at))
+        })?;
+        let mut results = HashMap::new();
+        for row in rows {
+          let (key, value, expires_at) = row?;
+          results.insert(key, (value, expires_at));
+        }
+        Ok::<_, rusqlite::Error>(results)
       })
       .await
       .map_err(|e| {
@@ -220,22 +232,43 @@ impl KeyValueStore {
         anyhow!("Failed to get key value")
       })??;
 
-    if let Some((blob, expires_at)) = result {
+    let mut valid_keys = vec![];
+    let mut expired_keys = vec![];
+    for (key, (_, expires_at)) in results.iter() {
       if let Some(expires_at) = expires_at {
-        if expires_at < Utc::now().naive_utc() {
-          info!("Key value expired: {}", key);
-          self.delete(&key).await?;
-          return Ok(None);
+        if expires_at.clone() < Utc::now().naive_utc() {
+          expired_keys.push(key.clone());
+        } else {
+          valid_keys.push(key.clone());
         }
+      } else {
+        valid_keys.push(key.clone());
       }
-      let value: T = serde_json::from_slice(&blob)?;
-      Ok(Some(value))
-    } else {
-      Ok(None)
     }
+
+    self.delete_many(expired_keys).await?;
+
+    let results = results
+      .into_iter()
+      .filter(|(key, _)| valid_keys.contains(key))
+      .map(|(key, (value, _))| {
+        let value: T = serde_json::from_slice(&value)?;
+        Ok((key, value))
+      })
+      .collect::<Result<HashMap<String, T>>>()?;
+
+    Ok(results)
   }
 
-  #[instrument(name = "KeyValueStore::set_many", skip_all)]
+  #[instrument(name = "KeyValueStore::get", skip(self))]
+  pub async fn get<T: DeserializeOwned + Send + Sync>(&self, key: &str) -> Result<Option<T>> {
+    self
+      .get_many::<T>(vec![key.to_string()])
+      .await
+      .map(|mut results| results.remove(key))
+  }
+
+  #[instrument(name = "KeyValueStore::set_many", skip_all, fields(count = key_values.len()))]
   pub async fn set_many<T: Serialize + Send + Sync>(
     &self,
     key_values: Vec<(String, T, Option<Duration>)>,
@@ -285,6 +318,28 @@ impl KeyValueStore {
     ttl: Option<Duration>,
   ) -> Result<()> {
     self.set_many(vec![(key.to_string(), value, ttl)]).await
+  }
+
+  #[instrument(name = "KeyValueStore::delete_many", skip(self))]
+  pub async fn delete_many(&self, keys: Vec<String>) -> Result<()> {
+    let key_params = keys
+      .iter()
+      .map(|f| Value::from(f.clone()))
+      .collect::<Vec<Value>>();
+    self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare("DELETE FROM key_value_store WHERE key IN rarray(?1)")?;
+        stmt.execute([Rc::new(key_params)])?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to delete key value");
+        anyhow!("Failed to delete key value")
+      })?
   }
 
   #[instrument(name = "KeyValueStore::delete", skip(self))]

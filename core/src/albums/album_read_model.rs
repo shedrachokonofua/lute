@@ -116,6 +116,22 @@ impl AlbumReadModel {
       spotify_id: parsed_album.spotify_id,
     }
   }
+
+  pub fn embedding_body(&self) -> String {
+    let mut body = vec![];
+    body.push(self.rating.to_string());
+    body.push(self.rating_count.to_string());
+    if let Some(release_date) = self.release_date {
+      body.push(release_date.to_string());
+    }
+    body.extend(self.artists.clone().into_iter().map(|artist| artist.name));
+    body.extend(self.primary_genres.clone());
+    body.extend(self.secondary_genres.clone());
+    body.extend(self.descriptors.clone());
+    body.extend(self.languages.clone());
+    body.extend(self.credits.clone().into_iter().map(|c| c.artist.name));
+    body.join(", ")
+  }
 }
 
 impl From<AlbumReadModelTrack> for proto::Track {

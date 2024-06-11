@@ -5,16 +5,18 @@ use super::{
   },
   album_repository::ItemAndCount,
   album_search_index::{
-    embedding_to_bytes, AlbumEmbedding, AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex,
-    AlbumSearchQuery, AlbumSearchResult,
+    AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchIndex, AlbumSearchQuery, AlbumSearchResult,
   },
-  embedding_provider::AlbumEmbeddingProvidersInteractor,
 };
 use crate::{
+  embedding_provider::embedding_provider_interactor::EmbeddingProviderInteractor,
   files::file_metadata::file_name::FileName,
-  helpers::redisearch::{
-    escape_search_query_text, get_min_num_query, get_num_range_query, get_tag_query,
-    SearchIndexVersionManager, SearchPagination,
+  helpers::{
+    embedding::{embedding_to_bytes, EmbeddingDocument},
+    redisearch::{
+      escape_search_query_text, get_min_num_query, get_num_range_query, get_tag_query,
+      SearchIndexVersionManager, SearchPagination,
+    },
   },
 };
 use anyhow::{anyhow, Error, Result};
@@ -298,11 +300,11 @@ impl AlbumEmbeddingSimilarirtySearchQuery {
 pub struct RedisAlbumSearchIndex {
   redis_connection_pool: Arc<Pool<PooledClientManager>>,
   version_manager: SearchIndexVersionManager,
-  album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
+  embedding_provider_interactor: Arc<EmbeddingProviderInteractor>,
 }
 
 const NAMESPACE: &str = "album";
-const INDEX_VERSION: u32 = 6;
+const INDEX_VERSION: u32 = 7;
 
 fn redis_key(file_name: &FileName) -> String {
   format!("{}:{}", NAMESPACE, file_name.to_string())
@@ -318,9 +320,7 @@ fn embedding_json_path(key: &str) -> String {
 }
 
 impl RedisAlbumSearchIndex {
-  fn get_schema(
-    album_embedding_providers_interactor: &AlbumEmbeddingProvidersInteractor,
-  ) -> Vec<FtFieldSchema> {
+  fn get_schema(embedding_provider_interactor: &EmbeddingProviderInteractor) -> Vec<FtFieldSchema> {
     let mut schema = vec![
       FtFieldSchema::identifier("$.ascii_name")
         .as_attribute("ascii_name")
@@ -377,12 +377,12 @@ impl RedisAlbumSearchIndex {
         .field_type(FtFieldType::Tag),
     ];
     schema.extend(
-      album_embedding_providers_interactor
+      embedding_provider_interactor
         .providers
         .iter()
-        .map(|provider| {
-          FtFieldSchema::identifier(embedding_json_path(provider.name()))
-            .as_attribute(embedding_json_key(provider.name()))
+        .map(|(name, provider)| {
+          FtFieldSchema::identifier(embedding_json_path(name))
+            .as_attribute(embedding_json_key(name))
             .field_type(FtFieldType::Vector(Some(FtVectorFieldAlgorithm::Flat(
               FtFlatVectorFieldAttributes::new(
                 FtVectorType::Float32,
@@ -398,7 +398,7 @@ impl RedisAlbumSearchIndex {
 
   pub fn new(
     redis_connection_pool: Arc<Pool<PooledClientManager>>,
-    album_embedding_providers_interactor: Arc<AlbumEmbeddingProvidersInteractor>,
+    embedding_provider_interactor: Arc<EmbeddingProviderInteractor>,
   ) -> Self {
     Self {
       version_manager: SearchIndexVersionManager::new(
@@ -407,7 +407,7 @@ impl RedisAlbumSearchIndex {
         "album-idx".to_string(),
       ),
       redis_connection_pool,
-      album_embedding_providers_interactor,
+      embedding_provider_interactor,
     }
   }
 
@@ -418,7 +418,7 @@ impl RedisAlbumSearchIndex {
         FtCreateOptions::default()
           .on(FtIndexDataType::Json)
           .prefix(format!("{}:", NAMESPACE)),
-        RedisAlbumSearchIndex::get_schema(&self.album_embedding_providers_interactor),
+        RedisAlbumSearchIndex::get_schema(&self.embedding_provider_interactor),
       )
       .await
   }
@@ -440,7 +440,7 @@ impl RedisAlbumSearchIndex {
     Ok(())
   }
 
-  async fn get_legacy_embeddings(&self, file_name: &FileName) -> Result<Vec<AlbumEmbedding>> {
+  async fn get_legacy_embeddings(&self, file_name: &FileName) -> Result<Vec<EmbeddingDocument>> {
     let result: Option<String> = self
       .redis_connection_pool
       .get()
@@ -451,7 +451,7 @@ impl RedisAlbumSearchIndex {
       )
       .await?;
     let embeddings = result
-      .map(|r| serde_json::from_str::<Vec<AlbumEmbedding>>(&r))
+      .map(|r| serde_json::from_str::<Vec<EmbeddingDocument>>(&r))
       .transpose()?
       .unwrap_or_default();
 
@@ -619,8 +619,8 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     })
   }
 
-  #[instrument(skip(self))]
-  async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()> {
+  #[instrument(skip_all)]
+  async fn put_embedding(&self, embedding: &EmbeddingDocument) -> Result<()> {
     self.ensure_album_root(&embedding.file_name).await?;
     self
       .redis_connection_pool
@@ -642,29 +642,25 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     Ok(())
   }
 
-  async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<AlbumEmbedding>> {
+  async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<EmbeddingDocument>> {
     let legacy_embeddings = self.get_legacy_embeddings(file_name).await?;
-    let embeddings = join_all(
-      self
-        .album_embedding_providers_interactor
-        .providers
-        .iter()
-        .map(|provider| async {
-          let embedding = match self.find_embedding(file_name, provider.name()).await {
-            Ok(embedding) => embedding.map(|embedding| AlbumEmbedding {
-              file_name: file_name.clone(),
-              key: provider.name().to_string(),
-              embedding: embedding.embedding,
-            }),
-            Err(_) => None,
-          };
-          Ok(embedding)
-        }),
-    )
+    let embeddings = join_all(self.embedding_provider_interactor.providers.keys().map(
+      |name| async {
+        let embedding = match self.find_embedding(file_name, name).await {
+          Ok(embedding) => embedding.map(|embedding| EmbeddingDocument {
+            file_name: file_name.clone(),
+            key: name.to_string(),
+            embedding: embedding.embedding,
+          }),
+          Err(_) => None,
+        };
+        Ok(embedding)
+      },
+    ))
     .await
     .into_iter()
     .filter_map(|result| result.transpose())
-    .collect::<Result<Vec<AlbumEmbedding>>>()?;
+    .collect::<Result<Vec<EmbeddingDocument>>>()?;
 
     Ok([legacy_embeddings, embeddings].concat())
   }
@@ -673,7 +669,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     &self,
     file_names: Vec<FileName>,
     key: &str,
-  ) -> Result<Vec<AlbumEmbedding>> {
+  ) -> Result<Vec<EmbeddingDocument>> {
     let embeddings = join_all(
       file_names
         .iter()
@@ -682,7 +678,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     .await
     .into_iter()
     .filter_map(|result| result.transpose())
-    .collect::<Result<Vec<AlbumEmbedding>>>()?;
+    .collect::<Result<Vec<EmbeddingDocument>>>()?;
     Ok(embeddings)
   }
 
@@ -700,7 +696,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     &self,
     file_name: &FileName,
     key: &str,
-  ) -> Result<Option<AlbumEmbedding>> {
+  ) -> Result<Option<EmbeddingDocument>> {
     let key = embedding_json_key(key);
     let result: Result<Option<String>, rustis::Error> = self
       .redis_connection_pool
@@ -727,7 +723,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     let embedding = result
       .map(|r| serde_json::from_str::<Vec<f32>>(&r))
       .transpose()?
-      .map(|embedding| AlbumEmbedding {
+      .map(|embedding| EmbeddingDocument {
         file_name: file_name.clone(),
         key: key.to_string(),
         embedding,

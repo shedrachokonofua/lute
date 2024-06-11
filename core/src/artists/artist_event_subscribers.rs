@@ -10,7 +10,7 @@ use crate::{
   group_event_handler,
 };
 use anyhow::Result;
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 use tracing::info;
 
 pub async fn update_artist_search_records(
@@ -27,24 +27,14 @@ pub async fn update_artist_search_records(
     .collect::<Vec<_>>();
   info!(count = album_file_names.len(), "Found album file names");
 
-  let albums = app_context
-    .album_interactor
-    .find_many(album_file_names)
-    .await?;
-  info!(count = albums.len(), "Found albums");
+  if album_file_names.is_empty() {
+    return Ok(());
+  }
 
-  let artist_file_names = albums
-    .values()
-    .flat_map(|album| {
-      album
-        .credits
-        .iter()
-        .map(|credit| credit.artist.file_name.clone())
-        .chain(album.artists.iter().map(|artist| artist.file_name.clone()))
-    })
-    .collect::<HashSet<_>>()
-    .into_iter()
-    .collect::<Vec<_>>();
+  let artist_file_names = app_context
+    .album_interactor
+    .related_artist_file_names(album_file_names)
+    .await?;
   info!(count = artist_file_names.len(), "Found artist file names");
 
   app_context

@@ -2,6 +2,7 @@ pub mod albums;
 pub mod artists;
 pub mod context;
 pub mod crawler;
+pub mod embedding_provider;
 pub mod events;
 pub mod files;
 pub mod helpers;

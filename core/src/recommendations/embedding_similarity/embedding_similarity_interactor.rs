@@ -4,7 +4,7 @@ use crate::{
     album_read_model::AlbumReadModel,
     album_search_index::{AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchQueryBuilder},
   },
-  helpers::math::average_embedding,
+  helpers::embedding::average_embedding,
   profile::profile::Profile,
   recommendations::types::{
     AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,

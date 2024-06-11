@@ -4,6 +4,10 @@ use lute::{
   artists::artist_event_subscribers::build_artist_event_subscribers,
   context::ApplicationContext,
   crawler::crawler_jobs::setup_crawler_jobs,
+  embedding_provider::{
+    embedding_provider_event_subscribers::build_embedding_provider_event_subscribers,
+    embedding_provider_jobs::setup_embedding_provider_jobs,
+  },
   events::{event_subscriber::EventSubscriber, event_subscriber_jobs::setup_event_subscriber_jobs},
   helpers::key_value_store::setup_kv_jobs,
   lookup::lookup_event_subscribers::build_lookup_event_subscribers,
@@ -29,6 +33,9 @@ fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   let mut event_subscribers: Vec<EventSubscriber> = Vec::new();
   event_subscribers.extend(build_album_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_artist_event_subscribers(Arc::clone(&app_context))?);
+  event_subscribers.extend(build_embedding_provider_event_subscribers(Arc::clone(
+    &app_context,
+  ))?);
   event_subscribers.extend(build_lookup_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_parser_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_profile_event_subscribers(Arc::clone(&app_context))?);
@@ -43,6 +50,7 @@ fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
 
 async fn setup_jobs(context: Arc<ApplicationContext>) -> Result<()> {
   setup_crawler_jobs(Arc::clone(&context)).await?;
+  setup_embedding_provider_jobs(Arc::clone(&context)).await?;
   setup_event_subscriber_jobs(Arc::clone(&context)).await?;
   setup_kv_jobs(Arc::clone(&context)).await?;
   setup_parser_jobs(Arc::clone(&context)).await?;
@@ -55,9 +63,7 @@ async fn setup_elasticsearch_indexes(context: Arc<ApplicationContext>) -> Result
   Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-  let context = ApplicationContext::init().await?;
+async fn setup_doc_store_indexes(context: Arc<ApplicationContext>) -> Result<()> {
   context
     .doc_store
     .setup_indexes(HashMap::from([
@@ -77,7 +83,13 @@ async fn main() -> Result<()> {
         vec![vec!["page_type", "error"], vec!["error"]],
       ),
     ]))
-    .await?;
+    .await
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+  let context = ApplicationContext::init().await?;
+  setup_doc_store_indexes(Arc::clone(&context)).await?;
   setup_elasticsearch_indexes(Arc::clone(&context)).await?;
   setup_redis_indexes(Arc::clone(&context)).await?;
   start_event_subscribers(Arc::clone(&context))?;

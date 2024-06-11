@@ -89,6 +89,58 @@ impl SchedulerRepository {
       })?
   }
 
+  #[instrument(skip_all, name = "SchedulerRepository::put_many", fields(count = records.len()))]
+  pub async fn put_many(&self, records: Vec<Job>) -> Result<()> {
+    self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        let tx = conn.transaction()?;
+        for record in records {
+          let mut statement = tx.prepare(
+            "
+            INSERT INTO scheduler_jobs (
+              id, 
+              name, 
+              next_execution, 
+              last_execution, 
+              interval_seconds, 
+              payload, 
+              priority,
+              created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT (id) DO UPDATE SET 
+              name = excluded.name,
+              next_execution = excluded.next_execution, 
+              last_execution = excluded.last_execution, 
+              interval_seconds = excluded.interval_seconds,
+              payload = excluded.payload,
+              priority = excluded.priority,
+              created_at = excluded.created_at
+            ",
+          )?;
+          statement.execute(params![
+            record.id,
+            record.name.to_string(),
+            record.next_execution,
+            record.last_execution,
+            record.interval_seconds,
+            record.payload,
+            record.priority as u32
+          ])?;
+        }
+        tx.commit()?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to set cursor");
+        anyhow!("Failed to set cursor")
+      })?
+  }
+
   #[instrument(skip(self), name = "SchedulerRepository::get_jobs")]
   pub async fn get_jobs(&self) -> Result<Vec<Job>> {
     let jobs = self
@@ -446,8 +498,8 @@ impl SchedulerRepository {
     Ok(jobs)
   }
 
-  #[instrument(skip(self), name = "SchedulerRepository::find_jobs")]
-  pub async fn find_jobs(&self, job_ids: Vec<String>) -> Result<Vec<Job>> {
+  #[instrument(skip_all, name = "SchedulerRepository::find_jobs", fields(job_ids = job_ids.len()))]
+  pub async fn find_jobs(&self, job_ids: Vec<String>) -> Result<HashMap<String, Job>> {
     let ids = job_ids.into_iter().map(Value::from).collect::<Vec<_>>();
     let jobs = self
       .sqlite_connection
@@ -472,19 +524,23 @@ impl SchedulerRepository {
         )?;
         let rows = statement
           .query_map(params![Rc::new(ids)], |row| {
-            Ok(Job {
-              id: row.get(0)?,
-              name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
-              next_execution: row.get(2)?,
-              last_execution: row.get(3)?,
-              interval_seconds: row.get(4)?,
-              payload: row.get(5)?,
-              claimed_at: row.get(6)?,
-              priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
-              created_at: row.get(8)?,
-            })
+            let id = row.get::<_, String>(0)?;
+            Ok((
+              id.clone(),
+              Job {
+                id,
+                name: JobName::from_str(row.get::<_, String>(1)?.as_str()).unwrap(),
+                next_execution: row.get(2)?,
+                last_execution: row.get(3)?,
+                interval_seconds: row.get(4)?,
+                payload: row.get(5)?,
+                claimed_at: row.get(6)?,
+                priority: Priority::try_from(row.get::<_, u32>(7)?).unwrap(),
+                created_at: row.get(8)?,
+              },
+            ))
           })?
-          .collect::<Result<Vec<_>, _>>()?;
+          .collect::<Result<HashMap<_, _>, _>>()?;
         Ok::<_, rusqlite::Error>(rows)
       })
       .await
@@ -501,7 +557,7 @@ impl SchedulerRepository {
     self
       .find_jobs(vec![job_id.to_string()])
       .await
-      .map(|jobs| jobs.into_iter().next())
+      .map(|mut jobs| jobs.remove(job_id))
   }
 
   #[instrument(skip(self), name = "SchedulerRepository::delete_job")]

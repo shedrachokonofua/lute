@@ -1,7 +1,9 @@
 use crate::{
-  albums::album_search_index::embedding_to_bytes,
   files::file_metadata::file_name::FileName,
-  helpers::redisearch::{get_tag_query, SearchIndexVersionManager, SearchPagination},
+  helpers::{
+    embedding::embedding_to_bytes,
+    redisearch::{get_tag_query, SearchIndexVersionManager, SearchPagination},
+  },
   spotify::spotify_client::{SpotifyAlbumReference, SpotifyArtistReference, SpotifyTrackReference},
 };
 use anyhow::{anyhow, Result};

@@ -168,21 +168,7 @@ impl AlbumSearchLookup {
   }
 
   pub fn status(&self) -> AlbumSearchLookupDiscriminants {
-    match self {
-      AlbumSearchLookup::Started { .. } => AlbumSearchLookupDiscriminants::Started,
-      AlbumSearchLookup::SearchCrawling { .. } => AlbumSearchLookupDiscriminants::SearchCrawling,
-      AlbumSearchLookup::SearchParsing { .. } => AlbumSearchLookupDiscriminants::SearchParsing,
-      AlbumSearchLookup::SearchParseFailed { .. } => {
-        AlbumSearchLookupDiscriminants::SearchParseFailed
-      }
-      AlbumSearchLookup::SearchParsed { .. } => AlbumSearchLookupDiscriminants::SearchParsed,
-      AlbumSearchLookup::AlbumCrawling { .. } => AlbumSearchLookupDiscriminants::AlbumCrawling,
-      AlbumSearchLookup::AlbumParsing { .. } => AlbumSearchLookupDiscriminants::AlbumParsing,
-      AlbumSearchLookup::AlbumParseFailed { .. } => {
-        AlbumSearchLookupDiscriminants::AlbumParseFailed
-      }
-      AlbumSearchLookup::AlbumParsed { .. } => AlbumSearchLookupDiscriminants::AlbumParsed,
-    }
+    self.into()
   }
 
   pub fn status_string(&self) -> String {

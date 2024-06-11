@@ -1,11 +1,6 @@
 use crate::{
-  albums::{
-    embedding_provider::AlbumEmbeddingProvidersInteractor,
-    redis_album_search_index::RedisAlbumSearchIndex,
-  },
-  context::ApplicationContext,
-  recommendations::spotify_track_search_index::SpotifyTrackSearchIndex,
-  settings::RedisSettings,
+  albums::redis_album_search_index::RedisAlbumSearchIndex, context::ApplicationContext,
+  recommendations::spotify_track_search_index::SpotifyTrackSearchIndex, settings::RedisSettings,
 };
 use anyhow::Result;
 use rustis::{
@@ -45,10 +40,7 @@ pub async fn build_redis_connection_pool(
 pub async fn setup_redis_indexes(app_context: Arc<ApplicationContext>) -> Result<()> {
   RedisAlbumSearchIndex::new(
     Arc::clone(&app_context.redis_connection_pool),
-    Arc::new(AlbumEmbeddingProvidersInteractor::new(
-      Arc::clone(&app_context.settings),
-      Arc::clone(&app_context.kv),
-    )),
+    Arc::clone(&app_context.embedding_provider_interactor),
   )
   .setup_index()
   .await?;

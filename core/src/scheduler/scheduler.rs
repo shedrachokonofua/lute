@@ -23,7 +23,7 @@ pub enum JobProcessorStatus {
   Paused,
 }
 
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 pub struct JobParameters {
   name: JobName,
   #[builder(default, setter(into))]
@@ -266,7 +266,11 @@ impl JobProcessor {
                   .execute(jobs.clone(), Arc::clone(&app_context))
                   .await
                 {
-                  error!(message = e.to_string(), "Failed to execute job");
+                  error!(
+                    message = e.to_string(),
+                    job_name = job_name.to_string(),
+                    "Failed to execute jobs"
+                  );
                 }
 
                 if let Err(e) = scheduler_repo.update_jobs_after_execution(jobs).await {
@@ -421,33 +425,56 @@ impl Scheduler {
       .insert(processor.name.clone(), processor);
   }
 
-  pub async fn put(&self, params: JobParameters) -> Result<bool> {
-    let overwrite_existing = params.overwrite_existing;
-    let skip_if_claimed = params.skip_if_claimed;
-    let record: Job = params.into();
-    if let Some(existing_job) = self.scheduler_repository.find_job(&record.id).await? {
-      if existing_job.claimed_at.is_some() && skip_if_claimed {
-        warn!(
-          job_id = record.id.as_str(),
-          "Job is claimed, can't schedule, skipping"
-        );
-        return Ok(false);
+  #[instrument(skip_all, fields(count = params.len()))]
+  pub async fn put_many(&self, params: Vec<JobParameters>) -> Result<Vec<Job>> {
+    let items = params
+      .into_iter()
+      .map(|p| (p.clone(), p.into()))
+      .collect::<Vec<(JobParameters, Job)>>();
+    let existing_jobs = self
+      .scheduler_repository
+      .find_jobs(items.iter().map(|(_, job)| job.id.clone()).collect())
+      .await?;
+
+    let mut to_put = Vec::new();
+    for (params, job) in items {
+      if let Some(existing_job) = existing_jobs.get(&job.id) {
+        if existing_job.claimed_at.is_some() && params.skip_if_claimed {
+          warn!(
+            job_id = job.id.as_str(),
+            "Job is claimed, can't schedule, skipping"
+          );
+          continue;
+        }
+
+        let interval_changed = match (job.interval_seconds, existing_job.interval_seconds) {
+          (Some(interval_seconds), Some(existing_interval_seconds)) => {
+            interval_seconds != existing_interval_seconds
+          }
+          _ => false,
+        };
+        // Force overwrite if interval has changed
+        if !params.overwrite_existing && !interval_changed {
+          info!(job_id = job.id.as_str(), "Job already exists, skipping");
+          continue;
+        }
       }
 
-      let interval_changed = match (record.interval_seconds, existing_job.interval_seconds) {
-        (Some(interval_seconds), Some(existing_interval_seconds)) => {
-          interval_seconds != existing_interval_seconds
-        }
-        _ => false,
-      };
-      // Force overwrite if interval has changed
-      if !overwrite_existing && !interval_changed {
-        info!(job_id = record.id.as_str(), "Job already exists, skipping");
-        return Ok(false);
-      }
+      to_put.push(job);
     }
-    self.scheduler_repository.put(record).await?;
-    Ok(true)
+
+    if !to_put.is_empty() {
+      self.scheduler_repository.put_many(to_put.clone()).await?;
+    }
+
+    Ok(to_put)
+  }
+
+  pub async fn put(&self, params: JobParameters) -> Result<Option<Job>> {
+    self
+      .put_many(vec![params])
+      .await
+      .map(|jobs| jobs.into_iter().next())
   }
 
   pub async fn run(&self) -> Result<()> {

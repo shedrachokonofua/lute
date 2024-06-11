@@ -4,5 +4,4 @@ pub mod album_read_model;
 pub mod album_repository;
 pub mod album_search_index;
 pub mod album_service;
-pub mod embedding_provider;
 pub mod redis_album_search_index;

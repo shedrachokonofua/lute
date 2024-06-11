@@ -1,10 +1,11 @@
-use crate::{files::file_metadata::file_name::FileName, helpers::redisearch::SearchPagination};
+use super::album_read_model::AlbumReadModel;
+use crate::{
+  files::file_metadata::file_name::FileName,
+  helpers::{embedding::EmbeddingDocument, redisearch::SearchPagination},
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use derive_builder::Builder;
-use serde_derive::{Deserialize, Serialize};
-
-use super::album_read_model::AlbumReadModel;
 
 #[derive(Default, Builder, Debug)]
 #[builder(setter(into), default)]
@@ -45,26 +46,6 @@ pub struct AlbumEmbeddingSimilarirtySearchQuery {
   pub limit: usize,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
-pub struct AlbumEmbedding {
-  pub file_name: FileName,
-  pub key: String,
-  pub embedding: Vec<f32>,
-}
-
-pub fn embedding_to_bytes(embedding: &Vec<f32>) -> Vec<u8> {
-  embedding
-    .iter()
-    .flat_map(|f| f.to_ne_bytes().to_vec())
-    .collect()
-}
-
-impl AlbumEmbedding {
-  pub fn embedding_bytes(&self) -> Vec<u8> {
-    embedding_to_bytes(&self.embedding)
-  }
-}
-
 #[async_trait]
 pub trait AlbumSearchIndex {
   async fn put(&self, album: AlbumReadModel) -> Result<()>;
@@ -75,15 +56,18 @@ pub trait AlbumSearchIndex {
     query: &AlbumSearchQuery,
     pagination: Option<&SearchPagination>,
   ) -> Result<AlbumSearchResult>;
-  async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<AlbumEmbedding>>;
+  async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<EmbeddingDocument>>;
   async fn find_many_embeddings(
     &self,
     file_names: Vec<FileName>,
     key: &str,
-  ) -> Result<Vec<AlbumEmbedding>>;
-  async fn find_embedding(&self, file_name: &FileName, key: &str)
-    -> Result<Option<AlbumEmbedding>>;
-  async fn put_embedding(&self, embedding: &AlbumEmbedding) -> Result<()>;
+  ) -> Result<Vec<EmbeddingDocument>>;
+  async fn find_embedding(
+    &self,
+    file_name: &FileName,
+    key: &str,
+  ) -> Result<Option<EmbeddingDocument>>;
+  async fn put_embedding(&self, embedding: &EmbeddingDocument) -> Result<()>;
   async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()>;
   async fn embedding_similarity_search(
     &self,
