@@ -1,7 +1,7 @@
 use super::{
   album_interactor::{AlbumInteractor, AlbumMonitor},
   album_repository::{GenreAggregate, ItemAndCount},
-  album_search_index::{AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchQuery},
+  album_search_index::AlbumSearchQuery,
 };
 use crate::{
   context::ApplicationContext,
@@ -249,37 +249,18 @@ impl proto::AlbumService for AlbumService {
       FileName::try_from(inner.file_name).map_err(|e| Status::invalid_argument(e.to_string()))?;
     let embedding_key = inner.embedding_key;
     let limit = inner.limit.unwrap_or(10) as usize;
-    let mut filters: AlbumSearchQuery = inner
+    let filters: Option<AlbumSearchQuery> = inner
       .filters
       .map(|f| f.try_into())
       .transpose()
-      .map_err(|e: Error| Status::invalid_argument(format!("Invalid filters: {}", e)))?
-      .unwrap_or_default();
-
-    if !filters.exclude_file_names.contains(&file_name) {
-      filters.exclude_file_names.push(file_name.clone());
-    }
-
-    let embedding = self
-      .album_interactor
-      .find_embedding(&file_name, &embedding_key)
-      .await
-      .map_err(|e| Status::internal(e.to_string()))?
-      .ok_or_else(|| Status::not_found("Album embedding not found"))?
-      .embedding;
-
+      .map_err(|e: Error| Status::invalid_argument(format!("Invalid filters: {}", e)))?;
     let results = self
       .album_interactor
-      .embedding_similarity_search(&AlbumEmbeddingSimilarirtySearchQuery {
-        embedding,
-        embedding_key,
-        filters,
-        limit,
-      })
+      .find_similar_albums(file_name, &embedding_key, filters, limit)
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
     let reply = proto::FindSimilarAlbumsReply {
-      albums: results.into_iter().map(|(album, _)| album.into()).collect(),
+      albums: results.into_iter().map(Into::into).collect(),
     };
     Ok(Response::new(reply))
   }
