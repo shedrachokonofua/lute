@@ -115,7 +115,7 @@ impl RecommendationInteractor {
     assessment_settings: AlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
     profile: &Profile,
-    profile_albums: &Vec<AlbumReadModel>,
+    profile_albums: &[AlbumReadModel],
   ) -> Result<Vec<AlbumRecommendation>> {
     match assessment_settings {
       AlbumAssessmentSettings::QuantileRank(settings) => {

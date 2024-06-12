@@ -1,11 +1,10 @@
+use super::artist_read_model::{ArtistReadModel, ArtistReadModelCredit};
 use crate::{files::file_metadata::file_name::FileName, sqlite::SqliteConnection};
 use anyhow::{anyhow, Result};
 use rusqlite::types::Value;
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 use tokio::try_join;
 use tracing::{error, instrument};
-
-use super::artist_read_model::{ArtistReadModel, ArtistReadModelCredit};
 
 pub struct ArtistRepository {
   sqlite_connection: Arc<SqliteConnection>,
@@ -47,13 +46,12 @@ impl ArtistRepository {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
           })?
           .collect::<Result<Vec<(String, String)>, _>>();
-        rows
+        rows.inspect_err(|e| {
+          error!(message = e.to_string(), "Failed to find album entities");
+        })
       })
       .await
-      .map_err(|e| {
-        error!(message = e.to_string(), "Failed to find album entities");
-        anyhow!("Failed to find album entities")
-      })??;
+      .map_err(|e| anyhow!("Failed to find album entities {:?}", e))??;
 
     let mut album_file_names = HashMap::new();
     for (album_file_name, artist_file_name) in rows {
@@ -112,13 +110,12 @@ impl ArtistRepository {
             ))
           })?
           .collect::<Result<Vec<_>, _>>();
-        rows
+        rows.inspect_err(|e| {
+          error!(message = e.to_string(), "Failed to find credits");
+        })
       })
       .await
-      .map_err(|e| {
-        error!(message = e.to_string(), "Failed to find credits");
-        anyhow!("Failed to find credits")
-      })??;
+      .map_err(|e| anyhow!("Failed to find credits: {:?}", e))??;
 
     let mut credits: HashMap<FileName, HashMap<FileName, Vec<String>>> = HashMap::new();
     for (artist_file_name, album_file_name, role) in rows {
@@ -127,9 +124,9 @@ impl ArtistRepository {
 
       credits
         .entry(artist_file_name)
-        .or_insert_with(HashMap::new)
+        .or_default()
         .entry(album_file_name)
-        .or_insert_with(Vec::new)
+        .or_default()
         .push(role);
     }
 
@@ -178,13 +175,12 @@ impl ArtistRepository {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
           })?
           .collect::<Result<Vec<_>, _>>();
-        rows
+        rows.inspect_err(|e| {
+          error!(message = e.to_string(), "Failed to find credits");
+        })
       })
       .await
-      .map_err(|e| {
-        error!(message = e.to_string(), "Failed to find credits");
-        anyhow!("Failed to find credits")
-      })??;
+      .map_err(|e| anyhow!("Failed to find credits {:?}", e))??;
 
     let mut artists = HashMap::new();
     for (file_name, name) in rows {

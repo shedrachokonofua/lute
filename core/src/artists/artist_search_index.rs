@@ -46,11 +46,11 @@ pub struct ArtistSearchResult {
   pub total: usize,
 }
 
-impl Into<ArtistSearchResult> for ElasticsearchResult<ArtistSearchRecord> {
-  fn into(self) -> ArtistSearchResult {
+impl From<ElasticsearchResult<ArtistSearchRecord>> for ArtistSearchResult {
+  fn from(val: ElasticsearchResult<ArtistSearchRecord>) -> Self {
     ArtistSearchResult {
-      artists: self.results,
-      total: self.total,
+      artists: val.results,
+      total: val.total,
     }
   }
 }

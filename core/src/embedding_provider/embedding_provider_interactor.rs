@@ -124,9 +124,7 @@ impl EmbeddingProviderInteractor {
     let mut input = input;
     let mut embeddings = self.cache.get_many(provider_name, input.clone()).await?;
     let uncached_keys = input
-      .keys()
-      .cloned()
-      .filter(|key| !embeddings.contains_key(key))
+      .keys().filter(|&key| !embeddings.contains_key(key)).cloned()
       .collect::<Vec<_>>();
 
     if uncached_keys.is_empty() {

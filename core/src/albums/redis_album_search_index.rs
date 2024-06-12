@@ -289,10 +289,10 @@ impl AlbumSearchQuery {
 impl AlbumEmbeddingSimilarirtySearchQuery {
   pub fn to_ft_search_query(&self) -> String {
     format!(
-      "({})=>[KNN {} {} $BLOB as distance]",
+      "({})=>[KNN {} @{} $BLOB as distance]",
       self.filters.to_ft_search_query(),
       self.limit,
-      format!("@{}", embedding_json_key(&self.embedding_key))
+      embedding_json_key(&self.embedding_key)
     )
   }
 }

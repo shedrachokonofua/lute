@@ -97,7 +97,7 @@ impl SchedulerRepository {
       .await?
       .interact(move |conn| {
         let tx = conn.transaction()?;
-        for record in records {
+        {
           let mut statement = tx.prepare(
             "
             INSERT INTO scheduler_jobs (
@@ -121,15 +121,17 @@ impl SchedulerRepository {
               created_at = excluded.created_at
             ",
           )?;
-          statement.execute(params![
-            record.id,
-            record.name.to_string(),
-            record.next_execution,
-            record.last_execution,
-            record.interval_seconds,
-            record.payload,
-            record.priority as u32
-          ])?;
+          for record in records {
+            statement.execute(params![
+              record.id,
+              record.name.to_string(),
+              record.next_execution,
+              record.last_execution,
+              record.interval_seconds,
+              record.payload,
+              record.priority as u32
+            ])?;
+          }
         }
         tx.commit()?;
         Ok(())
@@ -361,7 +363,7 @@ impl SchedulerRepository {
         )?;
         let rows = statement
           .query_map([], |row| {
-            if let Some(name) = JobName::from_str(row.get::<_, String>(0)?.as_str()).ok() {
+            if let Ok(name) = JobName::from_str(row.get::<_, String>(0)?.as_str()) {
               let count = row.get::<_, usize>(1)?;
               Ok(Some((name, count)))
             } else {
@@ -378,10 +380,8 @@ impl SchedulerRepository {
       })??;
 
     let mut counts = HashMap::new();
-    for row in results {
-      if let Some((name, count)) = row {
-        counts.insert(name, count);
-      }
+    for (name, count) in results.into_iter().flatten() {
+      counts.insert(name, count);
     }
 
     Ok(counts)

@@ -85,18 +85,16 @@ impl DocumentFilter {
   }
 
   pub fn and(&mut self) -> &mut Self {
-    self
-      .condition_groups
-      .last_mut()
-      .map(|c| c.1 = Some(LogicalOperator::And));
+    if let Some(c) = self.condition_groups.last_mut() {
+      c.1 = Some(LogicalOperator::And);
+    }
     self
   }
 
   pub fn or(&mut self) -> &mut Self {
-    self
-      .condition_groups
-      .last_mut()
-      .map(|c| c.1 = Some(LogicalOperator::Or));
+    if let Some(c) = self.condition_groups.last_mut() {
+      c.1 = Some(LogicalOperator::Or);
+    }
     self
   }
 
@@ -136,7 +134,7 @@ impl DocumentFilter {
           ":g{}_c{}_{}",
           group_idx,
           condition_idx,
-          key.replace(".", "_")
+          key.replace('.', "_")
         );
         let clause = format!("jsonb_extract(json, '$.{}') {} {} ", key, op, param_key);
         if condition_idx == condition_group_size - 1 {

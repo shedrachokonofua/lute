@@ -144,7 +144,7 @@ pub async fn fetch_spotify_tracks_by_album_ids(
     .into_iter()
     .map(|job| {
       job.payload::<AlbumReadModel>().and_then(|a| {
-        if !a.spotify_id.is_none() {
+        if a.spotify_id.is_some() {
           Ok(a)
         } else {
           Err(anyhow!("No spotify id"))

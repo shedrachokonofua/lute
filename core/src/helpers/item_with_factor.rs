@@ -22,7 +22,7 @@ pub fn combine_items_with_factors(all_items: &[Vec<ItemWithFactor>]) -> Vec<Item
       entry.factor += item.factor;
     }
   }
-  item_map.into_iter().map(|(_, item)| item).collect()
+  item_map.into_values().collect()
 }
 
 impl Ord for ItemWithFactor {

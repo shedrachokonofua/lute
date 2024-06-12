@@ -125,7 +125,7 @@ impl SearchIndexVersionManager {
   }
 }
 
-pub fn get_tag_query<T: ToString>(tag: &str, items: &Vec<T>) -> String {
+pub fn get_tag_query<T: ToString>(tag: &str, items: &[T]) -> String {
   if !items.is_empty() {
     format!(
       "{}:{{{}}} ",

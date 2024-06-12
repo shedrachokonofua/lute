@@ -73,7 +73,7 @@ impl DocumentStore {
         let tx = conn.transaction()?;
         for (collection, keys) in mappings.into_iter() {
           for key in keys.into_iter() {
-            let index_name = format!("idx_{}_{}", collection, key.join("_").replace(".", "_"));
+            let index_name = format!("idx_{}_{}", collection, key.join("_").replace('.', "_"));
             let mut index_keys = vec!["collection".to_string()];
             index_keys.extend(
               key

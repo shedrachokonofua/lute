@@ -109,9 +109,7 @@ impl ArtistInteractor {
     self
       .artist_search_index
       .put_many(
-        overviews
-          .into_iter()
-          .map(|(_, overview)| overview.into())
+        overviews.into_values().map(|overview| overview.into())
           .collect::<Vec<ArtistSearchRecord>>(),
       )
       .await?;

@@ -40,7 +40,7 @@ impl SpotifyImportRepository {
       .doc_store
       .find_many(
         COLLECTION,
-        DocumentFilter::new().condition(&key, "=", value).build(),
+        DocumentFilter::new().condition(key, "=", value).build(),
         None,
       )
       .await?

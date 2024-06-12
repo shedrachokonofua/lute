@@ -641,10 +641,7 @@ impl SpotifyClient {
   }
 
   pub async fn get_album_pages(&self, album_ids: Vec<String>) -> Result<Vec<SpotifyAlbumPage>> {
-    info!(
-      album_ids = album_ids.iter().cloned().collect::<Vec<_>>().join(","),
-      "Getting album pages"
-    );
+    info!(album_ids = album_ids.join(", "), "Getting album pages");
     let album_ids = album_ids
       .iter()
       .map(|id| AlbumId::from_id(id).map_err(|e| anyhow!("Invalid album ID: {}", e)))

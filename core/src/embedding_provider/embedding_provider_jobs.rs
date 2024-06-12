@@ -47,45 +47,33 @@ async fn generate_embeddings(jobs: Vec<Job>, app_context: Arc<ApplicationContext
     .embedding_provider_interactor
     .generate(&provider_name, input)
     .await?;
-  let mut artist_embeddings = HashMap::new();
-  let mut album_embeddings = HashMap::new();
+
+  let mut artist_embeddings = Vec::new();
+  let mut album_embeddings = Vec::new();
   for (file_name, embedding) in embeddings {
+    let doc = EmbeddingDocument {
+      file_name: file_name.clone(),
+      key: provider_name.clone(),
+      embedding,
+    };
     if file_name.page_type() == PageType::Artist {
-      artist_embeddings.insert(file_name, embedding);
+      artist_embeddings.push(doc);
     } else if file_name.page_type() == PageType::Album {
-      album_embeddings.insert(file_name, embedding);
+      album_embeddings.push(doc);
     }
   }
 
   if !artist_embeddings.is_empty() {
     app_context
       .artist_interactor
-      .put_many_embeddings(
-        artist_embeddings
-          .into_iter()
-          .map(|(file_name, embedding)| EmbeddingDocument {
-            file_name,
-            key: provider_name.clone(),
-            embedding,
-          })
-          .collect(),
-      )
+      .put_many_embeddings(artist_embeddings)
       .await?;
   }
 
   if !album_embeddings.is_empty() {
     app_context
       .album_interactor
-      .put_many_embeddings(
-        album_embeddings
-          .into_iter()
-          .map(|(file_name, embedding)| EmbeddingDocument {
-            file_name,
-            key: provider_name.clone(),
-            embedding,
-          })
-          .collect(),
-      )
+      .put_many_embeddings(album_embeddings)
       .await?;
   }
 

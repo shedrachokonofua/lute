@@ -236,7 +236,7 @@ impl KeyValueStore {
     let mut expired_keys = vec![];
     for (key, (_, expires_at)) in results.iter() {
       if let Some(expires_at) = expires_at {
-        if expires_at.clone() < Utc::now().naive_utc() {
+        if *expires_at < Utc::now().naive_utc() {
           expired_keys.push(key.clone());
         } else {
           valid_keys.push(key.clone());
@@ -246,7 +246,9 @@ impl KeyValueStore {
       }
     }
 
-    self.delete_many(expired_keys).await?;
+    if !expired_keys.is_empty() {
+      self.delete_many(expired_keys).await?;
+    }
 
     let results = results
       .into_iter()

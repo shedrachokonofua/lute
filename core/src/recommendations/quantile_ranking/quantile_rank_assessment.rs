@@ -23,7 +23,7 @@ fn create_item_with_factor_map(items: Vec<ItemWithFactor>) -> HashMap<String, It
 fn calculate_average_rank(
   ranking: &QuantileRanking<ItemWithFactor>,
   profile_tags_map: &HashMap<String, ItemWithFactor>,
-  album_tags: &Vec<String>,
+  album_tags: &[String],
   novelty_score: f64,
 ) -> Result<f64> {
   if album_tags.is_empty() {

@@ -121,7 +121,7 @@ impl FileMetadataRepository {
       last_saved_at: FileTimestamp::now(),
     };
 
-    let hset_items: HashMap<String, String> = file_metadata.clone().try_into()?;
+    let hset_items: HashMap<String, String> = file_metadata.clone().into();
     let connection = self.redis_connection_pool.get().await?;
 
     let mut transaction = connection.create_transaction();

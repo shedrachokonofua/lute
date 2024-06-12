@@ -91,30 +91,35 @@ impl From<ParsedCredit> for proto::ParsedCredit {
   }
 }
 
-impl Into<proto::ParsedAlbum> for ParsedAlbum {
-  fn into(self) -> proto::ParsedAlbum {
+impl From<ParsedAlbum> for proto::ParsedAlbum {
+  fn from(val: ParsedAlbum) -> Self {
+    let artists: Vec<proto::ParsedArtistReference> = val
+      .artists
+      .into_iter()
+      .map(|artist| artist.into())
+      .collect();
+    let tracks: Vec<proto::ParsedTrack> =
+      val.tracks.into_iter().map(|track| track.into()).collect();
+    let credits: Vec<proto::ParsedCredit> = val
+      .credits
+      .into_iter()
+      .map(|credit| credit.into())
+      .collect();
+
     proto::ParsedAlbum {
-      name: self.name,
-      rating: self.rating,
-      rating_count: self.rating_count,
-      artists: self
-        .artists
-        .into_iter()
-        .map(|artist| artist.into())
-        .collect(),
-      primary_genres: self.primary_genres,
-      secondary_genres: self.secondary_genres,
-      descriptors: self.descriptors,
-      tracks: self.tracks.into_iter().map(|track| track.into()).collect(),
-      release_date: self.release_date.map(|val| val.to_string()),
-      languages: self.languages,
-      credits: self
-        .credits
-        .into_iter()
-        .map(|credit| credit.into())
-        .collect(),
-      cover_image_url: self.cover_image_url,
-      spotify_id: self.spotify_id,
+      name: val.name,
+      rating: val.rating,
+      rating_count: val.rating_count,
+      artists,
+      primary_genres: val.primary_genres,
+      secondary_genres: val.secondary_genres,
+      descriptors: val.descriptors,
+      tracks,
+      release_date: val.release_date.map(|val| val.to_string()),
+      languages: val.languages,
+      credits,
+      cover_image_url: val.cover_image_url,
+      spotify_id: val.spotify_id,
     }
   }
 }

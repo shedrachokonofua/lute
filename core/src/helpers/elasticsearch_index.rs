@@ -135,7 +135,7 @@ impl ElasticsearchIndex {
     let records = response_body["hits"]["hits"]
       .as_array_mut()
       .unwrap()
-      .into_iter()
+      .iter_mut()
       .filter_map(|hit| {
         serde_json::from_value::<T>(hit["_source"].take())
           .inspect_err(|e| {
