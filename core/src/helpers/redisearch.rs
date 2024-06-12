@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tracing::warn;
 use unidecode::unidecode;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SearchPagination {
   pub offset: Option<usize>,
   pub limit: Option<usize>,

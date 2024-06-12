@@ -755,9 +755,7 @@ message ProfileAlbumAddedEvent {
   uint32 factor = 3;
 }
 
-message AlbumSavedEvent {
-  string file_name = 1;
-}
+message AlbumSavedEvent { string file_name = 1; }
 
 message LookupAlbumSearchUpdatedEvent { AlbumSearchLookup lookup = 1; }
 
@@ -972,9 +970,26 @@ message ArtistSearchResultItem {
   ArtistOverview overview = 2;
 }
 
-message SearchArtistsReply { 
+message SearchArtistsReply {
   repeated ArtistSearchResultItem artists = 1;
   uint32 total = 2;
+}
+
+message FindSimilarArtistsRequest {
+  string file_name = 1;
+  string embedding_key = 2;
+  optional uint32 limit = 3;
+  optional ArtistSearchQuery filters = 4;
+}
+
+message ArtistSimilaritySearchItem {
+  Artist artist = 1;
+  ArtistOverview overview = 2;
+  float score = 3;
+}
+
+message FindSimilarArtistsReply {
+  repeated ArtistSimilaritySearchItem items = 1;
 }
 
 service ArtistService {
@@ -982,4 +997,6 @@ service ArtistService {
   rpc GetArtistOverview(GetArtistOverviewRequest)
       returns (GetArtistOverviewReply) {}
   rpc SearchArtists(SearchArtistsRequest) returns (SearchArtistsReply) {}
+  rpc FindSimilarArtists(FindSimilarArtistsRequest)
+      returns (FindSimilarArtistsReply) {}
 }

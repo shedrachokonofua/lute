@@ -10,7 +10,16 @@ use elasticsearch::Elasticsearch;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::cmp::{max, min};
+use std::collections::HashMap;
 use std::sync::Arc;
+
+#[derive(Debug)]
+pub struct ArtistEmbeddingSimilarirtySearchQuery {
+  pub embedding: Vec<f32>,
+  pub embedding_key: String,
+  pub filters: ArtistSearchQuery,
+  pub limit: usize,
+}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct ArtistSearchRecord {
@@ -49,7 +58,7 @@ pub struct ArtistSearchResult {
 impl From<ElasticsearchResult<ArtistSearchRecord>> for ArtistSearchResult {
   fn from(val: ElasticsearchResult<ArtistSearchRecord>) -> Self {
     ArtistSearchResult {
-      artists: val.results,
+      artists: val.results.into_iter().map(|item| item.item).collect(),
       total: val.total,
     }
   }
@@ -264,6 +273,10 @@ pub struct ArtistSearchIndex {
   index: ElasticsearchIndex,
 }
 
+fn embedding_vector_key(key: &str) -> String {
+  format!("embedding_vector_{}", key)
+}
+
 impl ArtistSearchIndex {
   pub fn new(elasticsearch_client: Arc<Elasticsearch>) -> Self {
     Self {
@@ -286,7 +299,7 @@ impl ArtistSearchIndex {
             (
               doc.file_name.to_string(),
               json!({
-                format!("embedding_vector_{}", doc.key): doc.embedding
+                embedding_vector_key(&doc.key): doc.embedding
               }),
             )
           })
@@ -322,11 +335,82 @@ impl ArtistSearchIndex {
       .index
       .search(
         json!({
+          "_source": {
+            "exclude": ["embedding_vector_*"]
+          },
           "query": query.to_es_query(),
         }),
         pagination,
       )
       .await?;
     Ok(result.into())
+  }
+
+  pub async fn find_embedding(
+    &self,
+    file_name: &FileName,
+    key: &str,
+  ) -> Result<Option<EmbeddingDocument>> {
+    let key = format!("embedding_vector_{}", key);
+    let mut result = self
+      .index
+      .search::<HashMap<String, Vec<f32>>>(
+        json!({
+          "_source": {
+            "include": [key]
+          },
+          "query": {
+            "term": {
+              "_id": file_name.to_string()
+            }
+          }
+        }),
+        None,
+      )
+      .await?;
+    Ok(
+      result
+        .results
+        .first_mut()
+        .and_then(|doc| doc.item.remove(&key))
+        .map(|embedding| EmbeddingDocument {
+          file_name: file_name.clone(),
+          key: key.clone(),
+          embedding,
+        }),
+    )
+  }
+
+  pub async fn embedding_similarity_search(
+    &self,
+    query: &ArtistEmbeddingSimilarirtySearchQuery,
+  ) -> Result<Vec<(ArtistSearchRecord, f32)>> {
+    let result = self
+      .index
+      .search(
+        json!({
+          "_source": {
+            "exclude": ["embedding_vector_*"]
+          },
+          "knn": {
+            "k": query.limit,
+            "field": embedding_vector_key(&query.embedding_key),
+            "query_vector": query.embedding,
+            "filter": query.filters.to_es_query(),
+          }
+        }),
+        Some(&SearchPagination {
+          limit: Some(query.limit),
+          ..Default::default()
+        }),
+      )
+      .await?;
+    Ok(
+      result
+        .results
+        .into_iter()
+        .map(|item| (item.item, item.score))
+        .collect(),
+    )
   }
 }

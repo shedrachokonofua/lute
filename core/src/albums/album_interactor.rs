@@ -309,21 +309,22 @@ impl AlbumInteractor {
     Ok(artist_file_names)
   }
 
+  #[instrument(skip(self))]
   pub async fn find_similar_albums(
     &self,
-    album_file_name: FileName,
+    file_name: FileName,
     embedding_key: &str,
     filters: Option<AlbumSearchQuery>,
     limit: usize,
   ) -> Result<Vec<AlbumReadModel>> {
     let embedding = self
-      .find_embedding(&album_file_name, embedding_key)
+      .find_embedding(&file_name, embedding_key)
       .await?
       .ok_or_else(|| anyhow::anyhow!("Embedding not found"))?;
 
     let mut filters = filters.unwrap_or_default();
-    if !filters.exclude_file_names.contains(&album_file_name) {
-      filters.exclude_file_names.push(album_file_name);
+    if !filters.exclude_file_names.contains(&file_name) {
+      filters.exclude_file_names.push(file_name);
     }
 
     let query = AlbumEmbeddingSimilarirtySearchQuery {

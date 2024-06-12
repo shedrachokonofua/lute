@@ -12,9 +12,15 @@ pub struct ElasticsearchIndex {
   pub index_name: String,
 }
 
+pub struct ElasticsearchResultItem<T: DeserializeOwned> {
+  pub id: String,
+  pub score: f32,
+  pub item: T,
+}
+
 pub struct ElasticsearchResult<T: DeserializeOwned> {
   pub total: usize,
-  pub results: Vec<T>,
+  pub results: Vec<ElasticsearchResultItem<T>>,
 }
 
 impl ElasticsearchIndex {
@@ -106,7 +112,7 @@ impl ElasticsearchIndex {
     Ok(())
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip_all)]
   pub async fn search<T: DeserializeOwned>(
     &self,
     body: Value,
@@ -136,14 +142,14 @@ impl ElasticsearchIndex {
       .as_array_mut()
       .unwrap()
       .iter_mut()
-      .filter_map(|hit| {
-        serde_json::from_value::<T>(hit["_source"].take())
-          .inspect_err(|e| {
-            info!("Failed to parse record: {:?}", e);
-          })
-          .ok()
+      .map(|hit| {
+        Ok(ElasticsearchResultItem {
+          id: hit["_id"].as_str().unwrap_or_default().to_string(),
+          score: hit["_score"].as_f64().unwrap_or_default() as f32,
+          item: serde_json::from_value(hit["_source"].take())?,
+        })
       })
-      .collect::<Vec<T>>();
+      .collect::<Result<Vec<ElasticsearchResultItem<T>>>>()?;
 
     Ok(ElasticsearchResult {
       results: records,

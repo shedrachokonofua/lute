@@ -76,4 +76,36 @@ impl proto::ArtistService for ArtistService {
       total: total as u32,
     }))
   }
+
+  async fn find_similar_artists(
+    &self,
+    request: Request<proto::FindSimilarArtistsRequest>,
+  ) -> Result<Response<proto::FindSimilarArtistsReply>, Status> {
+    let inner = request.into_inner();
+    let file_name =
+      FileName::try_from(inner.file_name).map_err(|e| Status::invalid_argument(e.to_string()))?;
+    let embedding_key = inner.embedding_key;
+    let limit = inner.limit.unwrap_or(10) as usize;
+    let filters: Option<ArtistSearchQuery> = inner
+      .filters
+      .map(|f| f.try_into())
+      .transpose()
+      .map_err(|e| Status::invalid_argument(format!("Invalid filters: {}", e)))?;
+    let results = self
+      .artist_interactor
+      .find_similar_artists(file_name, &embedding_key, filters, limit)
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+    let items = results
+      .into_iter()
+      .map(
+        |((artist, overview), score)| proto::ArtistSimilaritySearchItem {
+          artist: Some(artist.into()),
+          overview: Some(overview.into()),
+          score,
+        },
+      )
+      .collect::<Vec<_>>();
+    Ok(Response::new(proto::FindSimilarArtistsReply { items }))
+  }
 }

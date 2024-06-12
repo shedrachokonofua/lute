@@ -163,25 +163,28 @@ impl ArtistRepository {
       .map(|f| Value::from(f.to_string()))
       .collect::<Vec<Value>>();
 
-    let rows = self
-      .sqlite_connection
-      .read()
-      .await?
-      .interact(move |conn| {
-        let mut stmt = conn
-          .prepare("SELECT file_name, name FROM artists WHERE artists.file_name IN rarray(?)")?;
-        let rows = stmt
-          .query_map([Rc::new(artist_file_name_params)], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-          })?
-          .collect::<Result<Vec<_>, _>>();
-        rows.inspect_err(|e| {
-          error!(message = e.to_string(), "Failed to find credits");
+    let rows = if artist_file_name_params.len() > 0 {
+      self
+        .sqlite_connection
+        .read()
+        .await?
+        .interact(move |conn| {
+          let mut stmt = conn
+            .prepare("SELECT file_name, name FROM artists WHERE artists.file_name IN rarray(?)")?;
+          let rows = stmt
+            .query_map([Rc::new(artist_file_name_params)], |row| {
+              Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>();
+          rows.inspect_err(|e| {
+            error!(message = e.to_string(), "Failed to find credits");
+          })
         })
-      })
-      .await
-      .map_err(|e| anyhow!("Failed to find credits {:?}", e))??;
-
+        .await
+        .map_err(|e| anyhow!("Failed to find credits {:?}", e))??
+    } else {
+      vec![]
+    };
     let mut artists = HashMap::new();
     for (file_name, name) in rows {
       let file_name = FileName::try_from(file_name)?;

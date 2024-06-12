@@ -253,7 +253,7 @@ impl proto::AlbumService for AlbumService {
       .filters
       .map(|f| f.try_into())
       .transpose()
-      .map_err(|e: Error| Status::invalid_argument(format!("Invalid filters: {}", e)))?;
+      .map_err(|e| Status::invalid_argument(format!("Invalid filters: {}", e)))?;
     let results = self
       .album_interactor
       .find_similar_albums(file_name, &embedding_key, filters, limit)

@@ -1,7 +1,9 @@
 use super::{
   artist_read_model::{ArtistOverview, ArtistReadModel},
   artist_repository::ArtistRepository,
-  artist_search_index::{ArtistSearchIndex, ArtistSearchQuery, ArtistSearchRecord},
+  artist_search_index::{
+    ArtistEmbeddingSimilarirtySearchQuery, ArtistSearchIndex, ArtistSearchQuery, ArtistSearchRecord,
+  },
 };
 use crate::{
   albums::album_interactor::AlbumInteractor,
@@ -16,6 +18,8 @@ use std::{
   sync::Arc,
 };
 use tracing::instrument;
+
+pub type ArtistInformation = (ArtistReadModel, ArtistOverview);
 
 pub struct ArtistInteractor {
   artist_repository: ArtistRepository,
@@ -109,11 +113,33 @@ impl ArtistInteractor {
     self
       .artist_search_index
       .put_many(
-        overviews.into_values().map(|overview| overview.into())
+        overviews
+          .into_values()
+          .map(|overview| overview.into())
           .collect::<Vec<ArtistSearchRecord>>(),
       )
       .await?;
     Ok(())
+  }
+
+  #[instrument(skip_all, fields(count = file_names.len()))]
+  pub async fn get_artists_information(
+    &self,
+    file_names: Vec<FileName>,
+  ) -> Result<Vec<ArtistInformation>> {
+    let mut artists = self.find_many(file_names.clone()).await?;
+    let mut overviews = self.get_overviews_with_artist_map(&artists).await?;
+
+    let mut result = Vec::new();
+    for file_name in file_names {
+      let artist = artists.remove(&file_name);
+      let overview = overviews.remove(&file_name);
+      if let (Some(artist), Some(overview)) = (artist, overview) {
+        result.push((artist, overview));
+      }
+    }
+
+    Ok(result)
   }
 
   #[instrument(skip(self))]
@@ -121,34 +147,87 @@ impl ArtistInteractor {
     &self,
     query: &ArtistSearchQuery,
     pagination: Option<&SearchPagination>,
-  ) -> Result<(Vec<(ArtistReadModel, ArtistOverview)>, usize)> {
+  ) -> Result<(Vec<ArtistInformation>, usize)> {
     let result = self.artist_search_index.search(query, pagination).await?;
     let file_names = result
       .artists
       .iter()
       .filter_map(|artist| FileName::try_from(artist.file_name.clone()).ok())
       .collect();
-    let mut artists = self.find_many(file_names).await?;
-    let mut overviews = self.get_overviews_with_artist_map(&artists).await?;
-    let output = result
-      .artists
-      .into_iter()
-      .filter_map(|artist| {
-        FileName::try_from(artist.file_name.clone())
-          .ok()
-          .and_then(
-            |file_name| match (artists.remove(&file_name), overviews.remove(&file_name)) {
-              (Some(artist), Some(overview)) => Some((artist, overview)),
-              _ => None,
-            },
-          )
-      })
-      .collect();
-    Ok((output, result.total))
+    let artists = self.get_artists_information(file_names).await?;
+    Ok((artists, result.total))
   }
 
   #[instrument(skip_all, fields(count = docs.len()))]
   pub async fn put_many_embeddings(&self, docs: Vec<EmbeddingDocument>) -> Result<()> {
     self.artist_search_index.put_many_embeddings(docs).await
+  }
+
+  pub async fn find_embedding(
+    &self,
+    file_name: FileName,
+    key: &str,
+  ) -> Result<Option<EmbeddingDocument>> {
+    self
+      .artist_search_index
+      .find_embedding(&file_name, key)
+      .await
+  }
+
+  pub async fn embedding_similarity_search(
+    &self,
+    query: &ArtistEmbeddingSimilarirtySearchQuery,
+  ) -> Result<Vec<(ArtistInformation, f32)>> {
+    let results = self
+      .artist_search_index
+      .embedding_similarity_search(query)
+      .await?;
+    let score_by_file_name = results
+      .iter()
+      .map(|(record, score)| Ok((FileName::try_from(record.file_name.clone())?, *score)))
+      .collect::<Result<HashMap<_, _>>>()?;
+    let file_names = results
+      .iter()
+      .map(|(record, _)| FileName::try_from(record.file_name.clone()))
+      .collect::<Result<Vec<_>>>()?;
+    let artists = self.get_artists_information(file_names).await?;
+
+    Ok(
+      artists
+        .into_iter()
+        .filter_map(|(artist, overview)| {
+          let file_name = artist.file_name.clone();
+          let score = score_by_file_name.get(&file_name)?;
+          Some((artist, overview, *score))
+        })
+        .map(|(artist, overview, score)| ((artist, overview), score))
+        .collect(),
+    )
+  }
+
+  #[instrument(skip(self))]
+  pub async fn find_similar_artists(
+    &self,
+    file_name: FileName,
+    embedding_key: &str,
+    filters: Option<ArtistSearchQuery>,
+    limit: usize,
+  ) -> Result<Vec<(ArtistInformation, f32)>> {
+    let embedding = self
+      .find_embedding(file_name.clone(), embedding_key)
+      .await?;
+
+    if embedding.is_none() {
+      return Ok(vec![]);
+    }
+
+    self
+      .embedding_similarity_search(&ArtistEmbeddingSimilarirtySearchQuery {
+        embedding: embedding.unwrap().embedding,
+        embedding_key: embedding_key.to_string(),
+        filters: filters.unwrap_or_default(),
+        limit,
+      })
+      .await
   }
 }
