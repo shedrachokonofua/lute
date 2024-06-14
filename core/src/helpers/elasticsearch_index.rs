@@ -3,7 +3,7 @@ use elasticsearch::{http::request::JsonBody, BulkParts, Elasticsearch, IndexPart
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tracing::{info, instrument};
+use tracing::{error, info, instrument};
 
 use super::redisearch::SearchPagination;
 
@@ -34,7 +34,7 @@ impl ElasticsearchIndex {
       "settings": {
         "number_of_shards": 1,
         "number_of_replicas": 0,
-        "max_result_window": 200000,
+        "index.max_result_window": 200000,
       },
       "mappings": {
         "dynamic_templates": [
@@ -126,6 +126,7 @@ impl ElasticsearchIndex {
       .from(offset)
       .size(limit)
       .body(body)
+      .track_total_hits(true)
       .send()
       .await?;
 
@@ -142,14 +143,22 @@ impl ElasticsearchIndex {
       .as_array_mut()
       .unwrap()
       .iter_mut()
-      .map(|hit| {
-        Ok(ElasticsearchResultItem {
-          id: hit["_id"].as_str().unwrap_or_default().to_string(),
-          score: hit["_score"].as_f64().unwrap_or_default() as f32,
-          item: serde_json::from_value(hit["_source"].take())?,
-        })
+      .filter_map(|hit| {
+        serde_json::from_value(hit["_source"].take())
+          .inspect_err(|e| {
+            error!(
+              e = e.to_string(),
+              "Failed to deserialize Elasticsearch result item"
+            );
+          })
+          .ok()
+          .map(|item| ElasticsearchResultItem {
+            id: hit["_id"].as_str().unwrap_or_default().to_string(),
+            score: hit["_score"].as_f64().unwrap_or_default() as f32,
+            item,
+          })
       })
-      .collect::<Result<Vec<ElasticsearchResultItem<T>>>>()?;
+      .collect::<Vec<ElasticsearchResultItem<T>>>();
 
     Ok(ElasticsearchResult {
       results: records,

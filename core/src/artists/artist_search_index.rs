@@ -198,21 +198,21 @@ impl ArtistSearchQuery {
     if !self.include_primary_genres.is_empty() {
       query["bool"]["must"].as_array_mut().unwrap().push(json!({
         "terms": {
-          "primary_genres": self.include_primary_genres
+          "primary_genres.keyword": self.include_primary_genres
         }
       }));
     }
     if !self.include_secondary_genres.is_empty() {
       query["bool"]["must"].as_array_mut().unwrap().push(json!({
         "terms": {
-          "secondary_genres": self.include_secondary_genres
+          "secondary_genres.keyword": self.include_secondary_genres
         }
       }));
     }
     if !self.include_credit_roles.is_empty() {
       query["bool"]["must"].as_array_mut().unwrap().push(json!({
         "terms": {
-          "credit_roles": self.include_credit_roles
+          "credit_roles.keyword": self.include_credit_roles
         }
       }));
     }
@@ -222,7 +222,7 @@ impl ArtistSearchQuery {
         .unwrap()
         .push(json!({
           "terms": {
-            "file_name": self.exclude_file_names
+            "file_name.keyword": self.exclude_file_names
           }
         }));
     }
@@ -232,7 +232,7 @@ impl ArtistSearchQuery {
         .unwrap()
         .push(json!({
             "terms": {
-              "primary_genres": self.exclude_primary_genres
+              "primary_genres.keyword": self.exclude_primary_genres
           }
         }));
     }
@@ -242,7 +242,7 @@ impl ArtistSearchQuery {
         .unwrap()
         .push(json!({
             "terms": {
-              "secondary_genres": self.exclude_secondary_genres
+              "secondary_genres.keyword": self.exclude_secondary_genres
           }
         }));
     }
@@ -252,7 +252,7 @@ impl ArtistSearchQuery {
         .unwrap()
         .push(json!({
           "terms": {
-            "credit_roles": self.exclude_credit_roles
+            "credit_roles.keyword": self.exclude_credit_roles
           }
         }));
     }
