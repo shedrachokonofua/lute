@@ -103,20 +103,26 @@ impl EmbeddingProviderInteractor {
     }
 
     if let Some(ollama_settings) = &settings.embedding_provider.ollama {
-      for model in ollama_settings.models.iter() {
-        let url = Url::parse(
-          ollama_settings
-            .url
-            .clone()
-            .unwrap_or("http://localhost:11434".to_string())
-            .as_str(),
+      if let Ok(url) = Url::parse(
+        ollama_settings
+          .url
+          .clone()
+          .unwrap_or("http://localhost:11434".to_string())
+          .as_str(),
+      )
+      .inspect_err(|e| {
+        tracing::error!(
+          "Failed to parse Ollama URL, cannot register Ollama providers: {}",
+          e
         )
-        .unwrap();
-        let provider = Arc::new(OllamaEmbeddingProvider::new(
-          model.clone(),
-          Ollama::from_url(url),
-        ));
-        providers.insert(provider.name().to_string(), provider);
+      }) {
+        for model in ollama_settings.models.iter() {
+          let provider = Arc::new(OllamaEmbeddingProvider::new(
+            model.clone(),
+            Ollama::from_url(url.clone()),
+          ));
+          providers.insert(provider.name().to_string(), provider);
+        }
       }
     }
 

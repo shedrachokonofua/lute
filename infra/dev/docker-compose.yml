@@ -24,8 +24,6 @@ services:
       - ../../core/lute.db-wal:/usr/src/app/core/lute.db-wal
     depends_on:
       - redis
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
 
   discord-bot:
     build:

@@ -15,16 +15,15 @@ use tokio_retry::{strategy::FibonacciBackoff, Retry};
 use tracing::info;
 
 async fn crawl(job: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
-  let crawler = Arc::clone(&app_context.crawler);
   let crawl_job: CrawlJob = job.try_into()?;
   info!("Executing job, crawling {:?}", crawl_job);
 
-  if crawler.enforce_throttle().await? {
+  if app_context.crawler.enforce_throttle().await? {
     bail!("Crawler is throttled");
   }
 
   let file_content = Retry::spawn(FibonacciBackoff::from_millis(500).take(5), || async {
-    crawler.request(&crawl_job.file_name).await
+    app_context.crawler.request(&crawl_job.file_name).await
   })
   .await?;
   app_context
@@ -34,9 +33,9 @@ async fn crawl(job: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
   Ok(())
 }
 
-async fn reset_crawler_request_window(_: Job, ctx: Arc<ApplicationContext>) -> Result<()> {
+async fn reset_crawler_request_window(_: Job, app_context: Arc<ApplicationContext>) -> Result<()> {
   info!("Executing job, resetting crawler request window");
-  ctx.crawler.reset_window_request_count().await
+  app_context.crawler.reset_window_request_count().await
 }
 
 pub async fn setup_crawler_jobs(app_context: Arc<ApplicationContext>) -> Result<()> {
