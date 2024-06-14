@@ -93,9 +93,16 @@ pub struct VoyageAISettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct OllamaSettings {
+  pub url: Option<String>,
+  pub models: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct EmbeddingProviderSettings {
   pub openai: Option<OpenAISettings>,
   pub voyageai: Option<VoyageAISettings>,
+  pub ollama: Option<OllamaSettings>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
@@ -120,7 +127,12 @@ pub struct Settings {
 impl Settings {
   pub fn new() -> Result<Self, config::ConfigError> {
     config::Config::builder()
-      .add_source(config::Environment::default())
+      .add_source(
+        config::Environment::default()
+          .try_parsing(true)
+          .list_separator(",")
+          .with_list_parse_key("embedding_provider.ollama.models"),
+      )
       .set_default("port", 80)?
       .set_default("file.ttl_days.artist", 7)?
       .set_default("file.ttl_days.album", 30)?

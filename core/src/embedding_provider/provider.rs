@@ -5,7 +5,7 @@ use std::time::Duration;
 
 #[async_trait]
 pub trait EmbeddingProvider {
-  fn name(&self) -> &str;
+  fn name(&self) -> String;
   fn dimensions(&self) -> usize;
   fn interval(&self) -> Duration;
   fn concurrency(&self) -> usize;

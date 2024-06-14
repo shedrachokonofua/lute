@@ -304,7 +304,7 @@ pub struct RedisAlbumSearchIndex {
 }
 
 const NAMESPACE: &str = "album";
-const INDEX_VERSION: u32 = 7;
+const INDEX_VERSION: u32 = 8;
 
 fn redis_key(file_name: &FileName) -> String {
   format!("{}:{}", NAMESPACE, file_name.to_string())

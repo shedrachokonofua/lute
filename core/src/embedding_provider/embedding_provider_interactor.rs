@@ -1,6 +1,9 @@
 use super::{
   provider::EmbeddingProvider,
-  providers::{openai::OpenAIEmbeddingProvider, voyageai::VoyageAIEmbeddingProvider},
+  providers::{
+    ollama::OllamaEmbeddingProvider, openai::OpenAIEmbeddingProvider,
+    voyageai::VoyageAIEmbeddingProvider,
+  },
 };
 use crate::{
   files::file_metadata::file_name::FileName, helpers::key_value_store::KeyValueStore,
@@ -8,6 +11,8 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use chrono::Duration;
+use ollama_rs::Ollama;
+use reqwest::Url;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -97,6 +102,24 @@ impl EmbeddingProviderInteractor {
       providers.insert(provider.name().to_string(), provider);
     }
 
+    if let Some(ollama_settings) = &settings.embedding_provider.ollama {
+      for model in ollama_settings.models.iter() {
+        let url = Url::parse(
+          ollama_settings
+            .url
+            .clone()
+            .unwrap_or("http://localhost:11434".to_string())
+            .as_str(),
+        )
+        .unwrap();
+        let provider = Arc::new(OllamaEmbeddingProvider::new(
+          model.clone(),
+          Ollama::from_url(url),
+        ));
+        providers.insert(provider.name().to_string(), provider);
+      }
+    }
+
     Self {
       providers,
       cache: EmbeddingProviderCache::new(kv),
@@ -124,7 +147,9 @@ impl EmbeddingProviderInteractor {
     let mut input = input;
     let mut embeddings = self.cache.get_many(provider_name, input.clone()).await?;
     let uncached_keys = input
-      .keys().filter(|&key| !embeddings.contains_key(key)).cloned()
+      .keys()
+      .filter(|&key| !embeddings.contains_key(key))
+      .cloned()
       .collect::<Vec<_>>();
 
     if uncached_keys.is_empty() {

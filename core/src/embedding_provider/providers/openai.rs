@@ -42,8 +42,8 @@ impl OpenAIEmbeddingProvider {
 
 #[async_trait]
 impl EmbeddingProvider for OpenAIEmbeddingProvider {
-  fn name(&self) -> &str {
-    "openai-default"
+  fn name(&self) -> String {
+    "openai-default".to_string()
   }
 
   fn dimensions(&self) -> usize {

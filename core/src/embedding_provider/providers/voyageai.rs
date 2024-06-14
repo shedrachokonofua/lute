@@ -75,8 +75,8 @@ struct VoyageAIUsage {
 
 #[async_trait]
 impl EmbeddingProvider for VoyageAIEmbeddingProvider {
-  fn name(&self) -> &str {
-    "voyageai-default"
+  fn name(&self) -> String {
+    "voyageai-default".to_string()
   }
 
   fn dimensions(&self) -> usize {

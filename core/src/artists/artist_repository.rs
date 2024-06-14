@@ -15,7 +15,7 @@ impl ArtistRepository {
     Self { sqlite_connection }
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip_all, fields(artist_file_names = artist_file_names.len()))]
   async fn find_album_file_names(
     &self,
     artist_file_names: Vec<FileName>,
@@ -66,7 +66,7 @@ impl ArtistRepository {
     Ok(album_file_names)
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip_all, fields(artist_file_names = artist_file_names.len()))]
   async fn find_credits(
     &self,
     artist_file_names: Vec<FileName>,
@@ -148,7 +148,7 @@ impl ArtistRepository {
     Ok(credits)
   }
 
-  #[instrument(skip(self))]
+  #[instrument(skip_all, fields(artist_file_names = artist_file_names.len()))]
   pub async fn find_many(
     &self,
     artist_file_names: Vec<FileName>,

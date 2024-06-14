@@ -1782,6 +1782,7 @@ dependencies = [
  "mimalloc",
  "nonzero",
  "num-traits",
+ "ollama-rs",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
@@ -2116,6 +2117,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "ollama-rs"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "255252ec57e13d2d6ae074c7b7cd8c004d17dafb1e03f954ba2fd5cc226f8f49"
+dependencies = [
+ "async-trait",
+ "log",
+ "reqwest 0.12.4",
+ "serde",
+ "serde_json",
+ "url",
 ]
 
 [[package]]

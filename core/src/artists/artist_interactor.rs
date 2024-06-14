@@ -90,7 +90,7 @@ impl ArtistInteractor {
     Ok(overviews)
   }
 
-  #[instrument(skip(self), fields(artists = artist_file_names.len()))]
+  #[instrument(skip_all, fields(artists = artist_file_names.len()))]
   pub async fn get_overviews(
     &self,
     artist_file_names: Vec<FileName>,

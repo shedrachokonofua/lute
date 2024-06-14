@@ -218,33 +218,6 @@ impl ArtistOverview {
       self.album_summary.min_year.to_string(),
       self.album_summary.max_year.to_string(),
     ];
-    parts.extend(
-      self
-        .album_summary
-        .primary_genres
-        .iter()
-        .map(|g| format!("{}({})", g.item, g.factor)),
-    );
-    parts.extend(
-      self
-        .album_summary
-        .secondary_genres
-        .iter()
-        .map(|g| format!("{}({})", g.item, g.factor)),
-    );
-    parts.extend(
-      self
-        .album_summary
-        .descriptors
-        .iter()
-        .map(|d| format!("{}({})", d.item, d.factor)),
-    );
-    parts.extend(
-      self
-        .credit_roles
-        .iter()
-        .map(|r| format!("{}({})", r.item, r.factor)),
-    );
     parts.extend(vec![
       self.credited_album_summary.album_count.to_string(),
       self.credited_album_summary.average_rating.to_string(),
@@ -254,25 +227,30 @@ impl ArtistOverview {
     ]);
     parts.extend(
       self
-        .credited_album_summary
-        .primary_genres
+        .credit_roles
         .iter()
-        .map(|g| format!("{}({})", g.item, g.factor)),
+        .map(|r| format!("{}({})", r.item, r.factor)),
     );
-    parts.extend(
-      self
-        .credited_album_summary
-        .secondary_genres
-        .iter()
-        .map(|g| format!("{}({})", g.item, g.factor)),
-    );
-    parts.extend(
-      self
-        .credited_album_summary
-        .descriptors
-        .iter()
-        .map(|d| format!("{}({})", d.item, d.factor)),
-    );
+    let mut tags = HashMap::new();
+    for genre in &self.album_summary.primary_genres {
+      *tags.entry(genre.item.clone()).or_insert(0) += genre.factor;
+    }
+    for genre in &self.album_summary.secondary_genres {
+      *tags.entry(genre.item.clone()).or_insert(0) += genre.factor;
+    }
+    for descriptor in &self.album_summary.descriptors {
+      *tags.entry(descriptor.item.clone()).or_insert(0) += descriptor.factor;
+    }
+    for genre in &self.credited_album_summary.primary_genres {
+      *tags.entry(genre.item.clone()).or_insert(0) += genre.factor;
+    }
+    for genre in &self.credited_album_summary.secondary_genres {
+      *tags.entry(genre.item.clone()).or_insert(0) += genre.factor;
+    }
+    for descriptor in &self.credited_album_summary.descriptors {
+      *tags.entry(descriptor.item.clone()).or_insert(0) += descriptor.factor;
+    }
+    parts.extend(tags.into_iter().map(|(k, v)| format!("{}({})", k, v)));
     parts.join(", ")
   }
 }
