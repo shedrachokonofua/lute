@@ -24,7 +24,7 @@ impl From<FileMetadata> for proto::FileMetadata {
   fn from(val: FileMetadata) -> Self {
     proto::FileMetadata {
       id: val.id.to_string(),
-      name: val.name.0.clone(),
+      name: val.name.to_string(),
       first_saved_at: val.first_saved_at().to_string(),
       last_saved_at: val.last_saved_at.to_string(),
     }

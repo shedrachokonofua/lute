@@ -300,9 +300,12 @@ mod tests {
     assert_eq!(album.spotify_id, Some("532y6THMUtDYbRQAvzP1bL".to_string()));
     assert_eq!(album.artists.len(), 2);
     assert_eq!(album.artists[0].name, "Fela Kuti");
-    assert_eq!(album.artists[0].file_name.0, "artist/fela-kuti");
+    assert_eq!(album.artists[0].file_name.to_string(), "artist/fela-kuti");
     assert_eq!(album.artists[1].name, "The Africa '70");
-    assert_eq!(album.artists[1].file_name.0, "artist/the-africa-70");
+    assert_eq!(
+      album.artists[1].file_name.to_string(),
+      "artist/the-africa-70"
+    );
     assert_eq!(album.primary_genres, ["Afrobeat"]);
     assert_eq!(album.secondary_genres, ["Jazz-Funk"]);
     assert_eq!(album.descriptors.len(), 12);
@@ -324,7 +327,10 @@ mod tests {
     assert_eq!(album.languages, ["English", "Yoruba"]);
     assert_eq!(album.credits.len(), 6);
     assert_eq!(album.credits[0].artist.name, "Fela Ransome Kuti");
-    assert_eq!(album.credits[0].artist.file_name.0, "artist/fela-kuti");
+    assert_eq!(
+      album.credits[0].artist.file_name.to_string(),
+      "artist/fela-kuti"
+    );
     assert_eq!(
       album.credits[0].roles,
       [
@@ -338,11 +344,14 @@ mod tests {
       ]
     );
     assert_eq!(album.credits[1].artist.name, "Tunde Williams");
-    assert_eq!(album.credits[1].artist.file_name.0, "artist/tunde_williams");
+    assert_eq!(
+      album.credits[1].artist.file_name.to_string(),
+      "artist/tunde_williams"
+    );
     assert_eq!(album.credits[1].roles, ["trumpet"]);
     assert_eq!(album.credits[2].artist.name, "Emmanuel Odenisi");
     assert_eq!(
-      album.credits[2].artist.file_name.0,
+      album.credits[2].artist.file_name.to_string(),
       "artist/emmanuel_a__odenusi"
     );
     assert_eq!(
@@ -350,16 +359,22 @@ mod tests {
       ["recording engineer", "mixing engineer"]
     );
     assert_eq!(album.credits[3].artist.name, "The Africa &#39;70");
-    assert_eq!(album.credits[3].artist.file_name.0, "artist/the-africa-70");
+    assert_eq!(
+      album.credits[3].artist.file_name.to_string(),
+      "artist/the-africa-70"
+    );
     assert_eq!(album.credits[3].roles, ["performer"]);
     assert_eq!(album.credits[4].artist.name, "Remi Olowookere");
     assert_eq!(
-      album.credits[4].artist.file_name.0,
+      album.credits[4].artist.file_name.to_string(),
       "artist/remi-olowookere"
     );
     assert_eq!(album.credits[4].roles, ["graphic design", "art direction"]);
     assert_eq!(album.credits[5].artist.name, "Igo Chico");
-    assert_eq!(album.credits[5].artist.file_name.0, "artist/igo-chico");
+    assert_eq!(
+      album.credits[5].artist.file_name.to_string(),
+      "artist/igo-chico"
+    );
     assert_eq!(album.credits[5].roles, ["tenor saxophone"]);
     assert!(album.cover_image_url.is_some());
     assert_eq!(album.cover_image_url.unwrap(), "https://e.snmc.io/i/600/w/5f531a5819eda8ce114ffdb1e2359148/1346423/fela-ransome-kuti-and-the-afrika-70-gentleman-Cover-Art.jpg");

@@ -77,7 +77,7 @@ impl From<QueueItem> for proto::CrawlerQueueItem {
       item_key: val.item_key.to_string(),
       enqueue_time: val.enqueue_time.to_string(),
       deduplication_key: val.deduplication_key,
-      file_name: val.file_name.0,
+      file_name: val.file_name.to_string(),
       priority: proto::Priority::from(val.priority).into(),
       correlation_id: val.correlation_id,
     }

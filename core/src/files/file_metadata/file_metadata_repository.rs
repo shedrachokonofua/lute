@@ -24,7 +24,8 @@ impl From<HashMap<String, String>> for FileMetadata {
       .parse::<Ulid>()
       .expect("invalid id");
 
-    let name = FileName(values.get("name").expect("name not found").to_string());
+    let name_text = values.get("name").expect("name not found").to_string();
+    let name = FileName::try_from(name_text).expect("invalid name");
 
     let last_saved_at: FileTimestamp = values
       .get("last_saved_at")
@@ -44,7 +45,7 @@ impl From<FileMetadata> for HashMap<String, String> {
   fn from(val: FileMetadata) -> Self {
     vec![
       ("id".to_string(), val.id.to_string()),
-      ("name".to_string(), val.name.0),
+      ("name".to_string(), val.name.to_string()),
       ("last_saved_at".to_string(), val.last_saved_at.to_string()),
     ]
     .into_iter()
@@ -56,7 +57,7 @@ impl From<FileMetadata> for Vec<(String, String)> {
   fn from(val: FileMetadata) -> Self {
     vec![
       ("id".to_string(), val.id.to_string()),
-      ("name".to_string(), val.name.0),
+      ("name".to_string(), val.name.to_string()),
       ("last_saved_at".to_string(), val.last_saved_at.to_string()),
     ]
   }

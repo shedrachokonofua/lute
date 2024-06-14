@@ -5,7 +5,7 @@ use anyhow::Result;
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
-pub struct FileName(pub String);
+pub struct FileName(String);
 
 impl TryFrom<String> for FileName {
   type Error = anyhow::Error;
@@ -14,7 +14,6 @@ impl TryFrom<String> for FileName {
     let clean_value = value
       .trim_start_matches('/')
       .trim_end_matches('/')
-      //.replace("’", "'")
       .to_string();
     match PageType::try_from(clean_value.as_str()) {
       Ok(_) => Ok(Self(clean_value)),
