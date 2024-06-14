@@ -356,6 +356,7 @@ enum PageType {
   ArtistPage = 1;
   ChartPage = 2;
   AlbumSearchResultPage = 3;
+  ListSegmentPage = 4;
 }
 
 message GetAggregatedFailureErrorsRequest { optional PageType page_type = 1; }

@@ -53,6 +53,7 @@ impl FileInteractor {
       PageType::Album => self.settings.file.ttl_days.album,
       PageType::Chart => self.settings.file.ttl_days.chart,
       PageType::AlbumSearchResult => self.settings.file.ttl_days.search,
+      PageType::ListSegment => self.settings.file.ttl_days.list_segment,
     };
 
     let ttl_days = Duration::try_days(ttl_days.into()).ok_or(anyhow!(

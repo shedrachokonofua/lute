@@ -19,6 +19,7 @@ pub struct FileTtlDaysSettings {
   pub album: u32,
   pub search: u32,
   pub chart: u32,
+  pub list_segment: u32,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
@@ -138,6 +139,7 @@ impl Settings {
       .set_default("file.ttl_days.album", 30)?
       .set_default("file.ttl_days.chart", 7)?
       .set_default("file.ttl_days.search", 7)?
+      .set_default("file.ttl_days.list_segment", 7)?
       .set_default("file.content_store.key", None::<String>)?
       .set_default("file.content_store.secret", None::<String>)?
       .set_default("crawler.pool_size", 10)?

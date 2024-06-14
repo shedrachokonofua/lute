@@ -8,7 +8,7 @@ use crate::{
     chart::parse_chart,
   },
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::sync::Arc;
 use tracing::{info, instrument, warn};
 use ulid::Ulid;
@@ -25,13 +25,14 @@ pub async fn parse_file_on_store(
     .get_file_content(&file_name)
     .await?;
 
-  let parse_result: Result<ParsedFileData> = match file_name.page_type() {
+  let parse_result = match file_name.page_type() {
     PageType::Chart => parse_chart(&file_content).map(ParsedFileData::Chart),
     PageType::Album => parse_album(&file_content).map(ParsedFileData::Album),
     PageType::Artist => parse_artist(&file_content).map(ParsedFileData::Artist),
     PageType::AlbumSearchResult => {
       parse_album_search_result(&file_content).map(ParsedFileData::AlbumSearchResult)
     }
+    PageType::ListSegment => Err(anyhow!("ListSegment parsing is not yet supported")),
   };
 
   let event = match &parse_result {
