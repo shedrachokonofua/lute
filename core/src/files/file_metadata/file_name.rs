@@ -22,6 +22,14 @@ impl TryFrom<String> for FileName {
   }
 }
 
+impl TryFrom<&str> for FileName {
+  type Error = anyhow::Error;
+
+  fn try_from(value: &str) -> Result<Self> {
+    Self::try_from(value.to_string())
+  }
+}
+
 impl From<FileName> for String {
   fn from(val: FileName) -> Self {
     val.0

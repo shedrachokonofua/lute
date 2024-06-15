@@ -1,141 +1,249 @@
 use super::{
-  dom::{get_link_tag_href, get_node_inner_text, get_tag_inner_text, query_select_first},
+  dom::HtmlParser,
   parsed_file_data::{ParsedArtistReference, ParsedChartAlbum},
   util::{clean_artist_name, parse_release_date},
 };
 use crate::files::file_metadata::file_name::FileName;
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use tracing::{instrument, warn};
 
 #[instrument(skip(file_content))]
 pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
-  let dom = tl::parse(file_content, tl::ParserOptions::default())?;
-  let handle = dom
-    .query_selector(".page_charts_section_charts_item")
-    .ok_or(anyhow::anyhow!("No charts found"))?;
-
-  let albums: Vec<ParsedChartAlbum> = handle
-    .map(|item| match item.get(dom.parser()) {
-      Some(node) => {
-        let tag = node.as_tag().unwrap();
-
-        let name = get_tag_inner_text(dom.parser(), tag, ".page_charts_section_charts_item_title")?;
-
-        let rating = get_tag_inner_text(
-          dom.parser(),
-          tag,
-          ".page_charts_section_charts_item_details_average_num",
+  let parser = HtmlParser::try_from(file_content)?;
+  let albums = parser
+    .query_by_selector(&[".page_charts_section_charts_item"], None)
+    .into_iter()
+    .filter_map(|tag| {
+      let name = parser.find_text(&[".page_charts_section_charts_item_title"], Some(tag))?;
+      let rating = parser
+        .find_text(
+          &[".page_charts_section_charts_item_details_average_num"],
+          Some(tag),
         )?
-        .parse::<f32>()?;
-
-        let rating_count = get_tag_inner_text(
-          dom.parser(),
-          query_select_first(
-            dom.parser(),
-            tag,
-            ".page_charts_section_charts_item_details_ratings",
-          )?,
-          ".full",
+        .parse::<f32>()
+        .inspect_err(|err| {
+          warn!(err = err.to_string(), "Failed to parse rating");
+        })
+        .ok()?;
+      let rating_count = parser
+        .find_text(
+          &[".page_charts_section_charts_item_details_ratings", ".full"],
+          Some(tag),
         )?
         .replace(',', "")
-        .parse::<u32>()?;
-
-        let artists = query_select_first(
-          dom.parser(),
-          tag,
-          ".page_charts_section_charts_item_credited_links_primary",
-        )?
-        .query_selector(dom.parser(), "a")
-        .unwrap()
-        .map(|node| ParsedArtistReference {
-          name: clean_artist_name(get_node_inner_text(dom.parser(), &node).unwrap().as_str())
-            .to_string(),
-          file_name: FileName::try_from(
-            get_link_tag_href(node.get(dom.parser()).unwrap().as_tag().unwrap()).unwrap(),
-          )
-          .unwrap(),
+        .parse::<u32>()
+        .inspect_err(|err| {
+          warn!(err = err.to_string(), "Failed to parse rating count");
         })
-        .collect::<Vec<ParsedArtistReference>>();
-
-        let primary_genres = query_select_first(
-          dom.parser(),
-          tag,
-          ".page_charts_section_charts_item_genres_primary",
-        )?
-        .query_selector(dom.parser(), "a")
-        .ok_or(anyhow::anyhow!("No primary genres found"))?
-        .map(|genre| get_node_inner_text(dom.parser(), &genre).unwrap())
-        .collect::<Vec<String>>();
-
-        let secondary_genres = query_select_first(
-          dom.parser(),
-          tag,
-          ".page_charts_section_charts_item_genres_secondary",
+        .ok()?;
+      let artists = parser
+        .query_by_selector(
+          &[
+            ".page_charts_section_charts_item_credited_links_primary",
+            "a",
+          ],
+          Some(tag),
         )
-        .map(|tag| {
-          tag.query_selector(dom.parser(), "a").map(|genres| {
-            genres
-              .map(|genre| get_node_inner_text(dom.parser(), &genre).unwrap())
-              .collect::<Vec<String>>()
-          })
+        .into_iter()
+        .filter_map(|tag| {
+          let name = clean_artist_name(&parser.find_tag_text(tag)?).to_string();
+          let file_name = FileName::try_from(parser.find_tag_href(tag)?)
+            .map_err(|err| {
+              warn!(err = err.to_string(), "Failed to parse artist reference");
+              err
+            })
+            .ok()?;
+          Some(ParsedArtistReference { name, file_name })
         })
-        .unwrap_or(Some(Vec::new()))
-        .unwrap_or_default();
-
-        let descriptors = query_select_first(
-          dom.parser(),
-          tag,
-          ".page_charts_section_charts_item_genre_descriptors",
+        .collect::<Vec<_>>();
+      let primary_genres = parser
+        .query_by_selector(
+          &[".page_charts_section_charts_item_genres_primary", "a"],
+          Some(tag),
         )
-        .map(|tag| {
-          tag.query_selector(dom.parser(), "span").map(|descriptors| {
-            descriptors
-              .map(|descriptor| get_node_inner_text(dom.parser(), &descriptor).unwrap())
-              .collect::<Vec<String>>()
-          })
-        })
-        .unwrap_or(Some(Vec::new()))
-        .unwrap_or_default();
-
-        let file_name = FileName::try_from(
-          get_link_tag_href(query_select_first(
-            dom.parser(),
-            tag,
-            ".page_charts_section_charts_item_link",
-          )?)
-          .unwrap(),
-        )?;
-
-        let release_date_string = get_tag_inner_text(
-          dom.parser(),
-          query_select_first(dom.parser(), tag, ".page_charts_section_charts_item_date")?,
-          "span",
+        .into_iter()
+        .map(|tag| parser.find_tag_text(tag))
+        .collect::<Option<Vec<_>>>()?;
+      let secondary_genres = parser
+        .query_by_selector(
+          &[".page_charts_section_charts_item_genres_secondary", "a"],
+          Some(tag),
         )
-        .ok();
+        .into_iter()
+        .filter_map(|tag| parser.find_tag_text(tag))
+        .collect::<Vec<_>>();
+      let descriptors = parser
+        .query_by_selector(
+          &[".page_charts_section_charts_item_genre_descriptors", "span"],
+          Some(tag),
+        )
+        .into_iter()
+        .filter_map(|tag| parser.find_tag_text(tag))
+        .collect::<Vec<_>>();
+      let file_name = FileName::try_from(
+        parser
+          .find_by_selector(&[".page_charts_section_charts_item_link"], Some(tag))
+          .and_then(|tag| parser.find_tag_href(tag))?,
+      )
+      .map_err(|err| {
+        warn!(err = err.to_string(), "Failed to parse album reference");
+        err
+      })
+      .ok()?;
+      let release_date = parser
+        .find_text(
+          &[".page_charts_section_charts_item_date", "span"],
+          Some(tag),
+        )
+        .and_then(|date_string| {
+          parse_release_date(date_string)
+            .inspect_err(|err| {
+              warn!(err = err.to_string(), "Failed to parse release date");
+            })
+            .ok()
+        });
 
-        let release_date =
-          release_date_string.and_then(|date_string| parse_release_date(date_string).ok());
-
-        let data = ParsedChartAlbum {
-          file_name,
-          name,
-          rating,
-          rating_count,
-          artists,
-          primary_genres,
-          secondary_genres,
-          descriptors,
-          release_date,
-        };
-        Ok(data)
-      }
-      None => {
-        warn!("No album node found");
-        Err(anyhow::anyhow!("No album node found"))
-      }
+      Some(ParsedChartAlbum {
+        file_name,
+        name,
+        rating,
+        rating_count,
+        artists,
+        primary_genres,
+        secondary_genres,
+        descriptors,
+        release_date,
+      })
     })
-    .map(|res| res.unwrap())
-    .collect();
+    .collect::<Vec<_>>();
 
   Ok(albums)
+}
+
+#[cfg(test)]
+mod tests {
+  use chrono::NaiveDate;
+
+  use super::*;
+  use crate::test_resource;
+
+  #[test]
+  fn test_chart_parser() -> Result<(), String> {
+    let file_content = include_str!(test_resource!("chart.html"));
+    let chart = parse_chart(&file_content).map_err(|err| err.to_string())?;
+    assert_eq!(chart.len(), 3);
+
+    assert_eq!(
+      chart[0].file_name,
+      FileName::try_from("release/album/kendrick-lamar/to-pimp-a-butterfly").unwrap()
+    );
+    assert_eq!(chart[0].name, "To Pimp a Butterfly");
+    assert_eq!(chart[0].rating, 4.38);
+    assert_eq!(chart[0].rating_count, 79984);
+    assert_eq!(chart[0].artists[0].name, "Kendrick Lamar");
+    assert_eq!(
+      chart[0].artists[0].file_name,
+      FileName::try_from("artist/kendrick-lamar").unwrap()
+    );
+    assert_eq!(
+      chart[0].primary_genres,
+      vec!["Conscious Hip Hop", "West Coast Hip Hop", "Jazz Rap"]
+    );
+    assert_eq!(
+      chart[0].secondary_genres,
+      vec![
+        "Political Hip Hop",
+        "Neo-Soul",
+        "Funk",
+        "Poetry",
+        "Experimental Hip Hop"
+      ]
+    );
+    assert_eq!(
+      chart[0].descriptors,
+      vec![
+        "political",
+        "conscious",
+        "concept album",
+        "poetic",
+        "introspective",
+        "protest",
+        "urban",
+        "eclectic"
+      ]
+    );
+    assert_eq!(chart[0].release_date, NaiveDate::from_ymd_opt(2015, 3, 15));
+
+    assert_eq!(
+      chart[1].file_name,
+      FileName::try_from("release/album/radiohead/ok-computer").unwrap()
+    );
+    assert_eq!(chart[1].name, "OK Computer");
+    assert_eq!(chart[1].rating, 4.29);
+    assert_eq!(chart[1].rating_count, 104764);
+    assert_eq!(chart[1].artists[0].name, "Radiohead");
+    assert_eq!(
+      chart[1].artists[0].file_name,
+      FileName::try_from("artist/radiohead").unwrap()
+    );
+    assert_eq!(
+      chart[1].primary_genres,
+      vec!["Alternative Rock", "Art Rock"]
+    );
+    assert_eq!(
+      chart[1].secondary_genres,
+      vec!["Post-Britpop", "Space Rock Revival"]
+    );
+    assert_eq!(
+      chart[1].descriptors,
+      vec![
+        "melancholic",
+        "anxious",
+        "alienation",
+        "futuristic",
+        "existential",
+        "lonely",
+        "atmospheric",
+        "cold"
+      ]
+    );
+    assert_eq!(chart[1].release_date, NaiveDate::from_ymd_opt(1997, 6, 16));
+
+    assert_eq!(
+      chart[2].file_name,
+      FileName::try_from("release/album/radiohead/in-rainbows").unwrap()
+    );
+    assert_eq!(chart[2].name, "In Rainbows");
+    assert_eq!(chart[2].rating, 4.31);
+    assert_eq!(chart[2].rating_count, 77859);
+    assert_eq!(chart[2].artists[0].name, "Radiohead");
+    assert_eq!(
+      chart[2].artists[0].file_name,
+      FileName::try_from("artist/radiohead").unwrap()
+    );
+    assert_eq!(
+      chart[2].primary_genres,
+      vec!["Art Rock", "Alternative Rock"]
+    );
+    assert_eq!(
+      chart[2].secondary_genres,
+      vec!["Electronic", "Dream Pop", "Art Pop"]
+    );
+    assert_eq!(
+      chart[2].descriptors,
+      vec![
+        "lush",
+        "melancholic",
+        "introspective",
+        "mellow",
+        "bittersweet",
+        "atmospheric",
+        "warm",
+        "ethereal"
+      ]
+    );
+    assert_eq!(chart[2].release_date, NaiveDate::from_ymd_opt(2007, 10, 10));
+
+    Ok(())
+  }
 }

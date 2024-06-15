@@ -1,46 +1,36 @@
 use super::{
-  dom::{
-    get_link_tag_href, get_meta_value, get_node_inner_text, get_tag_inner_text, query_select_first,
-  },
   parsed_file_data::{ParsedAlbum, ParsedArtistReference, ParsedCredit, ParsedTrack},
   util::{clean_album_name, clean_artist_name, parse_release_date},
 };
-use crate::files::file_metadata::file_name::FileName;
-use anyhow::{Error, Result};
-use htmlescape::decode_html;
+use crate::{files::file_metadata::file_name::FileName, parser::dom::HtmlParser};
+use anyhow::Result;
 use serde_json::Value;
 use tracing::{instrument, warn};
 
 #[instrument(skip_all)]
 pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
-  let dom = tl::parse(file_content, tl::ParserOptions::default())?;
+  let parser = HtmlParser::try_from(file_content)?;
 
-  let name = clean_album_name(get_meta_value(&dom, "name")?);
+  let name = clean_album_name(parser.get_meta_item_prop("name")?);
+  let rating = parser
+    .get_meta_item_prop("ratingValue")?
+    .parse::<f32>()
+    .unwrap_or_default();
+  let rating_count = parser
+    .get_meta_item_prop("ratingCount")?
+    .parse::<u32>()
+    .unwrap_or_default();
 
-  let rating = get_meta_value(&dom, "ratingValue").and_then(|rating| {
-    rating
-      .parse::<f32>()
-      .map_err(|err| anyhow::anyhow!("Failed to parse rating: {}", err))
-  })?;
-
-  let rating_count = get_meta_value(&dom, "ratingCount").and_then(|rating_count| {
-    rating_count
-      .parse::<u32>()
-      .map_err(|err| anyhow::anyhow!("Failed to parse rating count: {}", err))
-  })?;
-  let data_links_map = dom
-    .query_selector("#media_link_button_container_top")
-    .and_then(|mut iter| iter.next())
-    .and_then(|node| node.get(dom.parser()))
-    .and_then(|node| node.as_tag())
-    .and_then(|tag| tag.attributes().get("data-links"))
-    .flatten()
-    .map(|content| content.as_utf8_str())
-    .map(|val| val.to_string())
-    .and_then(|val| decode_html(&val).ok());
-
-  let spotify_id = data_links_map
-    .and_then(|val| serde_json::from_str::<Value>(&val).ok())
+  let spotify_id = parser
+    .find_by_id("media_link_button_container_top")
+    .and_then(|tag| parser.find_tag_attribute_value(tag, "data-links"))
+    .and_then(|val| {
+      serde_json::from_str::<Value>(&val)
+        .inspect_err(|err| {
+          warn!("Failed to parse data-links: {}", err);
+        })
+        .ok()
+    })
     .and_then(|val| {
       val["spotify"]
         .as_object()?
@@ -54,218 +44,158 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
         })
     });
 
-  let release_date = dom
-    .query_selector(".issue_year.ymd")
-    .and_then(|mut iter| iter.next())
-    .and_then(|node| node.get(dom.parser()))
-    .and_then(|node| node.as_tag())
-    .and_then(|tag| tag.attributes().get("title"))
-    .flatten()
-    .map(|content| content.as_utf8_str())
-    .map(|name| name.to_string())
-    .and_then(|release_date_string| parse_release_date(release_date_string).ok());
-
-  let container = dom
-    .query_selector(".release_page")
-    .and_then(|mut iter| iter.next())
-    .and_then(|node| node.get(dom.parser()))
-    .and_then(|node| node.as_tag())
-    .ok_or(anyhow::anyhow!("No release page container found"))?;
-
-  let cover_image_url = query_select_first(dom.parser(), container, ".page_release_art_frame")?
-    .query_selector(dom.parser(), "img")
-    .and_then(|mut iter| iter.next())
-    .and_then(|node| node.get(dom.parser()))
-    .and_then(|node| node.as_tag())
-    .and_then(|tag| tag.attributes().get("src"))
-    .flatten()
-    .map(|content| format!("https:{}", content.as_utf8_str()));
-
-  let artists = query_select_first(dom.parser(), container, "span[itemprop='byArtist']")?
-    .query_selector(dom.parser(), "a")
-    .map(|iter| {
-      iter
-        .map(|node| {
-          let tag = node
-            .get(dom.parser())
-            .and_then(|node| node.as_tag())
-            .unwrap();
-
-          ParsedArtistReference {
-            name: clean_artist_name(get_node_inner_text(dom.parser(), &node).unwrap().as_str())
-              .to_string(),
-            file_name: FileName::try_from(get_link_tag_href(tag).unwrap()).unwrap(),
-          }
+  let release_date = parser
+    .find_attribute_value(&[".issue_year.ymd"], "title", None)
+    .and_then(|release_date_string| {
+      parse_release_date(release_date_string)
+        .inspect_err(|err| {
+          warn!("Failed to parse release date: {}", err);
         })
-        .collect::<Vec<ParsedArtistReference>>()
-    })
-    .ok_or(anyhow::anyhow!("Failed to parse artists"))?;
+        .ok()
+    });
 
-  let primary_genres = query_select_first(dom.parser(), container, ".release_pri_genres")?
-    .query_selector(dom.parser(), ".genre")
-    .map(|iter| {
-      iter
-        .map(|node| get_node_inner_text(dom.parser(), &node).unwrap())
-        .collect::<Vec<String>>()
-    })
-    .ok_or(anyhow::anyhow!("Failed to parse primary genres"))?;
+  let info_container = parser.get_by_selector(&[".release_page"], None)?;
 
-  let secondary_genres = match query_select_first(dom.parser(), container, ".release_sec_genres") {
-    Ok(node) => node
-      .query_selector(dom.parser(), ".genre")
-      .map(|iter| {
-        iter
-          .map(|node| get_node_inner_text(dom.parser(), &node).unwrap())
-          .collect::<Vec<String>>()
+  let cover_image_url = parser
+    .find_by_selector(&[".page_release_art_frame", "img"], Some(info_container))
+    .and_then(|tag| parser.find_tag_attribute_value(tag, "src"))
+    .map(|url| format!("https:{}", url));
+
+  let artists = parser
+    .query_by_selector(&["span[itemprop='byArtist']", "a"], Some(info_container))
+    .into_iter()
+    .map(|tag| {
+      let name_text = parser.get_tag_text(tag)?;
+      let href = parser.get_tag_href(tag)?;
+      let file_name = FileName::try_from(href)?;
+      Ok(ParsedArtistReference {
+        name: clean_artist_name(&name_text).to_string(),
+        file_name,
       })
-      .ok_or(anyhow::anyhow!("Failed to parse secondary genres"))?,
-    Err(_) => vec![],
-  };
-
-  let descriptors = query_select_first(dom.parser(), container, ".release_descriptors")?
-    .query_selector(dom.parser(), "meta")
-    .map(|iter| {
-      iter
-        .map(|node| {
-          node
-            .get(dom.parser())
-            .and_then(|node| node.as_tag())
-            .and_then(|tag| tag.attributes().get("content"))
-            .flatten()
-            .map(|content| content.as_utf8_str())
-            .map(|name| name.to_string().trim().to_string())
-            .unwrap()
-        })
-        .collect::<Vec<String>>()
     })
-    .ok_or(anyhow::anyhow!("Failed to parse descriptors"))?;
+    .collect::<Result<Vec<_>>>()?;
 
-  let languages = query_select_first(dom.parser(), container, ".album_info")?
-    .query_selector(dom.parser(), "tr")
-    .map(|iter| {
-      iter
-        .filter_map(|node| {
-          let tag = node
-            .get(dom.parser())
-            .and_then(|node| node.as_tag())
-            .unwrap();
+  let primary_genres = parser
+    .query_by_selector(&[".release_pri_genres", ".genre"], Some(info_container))
+    .into_iter()
+    .map(|tag| parser.get_tag_text(tag))
+    .collect::<Result<Vec<_>>>()?;
 
-          let row_key = get_tag_inner_text(dom.parser(), tag, "th").unwrap_or_else(|err| {
-            warn!("Failed to parse row key: {}", err);
-            "".to_string()
-          });
-          if row_key == "Language" {
-            let row_value = get_tag_inner_text(dom.parser(), tag, "td").unwrap();
-            Some(vec![row_value])
-          } else if row_key == "Languages" {
-            let row_value = get_tag_inner_text(dom.parser(), tag, "td").unwrap();
-            Some(
-              row_value
-                .replace(' ', "")
-                .split(',')
-                .map(|s| s.to_string())
-                .collect(),
-            )
-          } else {
-            None
-          }
-        })
-        .flatten()
-        .collect::<Vec<String>>()
+  let secondary_genres = parser
+    .query_by_selector(&[".release_sec_genres", ".genre"], Some(info_container))
+    .into_iter()
+    .map(|tag| parser.get_tag_text(tag))
+    .collect::<Result<Vec<_>>>()
+    .unwrap_or_default();
+
+  let descriptors = parser
+    .query_by_selector(&[".release_descriptors", "meta"], Some(info_container))
+    .into_iter()
+    .filter_map(|tag| parser.find_tag_attribute_value(tag, "content"))
+    .collect::<Vec<_>>();
+
+  let languages = parser
+    .query_by_selector(&[".album_info", "tr"], Some(info_container))
+    .into_iter()
+    .filter_map(|tag| {
+      let title = parser.find_text(&["th"], Some(tag))?;
+      let value = parser.find_text(&["td"], Some(tag))?;
+      if title == "Language" {
+        Some(vec![value])
+      } else if title == "Languages" {
+        Some(
+          value
+            .replace(' ', "")
+            .split(',')
+            .map(|s| s.to_string())
+            .collect(),
+        )
+      } else {
+        None
+      }
     })
-    .unwrap_or(vec![]);
+    .flatten()
+    .collect::<Vec<_>>();
 
-  let tracks = query_select_first(dom.parser(), container, "#tracks")?
-    .query_selector(dom.parser(), ".tracklist_line")
-    .map(|iter| {
-      iter
-        .map(|node| {
-          let tag = node
-            .get(dom.parser())
-            .and_then(|node| node.as_tag())
-            .unwrap();
-
-          let name = get_tag_inner_text(dom.parser(), tag, ".rendered_text").unwrap();
-
-          let rating = get_tag_inner_text(dom.parser(), tag, ".track_rating_avg")
-            .ok()
-            .and_then(|rating| rating.parse::<f32>().ok());
-
-          let position = get_tag_inner_text(dom.parser(), tag, ".tracklist_num").ok();
-
-          let duration_seconds = tag
-            .query_selector(dom.parser(), ".tracklist_duration")
-            .and_then(|mut iter| iter.next())
-            .and_then(|node| node.get(dom.parser()))
-            .and_then(|node| node.as_tag())
-            .and_then(|tag| tag.attributes().get("data-inseconds"))
-            .flatten()
-            .map(|content| content.as_utf8_str())
-            .map(|name| name.to_string().parse::<u32>().unwrap());
-
-          ParsedTrack {
+  let tracks = parser
+    .find_by_id("tracks")
+    .map(|root| {
+      parser
+        .query_by_selector(&[".tracklist_line"], Some(root))
+        .into_iter()
+        .map(|tag| {
+          let name = parser.get_text(&[".rendered_text"], Some(tag))?;
+          let rating = parser
+            .find_text(&[".track_rating_avg"], Some(tag))
+            .and_then(|rating| {
+              rating
+                .parse::<f32>()
+                .inspect_err(|err| {
+                  warn!("Failed to parse rating: {}", err);
+                })
+                .ok()
+            });
+          let position = parser.find_text(&[".tracklist_num"], Some(tag));
+          let duration_seconds = parser
+            .find_by_selector(&[".tracklist_duration", "meta"], Some(tag))
+            .and_then(|tag| parser.find_tag_attribute_value(tag, "data-inseconds"))
+            .and_then(|val| {
+              val
+                .parse::<u32>()
+                .inspect_err(|err| {
+                  warn!("Failed to parse duration seconds: {}", err);
+                })
+                .ok()
+            });
+          Ok(ParsedTrack {
             name,
             rating,
-            duration_seconds,
             position,
-          }
-        })
-        .collect::<Vec<ParsedTrack>>()
-    })
-    .ok_or(anyhow::anyhow!("Failed to parse tracks"))?;
-
-  let credits = match query_select_first(dom.parser(), container, "#credits_") {
-    Ok(tag) => tag
-      .query_selector(dom.parser(), "li")
-      .map(|iter| {
-        iter
-          .filter_map(|node| {
-            let tag = node.get(dom.parser()).and_then(|node| node.as_tag());
-            tag?;
-            let tag = tag.unwrap();
-
-            let artist = tag
-              .query_selector(dom.parser(), "a")
-              .and_then(|mut iter| iter.next())
-              .and_then(|node| node.get(dom.parser()))
-              .and_then(|node| node.as_tag())
-              .map(|tag| ParsedArtistReference {
-                name: clean_artist_name(tag.inner_text(dom.parser()).as_ref()).to_string(),
-                file_name: FileName::try_from(get_link_tag_href(tag).unwrap()).unwrap(),
-              });
-            artist.as_ref()?;
-            let artist = artist.unwrap();
-
-            let roles = tag
-              .query_selector(dom.parser(), ".role_name")
-              .map(|iter| {
-                iter
-                  .map(|node| {
-                    let text = get_node_inner_text(dom.parser(), &node)?;
-                    let tag = node.get(dom.parser()).and_then(|node| node.as_tag());
-                    if tag.is_none() {
-                      return Ok::<String, Error>(text);
-                    }
-                    let tag = tag.unwrap();
-                    let role_tracks = get_tag_inner_text(dom.parser(), tag, ".role_tracks");
-                    if role_tracks.is_err() {
-                      return Ok(text);
-                    }
-                    let role_tracks = role_tracks.unwrap();
-                    Ok(text.replace(&role_tracks, ""))
-                  })
-                  .filter_map(|role: Result<String, _>| role.ok())
-                  .collect::<Vec<String>>()
-              })
-              .unwrap_or_default();
-
-            Some(ParsedCredit { artist, roles })
+            duration_seconds,
           })
-          .collect::<Vec<ParsedCredit>>()
-      })
-      .unwrap_or(vec![]),
-    Err(_) => vec![],
-  };
+        })
+        .collect::<Result<Vec<_>>>()
+        .unwrap_or_default()
+    })
+    .unwrap_or_default();
+
+  let credits = parser
+    .find_by_id("credits_")
+    .map(|root| {
+      parser
+        .query_by_selector(&["li"], Some(root))
+        .into_iter()
+        .filter_map(|tag| {
+          let artist = parser
+            .find_by_selector(&["a"], Some(tag))
+            .map(|tag| {
+              let name = parser.get_tag_text(tag)?;
+              let href = parser.get_tag_href(tag)?;
+              let file_name = FileName::try_from(href)?;
+              Ok::<_, anyhow::Error>(ParsedArtistReference {
+                name: clean_artist_name(&name).to_string(),
+                file_name,
+              })
+            })
+            .transpose()
+            .ok()?;
+          let roles = parser
+            .query_by_selector(&[".role_name"], Some(tag))
+            .into_iter()
+            .map(|tag| {
+              let mut text = parser.get_tag_text(tag)?;
+              if let Some(role_tracks) = parser.find_text(&[".role_tracks"], Some(tag)) {
+                text = text.replace(&role_tracks, "");
+              }
+              Ok(text)
+            })
+            .collect::<Result<Vec<_>>>()
+            .unwrap_or_default();
+          artist.map(|artist| ParsedCredit { artist, roles })
+        })
+        .collect::<Vec<_>>()
+    })
+    .unwrap_or_default();
 
   Ok(ParsedAlbum {
     name,
@@ -311,15 +241,15 @@ mod tests {
     assert_eq!(album.descriptors.len(), 12);
     assert_eq!(album.tracks.len(), 3);
     assert_eq!(album.tracks[0].name, "Gentleman");
-    assert_eq!(album.tracks[0].duration_seconds, Some(0));
+    assert_eq!(album.tracks[0].duration_seconds, None);
     assert_eq!(album.tracks[0].rating, None);
     assert_eq!(album.tracks[0].position, Some("A".to_string()));
     assert_eq!(album.tracks[1].name, "Igbe (Na Shit)");
-    assert_eq!(album.tracks[1].duration_seconds, Some(0));
+    assert_eq!(album.tracks[1].duration_seconds, None);
     assert_eq!(album.tracks[1].rating, None);
     assert_eq!(album.tracks[1].position, Some("B1".to_string()));
     assert_eq!(album.tracks[2].name, "Fefe Naa Efe");
-    assert_eq!(album.tracks[2].duration_seconds, Some(0));
+    assert_eq!(album.tracks[2].duration_seconds, None);
     assert_eq!(album.tracks[2].rating, None);
     assert_eq!(album.tracks[2].position, Some("B2".to_string()));
     assert!(album.release_date.is_some());
@@ -358,7 +288,7 @@ mod tests {
       album.credits[2].roles,
       ["recording engineer", "mixing engineer"]
     );
-    assert_eq!(album.credits[3].artist.name, "The Africa &#39;70");
+    assert_eq!(album.credits[3].artist.name, "The Africa '70");
     assert_eq!(
       album.credits[3].artist.file_name.to_string(),
       "artist/the-africa-70"
