@@ -1,33 +1,24 @@
 const fs = require("fs");
 const path = require("path");
+const cleanHtmlContent = (htmlContent) => {
+  // Remove extra whitespace (spaces, tabs, newlines) between tags and inside text content
+  htmlContent = htmlContent.replace(/\s+/g, " "); // Replace multiple whitespace characters with a single space
+  htmlContent = htmlContent.replace(/>\s+</g, "><"); // Remove whitespace between tags
 
-const removeScriptAndStyleTags = (htmlContent) => {
   // Remove all <script>...</script> tags
   htmlContent = htmlContent.replace(/<script[\s\S]*?<\/script>/gi, "");
 
   // Remove all <style>...</style> tags
   htmlContent = htmlContent.replace(/<style[\s\S]*?<\/style>/gi, "");
 
-  return htmlContent;
-};
-
-const removeComments = (htmlContent) => {
   // Remove all <!--...--> comments
   htmlContent = htmlContent.replace(/<!--[\s\S]*?-->/gi, "");
 
-  return htmlContent;
-};
-
-const removeWhitespace = (htmlContent) => {
-  // Remove extra whitespace (spaces, tabs, newlines) between tags
-  htmlContent = htmlContent.replace(/>[\s]+</g, "><");
-
-  return htmlContent;
-};
-
-const removeStyleAndOnclickAttributes = (htmlContent) => {
   // Remove all style and onclick attributes from tags
   htmlContent = htmlContent.replace(/\s*(style|onclick)=["'][^"']*["']/gi, "");
+
+  // Trim leading and trailing whitespace
+  htmlContent = htmlContent.trim();
 
   return htmlContent;
 };
@@ -42,17 +33,8 @@ const cleanHtmlFilesInFolder = (folderPath) => {
         // Read the content from the HTML file
         let htmlContent = fs.readFileSync(filePath, "utf-8");
 
-        // Remove <script> and <style> tags
-        let cleanedContent = removeScriptAndStyleTags(htmlContent);
-
-        // Remove comments
-        cleanedContent = removeComments(cleanedContent);
-
-        // Remove whitespace
-        cleanedContent = removeWhitespace(cleanedContent);
-
-        // Remove style and onclick attributes
-        cleanedContent = removeStyleAndOnclickAttributes(cleanedContent);
+        // Clean the HTML content
+        let cleanedContent = cleanHtmlContent(htmlContent);
 
         // Write the cleaned content back to the HTML file
         fs.writeFileSync(filePath, cleanedContent, "utf-8");
