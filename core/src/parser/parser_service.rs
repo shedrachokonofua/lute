@@ -1,9 +1,9 @@
 use super::{
+  parse::parse_file_on_store,
   parsed_file_data::{
     ParsedAlbum, ParsedAlbumSearchResult, ParsedArtist, ParsedArtistAlbum, ParsedArtistReference,
-    ParsedChartAlbum, ParsedCredit, ParsedFileData, ParsedTrack,
+    ParsedChartAlbum, ParsedCredit, ParsedFileData, ParsedListSegment, ParsedTrack,
   },
-  parser::parse_file_on_store,
   parser_failure_repository::{AggregatedError, ParserFailureRepository},
 };
 use crate::{
@@ -161,6 +161,21 @@ impl From<ParsedAlbumSearchResult> for proto::ParsedAlbumSearchResult {
   }
 }
 
+impl From<ParsedListSegment> for proto::ParsedListSegment {
+  fn from(val: ParsedListSegment) -> Self {
+    proto::ParsedListSegment {
+      name: val.name,
+      page_index: val.page_index,
+      other_segments: val
+        .other_segments
+        .into_iter()
+        .map(|val| val.into())
+        .collect(),
+      albums: val.albums.into_iter().map(|val| val.into()).collect(),
+    }
+  }
+}
+
 impl From<ParsedFileData> for proto::ParsedFileData {
   fn from(val: ParsedFileData) -> Self {
     match val {
@@ -183,6 +198,9 @@ impl From<ParsedFileData> for proto::ParsedFileData {
         data: Some(proto::parsed_file_data::Data::AlbumSearchResult(
           data.into(),
         )),
+      },
+      ParsedFileData::ListSegment(data) => proto::ParsedFileData {
+        data: Some(proto::parsed_file_data::Data::ListSegment(data.into())),
       },
     }
   }

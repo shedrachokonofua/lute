@@ -1,5 +1,5 @@
 use super::{
-  parser::parse_file_on_store,
+  parse::parse_file_on_store,
   parser_failure_repository::{ParserFailure, ParserFailureRepository},
 };
 use crate::{

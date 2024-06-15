@@ -11,7 +11,7 @@ use htmlescape::decode_html;
 use serde_json::Value;
 use tracing::{instrument, warn};
 
-#[instrument(skip(file_content))]
+#[instrument(skip_all)]
 pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
   let dom = tl::parse(file_content, tl::ParserOptions::default())?;
 
@@ -286,14 +286,14 @@ pub fn parse_album(file_content: &str) -> Result<ParsedAlbum> {
 
 #[cfg(test)]
 mod tests {
-  use chrono::NaiveDate;
-
+  use super::*;
   use crate::test_resource;
+  use chrono::NaiveDate;
 
   #[test]
   fn test_album_parser() -> Result<(), String> {
     let file_content = include_str!(test_resource!("album.html"));
-    let album = super::parse_album(file_content).map_err(|err| err.to_string())?;
+    let album = parse_album(file_content).map_err(|err| err.to_string())?;
     assert_eq!(album.name, "Gentleman");
     assert_eq!(album.rating, 3.91);
     assert_eq!(album.rating_count, 3692);

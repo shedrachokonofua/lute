@@ -1,4 +1,4 @@
-use super::parser::parse_file_on_store;
+use super::parse::parse_file_on_store;
 use crate::{
   context::ApplicationContext,
   files::file_metadata::file_name::FileName,

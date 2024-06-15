@@ -1,4 +1,4 @@
-use super::parsed_file_data::ParsedFileData;
+use super::{list_segment::parse_list_segment, parsed_file_data::ParsedFileData};
 use crate::{
   context::ApplicationContext,
   events::event::{Event, EventPayloadBuilder, Topic},
@@ -8,7 +8,7 @@ use crate::{
     chart::parse_chart,
   },
 };
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::sync::Arc;
 use tracing::{info, instrument, warn};
 use ulid::Ulid;
@@ -32,7 +32,7 @@ pub async fn parse_file_on_store(
     PageType::AlbumSearchResult => {
       parse_album_search_result(&file_content).map(ParsedFileData::AlbumSearchResult)
     }
-    PageType::ListSegment => Err(anyhow!("ListSegment parsing is not yet supported")),
+    PageType::ListSegment => parse_list_segment(&file_content).map(ParsedFileData::ListSegment),
   };
 
   let event = match &parse_result {
