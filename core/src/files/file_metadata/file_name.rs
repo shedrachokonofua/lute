@@ -1,24 +1,37 @@
 use std::cmp::Ordering;
 
 use super::page_type::PageType;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct FileName(String);
 
+fn normalize_list_segment_file_name(file_name: String) -> String {
+  let parts: Vec<&str> = file_name.split('/').collect();
+  if parts.len() == 3 {
+    return format!("{}/1", file_name);
+  }
+  file_name.to_string()
+}
+
 impl TryFrom<String> for FileName {
   type Error = anyhow::Error;
 
   fn try_from(value: String) -> Result<Self> {
-    let clean_value = value
+    let mut clean_value = value
       .trim_start_matches('/')
       .trim_end_matches('/')
       .to_string();
-    match PageType::try_from(clean_value.as_str()) {
-      Ok(_) => Ok(Self(clean_value)),
-      Err(_) => Err(anyhow::Error::msg(format!("Invalid file name: {}", value))),
+
+    let page_type = PageType::try_from(clean_value.as_str())
+      .map_err(|_| anyhow!(format!("Invalid file name: {}", value)))?;
+
+    if page_type == PageType::ListSegment {
+      clean_value = normalize_list_segment_file_name(clean_value);
     }
+
+    Ok(Self(clean_value))
   }
 }
 
