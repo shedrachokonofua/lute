@@ -165,7 +165,6 @@ impl From<ParsedListSegment> for proto::ParsedListSegment {
   fn from(val: ParsedListSegment) -> Self {
     proto::ParsedListSegment {
       name: val.name,
-      page_index: val.page_index,
       other_segments: val
         .other_segments
         .into_iter()

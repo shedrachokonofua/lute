@@ -430,9 +430,8 @@ message ParsedChart { repeated ParsedChartAlbum albums = 1; }
 
 message ParsedListSegment {
   string name = 1;
-  uint32 page_index = 2;
-  repeated string other_segments = 3;
-  repeated string albums = 4;
+  repeated string other_segments = 2;
+  repeated string albums = 3;
 }
 
 message ParsedFileData {

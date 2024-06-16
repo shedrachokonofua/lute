@@ -4,7 +4,7 @@ use tl::{HTMLTag, VDom};
 use tracing::warn;
 
 pub struct HtmlParser<'a> {
-  dom: VDom<'a>,
+  pub dom: VDom<'a>,
 }
 
 impl<'a> HtmlParser<'a> {
