@@ -1,5 +1,9 @@
 web/
 extension/
 infra/
-*/target/
-*.db
+scripts/
+core/resources/test/
+**/target/
+**/*.db
+**/*.db-shm
+**/*.db-wal
