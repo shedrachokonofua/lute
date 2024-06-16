@@ -8,17 +8,21 @@ pub fn parse_list_segment(file_content: &str) -> Result<ParsedListSegment> {
   let parser = HtmlParser::try_from(file_content)?;
   let name = parser.get_text(&["h1"], None)?;
 
-  let top_pagination_bar = parser.get_by_selector(&[".navspan"], None)?;
-  let other_segments = parser
-    .query_by_selector(&[".navlinknum"], Some(top_pagination_bar))
-    .into_iter()
-    .filter_map(|tag| {
-      let href = parser.find_tag_href(tag)?;
-      FileName::try_from(href)
-        .inspect_err(|err| warn!("Failed to parse file name for list segment: {}", err))
-        .ok()
+  let top_pagination_bar = parser.find_by_selector(&[".navspan"], None);
+  let other_segments = top_pagination_bar
+    .map(|root| {
+      parser
+        .query_by_selector(&[".navlinknum"], Some(root))
+        .into_iter()
+        .filter_map(|tag| {
+          let href = parser.find_tag_href(tag)?;
+          FileName::try_from(href)
+            .inspect_err(|err| warn!("Failed to parse file name for list segment: {}", err))
+            .ok()
+        })
+        .collect::<Vec<_>>()
     })
-    .collect::<Vec<_>>();
+    .unwrap_or_default();
 
   let albums = parser
     .query_by_selector(&[".list_album"], None)
