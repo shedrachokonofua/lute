@@ -561,276 +561,278 @@ impl AlbumRepository {
     }
   }
 
-  #[instrument(skip_all, fields(file_name = album.file_name.to_string()))]
-  pub async fn put(&self, album: AlbumReadModel) -> Result<()> {
+  #[instrument(skip_all, fields(count = albums.len()))]
+  pub async fn put_many(&self, albums: Vec<AlbumReadModel>) -> Result<()> {
     self
       .sqlite_connection
       .write()
       .await?
       .interact(move |conn| {
         let tx = conn.transaction()?;
-        tx.execute(
-          "
-          INSERT INTO albums (file_name, name, rating, rating_count, release_date, cover_image_url, spotify_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT (file_name) DO UPDATE SET
-            name = excluded.name,
-            rating = excluded.rating,
-            rating_count = excluded.rating_count,
-            release_date = excluded.release_date,
-            cover_image_url = excluded.cover_image_url,
-            spotify_id = excluded.spotify_id
-          ",
-          params![
-            album.file_name.to_string(),
-            album.name,
-            album.rating,
-            album.rating_count,
-            album.release_date,
-            album.cover_image_url,
-            album.spotify_id,
-          ],
-        )?;
-        let album_id: i64 = tx.query_row(
-          "SELECT id FROM albums WHERE file_name = ?",
-          params![album.file_name.to_string()],
-          |row| row.get(0),
-        )?;
-
-        tx.execute(
-          "
-          DELETE FROM album_artists WHERE album_id = ?
-          ",
-          params![album_id],
-        )?;
-        for artist in album.artists {
-          let artist_id: i64 = tx.query_row(
-            "
-            INSERT INTO artists (file_name, name) 
-            VALUES (?, ?) 
-            ON CONFLICT(file_name) DO UPDATE SET name = excluded.name
-            RETURNING id
-            ",
-            params![artist.file_name.to_string(), artist.name],
-            |row| row.get(0),
-          )?;
+        for album in albums {
           tx.execute(
             "
-            INSERT INTO album_artists (album_id, artist_id)
-            VALUES (?, ?)
-            ",
-            params![album_id, artist_id],
-          )?;
-        }
-
-        tx.execute(
-          "
-          DELETE FROM album_genres WHERE album_id = ?
-          ",
-          params![album_id],
-        )?;
-        for genre in album.primary_genres {
-          let genre_id: i64 = tx.query_row(
-            "
-            INSERT INTO genres (name) 
-            VALUES (?) 
-            ON CONFLICT(name) DO UPDATE SET name = excluded.name
-            RETURNING id
-            ",
-            params![genre],
-            |row| row.get(0),
-          )?;
-          tx.execute(
-            "
-            INSERT INTO album_genres (album_id, genre_id, is_primary)
-            VALUES (?, ?, ?)
-            ",
-            params![album_id, genre_id, true],
-          )?;
-        }
-        for genre in album.secondary_genres {
-          let genre_id: i64 = tx.query_row(
-            "
-            INSERT INTO genres (name) 
-            VALUES (?) 
-            ON CONFLICT(name) DO UPDATE SET name = excluded.name
-            RETURNING id
-            ",
-            params![genre],
-            |row| row.get(0),
-          )?;
-          tx.execute(
-            "
-            INSERT INTO album_genres (album_id, genre_id, is_primary)
-            VALUES (?, ?, ?)
-            ",
-            params![album_id, genre_id, false],
-          )?;
-        }
-
-        tx.execute(
-          "
-          DELETE FROM album_descriptors WHERE album_id = ?
-          ",
-          params![album_id],
-        )?;
-        for descriptor in album.descriptors {
-          let descriptor_id: i64 = tx.query_row(
-            "
-            INSERT INTO descriptors (name) 
-            VALUES (?) 
-            ON CONFLICT(name) DO UPDATE SET name = excluded.name
-            RETURNING id
-            ",
-            params![descriptor],
-            |row| row.get(0),
-          )?;
-          tx.execute(
-            "
-            INSERT INTO album_descriptors (album_id, descriptor_id)
-            VALUES (?, ?)
-            ",
-            params![album_id, descriptor_id],
-          )?;
-        }
-
-        tx.execute(
-          "
-          DELETE FROM album_languages WHERE album_id = ?
-          ",
-          params![album_id],
-        )?;
-        for language in album.languages {
-          let language_id: i64 = tx.query_row(
-            "
-            INSERT INTO languages (name) 
-            VALUES (?) 
-            ON CONFLICT(name) DO UPDATE SET name = excluded.name
-            RETURNING id
-            ",
-            params![language],
-            |row| row.get(0),
-          )?;
-          tx.execute(
-            "
-            INSERT INTO album_languages (album_id, language_id)
-            VALUES (?, ?)
-            ",
-            params![album_id, language_id],
-          )?;
-        }
-
-        tx.execute(
-          "
-          DELETE FROM tracks WHERE album_id = ?
-          ",
-          params![album_id],
-        )?;
-        for track in album.tracks {
-          tx.execute(
-            "
-            INSERT INTO tracks (album_id, name, duration_seconds, rating, position)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO albums (file_name, name, rating, rating_count, release_date, cover_image_url, spotify_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (file_name) DO UPDATE SET
+              name = excluded.name,
+              rating = excluded.rating,
+              rating_count = excluded.rating_count,
+              release_date = excluded.release_date,
+              cover_image_url = excluded.cover_image_url,
+              spotify_id = excluded.spotify_id
             ",
             params![
-              album_id,
-              track.name,
-              track.duration_seconds,
-              track.rating,
-              track.position,
+              album.file_name.to_string(),
+              album.name,
+              album.rating,
+              album.rating_count,
+              album.release_date,
+              album.cover_image_url,
+              album.spotify_id,
             ],
           )?;
-        }
-
-        tx.execute(
-          "
-          DELETE FROM album_duplicates 
-          WHERE original_album_id = ?1 OR duplicate_album_id = ?1
-          ",
-          params![album_id],
-        )?;
-        for duplicate in album.duplicates {
-          let duplicate_id: i64 = tx.query_row(
+          let album_id: i64 = tx.query_row(
             "SELECT id FROM albums WHERE file_name = ?",
-            params![duplicate.to_string()],
+            params![album.file_name.to_string()],
             |row| row.get(0),
           )?;
+
           tx.execute(
             "
-            INSERT INTO album_duplicates (original_album_id, duplicate_album_id)
-            VALUES (?, ?)
+            DELETE FROM album_artists WHERE album_id = ?
             ",
-            params![album_id, duplicate_id],
+            params![album_id],
           )?;
-        }
-        if let Some(duplicate_of) = album.duplicate_of {
-          let duplicate_of_id: i64 = tx.query_row(
-            "SELECT id FROM albums WHERE file_name = ?",
-            params![duplicate_of.to_string()],
-            |row| row.get(0),
-          )?;
-          tx.execute(
-            "
-            INSERT INTO album_duplicates (original_album_id, duplicate_album_id)
-            VALUES (?, ?)
-            ",
-            params![duplicate_of_id, album_id],
-          )?;
-        }
-
-        // credits
-        tx.execute(
-          "
-          DELETE FROM credits WHERE album_id = ?
-          ",
-          params![album_id],
-        )?;
-        for credit in album.credits {
-          let artist_id = match tx.query_row(
-            "SELECT id FROM artists WHERE file_name = ?",
-            params![credit.artist.file_name.to_string()],
-            |row| row.get::<_, i64>(0)
-          ).optional()? {
-            Some(id) => id,
-            None => {
-              tx.query_row(
-                "
-                INSERT INTO artists (file_name, name) 
-                VALUES (?, ?) 
-                RETURNING id
-                ",
-                params![credit.artist.file_name.to_string(), credit.artist.name],
-                |row| row.get::<_, i64>(0)
-              )?
-            }
-          };
-          let credit_id: i64 = tx.query_row(
-            "
-            INSERT INTO credits (album_id, artist_id)
-            VALUES (?, ?)
-            RETURNING id
-            ",
-            params![album_id, artist_id],
-            |row| row.get(0),
-          )?;
-          for role in credit.roles {
-            let role_id: i64 = tx.query_row(
+          for artist in album.artists {
+            let artist_id: i64 = tx.query_row(
               "
-              INSERT INTO roles (name) 
-              VALUES (?) 
-              ON CONFLICT(name) DO UPDATE SET name = excluded.name
+              INSERT INTO artists (file_name, name) 
+              VALUES (?, ?) 
+              ON CONFLICT(file_name) DO UPDATE SET name = excluded.name
               RETURNING id
               ",
-              params![role],
+              params![artist.file_name.to_string(), artist.name],
               |row| row.get(0),
             )?;
             tx.execute(
               "
-              INSERT INTO credit_roles (credit_id, role_id)
+              INSERT OR IGNORE INTO album_artists (album_id, artist_id)
               VALUES (?, ?)
               ",
-              params![credit_id, role_id],
+              params![album_id, artist_id],
             )?;
+          }
+
+          tx.execute(
+            "
+            DELETE FROM album_genres WHERE album_id = ?
+            ",
+            params![album_id],
+          )?;
+          for genre in album.primary_genres {
+            let genre_id: i64 = tx.query_row(
+              "
+              INSERT INTO genres (name) 
+              VALUES (?) 
+              ON CONFLICT(name) DO UPDATE SET name = excluded.name
+              RETURNING id
+              ",
+              params![genre],
+              |row| row.get(0),
+            )?;
+            tx.execute(
+              "
+              INSERT OR IGNORE INTO album_genres (album_id, genre_id, is_primary)
+              VALUES (?, ?, ?)
+              ",
+              params![album_id, genre_id, true],
+            )?;
+          }
+          for genre in album.secondary_genres {
+            let genre_id: i64 = tx.query_row(
+              "
+              INSERT INTO genres (name) 
+              VALUES (?) 
+              ON CONFLICT(name) DO UPDATE SET name = excluded.name
+              RETURNING id
+              ",
+              params![genre],
+              |row| row.get(0),
+            )?;
+            tx.execute(
+              "
+              INSERT OR IGNORE INTO album_genres (album_id, genre_id, is_primary)
+              VALUES (?, ?, ?)
+              ",
+              params![album_id, genre_id, false],
+            )?;
+          }
+
+          tx.execute(
+            "
+            DELETE FROM album_descriptors WHERE album_id = ?
+            ",
+            params![album_id],
+          )?;
+          for descriptor in album.descriptors {
+            let descriptor_id: i64 = tx.query_row(
+              "
+              INSERT INTO descriptors (name) 
+              VALUES (?) 
+              ON CONFLICT(name) DO UPDATE SET name = excluded.name
+              RETURNING id
+              ",
+              params![descriptor],
+              |row| row.get(0),
+            )?;
+            tx.execute(
+              "
+              INSERT OR IGNORE INTO album_descriptors (album_id, descriptor_id)
+              VALUES (?, ?)
+              ",
+              params![album_id, descriptor_id],
+            )?;
+          }
+
+          tx.execute(
+            "
+            DELETE FROM album_languages WHERE album_id = ?
+            ",
+            params![album_id],
+          )?;
+          for language in album.languages {
+            let language_id: i64 = tx.query_row(
+              "
+              INSERT INTO languages (name) 
+              VALUES (?) 
+              ON CONFLICT(name) DO UPDATE SET name = excluded.name
+              RETURNING id
+              ",
+              params![language],
+              |row| row.get(0),
+            )?;
+            tx.execute(
+              "
+              INSERT OR IGNORE INTO album_languages (album_id, language_id)
+              VALUES (?, ?)
+              ",
+              params![album_id, language_id],
+            )?;
+          }
+
+          tx.execute(
+            "
+            DELETE FROM tracks WHERE album_id = ?
+            ",
+            params![album_id],
+          )?;
+          for track in album.tracks {
+            tx.execute(
+              "
+              INSERT INTO tracks (album_id, name, duration_seconds, rating, position)
+              VALUES (?, ?, ?, ?, ?)
+              ",
+              params![
+                album_id,
+                track.name,
+                track.duration_seconds,
+                track.rating,
+                track.position,
+              ],
+            )?;
+          }
+
+          tx.execute(
+            "
+            DELETE FROM album_duplicates 
+            WHERE original_album_id = ?1 OR duplicate_album_id = ?1
+            ",
+            params![album_id],
+          )?;
+          for duplicate in album.duplicates {
+            let duplicate_id: i64 = tx.query_row(
+              "SELECT id FROM albums WHERE file_name = ?",
+              params![duplicate.to_string()],
+              |row| row.get(0),
+            )?;
+            tx.execute(
+              "
+              INSERT OR IGNORE INTO album_duplicates (original_album_id, duplicate_album_id)
+              VALUES (?, ?)
+              ",
+              params![album_id, duplicate_id],
+            )?;
+          }
+          if let Some(duplicate_of) = album.duplicate_of {
+            let duplicate_of_id: i64 = tx.query_row(
+              "SELECT id FROM albums WHERE file_name = ?",
+              params![duplicate_of.to_string()],
+              |row| row.get(0),
+            )?;
+            tx.execute(
+              "
+              INSERT OR IGNORE INTO album_duplicates (original_album_id, duplicate_album_id)
+              VALUES (?, ?)
+              ",
+              params![duplicate_of_id, album_id],
+            )?;
+          }
+
+          // credits
+          tx.execute(
+            "
+            DELETE FROM credits WHERE album_id = ?
+            ",
+            params![album_id],
+          )?;
+          for credit in album.credits {
+            let artist_id = match tx.query_row(
+              "SELECT id FROM artists WHERE file_name = ?",
+              params![credit.artist.file_name.to_string()],
+              |row| row.get::<_, i64>(0)
+            ).optional()? {
+              Some(id) => id,
+              None => {
+                tx.query_row(
+                  "
+                  INSERT INTO artists (file_name, name) 
+                  VALUES (?, ?) 
+                  RETURNING id
+                  ",
+                  params![credit.artist.file_name.to_string(), credit.artist.name],
+                  |row| row.get::<_, i64>(0)
+                )?
+              }
+            };
+            let credit_id: i64 = tx.query_row(
+              "
+              INSERT INTO credits (album_id, artist_id)
+              VALUES (?, ?)
+              RETURNING id
+              ",
+              params![album_id, artist_id],
+              |row| row.get(0),
+            )?;
+            for role in credit.roles {
+              let role_id: i64 = tx.query_row(
+                "
+                INSERT INTO roles (name) 
+                VALUES (?) 
+                ON CONFLICT(name) DO UPDATE SET name = excluded.name
+                RETURNING id
+                ",
+                params![role],
+                |row| row.get(0),
+              )?;
+              tx.execute(
+                "
+                INSERT OR IGNORE INTO credit_roles (credit_id, role_id)
+                VALUES (?, ?)
+                ",
+                params![credit_id, role_id],
+              )?;
+            }
           }
         }
         tx.commit()?;
@@ -841,6 +843,11 @@ impl AlbumRepository {
         error!(message = e.to_string(), "Failed to put album");
         anyhow!("Failed to put album")
       })?
+  }
+
+  #[instrument(skip_all, fields(file_name = album.file_name.to_string()))]
+  pub async fn put(&self, album: AlbumReadModel) -> Result<()> {
+    self.put_many(vec![album]).await
   }
 
   #[instrument(skip_all, fields(file_name, count = duplicates.len()))]

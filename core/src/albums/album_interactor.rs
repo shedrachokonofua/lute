@@ -166,31 +166,52 @@ impl AlbumInteractor {
     Ok(())
   }
 
-  #[instrument(skip(self), name = "AlbumInteractor::put")]
-  pub async fn put(&self, album: AlbumReadModel) -> Result<()> {
-    let file_name = album.file_name.clone();
-    self.album_repository.put(album.clone()).await?;
-    self.album_search_index.put(album.clone()).await?;
-    if let Err(err) = self.process_duplicates(&album).await {
-      error!(
-        "Failed to process duplicates for {}: {}",
-        file_name.to_string(),
-        err
-      );
+  #[instrument(skip_all, name = "AlbumInteractor::put_many", fields(count = albums.len()))]
+  pub async fn put_many(&self, albums: Vec<AlbumReadModel>) -> Result<()> {
+    let album_file_names = albums
+      .iter()
+      .map(|album| album.file_name.clone())
+      .collect::<Vec<_>>();
+    self.album_repository.put_many(albums.clone()).await?;
+    for album in albums.iter() {
+      if let Err(err) = self.album_search_index.put(album.clone()).await {
+        error!(
+          "Failed to put album into search index {}: {}",
+          album.file_name.to_string(),
+          err
+        );
+      }
+      if let Err(err) = self.process_duplicates(album).await {
+        error!(
+          "Failed to process duplicates for {}: {}",
+          album.file_name.to_string(),
+          err
+        );
+      }
     }
     self
       .event_publisher
-      .publish(
+      .publish_many(
         Topic::Album,
-        EventPayloadBuilder::default()
-          .key(file_name.clone())
-          .event(Event::AlbumSaved {
-            file_name: file_name.clone(),
+        album_file_names
+          .into_iter()
+          .map(|file_name| {
+            Ok(
+              EventPayloadBuilder::default()
+                .key(file_name.clone())
+                .event(Event::AlbumSaved { file_name })
+                .build()?,
+            )
           })
-          .build()?,
+          .collect::<Result<Vec<_>>>()?,
       )
       .await?;
     Ok(())
+  }
+
+  #[instrument(skip(self), name = "AlbumInteractor::put")]
+  pub async fn put(&self, album: AlbumReadModel) -> Result<()> {
+    self.put_many(vec![album]).await
   }
 
   async fn process_duplicates_by_file_name(&self, file_name: &FileName) -> Result<()> {

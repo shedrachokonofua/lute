@@ -12,6 +12,7 @@ use crate::{
       GroupingStrategy,
     },
   },
+  group_event_handler,
   helpers::priority::Priority,
   parser::parsed_file_data::{ParsedArtistReference, ParsedCredit, ParsedFileData, ParsedTrack},
 };
@@ -48,19 +49,26 @@ impl From<&ParsedCredit> for AlbumReadModelCredit {
 }
 
 async fn update_album_read_models(
-  event_data: EventData,
+  event_data: Vec<EventData>,
   app_context: Arc<ApplicationContext>,
   _: Arc<EventSubscriberInteractor>,
 ) -> Result<()> {
-  if let Event::FileParsed {
-    file_id: _,
-    file_name,
-    data: ParsedFileData::Album(parsed_album),
-  } = &event_data.payload.event
-  {
-    let album_read_model = AlbumReadModel::from_parsed_album(file_name, parsed_album.clone());
-    app_context.album_interactor.put(album_read_model).await?;
+  let albums = event_data
+    .into_iter()
+    .filter_map(|event_data| match event_data.payload.event {
+      Event::FileParsed {
+        file_id: _,
+        file_name,
+        data: ParsedFileData::Album(parsed_album),
+      } => Some(AlbumReadModel::from_parsed_album(&file_name, parsed_album)),
+      _ => None,
+    })
+    .collect::<Vec<_>>();
+
+  if !albums.is_empty() {
+    app_context.album_interactor.put_many(albums).await?;
   }
+
   Ok(())
 }
 
@@ -148,18 +156,10 @@ pub fn build_album_event_subscribers(
     EventSubscriberBuilder::default()
       .id("update_album_read_models")
       .topic(Topic::Parser)
-      .batch_size(250)
+      .batch_size(500)
       .app_context(Arc::clone(&app_context))
-      .grouping_strategy(GroupingStrategy::GroupByKey(Arc::new(|row| {
-        match &row.payload.event {
-          Event::FileParsed {
-            data: ParsedFileData::Album(album),
-            ..
-          } => album.ascii_name(), // Ensure potential duplicates are processed sequentially
-          _ => "".to_string(),
-        }
-      })))
-      .handler(event_handler!(update_album_read_models))
+      .grouping_strategy(GroupingStrategy::All)
+      .handler(group_event_handler!(update_album_read_models))
       .build()?,
     EventSubscriberBuilder::default()
       .id("delete_album_read_models")
