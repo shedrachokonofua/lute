@@ -50,7 +50,7 @@ mod tests {
     let file_content = include_str!(test_resource!("artist.html"));
     let artist = parse_artist(file_content).map_err(|err| err.to_string())?;
     assert_eq!(artist.name, "billy woods");
-    assert_eq!(artist.albums.len(), 12);
+    assert_eq!(artist.albums.len(), 13);
     assert_eq!(artist.albums[0].name, "Camouflage");
     assert_eq!(
       artist.albums[0].file_name,
@@ -110,6 +110,17 @@ mod tests {
     assert_eq!(
       artist.albums[11].file_name,
       FileName::try_from("release/album/billy-woods-kenny-segal/maps").unwrap()
+    );
+    assert_eq!(
+      artist.albums[12].name,
+      "Cowardly Threats & Hideous Cruelty; The Best of Billy Woods"
+    );
+    assert_eq!(
+      artist.albums[12].file_name,
+      FileName::try_from(
+        "release/comp/billy-woods/cowardly-threats-and-hideous-cruelty-the-best-of-billy-woods"
+      )
+      .unwrap()
     );
     Ok(())
   }
