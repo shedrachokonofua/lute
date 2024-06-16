@@ -29,10 +29,12 @@ pub fn parse_artist(file_content: &str) -> Result<ParsedArtist> {
   let albums = parse_artist_albums(&parser, "disco_type_s").unwrap_or_default();
   let mixtapes = parse_artist_albums(&parser, "disco_type_m").unwrap_or_default();
   let eps = parse_artist_albums(&parser, "disco_type_e").unwrap_or_default();
+  let compilations = parse_artist_albums(&parser, "disco_type_c").unwrap_or_default();
   let albums = albums
     .into_iter()
     .chain(mixtapes.into_iter())
     .chain(eps.into_iter())
+    .chain(compilations.into_iter())
     .collect();
 
   Ok(ParsedArtist { name, albums })

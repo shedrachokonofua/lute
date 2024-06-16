@@ -14,7 +14,7 @@ pub enum PageType {
   ListSegment,
 }
 
-const SUPPORTED_RELEASE_TYPES: [&str; 3] = ["album", "mixtape", "ep"];
+const SUPPORTED_RELEASE_TYPES: [&str; 4] = ["album", "mixtape", "ep", "comp"];
 
 fn is_album_page(file_name: &str) -> bool {
   SUPPORTED_RELEASE_TYPES
