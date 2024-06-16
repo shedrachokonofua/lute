@@ -1,8 +1,6 @@
-use super::{
-  album_search_lookup::{
-    get_album_search_correlation_id, AlbumSearchLookup, AlbumSearchLookupQuery,
-  },
-  album_search_lookup_repository::{AggregatedStatus, AlbumSearchLookupRepository},
+use super::album_search::{
+  get_album_search_correlation_id, AggregatedStatus, AlbumSearchLookup, AlbumSearchLookupQuery,
+  AlbumSearchLookupRepository,
 };
 use crate::{
   events::{

@@ -1,4 +1,4 @@
-use super::{album_search_lookup::AlbumSearchLookup, lookup_interactor::LookupInteractor};
+use super::{album_search::AlbumSearchLookup, LookupInteractor};
 use crate::{
   albums::album_read_model::{AlbumReadModel, AlbumReadModelArtist},
   context::ApplicationContext,

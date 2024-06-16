@@ -16,10 +16,7 @@ use crate::{
   files::file_metadata::file_name::FileName,
   helpers::document_store::DocumentStore,
   lookup::{
-    album_search_lookup::{
-      AlbumSearchLookup, AlbumSearchLookupDiscriminants, AlbumSearchLookupQuery,
-    },
-    lookup_interactor::LookupInteractor,
+    AlbumSearchLookup, AlbumSearchLookupDiscriminants, AlbumSearchLookupQuery, LookupInteractor,
   },
   spotify::spotify_client::{SpotifyClient, SpotifyTrack},
 };

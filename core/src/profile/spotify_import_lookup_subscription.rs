@@ -1,6 +1,6 @@
 use super::profile::ProfileId;
 use crate::{
-  lookup::album_search_lookup::AlbumSearchLookupQuery,
+  lookup::AlbumSearchLookupQuery,
   spotify::spotify_client::{SpotifyAlbumType, SpotifyTrack},
 };
 use serde_derive::{Deserialize, Serialize};

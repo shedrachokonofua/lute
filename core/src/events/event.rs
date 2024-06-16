@@ -1,5 +1,5 @@
 use crate::files::file_metadata::file_name::FileName;
-use crate::lookup::album_search_lookup::AlbumSearchLookup;
+use crate::lookup::AlbumSearchLookup;
 use crate::parser::parsed_file_data::ParsedFileData;
 use crate::profile::profile::ProfileId;
 use crate::proto;

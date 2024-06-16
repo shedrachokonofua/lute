@@ -1,9 +1,9 @@
 use super::{
+  super::lookup_interactor::LookupInteractor,
   album_search_lookup::{
     get_query_from_album_search_correlation_id, is_album_search_correlation_id, AlbumSearchLookup,
     AlbumSearchLookupStep,
   },
-  lookup_interactor::LookupInteractor,
 };
 use crate::{
   albums::album_interactor::AlbumInteractor,

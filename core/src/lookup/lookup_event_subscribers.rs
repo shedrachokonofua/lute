@@ -1,4 +1,4 @@
-use super::album_search_lookup_event_subscribers::build_album_search_lookup_event_subscribers;
+use super::album_search::build_album_search_lookup_event_subscribers;
 use crate::{context::ApplicationContext, events::event_subscriber::EventSubscriber};
 use anyhow::Result;
 use std::sync::Arc;

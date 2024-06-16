@@ -3,7 +3,7 @@ use super::{
 };
 use crate::{
   helpers::document_store::{DocumentFilter, DocumentStore},
-  lookup::album_search_lookup::AlbumSearchLookupQuery,
+  lookup::AlbumSearchLookupQuery,
 };
 use anyhow::Result;
 use std::sync::Arc;

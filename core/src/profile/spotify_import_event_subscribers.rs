@@ -8,7 +8,7 @@ use crate::{
       GroupingStrategy,
     },
   },
-  lookup::album_search_lookup::AlbumSearchLookup,
+  lookup::AlbumSearchLookup,
 };
 use anyhow::Result;
 use std::sync::Arc;

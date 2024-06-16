@@ -5,7 +5,7 @@ use crate::{
   crawler::crawler_service::CrawlerService,
   events::event_service::EventService,
   files::file_service::FileService,
-  lookup::lookup_service::LookupService,
+  lookup::LookupService,
   ops::OperationsService,
   parser::parser_service::ParserService,
   profile::profile_service::ProfileService,

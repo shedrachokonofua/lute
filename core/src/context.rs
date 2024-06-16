@@ -9,7 +9,7 @@ use crate::{
   events::event_publisher::EventPublisher,
   files::file_interactor::FileInteractor,
   helpers::{document_store::DocumentStore, key_value_store::KeyValueStore},
-  lookup::lookup_interactor::LookupInteractor,
+  lookup::LookupInteractor,
   profile::profile_interactor::ProfileInteractor,
   recommendations::spotify_track_search_index::SpotifyTrackSearchIndex,
   redis::build_redis_connection_pool,

@@ -10,7 +10,7 @@ use lute::{
   },
   events::{event_subscriber::EventSubscriber, event_subscriber_jobs::setup_event_subscriber_jobs},
   helpers::key_value_store::setup_kv_jobs,
-  lookup::lookup_event_subscribers::build_lookup_event_subscribers,
+  lookup::build_lookup_event_subscribers,
   parser::{
     parser_event_subscribers::build_parser_event_subscribers, parser_jobs::setup_parser_jobs,
   },
