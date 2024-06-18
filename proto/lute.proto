@@ -62,12 +62,10 @@ enum Priority {
 }
 
 message CrawlerQueueItem {
-  string item_key = 1;
-  string enqueue_time = 2;
-  string deduplication_key = 3;
-  string file_name = 4;
-  Priority priority = 5;
-  optional string correlation_id = 6;
+  string enqueue_time = 1;
+  string file_name = 2;
+  Priority priority = 3;
+  optional string correlation_id = 4;
 }
 
 message ClaimedCrawlerQueueItem {
@@ -91,9 +89,8 @@ message SetCrawlerStatusReply { CrawlerStatus status = 1; }
 message EnqueueRequest {
   string file_name = 1;
   Priority priority = 2;
-  string deduplication_key = 3;
-  optional string correlation_id = 4;
-  map<string, string> metadata = 5;
+  optional string correlation_id = 3;
+  map<string, string> metadata = 4;
 }
 
 service CrawlerService {
@@ -494,10 +491,45 @@ message GetAggregatedAlbumSearchStatusesReply {
   repeated AggregatedStatus statuses = 1;
 }
 
+message LookupListRequest { string file_name = 1; }
+
+enum ListLookupStatus {
+  Started = 0;
+  InProgress = 1;
+  Completed = 2;
+  Failed = 3;
+  Invalid = 4;
+}
+
+enum FileProcessingStatus {
+  CrawlEnqueued = 0;
+  CrawlFailed = 1;
+  FileSaved = 2;
+  FileParsed = 3;
+  FileParseFailed = 4;
+  ReadModelUpdated = 5;
+}
+
+message ListLookupSegment {
+  string file_name = 1;
+  repeated string album_file_names = 2;
+}
+
+message ListLookup {
+  string root_file_name = 1;
+  repeated string segment_file_names = 2;
+  repeated ListLookupSegment segments = 3;
+  map<string, FileProcessingStatus> component_processing_statuses = 4;
+  ListLookupStatus status = 5;
+}
+
+message LookupListReply { ListLookup lookup = 1; }
+
 service LookupService {
   rpc LookupAlbum(LookupAlbumRequest) returns (LookupAlbumReply) {}
   rpc GetAggregatedAlbumSearchStatuses(google.protobuf.Empty)
       returns (GetAggregatedAlbumSearchStatusesReply) {}
+  rpc LookupList(LookupListRequest) returns (LookupListReply) {}
 }
 
 message Profile {
@@ -767,6 +799,15 @@ message AlbumSavedEvent { string file_name = 1; }
 
 message LookupAlbumSearchUpdatedEvent { AlbumSearchLookup lookup = 1; }
 
+message CrawlEnqueuedEvent { string file_name = 1; }
+
+message CrawlFailedEvent {
+  string file_name = 1;
+  string error = 2;
+}
+
+message ListSegmentSavedEvent { string file_name = 1; }
+
 message Event {
   oneof event {
     FileSavedEvent file_saved = 1;
@@ -776,6 +817,9 @@ message Event {
     LookupAlbumSearchUpdatedEvent lookup_album_search_updated = 5;
     FileDeletedEvent file_deleted = 6;
     AlbumSavedEvent album_saved = 7;
+    CrawlEnqueuedEvent crawl_enqueued = 8;
+    CrawlFailedEvent crawl_failed = 9;
+    ListSegmentSavedEvent list_segment_saved = 10;
   }
 }
 

@@ -133,3 +133,40 @@ impl TryInto<FileName> for ChartParameters {
     FileName::try_from(file_name)
   }
 }
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+pub struct ListRootFileName(String);
+
+impl ListRootFileName {
+  pub fn segment_file_name(&self, page_number: u32) -> FileName {
+    FileName(format!("{}/{}", self.0, page_number))
+  }
+}
+
+impl TryFrom<FileName> for ListRootFileName {
+  type Error = anyhow::Error;
+
+  fn try_from(file_name: FileName) -> Result<Self> {
+    if file_name.page_type() != PageType::ListSegment {
+      return Err(anyhow!("Invalid page type"));
+    }
+    let parts: Vec<&str> = file_name.0.split('/').collect();
+    let root = parts[0..3].join("/");
+    Ok(Self(root))
+  }
+}
+
+impl ToString for ListRootFileName {
+  fn to_string(&self) -> String {
+    self.0.clone()
+  }
+}
+
+impl TryFrom<String> for ListRootFileName {
+  type Error = anyhow::Error;
+
+  fn try_from(value: String) -> Result<Self> {
+    let file_name = FileName::try_from(value)?;
+    ListRootFileName::try_from(file_name)
+  }
+}

@@ -1,28 +1,53 @@
-use super::album_search::{
-  get_album_search_correlation_id, AggregatedStatus, AlbumSearchLookup, AlbumSearchLookupQuery,
-  AlbumSearchLookupRepository,
+use super::{
+  album_search::{
+    album_search_lookup::{
+      get_album_search_correlation_id, AlbumSearchLookup, AlbumSearchLookupQuery,
+    },
+    album_search_lookup_repository::{AggregatedStatus, AlbumSearchLookupRepository},
+  },
+  file_processing_status::{FileProcessingStatus, FileProcessingStatusRepository},
+  list::{
+    list_lookup_interactor::ListLookupInteractor, list_segment_repository::ListSegmentDocument,
+  },
+  ListLookup,
 };
 use crate::{
+  crawler::crawler::Crawler,
   events::{
     event::{Event, EventPayloadBuilder, Topic},
     event_publisher::EventPublisher,
   },
-  files::file_metadata::file_name::FileName,
-  helpers::document_store::DocumentStore,
+  files::file_metadata::file_name::{FileName, ListRootFileName},
+  helpers::{document_store::DocumentStore, key_value_store::KeyValueStore},
 };
 use anyhow::Result;
 use std::{collections::HashMap, sync::Arc};
 
 pub struct LookupInteractor {
+  file_processing_status_repository: Arc<FileProcessingStatusRepository>,
   album_search_lookup_repository: AlbumSearchLookupRepository,
   event_publisher: Arc<EventPublisher>,
+  list_lookup_interactor: ListLookupInteractor,
 }
 
 impl LookupInteractor {
-  pub fn new(doc_store: Arc<DocumentStore>, event_publisher: Arc<EventPublisher>) -> Self {
+  pub fn new(
+    doc_store: Arc<DocumentStore>,
+    event_publisher: Arc<EventPublisher>,
+    kv: Arc<KeyValueStore>,
+    crawler: Arc<Crawler>,
+  ) -> Self {
+    let file_processing_status_repository = Arc::new(FileProcessingStatusRepository::new(kv));
     Self {
-      album_search_lookup_repository: AlbumSearchLookupRepository::new(doc_store),
-      event_publisher,
+      album_search_lookup_repository: AlbumSearchLookupRepository::new(Arc::clone(&doc_store)),
+      file_processing_status_repository: Arc::clone(&file_processing_status_repository),
+      event_publisher: Arc::clone(&event_publisher),
+      list_lookup_interactor: ListLookupInteractor::new(
+        file_processing_status_repository,
+        doc_store,
+        crawler,
+        Arc::clone(&event_publisher),
+      ),
     }
   }
 
@@ -100,5 +125,35 @@ impl LookupInteractor {
 
   pub async fn delete_album_search_lookup(&self, query: &AlbumSearchLookupQuery) -> Result<()> {
     self.album_search_lookup_repository.delete(query).await
+  }
+
+  pub async fn put_many_file_processing_status(
+    &self,
+    input: HashMap<FileName, FileProcessingStatus>,
+  ) -> Result<()> {
+    self
+      .file_processing_status_repository
+      .put_many(input)
+      .await?;
+    Ok(())
+  }
+
+  pub async fn delete_many_file_processing_status(&self, input: Vec<FileName>) -> Result<()> {
+    self
+      .file_processing_status_repository
+      .delete_many(input)
+      .await
+  }
+
+  pub async fn put_many_list_segment(&self, docs: Vec<ListSegmentDocument>) -> Result<()> {
+    self
+      .list_lookup_interactor
+      .put_many_list_segment(docs)
+      .await?;
+    Ok(())
+  }
+
+  pub async fn lookup_list(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
+    self.list_lookup_interactor.lookup(root_file_name).await
   }
 }

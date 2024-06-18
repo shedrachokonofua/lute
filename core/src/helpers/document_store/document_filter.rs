@@ -14,8 +14,8 @@ pub enum LogicalOperator {
   Or,
 }
 
-const VALID_OPERATORS: [&str; 10] = [
-  "=", "!=", ">", "<", ">=", "<=", "LIKE", "NOT LIKE", "IN", "NOT IN",
+const VALID_OPERATORS: [&str; 11] = [
+  "=", "!=", ">", "<", ">=", "<=", "LIKE", "NOT LIKE", "IN", "NOT IN", "CONTAINS",
 ];
 
 fn is_valid_operator(op: &str) -> bool {
@@ -136,7 +136,16 @@ impl DocumentFilter {
           condition_idx,
           key.replace('.', "_")
         );
-        let clause = format!("jsonb_extract(json, '$.{}') {} {} ", key, op, param_key);
+
+        let clause = if op == "CONTAINS" {
+          format!(
+            "EXISTS (SELECT 1 FROM json_each(json) WHERE value = {})",
+            param_key
+          )
+        } else {
+          format!("jsonb_extract(json, '$.{}') {} {} ", key, op, param_key)
+        };
+
         if condition_idx == condition_group_size - 1 {
           group_sql.push_str(&clause);
         } else {

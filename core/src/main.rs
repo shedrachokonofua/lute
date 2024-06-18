@@ -82,6 +82,7 @@ async fn setup_doc_store_indexes(context: Arc<ApplicationContext>) -> Result<()>
         "parser_failure",
         vec![vec!["page_type", "error"], vec!["error"]],
       ),
+      ("list_lookup", vec![vec!["root_file_name"]]),
     ]))
     .await
 }

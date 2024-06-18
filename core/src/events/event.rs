@@ -47,6 +47,16 @@ pub enum Event {
   AlbumSaved {
     file_name: FileName,
   },
+  CrawlEnqueued {
+    file_name: FileName,
+  },
+  CrawlFailed {
+    file_name: FileName,
+    error: String,
+  },
+  ListSegmentSaved {
+    file_name: FileName,
+  },
 }
 
 impl From<Event> for proto::Event {
@@ -99,6 +109,22 @@ impl From<Event> for proto::Event {
         }
         Event::AlbumSaved { file_name } => {
           proto::event::Event::AlbumSaved(proto::AlbumSavedEvent {
+            file_name: file_name.to_string(),
+          })
+        }
+        Event::CrawlEnqueued { file_name } => {
+          proto::event::Event::CrawlEnqueued(proto::CrawlEnqueuedEvent {
+            file_name: file_name.to_string(),
+          })
+        }
+        Event::CrawlFailed { file_name, error } => {
+          proto::event::Event::CrawlFailed(proto::CrawlFailedEvent {
+            file_name: file_name.to_string(),
+            error,
+          })
+        }
+        Event::ListSegmentSaved { file_name } => {
+          proto::event::Event::ListSegmentSaved(proto::ListSegmentSavedEvent {
             file_name: file_name.to_string(),
           })
         }

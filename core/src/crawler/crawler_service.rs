@@ -74,9 +74,7 @@ impl From<proto::Priority> for Priority {
 impl From<QueueItem> for proto::CrawlerQueueItem {
   fn from(val: QueueItem) -> Self {
     proto::CrawlerQueueItem {
-      item_key: val.item_key.to_string(),
       enqueue_time: val.enqueue_time.to_string(),
-      deduplication_key: val.deduplication_key,
       file_name: val.file_name.to_string(),
       priority: proto::Priority::from(val.priority).into(),
       correlation_id: val.correlation_id,
@@ -100,7 +98,6 @@ impl TryFrom<EnqueueRequest> for QueuePushParameters {
     Ok(QueuePushParameters {
       file_name: FileName::try_from(val.file_name.clone())?,
       priority: Some(Priority::from(val.priority())),
-      deduplication_key: Some(val.deduplication_key),
       correlation_id: val.correlation_id,
     })
   }

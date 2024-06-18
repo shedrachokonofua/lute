@@ -1,7 +1,8 @@
-use super::{album_search::AlbumSearchLookup, LookupInteractor};
+use super::{AlbumSearchLookup, LookupInteractor};
 use crate::{
   albums::album_read_model::{AlbumReadModel, AlbumReadModelArtist},
   context::ApplicationContext,
+  files::file_metadata::file_name::ListRootFileName,
   proto,
 };
 use std::sync::Arc;
@@ -94,6 +95,23 @@ impl proto::LookupService for LookupService {
           count: status.count,
         })
         .collect(),
+    };
+    Ok(Response::new(reply))
+  }
+
+  async fn lookup_list(
+    &self,
+    request: Request<proto::LookupListRequest>,
+  ) -> Result<Response<proto::LookupListReply>, Status> {
+    let root_file_name = ListRootFileName::try_from(request.into_inner().file_name)
+      .map_err(|e| Status::invalid_argument(format!("invalid file name: {}", e.to_string())))?;
+    let lookup = self
+      .lookup_interactor
+      .lookup_list(root_file_name)
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+    let reply = proto::LookupListReply {
+      lookup: Some(lookup.into()),
     };
     Ok(Response::new(reply))
   }

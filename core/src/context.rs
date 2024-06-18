@@ -107,6 +107,8 @@ impl ApplicationContext {
     let lookup_interactor = Arc::new(LookupInteractor::new(
       Arc::clone(&doc_store),
       Arc::clone(&event_publisher),
+      Arc::clone(&kv),
+      Arc::clone(&crawler),
     ));
     let profile_interactor = Arc::new(ProfileInteractor::new(
       Arc::clone(&redis_connection_pool),
