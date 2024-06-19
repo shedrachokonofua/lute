@@ -43,7 +43,7 @@ impl FileProcessingStatus {
     if self.is_error() {
       true
     } else {
-      (*next as i32) > (*self as i32)
+      (*next as i32) >= (*self as i32)
     }
   }
 }

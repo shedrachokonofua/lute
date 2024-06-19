@@ -1,7 +1,7 @@
 use super::{
   super::file_processing_status::FileProcessingStatusRepository,
   list_lookup::ListLookup,
-  list_segment_repository::{ListSegmentDocument, ListSegmentRepository},
+  list_lookup_repository::{ListLookupRepository, ListSegmentReadModel},
 };
 use crate::{
   crawler::crawler::{Crawler, QueuePushParametersBuilder},
@@ -10,8 +10,9 @@ use crate::{
     event_publisher::EventPublisher,
   },
   files::file_metadata::{file_name::ListRootFileName, page_type::PageType},
-  helpers::{document_store::DocumentStore, priority::Priority},
+  helpers::priority::Priority,
   lookup::file_processing_status::FileProcessingStatus,
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use std::{
@@ -20,7 +21,7 @@ use std::{
 };
 
 pub struct ListLookupInteractor {
-  list_segment_repository: ListSegmentRepository,
+  list_lookup_repository: ListLookupRepository,
   file_processing_status_repository: Arc<FileProcessingStatusRepository>,
   crawler: Arc<Crawler>,
   event_publisher: Arc<EventPublisher>,
@@ -29,24 +30,24 @@ pub struct ListLookupInteractor {
 impl ListLookupInteractor {
   pub fn new(
     file_processing_status_repository: Arc<FileProcessingStatusRepository>,
-    doc_store: Arc<DocumentStore>,
+    sqlite_connection: Arc<SqliteConnection>,
     crawler: Arc<Crawler>,
     event_publisher: Arc<EventPublisher>,
   ) -> Self {
     Self {
-      list_segment_repository: ListSegmentRepository::new(doc_store),
+      list_lookup_repository: ListLookupRepository::new(sqlite_connection),
       file_processing_status_repository,
       crawler,
       event_publisher,
     }
   }
 
-  pub async fn put_many_list_segment(&self, docs: Vec<ListSegmentDocument>) -> Result<()> {
+  pub async fn put_many_list_segments(&self, docs: Vec<ListSegmentReadModel>) -> Result<()> {
     let file_names = docs
       .iter()
       .map(|doc| doc.file_name.clone())
       .collect::<Vec<_>>();
-    self.list_segment_repository.put_many(docs).await?;
+    self.list_lookup_repository.put_many_segments(docs).await?;
     self
       .event_publisher
       .publish_many(
@@ -65,10 +66,10 @@ impl ListLookupInteractor {
     Ok(())
   }
 
-  pub async fn get_list_lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
+  pub async fn draft_list_lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
     let segment_docs = self
-      .list_segment_repository
-      .find_many_by_root(&root_file_name)
+      .list_lookup_repository
+      .find_many_segments_by_root(root_file_name.clone())
       .await?;
 
     if segment_docs.is_empty() {
@@ -103,8 +104,14 @@ impl ListLookupInteractor {
     })
   }
 
-  pub async fn lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
-    let mut lookup = self.get_list_lookup(root_file_name).await?;
+  // pub async fn poll_lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {}
+
+  pub async fn put_lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
+    self
+      .list_lookup_repository
+      .put_lookup(root_file_name.clone())
+      .await?;
+    let mut lookup = self.draft_list_lookup(root_file_name).await?;
 
     if lookup.is_complete() {
       return Ok(lookup);

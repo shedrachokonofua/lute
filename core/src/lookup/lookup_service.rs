@@ -107,7 +107,7 @@ impl proto::LookupService for LookupService {
       .map_err(|e| Status::invalid_argument(format!("invalid file name: {}", e.to_string())))?;
     let lookup = self
       .lookup_interactor
-      .lookup_list(root_file_name)
+      .put_list_lookup(root_file_name)
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
     let reply = proto::LookupListReply {

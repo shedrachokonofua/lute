@@ -7,7 +7,7 @@ use super::{
   },
   file_processing_status::{FileProcessingStatus, FileProcessingStatusRepository},
   list::{
-    list_lookup_interactor::ListLookupInteractor, list_segment_repository::ListSegmentDocument,
+    list_lookup_interactor::ListLookupInteractor, list_lookup_repository::ListSegmentReadModel,
   },
   ListLookup,
 };
@@ -19,6 +19,7 @@ use crate::{
   },
   files::file_metadata::file_name::{FileName, ListRootFileName},
   helpers::{document_store::DocumentStore, key_value_store::KeyValueStore},
+  sqlite::SqliteConnection,
 };
 use anyhow::Result;
 use std::{collections::HashMap, sync::Arc};
@@ -32,6 +33,7 @@ pub struct LookupInteractor {
 
 impl LookupInteractor {
   pub fn new(
+    sqlite_connection: Arc<SqliteConnection>,
     doc_store: Arc<DocumentStore>,
     event_publisher: Arc<EventPublisher>,
     kv: Arc<KeyValueStore>,
@@ -39,14 +41,14 @@ impl LookupInteractor {
   ) -> Self {
     let file_processing_status_repository = Arc::new(FileProcessingStatusRepository::new(kv));
     Self {
-      album_search_lookup_repository: AlbumSearchLookupRepository::new(Arc::clone(&doc_store)),
+      album_search_lookup_repository: AlbumSearchLookupRepository::new(doc_store),
       file_processing_status_repository: Arc::clone(&file_processing_status_repository),
       event_publisher: Arc::clone(&event_publisher),
       list_lookup_interactor: ListLookupInteractor::new(
         file_processing_status_repository,
-        doc_store,
+        sqlite_connection,
         crawler,
-        Arc::clone(&event_publisher),
+        event_publisher,
       ),
     }
   }
@@ -145,15 +147,15 @@ impl LookupInteractor {
       .await
   }
 
-  pub async fn put_many_list_segment(&self, docs: Vec<ListSegmentDocument>) -> Result<()> {
+  pub async fn put_many_list_segments(&self, docs: Vec<ListSegmentReadModel>) -> Result<()> {
     self
       .list_lookup_interactor
-      .put_many_list_segment(docs)
+      .put_many_list_segments(docs)
       .await?;
     Ok(())
   }
 
-  pub async fn lookup_list(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
-    self.list_lookup_interactor.lookup(root_file_name).await
+  pub async fn put_list_lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
+    self.list_lookup_interactor.put_lookup(root_file_name).await
   }
 }

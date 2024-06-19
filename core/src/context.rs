@@ -105,6 +105,7 @@ impl ApplicationContext {
       Arc::clone(&album_interactor),
     ));
     let lookup_interactor = Arc::new(LookupInteractor::new(
+      Arc::clone(&sqlite_connection),
       Arc::clone(&doc_store),
       Arc::clone(&event_publisher),
       Arc::clone(&kv),
