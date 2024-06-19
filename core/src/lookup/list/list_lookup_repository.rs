@@ -1,12 +1,19 @@
 use crate::{
-  files::file_metadata::file_name::{FileName, ListRootFileName},
+  files::file_metadata::{
+    file_name::{FileName, ListRootFileName},
+    page_type::PageType,
+  },
   parser::parsed_file_data::ParsedListSegment,
   sqlite::SqliteConnection,
 };
 use anyhow::{anyhow, Result};
 use rusqlite::{params, types::Value};
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, rc::Rc, sync::Arc};
+use std::{
+  collections::{HashMap, HashSet},
+  rc::Rc,
+  sync::Arc,
+};
 use tokio::try_join;
 use tracing::error;
 
@@ -222,42 +229,14 @@ impl ListLookupRepository {
       .map_err(|e| anyhow!("Failed to find records {}", e))?
   }
 
-  pub async fn find_many_segments_by_root(
+  pub async fn find_many_segments(
     &self,
-    root_file_name: ListRootFileName,
+    file_names: Vec<FileName>,
   ) -> Result<Vec<ListSegmentReadModel>> {
-    let root_file_name_string = root_file_name.to_string();
-    let segment_file_names = self
-      .sqlite_connection
-      .read()
-      .await?
-      .interact(move |conn| {
-        let mut stmt = conn.prepare_cached(
-          "
-          SELECT file_name
-          FROM list_segments
-          WHERE root_file_name = ?
-          ",
-        )?;
-        let rows = stmt
-          .query_map([root_file_name_string], |row| Ok(row.get(0)?))?
-          .filter_map(|r| r.ok())
-          .collect::<Vec<String>>();
-        Ok::<_, rusqlite::Error>(rows)
-      })
-      .await
-      .inspect_err(|e| {
-        error!(message = e.to_string(), "Failed to find records");
-      })
-      .map_err(|e| anyhow!("Failed to find records {}", e))??
-      .into_iter()
-      .map(FileName::try_from)
-      .collect::<Result<Vec<FileName>>>()?;
-
     let (mut segment_records, mut sibling_records, mut album_records) = try_join!(
-      self.find_many_segment_records(segment_file_names.clone()),
-      self.find_many_segment_sibling_records(segment_file_names.clone()),
-      self.find_many_segment_album_records(segment_file_names)
+      self.find_many_segment_records(file_names.clone()),
+      self.find_many_segment_sibling_records(file_names.clone()),
+      self.find_many_segment_album_records(file_names)
     )?;
 
     let mut segments = HashMap::new();
@@ -266,10 +245,10 @@ impl ListLookupRepository {
       segments.insert(
         segment.id,
         ListSegmentReadModel {
-          file_name,
-          root_file_name: root_file_name.clone(),
+          root_file_name: ListRootFileName::try_from(file_name.clone())?,
           other_segments: vec![],
           albums: vec![],
+          file_name,
         },
       );
     }
@@ -289,11 +268,59 @@ impl ListLookupRepository {
     Ok(segments.into_iter().map(|(_, v)| v).collect())
   }
 
-  pub async fn find_lookups_containing_albums(
+  pub async fn find_many_segments_by_root(
     &self,
-    album_file_names: Vec<FileName>,
+    root_file_name: Vec<ListRootFileName>,
+  ) -> Result<HashMap<ListRootFileName, Vec<ListSegmentReadModel>>> {
+    let values = root_file_name
+      .iter()
+      .map(|f| Value::from(f.to_string()))
+      .collect::<Vec<Value>>();
+    let segment_file_names = self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare_cached(
+          "
+          SELECT file_name
+          FROM list_segments
+          WHERE root_file_name IN rarray(?)
+          ",
+        )?;
+        let rows = stmt
+          .query_map([Rc::new(values)], |row| Ok(row.get(0)?))?
+          .filter_map(|r| r.ok())
+          .collect::<Vec<String>>();
+        Ok::<_, rusqlite::Error>(rows)
+      })
+      .await
+      .inspect_err(|e| {
+        error!(message = e.to_string(), "Failed to find records");
+      })
+      .map_err(|e| anyhow!("Failed to find records {}", e))??
+      .into_iter()
+      .map(FileName::try_from)
+      .collect::<Result<Vec<FileName>>>()?;
+
+    let segments = self.find_many_segments(segment_file_names).await?;
+
+    let mut results = HashMap::new();
+    for segment in segments {
+      results
+        .entry(segment.root_file_name.clone())
+        .or_insert_with(Vec::new)
+        .push(segment);
+    }
+
+    Ok(results)
+  }
+
+  async fn find_lookups_containing_siblings(
+    &self,
+    file_names: Vec<FileName>,
   ) -> Result<Vec<ListRootFileName>> {
-    let values = album_file_names
+    let values = file_names
       .iter()
       .map(|f| Value::from(f.to_string()))
       .collect::<Vec<Value>>();
@@ -302,7 +329,45 @@ impl ListLookupRepository {
       .read()
       .await?
       .interact(move |conn| {
-        let mut stmt = conn.prepare_cached(
+        let mut stmt = conn.prepare(
+          "
+          SELECT DISTINCT l.root_file_name
+          FROM list_lookups l
+          JOIN list_segments ON list_segments.root_file_name = l.root_file_name
+          JOIN list_segment_siblings ON list_segment_siblings.list_segment_id = list_segments.id
+          WHERE list_segment_siblings.sibling_file_name IN rarray(?)
+          ",
+        )?;
+        let rows = stmt
+          .query_map([Rc::new(values)], |row| Ok(row.get(0)?))?
+          .filter_map(|r| r.ok())
+          .collect::<Vec<String>>();
+        Ok::<_, rusqlite::Error>(rows)
+      })
+      .await
+      .inspect_err(|e| {
+        error!(message = e.to_string(), "Failed to find records");
+      })
+      .map_err(|e| anyhow!("Failed to find records {}", e))??
+      .into_iter()
+      .map(ListRootFileName::try_from)
+      .collect::<Result<Vec<ListRootFileName>>>()
+  }
+
+  async fn find_lookups_containing_albums(
+    &self,
+    file_names: Vec<FileName>,
+  ) -> Result<Vec<ListRootFileName>> {
+    let values = file_names
+      .iter()
+      .map(|f| Value::from(f.to_string()))
+      .collect::<Vec<Value>>();
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt = conn.prepare(
           "
           SELECT DISTINCT l.root_file_name
           FROM list_lookups l
@@ -327,6 +392,36 @@ impl ListLookupRepository {
       .collect::<Result<Vec<ListRootFileName>>>()
   }
 
+  pub async fn find_lookups_containing_components(
+    &self,
+    components: Vec<FileName>,
+  ) -> Result<Vec<ListRootFileName>> {
+    let mut sibling_values = vec![];
+    let mut album_values = vec![];
+    for component in components {
+      match component.page_type() {
+        PageType::ListSegment => sibling_values.push(component),
+        PageType::Album => album_values.push(component),
+        _ => {}
+      }
+    }
+
+    if sibling_values.is_empty() && album_values.is_empty() {
+      return Ok(vec![]);
+    }
+
+    let (sibling_results, album_results) = try_join!(
+      self.find_lookups_containing_siblings(sibling_values),
+      self.find_lookups_containing_albums(album_values)
+    )?;
+
+    let mut results = HashSet::new();
+    results.extend(sibling_results);
+    results.extend(album_results);
+
+    Ok(results.into_iter().collect())
+  }
+
   pub async fn put_lookup(&self, root_file_name: ListRootFileName) -> Result<()> {
     self
       .sqlite_connection
@@ -334,10 +429,7 @@ impl ListLookupRepository {
       .await?
       .interact(move |conn| {
         conn.execute(
-          "
-          INSERT OR IGNORE INTO list_lookups (root_file_name)
-          VALUES (?)
-          ",
+          "INSERT OR IGNORE INTO list_lookups (root_file_name) VALUES (?)",
           params![root_file_name.to_string()],
         )?;
         Ok(())
@@ -346,6 +438,47 @@ impl ListLookupRepository {
       .map_err(|e| {
         error!(message = e.to_string(), "Failed to put lookup");
         anyhow!("Failed to put lookup")
+      })?
+  }
+
+  pub async fn delete_many_lookups(&self, root_file_names: Vec<ListRootFileName>) -> Result<()> {
+    let values = root_file_names
+      .iter()
+      .map(|f| Value::from(f.to_string()))
+      .collect::<Vec<Value>>();
+    self
+      .sqlite_connection
+      .write()
+      .await?
+      .interact(move |conn| {
+        conn.execute(
+          "DELETE FROM list_lookups WHERE root_file_name IN rarray(?)",
+          [Rc::new(values)],
+        )?;
+        Ok(())
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to delete lookup");
+        anyhow!("Failed to delete lookup")
+      })?
+  }
+
+  pub async fn does_lookup_exist(&self, root_file_name: ListRootFileName) -> Result<bool> {
+    self
+      .sqlite_connection
+      .read()
+      .await?
+      .interact(move |conn| {
+        let mut stmt =
+          conn.prepare_cached("SELECT COUNT(*) FROM list_lookups WHERE root_file_name = ?")?;
+        let count: i64 = stmt.query_row([root_file_name.to_string()], |row| row.get(0))?;
+        Ok(count > 0)
+      })
+      .await
+      .map_err(|e| {
+        error!(message = e.to_string(), "Failed to check lookup existence");
+        anyhow!("Failed to check lookup existence")
       })?
   }
 }

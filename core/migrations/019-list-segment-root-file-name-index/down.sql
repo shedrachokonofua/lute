@@ -1,0 +1,1 @@
+DROP INDEX idx_list_segments_root_file_name;

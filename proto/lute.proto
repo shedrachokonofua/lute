@@ -491,7 +491,7 @@ message GetAggregatedAlbumSearchStatusesReply {
   repeated AggregatedStatus statuses = 1;
 }
 
-message LookupListRequest { string file_name = 1; }
+message PutListLookupRequest { string file_name = 1; }
 
 enum ListLookupStatus {
   Started = 0;
@@ -523,13 +523,17 @@ message ListLookup {
   ListLookupStatus status = 5;
 }
 
-message LookupListReply { ListLookup lookup = 1; }
+message PutListLookupReply { ListLookup lookup = 1; }
+
+message DeleteListLookupRequest { string file_name = 1; }
 
 service LookupService {
   rpc LookupAlbum(LookupAlbumRequest) returns (LookupAlbumReply) {}
   rpc GetAggregatedAlbumSearchStatuses(google.protobuf.Empty)
       returns (GetAggregatedAlbumSearchStatusesReply) {}
-  rpc LookupList(LookupListRequest) returns (LookupListReply) {}
+  rpc PutListLookup(PutListLookupRequest) returns (PutListLookupReply) {}
+  rpc DeleteListLookup(DeleteListLookupRequest)
+      returns (google.protobuf.Empty) {}
 }
 
 message Profile {

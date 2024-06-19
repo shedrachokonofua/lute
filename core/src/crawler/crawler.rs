@@ -200,6 +200,15 @@ impl Crawler {
     Ok(())
   }
 
+  pub async fn enqueue_many(&self, params: Vec<QueuePushParameters>) -> Result<()> {
+    let jobs = params
+      .into_iter()
+      .map(|params| params.try_into())
+      .collect::<Result<Vec<_>>>()?;
+    self.scheduler.put_many(jobs).await?;
+    Ok(())
+  }
+
   pub async fn enqueue_if_stale(&self, params: QueuePushParameters) -> Result<()> {
     if self
       .file_interactor

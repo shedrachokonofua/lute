@@ -99,10 +99,10 @@ impl proto::LookupService for LookupService {
     Ok(Response::new(reply))
   }
 
-  async fn lookup_list(
+  async fn put_list_lookup(
     &self,
-    request: Request<proto::LookupListRequest>,
-  ) -> Result<Response<proto::LookupListReply>, Status> {
+    request: Request<proto::PutListLookupRequest>,
+  ) -> Result<Response<proto::PutListLookupReply>, Status> {
     let root_file_name = ListRootFileName::try_from(request.into_inner().file_name)
       .map_err(|e| Status::invalid_argument(format!("invalid file name: {}", e.to_string())))?;
     let lookup = self
@@ -110,9 +110,23 @@ impl proto::LookupService for LookupService {
       .put_list_lookup(root_file_name)
       .await
       .map_err(|e| Status::internal(e.to_string()))?;
-    let reply = proto::LookupListReply {
+    let reply = proto::PutListLookupReply {
       lookup: Some(lookup.into()),
     };
     Ok(Response::new(reply))
+  }
+
+  async fn delete_list_lookup(
+    &self,
+    request: Request<proto::DeleteListLookupRequest>,
+  ) -> Result<Response<()>, Status> {
+    let root_file_name = ListRootFileName::try_from(request.into_inner().file_name)
+      .map_err(|e| Status::invalid_argument(format!("invalid file name: {}", e.to_string())))?;
+    self
+      .lookup_interactor
+      .delete_list_lookup(root_file_name)
+      .await
+      .map_err(|e| Status::internal(e.to_string()))?;
+    Ok(Response::new(()))
   }
 }

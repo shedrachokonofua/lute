@@ -132,12 +132,8 @@ impl LookupInteractor {
   pub async fn put_many_file_processing_status(
     &self,
     input: HashMap<FileName, FileProcessingStatus>,
-  ) -> Result<()> {
-    self
-      .file_processing_status_repository
-      .put_many(input)
-      .await?;
-    Ok(())
+  ) -> Result<Vec<FileName>> {
+    self.file_processing_status_repository.put_many(input).await
   }
 
   pub async fn delete_many_file_processing_status(&self, input: Vec<FileName>) -> Result<()> {
@@ -157,5 +153,22 @@ impl LookupInteractor {
 
   pub async fn put_list_lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
     self.list_lookup_interactor.put_lookup(root_file_name).await
+  }
+
+  pub async fn delete_list_lookup(&self, root_file_name: ListRootFileName) -> Result<()> {
+    self
+      .list_lookup_interactor
+      .delete_lookup(root_file_name)
+      .await
+  }
+
+  pub async fn run_list_lookups_containing_components(
+    &self,
+    components: Vec<FileName>,
+  ) -> Result<HashMap<ListRootFileName, ListLookup>> {
+    self
+      .list_lookup_interactor
+      .run_lookups_containing_components(components)
+      .await
   }
 }

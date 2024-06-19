@@ -9,12 +9,15 @@ use crate::{
     event::{Event, EventPayloadBuilder, Topic},
     event_publisher::EventPublisher,
   },
-  files::file_metadata::{file_name::ListRootFileName, page_type::PageType},
+  files::file_metadata::{
+    file_name::{FileName, ListRootFileName},
+    page_type::PageType,
+  },
   helpers::priority::Priority,
   lookup::file_processing_status::FileProcessingStatus,
   sqlite::SqliteConnection,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::{
   collections::{HashMap, HashSet},
   sync::Arc,
@@ -66,92 +69,217 @@ impl ListLookupInteractor {
     Ok(())
   }
 
-  pub async fn draft_list_lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
-    let segment_docs = self
+  pub async fn draft_many_list_lookups(
+    &self,
+    root_file_names: Vec<ListRootFileName>,
+  ) -> Result<HashMap<ListRootFileName, ListLookup>> {
+    let segment_map = self
       .list_lookup_repository
-      .find_many_segments_by_root(root_file_name.clone())
+      .find_many_segments_by_root(root_file_names.clone())
       .await?;
 
-    if segment_docs.is_empty() {
-      return Ok(ListLookup::initialize(root_file_name));
+    let mut segment_file_names = HashMap::<ListRootFileName, HashSet<FileName>>::new();
+    let mut segment_albums = HashMap::<ListRootFileName, HashMap<FileName, Vec<FileName>>>::new();
+    let mut segment_components = HashMap::<ListRootFileName, HashSet<FileName>>::new();
+
+    for (root_file_name, segments) in segment_map {
+      let mut root_segment_file_names = HashSet::new();
+      let mut root_segment_albums = HashMap::new();
+      let mut root_components = HashSet::new();
+
+      for segment in segments {
+        let file_name = segment.file_name.clone();
+        let albums = segment.albums.clone();
+        root_segment_file_names.insert(file_name.clone());
+        root_segment_file_names.extend(segment.other_segments.clone());
+        root_components.insert(file_name.clone());
+        root_components.extend(segment.other_segments);
+        root_segment_albums.insert(file_name, albums.clone());
+        root_components.extend(albums);
+      }
+
+      segment_file_names.insert(root_file_name.clone(), root_segment_file_names);
+      segment_albums.insert(root_file_name.clone(), root_segment_albums);
+      segment_components.insert(root_file_name.clone(), root_components);
     }
 
-    let mut segment_file_names = HashSet::new();
-    let mut segment_albums = HashMap::new();
-    let mut components = HashSet::new();
-
-    for doc in segment_docs {
-      let file_name = doc.file_name.clone();
-      let albums = doc.albums.clone();
-      segment_file_names.insert(file_name.clone());
-      segment_file_names.extend(doc.other_segments.clone());
-      components.insert(file_name.clone());
-      components.extend(doc.other_segments);
-      segment_albums.insert(file_name, albums.clone());
-      components.extend(albums);
-    }
-
-    let component_processing_statuses = self
+    let mut component_processing_statuses = self
       .file_processing_status_repository
-      .get_many(components.into_iter().collect())
+      .get_many(
+        segment_components
+          .iter()
+          .flat_map(|(_, components)| components.clone())
+          .collect(),
+      )
       .await?;
 
-    Ok(ListLookup {
-      root_file_name,
-      segment_albums,
-      component_processing_statuses,
-      segment_file_names: segment_file_names.into_iter().collect(),
-    })
+    let mut lookups = HashMap::new();
+    for root_file_name in root_file_names {
+      lookups.insert(
+        root_file_name.clone(),
+        ListLookup {
+          root_file_name: root_file_name.clone(),
+          segment_albums: segment_albums.remove(&root_file_name).unwrap_or_default(),
+          component_processing_statuses: segment_components
+            .remove(&root_file_name)
+            .unwrap_or(HashSet::new())
+            .iter()
+            .map(|file_name| {
+              (
+                file_name.clone(),
+                component_processing_statuses
+                  .remove(file_name)
+                  .unwrap_or(FileProcessingStatus::CrawlEnqueued),
+              )
+            })
+            .collect(),
+          segment_file_names: segment_file_names
+            .remove(&root_file_name)
+            .unwrap_or_default()
+            .into_iter()
+            .collect(),
+        },
+      );
+    }
+
+    Ok(lookups)
   }
 
-  // pub async fn poll_lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {}
+  pub async fn run_lookups(
+    &self,
+    lookups: Vec<ListLookup>,
+  ) -> Result<HashMap<ListRootFileName, ListLookup>> {
+    let mut outputs = HashMap::new();
+    let mut dormant_lookups = HashMap::new();
+    let mut dormant_components = HashMap::new();
+
+    for lookup in lookups {
+      if lookup.is_complete() {
+        outputs.insert(lookup.root_file_name.clone(), lookup);
+        continue;
+      }
+
+      let lookup_dormant_components = lookup.dormant_components();
+
+      if lookup_dormant_components.is_empty() {
+        outputs.insert(lookup.root_file_name.clone(), lookup);
+        continue;
+      }
+
+      dormant_components.insert(lookup.root_file_name.clone(), lookup_dormant_components);
+      dormant_lookups.insert(lookup.root_file_name.clone(), lookup);
+    }
+
+    if dormant_components.is_empty() {
+      return Ok(outputs);
+    }
+
+    self
+      .crawler
+      .enqueue_many(
+        dormant_components
+          .iter()
+          .flat_map(|(root_file_name, dormant_components)| {
+            dormant_components
+              .iter()
+              .map(|file_name| {
+                let priority = if matches!(file_name.page_type(), PageType::ListSegment) {
+                  Priority::Express
+                } else {
+                  Priority::High
+                };
+                QueuePushParametersBuilder::default()
+                  .file_name(file_name.clone())
+                  .priority(priority)
+                  .correlation_id(format!("list_lookup:{}", root_file_name.to_string()))
+                  .build()
+              })
+              .collect::<Vec<_>>()
+          })
+          .collect::<Result<Vec<_>, _>>()?,
+      )
+      .await?;
+
+    let mut updates = dormant_components
+      .into_iter()
+      .map(|(root_file_name, dormant_components)| {
+        (
+          root_file_name,
+          dormant_components
+            .into_iter()
+            .map(|file_name| (file_name, FileProcessingStatus::CrawlEnqueued))
+            .collect::<Vec<_>>(),
+        )
+      })
+      .collect::<HashMap<_, _>>();
+
+    self
+      .file_processing_status_repository
+      .put_many(
+        updates
+          .iter()
+          .flat_map(|(_, updates)| updates.clone())
+          .collect(),
+      )
+      .await?;
+
+    for (root_file_name, mut lookup) in dormant_lookups.drain() {
+      lookup
+        .component_processing_statuses
+        .extend(updates.remove(&root_file_name).unwrap_or_default());
+      outputs.insert(root_file_name, lookup);
+    }
+
+    Ok(outputs)
+  }
+
+  pub async fn run_lookups_by_root(
+    &self,
+    root_file_names: Vec<ListRootFileName>,
+  ) -> Result<HashMap<ListRootFileName, ListLookup>> {
+    let mut drafts = self
+      .draft_many_list_lookups(root_file_names.clone())
+      .await?;
+    self
+      .run_lookups(drafts.drain().map(|(_, lookup)| lookup).collect())
+      .await
+  }
+
+  pub async fn run_lookups_containing_components(
+    &self,
+    components: Vec<FileName>,
+  ) -> Result<HashMap<ListRootFileName, ListLookup>> {
+    let root_file_names = self
+      .list_lookup_repository
+      .find_lookups_containing_components(components)
+      .await?;
+
+    if root_file_names.is_empty() {
+      return Ok(HashMap::new());
+    }
+
+    self.run_lookups_by_root(root_file_names).await
+  }
 
   pub async fn put_lookup(&self, root_file_name: ListRootFileName) -> Result<ListLookup> {
     self
       .list_lookup_repository
       .put_lookup(root_file_name.clone())
       .await?;
-    let mut lookup = self.draft_list_lookup(root_file_name).await?;
 
-    if lookup.is_complete() {
-      return Ok(lookup);
-    }
-
-    let dormant_components = lookup.dormant_components();
-
-    if dormant_components.is_empty() {
-      return Ok(lookup);
-    }
-
-    for file_name in dormant_components.iter() {
-      let priority = if matches!(file_name.page_type(), PageType::ListSegment) {
-        Priority::Express
-      } else {
-        Priority::High
-      };
-      self
-        .crawler
-        .enqueue(
-          QueuePushParametersBuilder::default()
-            .file_name(file_name.clone())
-            .priority(priority)
-            .build()?,
-        )
-        .await?;
-    }
-
-    let updates = dormant_components
-      .into_iter()
-      .map(|file_name| (file_name.clone(), FileProcessingStatus::CrawlEnqueued))
-      .collect::<HashMap<_, _>>();
-
-    self
-      .file_processing_status_repository
-      .put_many(updates.clone())
-      .await?;
-
-    lookup.component_processing_statuses.extend(updates);
+    let lookup = self
+      .run_lookups_by_root(vec![root_file_name.clone()])
+      .await?
+      .remove(&root_file_name)
+      .ok_or(anyhow!("Unexpected error: Failed to run lookup"))?;
 
     Ok(lookup)
+  }
+
+  pub async fn delete_lookup(&self, root_file_name: ListRootFileName) -> Result<()> {
+    self
+      .list_lookup_repository
+      .delete_many_lookups(vec![root_file_name])
+      .await
   }
 }

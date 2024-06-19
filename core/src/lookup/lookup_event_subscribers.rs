@@ -107,10 +107,17 @@ async fn update_file_processing_status(
   }
 
   if !updates.is_empty() {
-    app_context
+    let updated_file_names = app_context
       .lookup_interactor
       .put_many_file_processing_status(updates)
       .await?;
+
+    if !updated_file_names.is_empty() {
+      app_context
+        .lookup_interactor
+        .run_list_lookups_containing_components(updated_file_names)
+        .await?;
+    }
   }
 
   Ok(())
