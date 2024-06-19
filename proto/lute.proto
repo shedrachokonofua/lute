@@ -521,6 +521,7 @@ message ListLookup {
   repeated ListLookupSegment segments = 3;
   map<string, FileProcessingStatus> component_processing_statuses = 4;
   ListLookupStatus status = 5;
+  optional string last_run_at = 6;
 }
 
 message PutListLookupReply { ListLookup lookup = 1; }
@@ -812,6 +813,11 @@ message CrawlFailedEvent {
 
 message ListSegmentSavedEvent { string file_name = 1; }
 
+message ListLookupStatusUpdatedEvent {
+  string root_file_name = 1;
+  ListLookupStatus status = 2;
+}
+
 message Event {
   oneof event {
     FileSavedEvent file_saved = 1;
@@ -824,6 +830,7 @@ message Event {
     CrawlEnqueuedEvent crawl_enqueued = 8;
     CrawlFailedEvent crawl_failed = 9;
     ListSegmentSavedEvent list_segment_saved = 10;
+    ListLookupStatusUpdatedEvent list_lookup_status_updated = 11;
   }
 }
 

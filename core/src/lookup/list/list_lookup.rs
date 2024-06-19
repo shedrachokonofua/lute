@@ -3,14 +3,18 @@ use crate::{
   files::file_metadata::file_name::{FileName, ListRootFileName},
   proto,
 };
+use chrono::NaiveDateTime;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::{HashMap, HashSet};
 
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone)]
+#[repr(u8)]
 pub enum ListLookupStatus {
-  Started,
-  InProgress,
-  Completed,
-  Failed,
-  Invalid,
+  Started = 0,
+  InProgress = 1,
+  Completed = 2,
+  Failed = 3,
+  Invalid = 4,
 }
 
 impl From<ListLookupStatus> for proto::ListLookupStatus {
@@ -30,6 +34,8 @@ pub struct ListLookup {
   pub segment_file_names: Vec<FileName>,
   pub segment_albums: HashMap<FileName, Vec<FileName>>,
   pub component_processing_statuses: HashMap<FileName, FileProcessingStatus>,
+  pub last_run: Option<NaiveDateTime>,
+  pub last_run_status: Option<ListLookupStatus>,
 }
 
 impl ListLookup {
@@ -39,6 +45,8 @@ impl ListLookup {
       root_file_name,
       segment_albums: HashMap::new(),
       component_processing_statuses: HashMap::new(),
+      last_run: None,
+      last_run_status: None,
     }
   }
 
@@ -79,6 +87,13 @@ impl ListLookup {
     }
 
     ListLookupStatus::InProgress
+  }
+
+  pub fn status_updated(&self) -> bool {
+    match &self.last_run_status {
+      Some(status) => status != &self.status(),
+      None => true,
+    }
   }
 
   pub fn is_complete(&self) -> bool {
@@ -145,6 +160,7 @@ impl From<ListLookup> for proto::ListLookup {
           )
         })
         .collect(),
+      last_run_at: val.last_run.map(|d| d.to_string()),
     }
   }
 }

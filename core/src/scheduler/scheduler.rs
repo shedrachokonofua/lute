@@ -425,7 +425,7 @@ impl Scheduler {
       .insert(processor.name.clone(), processor);
   }
 
-  #[instrument(skip_all, fields(count = params.len()))]
+  #[instrument(skip_all, name = "Scheduler::put_many", fields(count = params.len()))]
   pub async fn put_many(&self, params: Vec<JobParameters>) -> Result<Vec<Job>> {
     let items = params
       .into_iter()

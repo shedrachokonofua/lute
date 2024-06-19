@@ -106,18 +106,25 @@ async fn update_file_processing_status(
       .await?;
   }
 
-  if !updates.is_empty() {
-    let updated_file_names = app_context
+  let valid_updates = if !updates.is_empty() {
+    app_context
       .lookup_interactor
       .put_many_file_processing_status(updates)
-      .await?;
+      .await?
+  } else {
+    vec![]
+  };
 
-    if !updated_file_names.is_empty() {
-      app_context
-        .lookup_interactor
-        .run_list_lookups_containing_components(updated_file_names)
-        .await?;
-    }
+  let changes = valid_updates
+    .into_iter()
+    .chain(deletions.into_iter())
+    .collect::<Vec<FileName>>();
+
+  if !changes.is_empty() {
+    app_context
+      .lookup_interactor
+      .run_list_lookups_containing_components(changes)
+      .await?;
   }
 
   Ok(())

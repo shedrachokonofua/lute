@@ -1,5 +1,5 @@
-use crate::files::file_metadata::file_name::FileName;
-use crate::lookup::AlbumSearchLookup;
+use crate::files::file_metadata::file_name::{FileName, ListRootFileName};
+use crate::lookup::{AlbumSearchLookup, ListLookupStatus};
 use crate::parser::parsed_file_data::ParsedFileData;
 use crate::profile::profile::ProfileId;
 use crate::proto;
@@ -56,6 +56,10 @@ pub enum Event {
   },
   ListSegmentSaved {
     file_name: FileName,
+  },
+  ListLookupStatusUpdated {
+    root_file_name: ListRootFileName,
+    status: ListLookupStatus,
   },
 }
 
@@ -128,6 +132,13 @@ impl From<Event> for proto::Event {
             file_name: file_name.to_string(),
           })
         }
+        Event::ListLookupStatusUpdated {
+          root_file_name,
+          status,
+        } => proto::event::Event::ListLookupStatusUpdated(proto::ListLookupStatusUpdatedEvent {
+          root_file_name: root_file_name.to_string(),
+          status: status as i32,
+        }),
       }),
     }
   }

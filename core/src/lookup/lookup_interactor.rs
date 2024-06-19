@@ -165,7 +165,7 @@ impl LookupInteractor {
   pub async fn run_list_lookups_containing_components(
     &self,
     components: Vec<FileName>,
-  ) -> Result<HashMap<ListRootFileName, ListLookup>> {
+  ) -> Result<Vec<ListLookup>> {
     self
       .list_lookup_interactor
       .run_lookups_containing_components(components)

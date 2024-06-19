@@ -3,17 +3,15 @@ use crate::{
     file_name::{FileName, ListRootFileName},
     page_type::PageType,
   },
+  lookup::ListLookupStatus,
   parser::parsed_file_data::ParsedListSegment,
   sqlite::SqliteConnection,
 };
 use anyhow::{anyhow, Result};
+use chrono::NaiveDateTime;
 use rusqlite::{params, types::Value};
 use serde_derive::{Deserialize, Serialize};
-use std::{
-  collections::{HashMap, HashSet},
-  rc::Rc,
-  sync::Arc,
-};
+use std::{collections::HashMap, rc::Rc, sync::Arc};
 use tokio::try_join;
 use tracing::error;
 
@@ -38,6 +36,12 @@ struct ListSegmentSiblingRecord {
 struct ListSegmentAlbumRecord {
   pub list_segment_id: i64,
   pub file_name: String,
+}
+
+pub struct ListLookupRecord {
+  pub root_file_name: ListRootFileName,
+  pub latest_status: ListLookupStatus,
+  pub latest_run: Option<NaiveDateTime>,
 }
 
 impl ListSegmentReadModel {
@@ -319,29 +323,39 @@ impl ListLookupRepository {
   async fn find_lookups_containing_siblings(
     &self,
     file_names: Vec<FileName>,
-  ) -> Result<Vec<ListRootFileName>> {
+  ) -> Result<Vec<ListLookupRecord>> {
     let values = file_names
       .iter()
       .map(|f| Value::from(f.to_string()))
       .collect::<Vec<Value>>();
-    self
+    let result = self
       .sqlite_connection
       .read()
       .await?
       .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
-          SELECT DISTINCT l.root_file_name
-          FROM list_lookups l
-          JOIN list_segments ON list_segments.root_file_name = l.root_file_name
-          JOIN list_segment_siblings ON list_segment_siblings.list_segment_id = list_segments.id
-          WHERE list_segment_siblings.sibling_file_name IN rarray(?)
+          SELECT root_file_name, latest_status, latest_run
+          FROM list_lookups
+          WHERE root_file_name IN (
+            SELECT DISTINCT l.root_file_name
+            FROM list_lookups l
+            JOIN list_segments ON list_segments.root_file_name = l.root_file_name
+            JOIN list_segment_siblings ON list_segment_siblings.list_segment_id = list_segments.id
+            WHERE list_segment_siblings.sibling_file_name IN rarray(?)
+          )
           ",
         )?;
         let rows = stmt
-          .query_map([Rc::new(values)], |row| Ok(row.get(0)?))?
+          .query_map([Rc::new(values)], |row| {
+            Ok((
+              row.get::<_, String>(0)?,
+              row.get::<_, u32>(1)?,
+              row.get::<_, Option<NaiveDateTime>>(2)?,
+            ))
+          })?
           .filter_map(|r| r.ok())
-          .collect::<Vec<String>>();
+          .collect::<Vec<_>>();
         Ok::<_, rusqlite::Error>(rows)
       })
       .await
@@ -350,36 +364,53 @@ impl ListLookupRepository {
       })
       .map_err(|e| anyhow!("Failed to find records {}", e))??
       .into_iter()
-      .map(ListRootFileName::try_from)
-      .collect::<Result<Vec<ListRootFileName>>>()
+      .map(|(root_file_name, latest_status, latest_run)| {
+        Ok(ListLookupRecord {
+          root_file_name: ListRootFileName::try_from(root_file_name)?,
+          latest_status: serde_json::from_str(&latest_status.to_string())?,
+          latest_run,
+        })
+      })
+      .collect::<Result<Vec<ListLookupRecord>>>()?;
+    Ok(result)
   }
 
   async fn find_lookups_containing_albums(
     &self,
     file_names: Vec<FileName>,
-  ) -> Result<Vec<ListRootFileName>> {
+  ) -> Result<Vec<ListLookupRecord>> {
     let values = file_names
       .iter()
       .map(|f| Value::from(f.to_string()))
       .collect::<Vec<Value>>();
-    self
+    let result = self
       .sqlite_connection
       .read()
       .await?
       .interact(move |conn| {
         let mut stmt = conn.prepare(
           "
-          SELECT DISTINCT l.root_file_name
-          FROM list_lookups l
-          JOIN list_segments ON list_segments.root_file_name = l.root_file_name
-          JOIN list_segment_albums ON list_segment_albums.list_segment_id = list_segments.id
-          WHERE list_segment_albums.file_name IN rarray(?)
+          SELECT root_file_name, latest_status, latest_run
+          FROM list_lookups
+          WHERE root_file_name IN (
+            SELECT DISTINCT l.root_file_name
+            FROM list_lookups l
+            JOIN list_segments ON list_segments.root_file_name = l.root_file_name
+            JOIN list_segment_albums ON list_segment_albums.list_segment_id = list_segments.id
+            WHERE list_segment_albums.file_name IN rarray(?)
+          )
           ",
         )?;
         let rows = stmt
-          .query_map([Rc::new(values)], |row| Ok(row.get(0)?))?
+          .query_map([Rc::new(values)], |row| {
+            Ok((
+              row.get::<_, String>(0)?,
+              row.get::<_, u32>(1)?,
+              row.get::<_, Option<NaiveDateTime>>(2)?,
+            ))
+          })?
           .filter_map(|r| r.ok())
-          .collect::<Vec<String>>();
+          .collect::<Vec<_>>();
         Ok::<_, rusqlite::Error>(rows)
       })
       .await
@@ -388,14 +419,21 @@ impl ListLookupRepository {
       })
       .map_err(|e| anyhow!("Failed to find records {}", e))??
       .into_iter()
-      .map(ListRootFileName::try_from)
-      .collect::<Result<Vec<ListRootFileName>>>()
+      .map(|(root_file_name, latest_status, latest_run)| {
+        Ok(ListLookupRecord {
+          root_file_name: ListRootFileName::try_from(root_file_name)?,
+          latest_status: serde_json::from_str(&latest_status.to_string())?,
+          latest_run,
+        })
+      })
+      .collect::<Result<Vec<ListLookupRecord>>>()?;
+    Ok(result)
   }
 
   pub async fn find_lookups_containing_components(
     &self,
     components: Vec<FileName>,
-  ) -> Result<Vec<ListRootFileName>> {
+  ) -> Result<Vec<ListLookupRecord>> {
     let mut sibling_values = vec![];
     let mut album_values = vec![];
     for component in components {
@@ -415,24 +453,43 @@ impl ListLookupRepository {
       self.find_lookups_containing_albums(album_values)
     )?;
 
-    let mut results = HashSet::new();
-    results.extend(sibling_results);
-    results.extend(album_results);
+    let mut results = HashMap::new();
+    for lookup in sibling_results.into_iter().chain(album_results) {
+      results.insert(lookup.root_file_name.clone(), lookup);
+    }
 
-    Ok(results.into_iter().collect())
+    Ok(results.into_iter().map(|(_, v)| v).collect())
   }
 
-  pub async fn put_lookup(&self, root_file_name: ListRootFileName) -> Result<()> {
+  pub async fn put_lookup_record(
+    &self,
+    root_file_name: ListRootFileName,
+  ) -> Result<ListLookupRecord> {
     self
       .sqlite_connection
       .write()
       .await?
       .interact(move |conn| {
-        conn.execute(
-          "INSERT OR IGNORE INTO list_lookups (root_file_name) VALUES (?)",
+        let (latest_status, latest_run) = conn.query_row(
+          "
+          INSERT INTO list_lookups (root_file_name)
+          VALUES (?)
+          ON CONFLICT (root_file_name) DO UPDATE SET root_file_name = excluded.root_file_name
+          RETURNING latest_status, latest_run
+          ",
           params![root_file_name.to_string()],
+          |row| {
+            Ok((
+              row.get::<_, u32>(0)?,
+              row.get::<_, Option<NaiveDateTime>>(1)?,
+            ))
+          },
         )?;
-        Ok(())
+        Ok(ListLookupRecord {
+          latest_status: serde_json::from_str(&latest_status.to_string())?,
+          root_file_name,
+          latest_run,
+        })
       })
       .await
       .map_err(|e| {
@@ -464,21 +521,38 @@ impl ListLookupRepository {
       })?
   }
 
-  pub async fn does_lookup_exist(&self, root_file_name: ListRootFileName) -> Result<bool> {
+  pub async fn update_many_lookup_records(
+    &self,
+    updates: Vec<(ListRootFileName, ListLookupStatus, Option<NaiveDateTime>)>,
+  ) -> Result<()> {
     self
       .sqlite_connection
-      .read()
+      .write()
       .await?
       .interact(move |conn| {
-        let mut stmt =
-          conn.prepare_cached("SELECT COUNT(*) FROM list_lookups WHERE root_file_name = ?")?;
-        let count: i64 = stmt.query_row([root_file_name.to_string()], |row| row.get(0))?;
-        Ok(count > 0)
+        let tx = conn.transaction()?;
+        for (root_file_name, status, latest_run) in updates {
+          tx.execute(
+            "UPDATE list_lookups SET latest_status = ? WHERE root_file_name = ?",
+            params![
+              serde_json::to_string(&status).unwrap(),
+              root_file_name.to_string()
+            ],
+          )?;
+          if let Some(latest_run) = latest_run {
+            tx.execute(
+              "UPDATE list_lookups SET latest_run = ? WHERE root_file_name = ?",
+              params![latest_run, root_file_name.to_string()],
+            )?;
+          }
+        }
+        tx.commit()?;
+        Ok(())
       })
       .await
       .map_err(|e| {
-        error!(message = e.to_string(), "Failed to check lookup existence");
-        anyhow!("Failed to check lookup existence")
+        error!(message = e.to_string(), "Failed to update lookups");
+        anyhow!("Failed to update lookups")
       })?
   }
 }

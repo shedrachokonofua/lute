@@ -1,0 +1,2 @@
+ALTER TABLE list_lookups ADD COLUMN latest_status INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE list_lookups ADD COLUMN latest_run DATETIME;
