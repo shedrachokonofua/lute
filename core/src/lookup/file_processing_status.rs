@@ -43,7 +43,7 @@ impl FileProcessingStatus {
     if self.is_error() {
       true
     } else {
-      (*next as i32) >= (*self as i32)
+      (*next as i32) > (*self as i32)
     }
   }
 }
@@ -104,21 +104,15 @@ impl FileProcessingStatusRepository {
 
     let valid_updates = input
       .into_iter()
-      .filter_map(|(file_name, status)| {
-        if let Some(current_status) = current_statuses.get(&file_name) {
-          if current_status.can_transition(&status) {
+      .filter_map(
+        |(file_name, status)| match current_statuses.get(&file_name) {
+          Some(current_status) if current_status.can_transition(&status) => {
             Some((file_name, status))
-          } else {
-            warn!(
-              "Invalid status transition: {} -> {}",
-              current_status, status
-            );
-            None
           }
-        } else {
-          Some((file_name, status))
-        }
-      })
+          None => Some((file_name, status)),
+          _ => None,
+        },
+      )
       .collect::<HashMap<_, _>>();
     let updated = valid_updates.keys().cloned().collect::<Vec<_>>();
 
