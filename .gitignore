@@ -13,3 +13,6 @@
 /**/*.db
 /**/*.db-shm
 /**/*.db-wal
+
+# Elixir
+/**/*.pb.ex

@@ -182,3 +182,18 @@ tasks:
   "elasticsearch:up":
     cmds:
       - docker-compose -f ./infra/dev/docker-compose.yml up kibana -d
+
+  "mandolin:run":
+    dir: connector/mandolin
+    cmds:
+      - mix phx.server
+
+  "mandolin:fmt":
+    dir: connector/mandolin
+    cmds:
+      - mix format "lib/**/*.{ex,exs}"
+
+  "mandolin:proto":
+    dir: connector/mandolin
+    cmds:
+      - protoc -I=../../proto --elixir_out=plugins=grpc:./lib/ lute.proto
