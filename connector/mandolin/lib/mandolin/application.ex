@@ -9,6 +9,7 @@ defmodule Mandolin.Application do
   def start(_type, _args) do
     children = [
       MandolinWeb.Telemetry,
+      Mandolin.Lute.Channel,
       {DNSCluster, query: Application.get_env(:mandolin, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Mandolin.PubSub},
       # Start the Finch HTTP client for sending emails
@@ -19,7 +20,7 @@ defmodule Mandolin.Application do
       MandolinWeb.Endpoint
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
+    # See https://hexdocs.pm/elixir/  Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Mandolin.Supervisor]
     Supervisor.start_link(children, opts)

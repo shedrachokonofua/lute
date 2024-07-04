@@ -7,6 +7,8 @@
 # General application configuration
 import Config
 
+config :mandolin, core_url: System.get_env("CORE_URL")
+
 config :mandolin,
   generators: [timestamp_type: :utc_datetime]
 

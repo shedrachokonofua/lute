@@ -185,6 +185,7 @@ tasks:
 
   "mandolin:run":
     dir: connector/mandolin
+    dotenv: [".env"]
     cmds:
       - mix phx.server
 
