@@ -412,7 +412,7 @@ impl AlbumRepository {
             row.get::<_, String>(3)?,
           ))
         })?;
-        let mut result = HashMap::<i64, Vec<AlbumReadModelCredit>>::new();
+        let mut result = HashMap::<i64, HashMap<FileName, AlbumReadModelCredit>>::new();
         while let Some(Ok(row)) = rows.next() {
           let (album_id, artist_file_name, artist_name, role) = row;
           let album_entry = result.entry(album_id).or_default();
@@ -420,25 +420,31 @@ impl AlbumRepository {
             error!(message = e.to_string(), "Failed to parse artist file name");
             rusqlite::Error::ExecuteReturnedResults
           })?;
-          let credit_entry = album_entry
-            .iter_mut()
-            .find(|credit| credit.artist.file_name == artist_file_name);
+          let credit_entry = album_entry.get_mut(&artist_file_name);
           match credit_entry {
             Some(credit_entry) => {
               credit_entry.roles.push(role);
             }
             None => {
-              album_entry.push(AlbumReadModelCredit {
-                artist: AlbumReadModelArtist {
-                  file_name: artist_file_name,
-                  name: artist_name,
+              album_entry.insert(
+                artist_file_name.clone(),
+                AlbumReadModelCredit {
+                  artist: AlbumReadModelArtist {
+                    file_name: artist_file_name,
+                    name: artist_name,
+                  },
+                  roles: vec![role],
                 },
-                roles: vec![role],
-              });
+              );
             }
           }
         }
-        Ok(result)
+        Ok(
+          result
+            .into_iter()
+            .map(|(k, v)| (k, v.into_values().collect()))
+            .collect(),
+        )
       })
       .await
       .map_err(|e| {
