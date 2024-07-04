@@ -1,0 +1,29 @@
+<.flash_group flash={@flash} />
+<div>
+  <nav class="mt-2 mb-4">
+    <ul class="flex flex-wrap text-sm font-medium text-center text-gray-500 border-b border-gray-200 dark:border-gray-700 dark:text-gray-400">
+      <%= for {tab_key, label} <- @tab_labels do %>
+        <li class="me-2">
+          <.link
+            href={"/#{@file_name}/#{tab_key}"}
+            class={[
+              "inline-block p-3",
+              @tab == tab_key &&
+                "text-brand bg-brand/10 active dark:bg-gray-800 dark:text-blue-500",
+              @tab != tab_key &&
+                "hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+            ]}
+            aria-current={@tab == tab_key && "page"}
+          >
+            <%= label %>
+          </.link>
+        </li>
+      <% end %>
+    </ul>
+  </nav>
+  <%= if @tab == :albums do %>
+    Albums
+  <% else %>
+    Recommendations
+  <% end %>
+</div>

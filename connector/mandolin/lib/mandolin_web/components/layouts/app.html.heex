@@ -1,15 +1,16 @@
 <header class="px-4 sm:px-6 lg:px-8">
-  <div class="flex items-center justify-between border-b border-zinc-100 py-3 text-sm">
+  <div class="flex items-center justify-between border-b border-gray-200 py-3 text-sm">
     <div class="flex items-center gap-4">
-      <p href="/" class="bg-brand/25 text-brand rounded-full px-2 font-medium leading-6">
-        Mandolin
-      </p>
+      <.link
+        href="/"
+        class="bg-brand/15 text-brand rounded-full px-4 py-1 font-medium text-lg leading-6"
+      >
+        mandolin
+      </.link>
     </div>
   </div>
 </header>
-<main class="px-4 py-20 sm:px-6 lg:px-8">
-  <div class="mx-auto max-w-2xl">
-    <.flash_group flash={@flash} />
-    <%= @inner_content %>
-  </div>
+<main class="px-4 sm:px-6 lg:px-8">
+  <.flash_group flash={@flash} />
+  <%= @inner_content %>
 </main>
