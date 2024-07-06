@@ -71,26 +71,29 @@ impl ProfileInteractor {
     self.profile_repository.get(id).await
   }
 
+  pub async fn find_profile(&self, id: &ProfileId) -> Result<Option<Profile>> {
+    self.profile_repository.find(id).await
+  }
+
   pub async fn get_all_profiles(&self) -> Result<Vec<Profile>> {
     self.profile_repository.get_all().await
   }
 
-  pub async fn put_album_on_profile(
+  async fn put_album_on_profile_with_model(
     &self,
     id: &ProfileId,
-    file_name: &FileName,
+    album: AlbumReadModel,
     factor: u32,
   ) -> Result<Profile> {
-    let album = self.album_interactor.get(file_name).await?;
-    let file_name_to_add = album.duplicate_of.unwrap_or(file_name.clone());
+    let file_name = album.duplicate_of.unwrap_or(album.file_name.clone());
     let (profile, new_addition) = self
       .profile_repository
-      .put_album_on_profile(id, &file_name_to_add, factor)
+      .put_album_on_profile(id, &file_name, factor)
       .await
       .map_err(|e| {
         anyhow::anyhow!(
           "Failed to add album {} to profile: {}",
-          file_name_to_add.to_string(),
+          file_name.to_string(),
           e
         )
       })?;
@@ -104,7 +107,7 @@ impl ProfileInteractor {
             .key(format!("{}:{}", id.to_string(), file_name.to_string()))
             .event(Event::ProfileAlbumAdded {
               profile_id: id.clone(),
-              file_name: file_name.clone(),
+              file_name,
               factor,
             })
             .build()?,
@@ -115,23 +118,44 @@ impl ProfileInteractor {
     Ok(profile)
   }
 
+  pub async fn put_album_on_profile(
+    &self,
+    id: &ProfileId,
+    file_name: &FileName,
+    factor: u32,
+  ) -> Result<Profile> {
+    let album = self.album_interactor.get(file_name).await?;
+    self
+      .put_album_on_profile_with_model(id, album, factor)
+      .await
+  }
+
   pub async fn put_many_albums_on_profile(
     &self,
     id: &ProfileId,
     entries: Vec<(FileName, u32)>,
   ) -> Result<Profile> {
+    let mut albums = self
+      .album_interactor
+      .find_many(
+        entries
+          .iter()
+          .map(|(file_name, _)| file_name.clone())
+          .collect(),
+      )
+      .await?;
     for (file_name, factor) in entries {
-      match self.put_album_on_profile(id, &file_name, factor).await {
-        Ok(_) => (),
-        Err(e) => {
-          warn!(
-            profile_id = id.to_string(),
-            file_name = file_name.to_string(),
-            factor = factor,
-            error = e.to_string(),
-            "Failed to add album to profile"
-          );
-        }
+      if let Some(album) = albums.remove(&file_name) {
+        self
+          .put_album_on_profile_with_model(id, album, factor)
+          .await?;
+      } else {
+        warn!(
+          profile_id = id.to_string(),
+          file_name = file_name.to_string(),
+          factor = factor,
+          "Could not find album to add to profile"
+        );
       }
     }
     self.get_profile(id).await

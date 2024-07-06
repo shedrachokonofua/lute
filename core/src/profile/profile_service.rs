@@ -120,15 +120,22 @@ impl proto::ProfileService for ProfileService {
     })?;
     let profile = self
       .profile_interactor
-      .get_profile(&id)
+      .find_profile(&id)
       .await
       .map_err(|err| {
         error!("failed to get profile: {:?}", err);
         Status::internal("failed to get profile")
       })?;
-    let reply = GetProfileReply {
-      profile: Some(profile.into()),
+
+    let reply = match profile {
+      Some(profile) => GetProfileReply {
+        profile: Some(profile.into()),
+      },
+      None => {
+        return Err(Status::not_found("profile not found"));
+      }
     };
+
     Ok(Response::new(reply))
   }
 

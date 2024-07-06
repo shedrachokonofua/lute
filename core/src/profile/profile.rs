@@ -7,7 +7,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 lazy_static! {
-  static ref PROFILE_ID_RE: Regex = Regex::new(r"^[a-zA-Z][a-zA-Z0-9_-]{2,19}$").unwrap();
+  static ref PROFILE_ID_RE: Regex = Regex::new(r"^[a-zA-Z][a-zA-Z0-9_-]{2,80}$").unwrap();
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
