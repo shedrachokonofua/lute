@@ -17,9 +17,9 @@ defmodule MandolinWeb.Router do
   scope "/", MandolinWeb do
     pipe_through :browser
 
-    live "/", HomeLive, :home
-    live "/list/:user/:list_name", ListLive, :list
-    live "/list/:user/:list_name/:tab", ListLive, :list
+    live "/", HomeLive, :index
+    live "/list/:user/:list_name", ListLive, :show
+    live "/list/:user/:list_name/:tab", ListLive, :show
   end
 
   # Other scopes may use custom stacks.
