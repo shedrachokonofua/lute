@@ -54,4 +54,27 @@ defmodule Mandolin.Lute.Client do
       {:ok, profile}
     end
   end
+
+  def recommend_albums(profile_id, filters, settings) do
+    with {:ok, %Lute.RecommendAlbumsReply{recommendations: recommendations}} <-
+           Lute.RecommendationService.Stub.recommend_albums(
+             Channel.channel(),
+             %Lute.RecommendAlbumsRequest{
+               profile_id: profile_id,
+               recommendation_settings: filters,
+               assessment_settings: settings
+             }
+           ) do
+      {:ok, recommendations}
+    end
+  end
+
+  def crawl(file_name) do
+    with {:ok, _} <-
+           Lute.CrawlerService.Stub.enqueue(Channel.channel(), %Lute.EnqueueRequest{
+             file_name: file_name
+           }) do
+      {:ok}
+    end
+  end
 end

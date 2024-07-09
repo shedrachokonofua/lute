@@ -61,7 +61,8 @@ defmodule Mandolin.MixProject do
       # Can be ignored if you don't use Google's protos.
       # Or you can generate the code by yourself.
       {:google_protos, "~> 0.1"},
-      {:grpc, "~> 0.8"}
+      {:grpc, "~> 0.8"},
+      {:drops, "~> 0.1.0"}
     ]
   end
 
