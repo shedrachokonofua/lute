@@ -9,7 +9,7 @@ use rustis::{
   commands::{GenericCommands, JsonCommands, JsonGetOptions, SetCondition},
 };
 use std::sync::Arc;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 pub struct ProfileRepository {
   pub redis_connection_pool: Arc<Pool<PooledClientManager>>,
@@ -118,6 +118,7 @@ impl ProfileRepository {
     Ok(json.is_some() && json.unwrap() != "[]")
   }
 
+  #[instrument(skip(self), name = "ProfileRepository::put_album_on_profile")]
   pub async fn put_album_on_profile(
     &self,
     id: &ProfileId,

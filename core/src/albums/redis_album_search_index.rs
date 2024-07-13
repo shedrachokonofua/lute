@@ -543,6 +543,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
           FtSearchReturnAttribute::identifier("$.duplicate_of"),
           FtSearchReturnAttribute::identifier("$.duplicates"),
           FtSearchReturnAttribute::identifier("$.cover_image_url"),
+          FtSearchReturnAttribute::identifier("$.spotify_id"),
         ]),
       )
       .await?;
@@ -605,6 +606,12 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
             match value.as_str() {
               "" => album_builder.cover_image_url(None),
               _ => album_builder.cover_image_url(Some(value)),
+            };
+          }
+          "$.spotify_id" => {
+            match value.as_str() {
+              "" => album_builder.spotify_id(None),
+              _ => album_builder.spotify_id(Some(value)),
             };
           }
           _ => {}

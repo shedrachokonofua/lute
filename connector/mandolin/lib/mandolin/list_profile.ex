@@ -62,22 +62,18 @@ defmodule Mandolin.ListProfile do
   end
 
   defp populate_profile(profile, lookup) do
-    populated =
+    missing_albums =
       lookup.segments
       |> Enum.flat_map(& &1.album_file_names)
       |> MapSet.new()
-      |> Enum.all?(&Map.has_key?(profile.albums, &1))
+      |> Enum.reject(&Map.has_key?(profile.albums, &1))
 
-    if populated do
+    fully_populated = Enum.empty?(missing_albums)
+
+    if fully_populated do
       {:ok, profile}
     else
-      input =
-        Enum.flat_map(lookup.segments, fn segment ->
-          Enum.map(segment.album_file_names, fn file_name ->
-            %{file_name: file_name, factor: 1}
-          end)
-        end)
-
+      input = Enum.map(missing_albums, fn file_name -> %{file_name: file_name, factor: 1} end)
       Logger.info("Populating profile #{profile.id} with #{length(input)} albums")
       Mandolin.Lute.Client.put_many_albums_on_profile(profile.id, input)
     end

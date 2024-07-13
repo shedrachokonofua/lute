@@ -1,18 +1,10 @@
 # Mandolin
 
-To start your Phoenix server:
+Mandolin is a tiny web-app for getting album recommendations on rateyourmusic lists.
 
-  * Run `mix setup` to install and setup dependencies
-  * Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+## How it works:
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
-
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
-
-## Learn more
-
-  * Official website: https://www.phoenixframework.org/
-  * Guides: https://hexdocs.pm/phoenix/overview.html
-  * Docs: https://hexdocs.pm/phoenix
-  * Forum: https://elixirforum.com/c/phoenix-forum
-  * Source: https://github.com/phoenixframework/phoenix
+1. User enters a list URL
+2. Mandolin starts a list lookup on lute
+3. When lute completes the lookup, Mandolin creates a Lute profile and populates it with the list data
+4. Mandolin serves a recommendation page based on the list profile

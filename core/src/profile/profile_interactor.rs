@@ -130,6 +130,7 @@ impl ProfileInteractor {
       .await
   }
 
+  #[instrument(skip(self), name = "ProfileInteractor::put_many_albums_on_profile")]
   pub async fn put_many_albums_on_profile(
     &self,
     id: &ProfileId,

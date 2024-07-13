@@ -11,8 +11,33 @@
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
+    <script src="https://open.spotify.com/embed/iframe-api/v1" async>
+    </script>
   </head>
   <body class="bg-white">
     <%= @inner_content %>
+
+    <script>
+      const loadPlayers = (IFrameAPI) => {
+        const targets = document.querySelectorAll(".spotify-player");
+        console.log(targets);
+        for (const target of targets) {
+          if (!target.dataset.spotifyid) {
+            continue;
+          }
+          console.log(target.dataset.spotifyid);
+          const options = {
+            width: '100%',
+            height: '80',
+            uri: `spotify:album:${target.dataset.spotifyid}`,
+          };
+          IFrameAPI.createController(target, options, () => {});
+        }
+      };
+
+      window.onSpotifyIframeApiReady = (IFrameAPI) => {
+        setTimeout(() => loadPlayers(IFrameAPI), 3000);
+      };
+    </script>
   </body>
 </html>

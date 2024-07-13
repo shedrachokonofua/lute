@@ -598,17 +598,13 @@ defmodule MandolinWeb.CoreComponents do
     """
   end
 
-  attr :size, :integer, default: 12
-
   def spinner(assigns) do
     ~H"""
     <div role="status">
       <svg
         aria-hidden="true"
         class={[
-          "w-" <> to_string(@size),
-          "h-" <> to_string(@size),
-          "text-gray-200 animate-spin dark:text-gray-600 fill-brand"
+          "w-12 h-12 text-gray-200 animate-spin dark:text-gray-600 fill-brand"
         ]}
         viewBox="0 0 100 101"
         fill="none"

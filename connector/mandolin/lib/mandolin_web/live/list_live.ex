@@ -20,7 +20,7 @@ defmodule MandolinWeb.ListLive do
       <:failed :let={{:error, error}}>
         <div>
           <%= case error do %>
-            <% [status: status, progress: progress] when status in [:Started, :InProgress] -> %>
+            <% [lookup_status: status, progress: progress] when status in [:Started, :InProgress] -> %>
               <.in_progress_message progress={progress} />
             <% _ -> %>
               <.failure_message error={error} />
@@ -108,10 +108,10 @@ defmodule MandolinWeb.ListLive do
   defp recommendations_tab(assigns) do
     ~H"""
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-8">
-      <div>
-        <article class="rounded-xl bg-gradient-to-r from-green-300 via-blue-500 to-purple-600 p-0.5 shadow-lg">
+      <div class="border-right border-gray-200 border-2">
+        <article class="rounded-xl p-0.5">
           <.form for={%{}} phx-submit="update_recommendations">
-            <div class="rounded-[10px] bg-white p-4 flex flex-col gap-4">
+            <div class="p-4 flex flex-col gap-4">
               <div class="flex items-center gap-2">
                 <.icon name="hero-cog-6-tooth" />
                 <h2 class="mt-0.5 font-semibold text-brand">
@@ -216,29 +216,42 @@ defmodule MandolinWeb.ListLive do
         <.async_result :let={data} assign={@recommendation_data}>
           <:loading>
             <div class="flex flex-col gap-4">
-              <div :for={x <- 1..5} class="bg-brand/25 animate-pulse" style="height: 75px"></div>
+              <div :for={_ <- 1..5} class="bg-brand/25 animate-pulse" style="height: 75px"></div>
             </div>
           </:loading>
           <:failed>
             <div>Failed to load recommendations</div>
           </:failed>
-          <div class="flex flex-col gap-4">
-            <div>
+          <div class="flex flex-col divide-y divide-slate-200 shadow-xs rounded-lg shadow-brand">
+            <div class="p-2">
               <h2 class="font-semibold text-brand">
                 Recommendations
               </h2>
             </div>
-            <div :for={r <- data} class="flex gap-4">
+            <div :for={r <- data} class="flex gap-4 p-4">
               <img
                 src={r.album.cover_image_url}
                 alt={r.album.name}
                 width="75"
-                style="min-height: 75px"
+                style="height: 75px"
                 id={"cover-" <> r.album.file_name}
                 phx-hook="AlbumCover"
                 data-filename={r.album.file_name}
               />
-              <%= r.album.name %>
+              <div>
+                <div class="font-medium text-brand">
+                  <%= r.album.name %> (<%= r.album.release_date %>)
+                </div>
+                <div class="text-sm">
+                  <%= Enum.map(r.album.artists, & &1.name) |> Enum.join(", ") %>
+                </div>
+                <div class="text-sm"><%= r.album.primary_genres |> Enum.join(", ") %></div>
+                <div>
+                  <div class="w-3xl pt-4">
+                    <div data-spotifyid={r.album.spotify_id} class="spotify-player"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </.async_result>
@@ -286,19 +299,23 @@ defmodule MandolinWeb.ListLive do
       end
 
     socket =
-      case tab do
-        :recommendations ->
-          recommendation_settings = Recommendation.Settings.build(params)
+      if connected?(socket) do
+        case tab do
+          :recommendations ->
+            recommendation_settings = Recommendation.Settings.build(params)
 
-          socket
-          |> assign(:recommendation_settings, recommendation_settings)
-          |> assign_async(:recommendation_data, fn ->
-            fetch_recommendations(file_name, recommendation_settings)
-          end)
+            socket
+            |> assign(:recommendation_settings, recommendation_settings)
+            |> assign_async(:recommendation_data, fn ->
+              fetch_recommendations(file_name, recommendation_settings)
+            end)
 
-        _ ->
-          socket
-          |> assign(:recommendation_data, AsyncResult.loading())
+          _ ->
+            socket
+            |> assign(:recommendation_data, AsyncResult.loading())
+        end
+      else
+        socket
       end
 
     {:noreply,
