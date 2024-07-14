@@ -16,3 +16,9 @@
 
 # Elixir
 /**/*.pb.ex
+
+# Python
+/**/__pycache__
+/**/proto/__init__.py
+/**/*_pb2_grpc.py
+/**/*_pb2.py*

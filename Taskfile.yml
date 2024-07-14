@@ -198,3 +198,23 @@ tasks:
     dir: connector/mandolin
     cmds:
       - protoc -I=../../proto --elixir_out=plugins=grpc:./lib/ lute.proto
+
+  "neo4j:up":
+    cmds:
+      - docker-compose -f ./infra/dev/docker-compose.yml up neo4j -d
+
+  "graph:run":
+    dir: connector/graph
+    cmds:
+      - poetry install
+      - poetry run graph
+
+  "graph:fmt":
+    dir: connector/graph
+    cmds:
+      - poetry run black .
+
+  "graph:proto":
+    dir: connector/graph
+    cmds:
+      - poetry run python -m grpc_tools.protoc -Igraph/proto=../../proto --python_out=. --pyi_out=. --grpc_python_out=. ../../proto/lute.proto
