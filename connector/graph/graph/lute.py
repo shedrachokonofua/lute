@@ -1,8 +1,8 @@
+import asyncio
 from grpc import aio
 import graph.proto.lute_pb2 as lute_pb2
 import graph.proto.lute_pb2_grpc as lute_pb2_grpc
-from google.protobuf import empty_pb2
-from typing import Optional
+from typing import AsyncIterator, Optional
 from graph.settings import LUTE_EVENT_SUBSCRIBER_PREFIX, LUTE_URL
 
 
@@ -22,19 +22,25 @@ class LuteClient:
         if self.channel:
             await self.channel.close()
 
-    async def get_album(self, file_name):
-        if self.album_service is None:
-            raise ValueError("Client not initialized")
-
-        reply = await self.album_service.GetAlbum(
-            lute_pb2.GetAlbumRequest(file_name=file_name)
-        )
-        return reply.album
-
-    async def stream_events(self, stream_id, subscriber_id):
+    async def stream_events(
+        self, stream_id, subscriber_id, max_batch_size=250
+    ) -> AsyncIterator[list[lute_pb2.EventStreamItem]]:
         if self.event_service is None:
             raise ValueError("Client not initialized")
 
         subscriber_id = f"{LUTE_EVENT_SUBSCRIBER_PREFIX}:{subscriber_id}"
+        cursor = None
 
-        # Help me complete
+        async def request_generator():
+            while True:
+                yield lute_pb2.EventStreamRequest(
+                    stream_id=stream_id,
+                    subscriber_id=subscriber_id,
+                    cursor=cursor,
+                    max_batch_size=max_batch_size,
+                )
+                await asyncio.sleep(0.25)
+
+        async for reply in self.event_service.Stream(request_generator()):
+            cursor = reply.cursor
+            yield reply.items

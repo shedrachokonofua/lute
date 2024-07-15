@@ -13,7 +13,7 @@
   - Quantile Ranking: A custom content-based filtering algorithm that uses weighted percentile ranking of feature frequencies across multiple categories (genres, descriptors, etc.) in a collection to efficiently rank albums for recommendations.
   - Vector Similarity: KNN-based recommendations using embeddings, with support for various providers (OpenAI, VoyageAI, Ollama).
 - **Connectors**:
-  - Data Export: Export to Postgres and Bolt-compatible graph databases (Neo4j, Memgraph).
+  - Data Export: Export to Postgres and Neo4j.
   - Discord Bot: AI chatbot for music recommendations.
   - Mandolin: [WIP] Lightweight app for recommendations based on RateYourMusic lists.
 - **Proxy Support**: Bring your own crawler proxy for uninterrupted scraping.
