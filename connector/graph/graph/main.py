@@ -90,67 +90,159 @@ def update_graph(gds: GraphDataScience, albums: list[tuple[str, lute_pb2.ParsedA
             + len(album.languages)
         )
 
-    cypher = ""
-
-    for genre in genres:
-        name = cypher_var_name("genre", genre)
-        cypher += f"""
-        MERGE ({name}:Genre {{name: "{cypher_text(genre)}"}})
+    gds.run_cypher(
         """
+        UNWIND $artists AS artist
+        MERGE (a:Artist {file_name: artist.file_name})
+        ON CREATE SET a.name = artist.name           
+        """,
+        {
+            "artists": [
+                {"file_name": file_name, "name": name}
+                for file_name, name in artists.items()
+            ]
+        },
+    )
 
-    for descriptor in descriptors:
-        name = cypher_var_name("descriptor", descriptor)
-        cypher += f"""
-        MERGE ({name}:Descriptor {{name: "{descriptor}"}})
+    gds.run_cypher(
         """
+        UNWIND $genres AS genre
+        MERGE (g:Genre {name: genre})
+        """,
+        {"genres": list(genres)},
+    )
 
-    for lang in language:
-        name = cypher_var_name("lang", lang)
-        cypher += f"""
-        MERGE ({name}:Language {{name: "{lang}"}})
+    gds.run_cypher(
         """
+        UNWIND $descriptors AS descriptor
+        MERGE (d:Descriptor {name: descriptor})
+        """,
+        {"descriptors": list(descriptors)},
+    )
 
-    for file_name, name in artists.items():
-        c_name = cypher_var_name("artist", file_name)
-        cypher += f"""
-        MERGE ({c_name}:Artist {{file_name: "{file_name}"}})
-        ON CREATE SET {c_name}.name = "{cypher_text(name)}"
+    gds.run_cypher(
         """
+        UNWIND $languages AS lang
+        MERGE (l:Language {name: lang})
+        """,
+        {"languages": list(language)},
+    )
 
-    for file_name, album in albums:
-        name = cypher_var_name("album", file_name)
-        cypher += f"""
-        MERGE ({name}:Album {{file_name: "{file_name}"}})
-        ON CREATE SET {name}.name = "{cypher_text(album.name)}"
+    gds.run_cypher(
         """
+        UNWIND $albums AS album
+        MERGE (a:Album {file_name: album.file_name})
+        ON CREATE SET a.name = album.name
+        """,
+        {
+            "albums": [
+                {"file_name": file_name, "name": album.name}
+                for file_name, album in albums
+            ]
+        },
+    )
 
-        for artist in album.artists:
-            artist_name = cypher_var_name("artist", artist.file_name)
-            cypher += f"MERGE ({artist_name})-[:ALBUM_ARTIST]->({name})"
+    gds.run_cypher(
+        """
+        UNWIND $album_artists AS album_artist
+        MATCH (album:Album {file_name: album_artist.album_file_name})
+        MATCH (artist:Artist {file_name: album_artist.artist_file_name})
+        MERGE (artist)-[:ALBUM_ARTIST]->(album)
+        """,
+        {
+            "album_artists": [
+                {"album_file_name": file_name, "artist_file_name": artist.file_name}
+                for file_name, album in albums
+                for artist in album.artists
+            ]
+        },
+    )
 
-        for credit in album.credits:
-            artist_name = cypher_var_name("artist", credit.artist.file_name)
-            for role in credit.roles:
-                role_name = cypher_var_name("role", role)
-                cypher += f"MERGE ({artist_name})-[:CREDITED {{role: '{role_name}'}}]->({name})"
+    gds.run_cypher(
+        """
+        UNWIND $album_credits AS album_credit
+        MATCH (album:Album {file_name: album_credit.album_file_name})
+        MATCH (artist:Artist {file_name: album_credit.artist_file_name})
+        MERGE (artist)-[:CREDITED {role: album_credit.role}]->(album)
+        """,
+        {
+            "album_credits": [
+                {
+                    "album_file_name": file_name,
+                    "artist_file_name": credit.artist.file_name,
+                    "role": role,
+                }
+                for file_name, album in albums
+                for credit in album.credits
+                for role in credit.roles
+            ]
+        },
+    )
 
-        for genre in album.primary_genres:
-            genre_name = cypher_var_name("genre", genre)
-            cypher += f"MERGE ({name})-[:GENRE {{weight: 2}}]->({genre_name})"
+    gds.run_cypher(
+        """
+        UNWIND $album_genres AS album_genre
+        MATCH (album:Album {file_name: album_genre.album_file_name})
+        MATCH (genre:Genre {name: album_genre.genre})
+        MERGE (album)-[:GENRE {weight: 2}]->(genre)
+        """,
+        {
+            "album_genres": [
+                {"album_file_name": file_name, "genre": genre}
+                for file_name, album in albums
+                for genre in album.primary_genres
+            ]
+        },
+    )
 
-        for genre in album.secondary_genres:
-            genre_name = cypher_var_name("genre", genre)
-            cypher += f"MERGE ({name})-[:GENRE {{weight: 1}}]->({genre_name})"
+    gds.run_cypher(
+        """
+        UNWIND $album_genres AS album_genre
+        MATCH (album:Album {file_name: album_genre.album_file_name})
+        MATCH (genre:Genre {name: album_genre.genre})
+        MERGE (album)-[:GENRE {weight: 1}]->(genre)
+        """,
+        {
+            "album_genres": [
+                {"album_file_name": file_name, "genre": genre}
+                for file_name, album in albums
+                for genre in album.secondary_genres
+            ]
+        },
+    )
 
-        for descriptor in album.descriptors:
-            descriptor_name = cypher_var_name("descriptor", descriptor)
-            cypher += f"MERGE ({name})-[:DESCRIPTOR]->({descriptor_name})"
+    gds.run_cypher(
+        """
+        UNWIND $album_descriptors AS album_descriptor
+        MATCH (album:Album {file_name: album_descriptor.album_file_name})
+        MATCH (descriptor:Descriptor {name: album_descriptor.descriptor})
+        MERGE (album)-[:DESCRIPTOR]->(descriptor)
+        """,
+        {
+            "album_descriptors": [
+                {"album_file_name": file_name, "descriptor": descriptor}
+                for file_name, album in albums
+                for descriptor in album.descriptors
+            ]
+        },
+    )
 
-        for lang in album.languages:
-            lang_name = cypher_var_name("lang", lang)
-            cypher += f"MERGE ({name})-[:LANGUAGE]->({lang_name})"
+    gds.run_cypher(
+        """
+        UNWIND $album_languages AS album_language
+        MATCH (album:Album {file_name: album_language.album_file_name})
+        MATCH (lang:Language {name: album_language.lang})
+        MERGE (album)-[:LANGUAGE]->(lang)
+        """,
+        {
+            "album_languages": [
+                {"album_file_name": file_name, "lang": lang}
+                for file_name, album in albums
+                for lang in album.languages
+            ]
+        },
+    )
 
-    gds.run_cypher(cypher)
     node_count = (
         len(artists) + len(genres) + len(descriptors) + len(language) + len(albums)
     )
@@ -169,7 +261,7 @@ async def run():
     gds = GraphDataScience(NEO4J_URL)
     setup_indexes(gds)
     async with LuteClient() as client:
-        async for items in client.stream_events("parser", "build", 10):
+        async for items in client.stream_events("parser", "build", 500):
             logger.info("Received events", extra={"event_count": len(items)})
             parsed_albums = [
                 (

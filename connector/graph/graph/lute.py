@@ -5,6 +5,8 @@ import graph.proto.lute_pb2_grpc as lute_pb2_grpc
 from typing import AsyncIterator, Optional
 from graph.settings import LUTE_EVENT_SUBSCRIBER_PREFIX, LUTE_URL
 
+MAX_MESSAGE_LENGTH = 50 * 1024 * 1024
+
 
 class LuteClient:
     def __init__(self):
@@ -13,7 +15,13 @@ class LuteClient:
         self.event_service: Optional[lute_pb2_grpc.EventServiceStub] = None
 
     async def __aenter__(self):
-        self.channel = aio.insecure_channel(LUTE_URL)
+        self.channel = aio.insecure_channel(
+            LUTE_URL,
+            options=[
+                ("grpc.max_send_message_length", MAX_MESSAGE_LENGTH),
+                ("grpc.max_receive_message_length", MAX_MESSAGE_LENGTH),
+            ],
+        )
         self.album_service = lute_pb2_grpc.AlbumServiceStub(self.channel)
         self.event_service = lute_pb2_grpc.EventServiceStub(self.channel)
         return self
