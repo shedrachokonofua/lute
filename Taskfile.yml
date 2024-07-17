@@ -212,7 +212,12 @@ tasks:
   "graph:fmt":
     dir: connector/graph
     cmds:
-      - poetry run black .
+      - poetry run ruff format
+
+  "graph:lint":
+    dir: connector/graph
+    cmds:
+      - poetry run ruff check --fix
 
   "graph:proto":
     dir: connector/graph

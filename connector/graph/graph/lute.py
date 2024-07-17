@@ -1,8 +1,10 @@
 import asyncio
+from typing import AsyncIterator, Optional
+
 from grpc import aio
+
 import graph.proto.lute_pb2 as lute_pb2
 import graph.proto.lute_pb2_grpc as lute_pb2_grpc
-from typing import AsyncIterator, Optional
 from graph.settings import LUTE_EVENT_SUBSCRIBER_PREFIX, LUTE_URL
 
 MAX_MESSAGE_LENGTH = 50 * 1024 * 1024

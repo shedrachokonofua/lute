@@ -1,14 +1,16 @@
-from time import time
-from graph.lute import LuteClient
 import asyncio
-from graph.proto import lute_pb2
-from graphdatascience import GraphDataScience
-from graph.settings import NEO4J_URL
-import re
-from unidecode import unidecode
 import logging
+import re
 import sys
+from time import time
+
+from graphdatascience import GraphDataScience
 from pythonjsonlogger import jsonlogger
+from unidecode import unidecode
+
+from graph.lute import LuteClient
+from graph.proto import lute_pb2
+from graph.settings import NEO4J_URL
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -31,11 +33,26 @@ def is_album_parsed_event(item: lute_pb2.EventStreamItem) -> bool:
 
 def setup_indexes(gds: GraphDataScience):
     statements = [
-        "CREATE CONSTRAINT album_file_name IF NOT EXISTS FOR (a:Album) REQUIRE a.file_name IS UNIQUE",
-        "CREATE CONSTRAINT artist_file_name IF NOT EXISTS FOR (a:Artist) REQUIRE a.file_name IS UNIQUE",
-        "CREATE CONSTRAINT genre_name IF NOT EXISTS FOR (g:Genre) REQUIRE g.name IS UNIQUE",
-        "CREATE CONSTRAINT descriptor_name IF NOT EXISTS FOR (d:Descriptor) REQUIRE d.name IS UNIQUE",
-        "CREATE CONSTRAINT language_name IF NOT EXISTS FOR (l:Language) REQUIRE l.name IS UNIQUE",
+        """
+        CREATE CONSTRAINT album_file_name IF NOT EXISTS FOR (a:Album)
+        REQUIRE a.file_name IS UNIQUE
+        """,
+        """
+        CREATE CONSTRAINT artist_file_name IF NOT EXISTS FOR (a:Artist)
+        REQUIRE a.file_name IS UNIQUE
+        """,
+        """
+        CREATE CONSTRAINT genre_name IF NOT EXISTS FOR (g:Genre)
+        REQUIRE g.name IS UNIQUE
+        """,
+        """
+        CREATE CONSTRAINT descriptor_name IF NOT EXISTS FOR (d:Descriptor)
+        REQUIRE d.name IS UNIQUE
+        """,
+        """
+        CREATE CONSTRAINT language_name IF NOT EXISTS FOR (l:Language)
+        REQUIRE l.name IS UNIQUE
+        """,
         "CREATE INDEX album_name IF NOT EXISTS FOR (a:Album) ON (a.name)",
         "CREATE INDEX artist_name IF NOT EXISTS FOR (a:Artist) ON (a.name)",
         "CREATE INDEX credited_role IF NOT EXISTS FOR ()-[r:CREDITED]-() ON (r.role)",
