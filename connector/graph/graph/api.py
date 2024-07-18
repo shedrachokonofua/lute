@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import json_logging
 import uvicorn
 from fastapi import FastAPI
 
@@ -19,6 +20,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+json_logging.init_fastapi(enable_json=True)
+json_logging.init_request_instrument(app)
 
 
 @app.get("/")
@@ -32,7 +35,11 @@ async def root():
 
 async def run():
     config = uvicorn.Config(
-        app, host="0.0.0.0", port=API_PORT, log_level="info", reload=True
+        app,
+        host="0.0.0.0",
+        port=API_PORT,
+        reload=True,
+        log_config=None,
     )
     server = uvicorn.Server(config)
     await server.serve()

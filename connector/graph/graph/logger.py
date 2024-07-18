@@ -1,12 +1,9 @@
 import logging
 import sys
 
-from pythonjsonlogger import jsonlogger
+import json_logging
 
 logger = logging.getLogger()
+json_logging.config_root_logger()
 logger.setLevel(logging.INFO)
-
-logHandler = logging.StreamHandler(sys.stdout)
-formatter = jsonlogger.JsonFormatter()
-logHandler.setFormatter(formatter)
-logger.addHandler(logHandler)
+logger.addHandler(logging.StreamHandler(sys.stdout))

@@ -982,6 +982,17 @@ MarkupSafe = ">=2.0"
 i18n = ["Babel (>=2.7)"]
 
 [[package]]
+name = "json-logging"
+version = "1.3.0"
+description = "JSON Python Logging"
+optional = false
+python-versions = "*"
+files = [
+    {file = "json-logging-1.3.0.tar.gz", hash = "sha256:60a02a1daa168a08aa0a41eeeda63e92500ab08170491bdd326cf00d17f656f8"},
+    {file = "json_logging-1.3.0-py2.py3-none-any.whl", hash = "sha256:5def627a18b9e61690d58016ee5312681b407e3106c80a4be7c787abb8a21355"},
+]
+
+[[package]]
 name = "json5"
 version = "0.9.25"
 description = "A Python implementation of the JSON5 data format."
@@ -3100,4 +3111,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "df7f63aa13ab0e2fc41b48829d8d926601967ea894af777ea344429f6c3158db"
+content-hash = "01d4445b17e256225d085460fa4f8579e8d3b20755760f7801a7655dbb64a8a2"
