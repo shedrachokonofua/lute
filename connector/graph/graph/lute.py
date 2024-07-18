@@ -1,6 +1,7 @@
 import asyncio
 from typing import AsyncIterator, Optional
 
+from google.protobuf import empty_pb2
 from grpc import aio
 
 import graph.proto.lute_pb2 as lute_pb2
@@ -32,6 +33,26 @@ class LuteClient:
         if self.channel:
             await self.channel.close()
 
+    async def get_event_monitor(self) -> lute_pb2.EventsMonitor:
+        if self.event_service is None:
+            raise ValueError("Client not initialized")
+
+        response = await self.event_service.GetMonitor(empty_pb2.Empty())
+        return response.monitor
+
+    async def get_subscriber_cursor(self, subscriber_id) -> Optional[str]:
+        if self.event_service is None:
+            raise ValueError("Client not initialized")
+
+        subscriber_id = f"{LUTE_EVENT_SUBSCRIBER_PREFIX}:{subscriber_id}"
+        monitor = await self.get_event_monitor()
+
+        for subscriber in monitor.subscribers:
+            if subscriber.id == subscriber_id:
+                return subscriber.cursor
+
+        return None
+
     async def stream_events(
         self, stream_id, subscriber_id, max_batch_size=250
     ) -> AsyncIterator[list[lute_pb2.EventStreamItem]]:
@@ -39,10 +60,18 @@ class LuteClient:
             raise ValueError("Client not initialized")
 
         subscriber_id = f"{LUTE_EVENT_SUBSCRIBER_PREFIX}:{subscriber_id}"
-        cursor = None
+
+        queue = asyncio.Queue()
 
         async def request_generator():
+            yield lute_pb2.EventStreamRequest(
+                stream_id=stream_id,
+                subscriber_id=subscriber_id,
+                max_batch_size=max_batch_size,
+            )
+
             while True:
+                cursor = await queue.get()
                 yield lute_pb2.EventStreamRequest(
                     stream_id=stream_id,
                     subscriber_id=subscriber_id,
@@ -52,5 +81,5 @@ class LuteClient:
                 await asyncio.sleep(0.25)
 
         async for reply in self.event_service.Stream(request_generator()):
-            cursor = reply.cursor
             yield reply.items
+            await queue.put(reply.cursor)
