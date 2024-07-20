@@ -486,7 +486,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
       .await?;
     if !current_embedddings.is_empty() {
       for embedding in current_embedddings {
-        self.put_embedding(&embedding).await?;
+        self.put_embedding(embedding).await?;
       }
     }
     Ok(())
@@ -627,7 +627,7 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
   }
 
   #[instrument(skip_all)]
-  async fn put_embedding(&self, embedding: &EmbeddingDocument) -> Result<()> {
+  async fn put_embedding(&self, embedding: EmbeddingDocument) -> Result<()> {
     self.ensure_album_root(&embedding.file_name).await?;
     self
       .redis_connection_pool

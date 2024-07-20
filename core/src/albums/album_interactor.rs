@@ -14,6 +14,7 @@ use crate::{
   helpers::{embedding::EmbeddingDocument, redisearch::SearchPagination},
 };
 use anyhow::Result;
+use futures::{stream, StreamExt, TryStreamExt};
 use iter_tools::Itertools;
 use std::{
   collections::{HashMap, HashSet},
@@ -299,15 +300,17 @@ impl AlbumInteractor {
       .await
   }
 
-  pub async fn put_embedding(&self, embedding: &EmbeddingDocument) -> Result<()> {
+  pub async fn put_embedding(&self, embedding: EmbeddingDocument) -> Result<()> {
     self.album_search_index.put_embedding(embedding).await
   }
 
   pub async fn put_many_embeddings(&self, embeddings: Vec<EmbeddingDocument>) -> Result<()> {
-    for embedding in embeddings {
-      self.album_search_index.put_embedding(&embedding).await?;
-    }
-    Ok(())
+    stream::iter(embeddings)
+      .map(Ok)
+      .try_for_each_concurrent(250, |embedding| async {
+        self.album_search_index.put_embedding(embedding).await
+      })
+      .await
   }
 
   pub async fn related_artist_file_names(

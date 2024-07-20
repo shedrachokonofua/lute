@@ -67,7 +67,7 @@ pub trait AlbumSearchIndex {
     file_name: &FileName,
     key: &str,
   ) -> Result<Option<EmbeddingDocument>>;
-  async fn put_embedding(&self, embedding: &EmbeddingDocument) -> Result<()>;
+  async fn put_embedding(&self, embedding: EmbeddingDocument) -> Result<()>;
   async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()>;
   async fn embedding_similarity_search(
     &self,

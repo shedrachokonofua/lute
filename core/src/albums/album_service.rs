@@ -7,12 +7,13 @@ use crate::{
   context::ApplicationContext,
   embedding_provider::embedding_provider_interactor::EmbeddingProviderInteractor,
   files::file_metadata::file_name::FileName,
+  helpers::embedding::EmbeddingDocument,
   proto,
   spotify::spotify_client::{SpotifyAlbum, SpotifyAlbumType, SpotifyClient},
 };
 use anyhow::{Error, Result};
 use std::sync::Arc;
-use tonic::{async_trait, Request, Response, Status};
+use tonic::{async_trait, Request, Response, Status, Streaming};
 
 impl From<GenreAggregate> for proto::GenreAggregate {
   fn from(val: GenreAggregate) -> Self {
@@ -286,5 +287,37 @@ impl proto::AlbumService for AlbumService {
       album: spotify_album.map(|a| a.try_into().unwrap()),
     };
     Ok(Response::new(reply))
+  }
+
+  async fn bulk_upload_album_embeddings(
+    &self,
+    request: Request<Streaming<proto::BulkUploadAlbumEmbeddingsRequest>>,
+  ) -> Result<Response<proto::BulkUploadAlbumEmbeddingsReply>, Status> {
+    let mut input_stream = request.into_inner();
+    let mut count: u32 = 0;
+    while let Some(upload_request) = input_stream.message().await? {
+      count += upload_request.items.len() as u32;
+      self
+        .album_interactor
+        .put_many_embeddings(
+          upload_request
+            .items
+            .into_iter()
+            .filter_map(|item| {
+              let file_name = FileName::try_from(item.file_name).ok()?;
+              Some(EmbeddingDocument {
+                file_name,
+                key: item.embedding_key,
+                embedding: item.embedding,
+              })
+            })
+            .collect(),
+        )
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?;
+    }
+    Ok(Response::new(proto::BulkUploadAlbumEmbeddingsReply {
+      count,
+    }))
   }
 }
