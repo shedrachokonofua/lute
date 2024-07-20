@@ -3,10 +3,14 @@ from time import time
 from graphdatascience import GraphDataScience
 
 from graph.logger import logger
+from graph.models import AlbumRelationWeights, EmbeddingDocument
 from graph.proto import lute_pb2
+from graph.settings import NEO4J_URL
+
+gds = GraphDataScience(NEO4J_URL)
 
 
-def setup_indexes(gds: GraphDataScience):
+def setup_indexes():
     statements = [
         """
         CREATE CONSTRAINT album_file_name IF NOT EXISTS FOR (a:Album)
@@ -38,14 +42,16 @@ def setup_indexes(gds: GraphDataScience):
         gds.run_cypher(statement)
 
 
-def update_graph(gds: GraphDataScience, albums: list[tuple[str, lute_pb2.ParsedAlbum]]):
+def update_graph(albums: list[tuple[str, lute_pb2.ParsedAlbum]]):
     start = time()
     relationship_count = 0
 
     logger.info(
         "Building graph update",
         extra={
-            "album_count": len(albums),
+            "props": {
+                "album_count": len(albums),
+            }
         },
     )
     artists = {}
@@ -171,7 +177,7 @@ def update_graph(gds: GraphDataScience, albums: list[tuple[str, lute_pb2.ParsedA
         UNWIND $album_genres AS album_genre
         MATCH (album:Album {file_name: album_genre.album_file_name})
         MATCH (genre:Genre {name: album_genre.genre})
-        MERGE (album)-[:GENRE {weight: 2}]->(genre)
+        MERGE (album)-[:GENRE {weight: 3}]->(genre)
         """,
         {
             "album_genres": [
@@ -236,9 +242,98 @@ def update_graph(gds: GraphDataScience, albums: list[tuple[str, lute_pb2.ParsedA
     logger.info(
         "Graph updated",
         extra={
-            "album_count": len(albums),
-            "duration": time() - start,
-            "node_count": node_count,
-            "relationship_count": relationship_count,
+            "props": {
+                "album_count": len(albums),
+                "duration": time() - start,
+                "node_count": node_count,
+                "relationship_count": relationship_count,
+            }
         },
     )
+
+
+def generate_album_embeddings(
+    embedding_key: str,
+    weights: AlbumRelationWeights,
+) -> list[EmbeddingDocument]:
+    node_projection = ["Album", "Genre", "Artist", "Descriptor", "Language"]
+    relationship_projection = {
+        "GENRE": {"orientation": "UNDIRECTED", "properties": "weight"},
+        "DESCRIPTOR": {
+            "orientation": "UNDIRECTED",
+            "properties": {"weight": {"defaultValue": weights.descriptor}},
+        },
+        "LANGUAGE": {
+            "orientation": "UNDIRECTED",
+            "properties": {"weight": {"defaultValue": weights.language}},
+        },
+        "ALBUM_ARTIST": {
+            "orientation": "UNDIRECTED",
+            "properties": {"weight": {"defaultValue": weights.album_artist}},
+        },
+        "CREDITED": {
+            "orientation": "UNDIRECTED",
+            "properties": {"weight": {"defaultValue": weights.credited}},
+        },
+    }
+    projection_id = f"p_{int(time())}"
+    projection, output = gds.graph.project(
+        projection_id, node_projection, relationship_projection
+    )
+
+    logger.info(
+        "Created graph projection, generating embeddings",
+        extra={
+            "props": {
+                "projection_id": projection_id,
+                "node_count": int(projection.node_count()),
+                "relationship_count": int(projection.relationship_count()),
+                "duration_ms": int(output["projectMillis"]),
+            }
+        },
+    )
+
+    start = time()
+    result = gds.run_cypher(
+        """
+        CALL gds.fastRP.stream($projection_id, {
+            embeddingDimension: 512,
+            randomSeed: 42,
+            relationshipWeightProperty: 'weight'
+        })
+        YIELD nodeId, embedding
+        WITH nodeId, embedding, gds.util.asNode(nodeId) AS node
+        WHERE node:Album
+        RETURN nodeId, node.file_name AS fileName, embedding
+        """,
+        {
+            "projection_id": projection_id,
+        },
+    )
+
+    logger.info(
+        "Generated embeddings",
+        extra={
+            "props": {
+                "duration": time() - start,
+                "embedding_count": result.shape[0],
+            }
+        },
+    )
+
+    embedding_documents = [
+        EmbeddingDocument(
+            file_name=row["fileName"],
+            embedding=row["embedding"],
+            embedding_key=embedding_key,
+        )
+        for row in result.to_dict("records")
+    ]
+
+    projection.drop()
+
+    return embedding_documents
+
+
+def disconnect():
+    gds.close()

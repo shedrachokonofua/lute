@@ -6,6 +6,7 @@ from grpc import aio
 
 import graph.proto.lute_pb2 as lute_pb2
 import graph.proto.lute_pb2_grpc as lute_pb2_grpc
+from graph.models import EmbeddingDocument
 from graph.settings import LUTE_EVENT_SUBSCRIBER_PREFIX, LUTE_URL
 
 MAX_MESSAGE_LENGTH = 50 * 1024 * 1024
@@ -83,3 +84,25 @@ class LuteClient:
         async for reply in self.event_service.Stream(request_generator()):
             yield reply.items
             await queue.put(reply.cursor)
+
+    async def bulk_upload_embeddings(
+        self, embedding_iter: AsyncIterator[list[EmbeddingDocument]]
+    ) -> int:
+        if self.album_service is None:
+            raise ValueError("Client not initialized")
+
+        async def request_generator():
+            async for batch in embedding_iter:
+                yield lute_pb2.BulkUploadAlbumEmbeddingsRequest(
+                    items=[
+                        lute_pb2.BulkUploadAlbumEmbeddingsRequestItem(
+                            file_name=doc.file_name,
+                            embedding=doc.embedding,
+                            embedding_key=doc.embedding_key,
+                        )
+                        for doc in batch
+                    ]
+                )
+
+        reply = await self.album_service.BulkUploadAlbumEmbeddings(request_generator())
+        return reply.count

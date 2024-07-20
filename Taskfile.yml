@@ -223,3 +223,8 @@ tasks:
     dir: connector/graph
     cmds:
       - poetry run python -m grpc_tools.protoc -Igraph/proto=../../proto --python_out=. --pyi_out=. --grpc_python_out=. ../../proto/lute.proto
+
+  "graph:notebooks":
+    dir: connector/graph
+    cmds:
+      - poetry run jupyter lab
