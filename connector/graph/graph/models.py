@@ -15,3 +15,6 @@ class EmbeddingDocument:
     file_name: str
     embedding: list[float]
     embedding_key: str
+
+    def is_zero_magnitude(self):
+        return all(v == 0.0 for v in self.embedding)

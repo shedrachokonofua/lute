@@ -9,7 +9,7 @@ import graph.proto.lute_pb2_grpc as lute_pb2_grpc
 from graph.models import EmbeddingDocument
 from graph.settings import LUTE_EVENT_SUBSCRIBER_PREFIX, LUTE_URL
 
-MAX_MESSAGE_LENGTH = 50 * 1024 * 1024
+MAX_MESSAGE_LENGTH = 1024 * 1024 * 1024
 
 
 class LuteClient:

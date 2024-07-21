@@ -43,12 +43,16 @@ async def sync_album_embeddings(relationship_weights: db.AlbumRelationWeights):
     )
 
     cursor = 0
-    batch_size = 1500
+    batch_size = 1000
 
     async def upload_generator():
         nonlocal cursor
         while cursor < len(embeddings):
-            batch = embeddings[cursor : cursor + batch_size]
+            batch = [
+                e
+                for e in embeddings[cursor : cursor + batch_size]
+                if not e.is_zero_magnitude()
+            ]
             logger.info(
                 "Uploading embeddings batch",
                 extra={"props": {"batch_size": len(batch), "cursor": cursor}},
