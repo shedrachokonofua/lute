@@ -472,6 +472,17 @@ impl RedisAlbumSearchIndex {
 
 #[async_trait]
 impl AlbumSearchIndex for RedisAlbumSearchIndex {
+  async fn get_embedding_keys(&self) -> Result<Vec<String>> {
+    Ok(
+      self
+        .embedding_provider_interactor
+        .providers
+        .keys()
+        .map(|provider| provider.to_string())
+        .collect(),
+    )
+  }
+
   async fn put(&self, album: AlbumReadModel) -> Result<()> {
     let current_embedddings = self.get_embeddings(&album.file_name).await?;
     self

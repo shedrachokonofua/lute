@@ -82,7 +82,10 @@ impl
     EmbeddingSimilarityAlbumAssessmentSettings,
   > for EmbeddingSimilarityInteractor
 {
-  #[instrument(name = "EmbeddingSimilarityInteractor::assess_album", skip(self))]
+  #[instrument(
+    name = "EmbeddingSimilarityInteractor::assess_album",
+    skip(self, profile, profile_albums)
+  )]
   async fn assess_album(
     &self,
     profile: &Profile,
@@ -114,7 +117,10 @@ impl
     })
   }
 
-  #[instrument(name = "EmbeddingSimilarityInteractor::recommend_albums", skip(self))]
+  #[instrument(
+    name = "EmbeddingSimilarityInteractor::recommend_albums",
+    skip(self, profile, profile_albums)
+  )]
   async fn recommend_albums(
     &self,
     profile: &Profile,

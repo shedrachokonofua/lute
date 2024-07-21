@@ -50,6 +50,7 @@ impl RpcServer {
   }
 
   pub fn run(&self) -> JoinHandle<()> {
+    let max_message_size = 1024 * 1024 * 1024;
     let reflection_service = tonic_reflection::server::Builder::configure()
       .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
       .build()
@@ -68,9 +69,11 @@ impl RpcServer {
       .add_service(tonic_web::enable(CrawlerServiceServer::new(
         CrawlerService::new(Arc::clone(&self.app_context)),
       )))
-      .add_service(tonic_web::enable(AlbumServiceServer::new(
-        AlbumService::new(Arc::clone(&self.app_context)),
-      )))
+      .add_service(tonic_web::enable(
+        AlbumServiceServer::new(AlbumService::new(Arc::clone(&self.app_context)))
+          .max_decoding_message_size(max_message_size)
+          .max_encoding_message_size(max_message_size),
+      ))
       .add_service(tonic_web::enable(ArtistServiceServer::new(
         ArtistService::new(Arc::clone(&self.app_context)),
       )))

@@ -5,7 +5,6 @@ use super::{
 };
 use crate::{
   context::ApplicationContext,
-  embedding_provider::embedding_provider_interactor::EmbeddingProviderInteractor,
   files::file_metadata::file_name::FileName,
   helpers::embedding::EmbeddingDocument,
   proto,
@@ -14,6 +13,7 @@ use crate::{
 use anyhow::{Error, Result};
 use std::sync::Arc;
 use tonic::{async_trait, Request, Response, Status, Streaming};
+use tracing::error;
 
 impl From<GenreAggregate> for proto::GenreAggregate {
   fn from(val: GenreAggregate) -> Self {
@@ -126,7 +126,6 @@ impl TryFrom<SpotifyAlbum> for proto::SpotifyAlbum {
   }
 }
 pub struct AlbumService {
-  embedding_provider_interactor: Arc<EmbeddingProviderInteractor>,
   album_interactor: Arc<AlbumInteractor>,
   spotify_client: Arc<SpotifyClient>,
 }
@@ -134,7 +133,6 @@ pub struct AlbumService {
 impl AlbumService {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
     Self {
-      embedding_provider_interactor: Arc::clone(&app_context.embedding_provider_interactor),
       album_interactor: Arc::clone(&app_context.album_interactor),
       spotify_client: Arc::clone(&app_context.spotify_client),
     }
@@ -226,11 +224,12 @@ impl proto::AlbumService for AlbumService {
   ) -> Result<Response<proto::GetEmbeddingKeysReply>, Status> {
     let reply = proto::GetEmbeddingKeysReply {
       keys: self
-        .embedding_provider_interactor
-        .providers
-        .keys()
-        .map(|provider| provider.to_string())
-        .collect(),
+        .album_interactor
+        .get_embedding_keys()
+        .await
+        .map_err(|e| {
+          Status::internal(format!("Failed to get embedding keys: {}", e.to_string()))
+        })?,
     };
     Ok(Response::new(reply))
   }
@@ -308,6 +307,9 @@ impl proto::AlbumService for AlbumService {
             .collect(),
         )
         .await
+        .inspect_err(|e| {
+          error!(e = e.to_string(), "Failed to upload album embeddings");
+        })
         .map_err(|e| Status::internal(e.to_string()))?;
     }
     Ok(Response::new(proto::BulkUploadAlbumEmbeddingsReply {

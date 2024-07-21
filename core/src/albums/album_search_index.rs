@@ -57,6 +57,7 @@ pub trait AlbumSearchIndex {
     query: &AlbumSearchQuery,
     pagination: Option<&SearchPagination>,
   ) -> Result<AlbumSearchResult>;
+  async fn get_embedding_keys(&self) -> Result<Vec<String>>;
   async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<EmbeddingDocument>>;
   async fn find_many_embeddings(
     &self,

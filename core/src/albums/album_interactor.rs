@@ -274,6 +274,10 @@ impl AlbumInteractor {
       .await
   }
 
+  pub async fn get_embedding_keys(&self) -> Result<Vec<String>> {
+    self.album_search_index.get_embedding_keys().await
+  }
+
   pub async fn find_embedding(
     &self,
     file_name: &FileName,

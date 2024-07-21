@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use elasticsearch::{
-  http::request::JsonBody, BulkParts, DeleteParts, Elasticsearch, IndexParts, MgetParts,
-  SearchParts, UpdateParts,
+  http::request::JsonBody, indices::IndicesGetMappingParts, BulkParts, DeleteParts, Elasticsearch,
+  IndexParts, MgetParts, SearchParts, UpdateParts,
 };
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
@@ -279,5 +279,21 @@ impl ElasticsearchIndex {
       return Err(anyhow!("Failed to delete field: {:?}", response_body));
     }
     Ok(())
+  }
+
+  #[instrument(skip_all)]
+  pub async fn list_fields(&self) -> Result<Vec<String>> {
+    let res = self
+      .client
+      .indices()
+      .get_mapping(IndicesGetMappingParts::Index(&[self.index_name.as_str()]))
+      .send()
+      .await?;
+    let response_body = res.json::<Value>().await?;
+    let properties = response_body[self.index_name.as_str()]["mappings"]["properties"]
+      .as_object()
+      .unwrap();
+
+    Ok(properties.keys().map(String::from).collect())
   }
 }

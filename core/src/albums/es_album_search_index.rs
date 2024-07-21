@@ -334,6 +334,17 @@ impl EsAlbumSearchIndex {
 
 #[async_trait]
 impl AlbumSearchIndex for EsAlbumSearchIndex {
+  async fn get_embedding_keys(&self) -> Result<Vec<String>> {
+    let fields = self.index.list_fields().await?;
+    Ok(
+      fields
+        .into_iter()
+        .filter(|field| field.starts_with("embedding_vector_"))
+        .map(|field| ElasticsearchIndex::embedding_key_from_field(&field))
+        .collect(),
+    )
+  }
+
   async fn put_many(&self, albums: Vec<AlbumReadModel>) -> Result<()> {
     self
       .index
