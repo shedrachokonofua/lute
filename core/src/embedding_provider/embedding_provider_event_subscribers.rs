@@ -53,7 +53,8 @@ async fn schedule_album_embedding_jobs(
           };
           let params = JobParametersBuilder::default()
             .id(format!(
-              "generate_album_embedding:{}",
+              "generate_album_embedding:{}:{}",
+              provider.name(),
               album_read_model.file_name.to_string()
             ))
             .name(provider.job_name())
@@ -122,7 +123,8 @@ async fn schedule_artist_embedding_jobs(
           };
           let params = JobParametersBuilder::default()
             .id(format!(
-              "generate_artist_embedding:{}",
+              "generate_artist_embedding:{}:{}",
+              provider.name(),
               overview.file_name.to_string()
             ))
             .name(provider.job_name())
