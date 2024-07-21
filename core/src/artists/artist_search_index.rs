@@ -273,10 +273,6 @@ pub struct ArtistSearchIndex {
   index: ElasticsearchIndex,
 }
 
-fn embedding_vector_key(key: &str) -> String {
-  format!("embedding_vector_{}", key)
-}
-
 impl ArtistSearchIndex {
   pub fn new(elasticsearch_client: Arc<Elasticsearch>) -> Self {
     Self {
@@ -299,7 +295,7 @@ impl ArtistSearchIndex {
             (
               doc.file_name.to_string(),
               json!({
-                embedding_vector_key(&doc.key): doc.embedding
+                ElasticsearchIndex::embedding_field_key(&doc.key): doc.embedding
               }),
             )
           })
@@ -336,7 +332,7 @@ impl ArtistSearchIndex {
       .search(
         json!({
           "_source": {
-            "exclude": ["embedding_vector_*"]
+            "exclude": [ElasticsearchIndex::embedding_field_wildcard()]
           },
           "query": query.to_es_query(),
         }),
@@ -351,31 +347,16 @@ impl ArtistSearchIndex {
     file_name: &FileName,
     key: &str,
   ) -> Result<Option<EmbeddingDocument>> {
-    let key = format!("embedding_vector_{}", key);
-    let mut result = self
-      .index
-      .search::<HashMap<String, Vec<f32>>>(
-        json!({
-          "_source": {
-            "include": [key]
-          },
-          "query": {
-            "term": {
-              "_id": file_name.to_string()
-            }
-          }
-        }),
-        None,
-      )
-      .await?;
+    let key = ElasticsearchIndex::embedding_field_key(key);
     Ok(
-      result
-        .results
-        .first_mut()
-        .and_then(|doc| doc.item.remove(&key))
+      self
+        .index
+        .find::<HashMap<String, Vec<f32>>>(file_name.to_string(), Some(vec![key.clone()]), None)
+        .await?
+        .and_then(|mut doc| doc.remove(&key))
         .map(|embedding| EmbeddingDocument {
           file_name: file_name.clone(),
-          key: key.clone(),
+          key,
           embedding,
         }),
     )
@@ -390,11 +371,11 @@ impl ArtistSearchIndex {
       .search(
         json!({
           "_source": {
-            "exclude": ["embedding_vector_*"]
+            "exclude": [ElasticsearchIndex::embedding_field_wildcard()]
           },
           "knn": {
             "k": query.limit,
-            "field": embedding_vector_key(&query.embedding_key),
+            "field": ElasticsearchIndex::embedding_field_key(&query.embedding_key),
             "query_vector": query.embedding,
             "filter": query.filters.to_es_query(),
           }

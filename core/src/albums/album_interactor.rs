@@ -14,7 +14,6 @@ use crate::{
   helpers::{embedding::EmbeddingDocument, redisearch::SearchPagination},
 };
 use anyhow::Result;
-use futures::{stream, StreamExt, TryStreamExt};
 use iter_tools::Itertools;
 use std::{
   collections::{HashMap, HashSet},
@@ -98,7 +97,6 @@ impl AlbumInteractor {
     })
   }
 
-  #[instrument(skip(self))]
   async fn process_duplicates(&self, album: &AlbumReadModel) -> Result<()> {
     let potential_duplicates = self
       .album_repository
@@ -174,14 +172,8 @@ impl AlbumInteractor {
       .map(|album| album.file_name.clone())
       .collect::<Vec<_>>();
     self.album_repository.put_many(albums.clone()).await?;
+    self.album_search_index.put_many(albums.clone()).await?;
     for album in albums.iter() {
-      if let Err(err) = self.album_search_index.put(album.clone()).await {
-        error!(
-          "Failed to put album into search index {}: {}",
-          album.file_name.to_string(),
-          err
-        );
-      }
       if let Err(err) = self.process_duplicates(album).await {
         error!(
           "Failed to process duplicates for {}: {}",
@@ -305,11 +297,9 @@ impl AlbumInteractor {
   }
 
   pub async fn put_many_embeddings(&self, embeddings: Vec<EmbeddingDocument>) -> Result<()> {
-    stream::iter(embeddings)
-      .map(Ok)
-      .try_for_each_concurrent(250, |embedding| async {
-        self.album_search_index.put_embedding(embedding).await
-      })
+    self
+      .album_search_index
+      .put_many_embeddings(embeddings)
       .await
   }
 

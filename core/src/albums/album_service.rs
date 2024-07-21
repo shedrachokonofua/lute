@@ -64,6 +64,13 @@ impl From<ItemAndCount> for proto::ItemAndCount {
   }
 }
 
+fn parse_file_name_list(file_names: Vec<String>) -> Result<Vec<FileName>> {
+  file_names
+    .into_iter()
+    .map(|file_name| FileName::try_from(file_name).map_err(anyhow::Error::msg))
+    .collect()
+}
+
 impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
   type Error = anyhow::Error;
 
@@ -71,18 +78,10 @@ impl TryFrom<proto::AlbumSearchQuery> for AlbumSearchQuery {
     Ok(AlbumSearchQuery {
       text: value.text,
       exact_name: value.exact_name,
-      include_file_names: value
-        .include_file_names
-        .into_iter()
-        .map(|file_name| FileName::try_from(file_name).map_err(anyhow::Error::msg))
-        .collect::<Result<Vec<FileName>>>()?,
-      exclude_file_names: value
-        .exclude_file_names
-        .into_iter()
-        .map(|file_name| FileName::try_from(file_name).map_err(anyhow::Error::msg))
-        .collect::<Result<Vec<FileName>>>()?,
-      include_artists: value.include_artists,
-      exclude_artists: value.exclude_artists,
+      include_file_names: parse_file_name_list(value.include_file_names)?,
+      exclude_file_names: parse_file_name_list(value.exclude_file_names)?,
+      include_artists: parse_file_name_list(value.include_artists)?,
+      exclude_artists: parse_file_name_list(value.exclude_artists)?,
       include_primary_genres: value.include_primary_genres,
       exclude_primary_genres: value.exclude_primary_genres,
       include_secondary_genres: value.include_secondary_genres,
@@ -180,12 +179,7 @@ impl proto::AlbumService for AlbumService {
     &self,
     request: Request<proto::GetManyAlbumsRequest>,
   ) -> Result<Response<proto::GetManyAlbumsReply>, Status> {
-    let file_names = request
-      .into_inner()
-      .file_names
-      .into_iter()
-      .map(FileName::try_from)
-      .collect::<Result<Vec<FileName>, Error>>()
+    let file_names = parse_file_name_list(request.into_inner().file_names)
       .map_err(|e| Status::invalid_argument(e.to_string()))?;
     let albums = self
       .album_interactor

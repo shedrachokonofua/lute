@@ -68,7 +68,7 @@ impl AlbumRecommendationSettings {
         profile_albums
           .iter()
           .flat_map(|album| album.artists.clone())
-          .map(|artist| artist.file_name.to_string())
+          .map(|artist| artist.file_name)
           .collect::<Vec<_>>(),
       );
     }

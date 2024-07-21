@@ -1,8 +1,11 @@
 use anyhow::{anyhow, Result};
-use elasticsearch::{http::request::JsonBody, BulkParts, Elasticsearch, IndexParts, SearchParts};
+use elasticsearch::{
+  http::request::JsonBody, BulkParts, DeleteParts, Elasticsearch, IndexParts, MgetParts,
+  SearchParts, UpdateParts,
+};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tracing::{error, info, instrument};
 
 use super::redisearch::SearchPagination;
@@ -26,6 +29,18 @@ pub struct ElasticsearchResult<T: DeserializeOwned> {
 impl ElasticsearchIndex {
   pub fn new(client: Arc<Elasticsearch>, index_name: String) -> Self {
     Self { client, index_name }
+  }
+
+  pub fn embedding_key_from_field(field: &str) -> String {
+    field.replace("embedding_vector_", "")
+  }
+
+  pub fn embedding_field_key(key: &str) -> String {
+    format!("embedding_vector_{}", key)
+  }
+
+  pub fn embedding_field_wildcard() -> String {
+    "embedding_vector_*".to_string()
   }
 
   #[instrument(skip(self))]
@@ -164,5 +179,105 @@ impl ElasticsearchIndex {
       results: records,
       total: total as usize,
     })
+  }
+
+  #[instrument(skip_all)]
+  pub async fn delete(&self, id: String) -> Result<()> {
+    let res = self
+      .client
+      .delete(DeleteParts::IndexId(self.index_name.as_str(), id.as_str()))
+      .send()
+      .await?;
+    let response_body = res.json::<Value>().await?;
+    if response_body["result"].as_str() != Some("deleted") {
+      return Err(anyhow!("Failed to delete document: {:?}", response_body));
+    }
+    Ok(())
+  }
+
+  #[instrument(skip_all)]
+  pub async fn find_many<T: DeserializeOwned>(
+    &self,
+    ids: Vec<String>,
+    include_fields: Option<Vec<String>>,
+    exclude_fields: Option<Vec<String>>,
+  ) -> Result<HashMap<String, T>> {
+    let res = self
+      .client
+      .mget(MgetParts::Index(self.index_name.as_str()))
+      ._source_includes(
+        include_fields
+          .unwrap_or_default()
+          .iter()
+          .map(AsRef::as_ref)
+          .collect::<Vec<&str>>()
+          .as_slice(),
+      )
+      ._source_excludes(
+        exclude_fields
+          .unwrap_or_default()
+          .iter()
+          .map(AsRef::as_ref)
+          .collect::<Vec<&str>>()
+          .as_slice(),
+      )
+      .body(json!({
+        "docs": ids.iter().map(|id| json!({"_id": id})).collect::<Vec<Value>>()
+      }))
+      .send()
+      .await?;
+
+    let mut response_body = res.json::<Value>().await?;
+    let docs = response_body["docs"]
+      .as_array_mut()
+      .unwrap()
+      .iter_mut()
+      .filter_map(|doc| {
+        serde_json::from_value(doc["_source"].take())
+          .inspect_err(|e| {
+            error!(
+              e = e.to_string(),
+              "Failed to deserialize Elasticsearch result item"
+            );
+          })
+          .ok()
+          .map(|item| (doc["_id"].as_str().unwrap_or_default().to_string(), item))
+      })
+      .collect::<HashMap<String, T>>();
+
+    Ok(docs)
+  }
+
+  #[instrument(skip_all)]
+  pub async fn find<T: DeserializeOwned>(
+    &self,
+    id: String,
+    include_fields: Option<Vec<String>>,
+    exclude_fields: Option<Vec<String>>,
+  ) -> Result<Option<T>> {
+    self
+      .find_many(vec![id.clone()], include_fields, exclude_fields)
+      .await
+      .map(|mut map| map.remove(&id))
+  }
+
+  #[instrument(skip_all)]
+  pub async fn delete_field(&self, id: String, field: &str) -> Result<()> {
+    let res = self
+      .client
+      .update(UpdateParts::IndexId(self.index_name.as_str(), id.as_str()))
+      .body(json!({
+        "script": {
+          "source": format!("ctx._source.remove('{}')", field),
+          "lang": "painless"
+        }
+      }))
+      .send()
+      .await?;
+    let response_body = res.json::<Value>().await?;
+    if response_body["result"].as_str() != Some("updated") {
+      return Err(anyhow!("Failed to delete field: {:?}", response_body));
+    }
+    Ok(())
   }
 }

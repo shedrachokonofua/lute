@@ -14,8 +14,8 @@ pub struct AlbumSearchQuery {
   pub exact_name: Option<String>,
   pub include_file_names: Vec<FileName>,
   pub exclude_file_names: Vec<FileName>,
-  pub include_artists: Vec<String>,
-  pub exclude_artists: Vec<String>,
+  pub include_artists: Vec<FileName>,
+  pub exclude_artists: Vec<FileName>,
   pub include_primary_genres: Vec<String>,
   pub exclude_primary_genres: Vec<String>,
   pub include_secondary_genres: Vec<String>,
@@ -48,6 +48,7 @@ pub struct AlbumEmbeddingSimilarirtySearchQuery {
 
 #[async_trait]
 pub trait AlbumSearchIndex {
+  async fn put_many(&self, albums: Vec<AlbumReadModel>) -> Result<()>;
   async fn put(&self, album: AlbumReadModel) -> Result<()>;
   async fn delete(&self, file_name: &FileName) -> Result<()>;
   async fn find(&self, file_name: &FileName) -> Result<Option<AlbumReadModel>>;
@@ -67,6 +68,7 @@ pub trait AlbumSearchIndex {
     file_name: &FileName,
     key: &str,
   ) -> Result<Option<EmbeddingDocument>>;
+  async fn put_many_embeddings(&self, docs: Vec<EmbeddingDocument>) -> Result<()>;
   async fn put_embedding(&self, embedding: EmbeddingDocument) -> Result<()>;
   async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()>;
   async fn embedding_similarity_search(

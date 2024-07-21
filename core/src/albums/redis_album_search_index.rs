@@ -23,6 +23,7 @@ use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use futures::future::join_all;
+use futures::{stream, StreamExt, TryStreamExt};
 use rustis::{
   bb8::Pool,
   client::PooledClientManager,
@@ -35,7 +36,7 @@ use rustis::{
 };
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct RedisAlbumReadModelArtist {
@@ -492,6 +493,15 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     Ok(())
   }
 
+  async fn put_many(&self, albums: Vec<AlbumReadModel>) -> Result<()> {
+    for album in albums {
+      if let Err(e) = self.put(album).await {
+        warn!("failed to put album: {:?}", e);
+      }
+    }
+    Ok(())
+  }
+
   async fn delete(&self, file_name: &FileName) -> Result<()> {
     let connection = self.redis_connection_pool.get().await?;
     connection.del(redis_key(file_name)).await?;
@@ -647,6 +657,15 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
       }
     };
     Ok(())
+  }
+
+  async fn put_many_embeddings(&self, docs: Vec<EmbeddingDocument>) -> Result<()> {
+    stream::iter(docs)
+      .map(Ok)
+      .try_for_each_concurrent(250, |embedding| async {
+        self.put_embedding(embedding).await
+      })
+      .await
   }
 
   async fn get_embeddings(&self, file_name: &FileName) -> Result<Vec<EmbeddingDocument>> {
