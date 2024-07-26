@@ -3,6 +3,7 @@ use super::{
 };
 use crate::{
   albums::{album_interactor::AlbumInteractor, album_read_model::AlbumReadModel},
+  helpers::redisearch::SearchPagination,
   profile::profile::Profile,
   recommendations::types::{
     AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
@@ -104,7 +105,16 @@ impl
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
     let search_query = recommendation_settings.to_search_query(profile, profile_albums)?;
-    let mut search_results = self.album_interactor.search(&search_query, None).await?;
+    let mut search_results = self
+      .album_interactor
+      .search(
+        &search_query,
+        Some(&SearchPagination {
+          offset: None,
+          limit: Some(100000),
+        }),
+      )
+      .await?;
     let context =
       QuantileRankAlbumAssessmentContext::new(profile, profile_albums, assessment_settings);
     let mut result_heap = BoundedMinHeap::new(recommendation_settings.count as usize);
