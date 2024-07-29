@@ -1,7 +1,7 @@
 use crate::{
   albums::{
     album_interactor::AlbumInteractor, album_repository::AlbumRepository,
-    album_search_index::AlbumSearchIndex, es_album_search_index::EsAlbumSearchIndex,
+    album_search_index::AlbumSearchIndex, redis_album_search_index::RedisAlbumSearchIndex,
   },
   artists::artist_interactor::ArtistInteractor,
   crawler::crawler::Crawler,
@@ -83,7 +83,10 @@ impl ApplicationContext {
       Arc::clone(&settings),
       Arc::clone(&kv),
     ));
-    let album_search_index = Arc::new(EsAlbumSearchIndex::new(Arc::clone(&elasticsearch_client)));
+    let album_search_index = Arc::new(RedisAlbumSearchIndex::new(
+      Arc::clone(&redis_connection_pool),
+      Arc::clone(&embedding_provider_interactor),
+    ));
     let spotify_client = Arc::new(SpotifyClient::new(
       &settings.spotify.clone(),
       Arc::clone(&kv),

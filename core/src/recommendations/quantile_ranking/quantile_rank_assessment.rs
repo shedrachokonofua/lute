@@ -2,10 +2,9 @@ use super::{
   quantile_rank::QuantileRanking, quantile_rank_interactor::QuantileRankAlbumAssessmentSettings,
 };
 use crate::{
-  albums::album_read_model::AlbumReadModel,
+  albums::{album_collection_summary::AlbumCollectionSummary, album_read_model::AlbumReadModel},
   helpers::{item_with_factor::ItemWithFactor, math::default_if_zero},
-  profile::profile::Profile,
-  recommendations::types::AlbumAssessment,
+  recommendations::{seed::AlbumRecommendationSeedContext, types::AlbumAssessment},
 };
 use anyhow::{anyhow, Result};
 use num_traits::Zero;
@@ -78,40 +77,44 @@ pub struct QuantileRankAlbumAssessmentContext {
 
 impl QuantileRankAlbumAssessmentContext {
   pub fn new(
-    profile: &Profile,
-    profile_albums: &[AlbumReadModel],
+    seed_context: AlbumRecommendationSeedContext,
     settings: QuantileRankAlbumAssessmentSettings,
   ) -> Self {
-    let profile_summary = profile.summarize(profile_albums);
-
+    let rating_ranking = QuantileRanking::new(
+      &seed_context
+        .albums
+        .iter()
+        .map(|album| OrderedFloat(album.rating))
+        .collect::<Vec<_>>(),
+    );
+    let rating_count_ranking = QuantileRanking::new(
+      &seed_context
+        .albums
+        .iter()
+        .map(|album| album.rating_count)
+        .collect::<Vec<_>>(),
+    );
+    let descriptor_count_ranking = QuantileRanking::new(
+      &seed_context
+        .albums
+        .iter()
+        .map(|album| album.descriptors.len() as u32)
+        .collect::<Vec<_>>(),
+    );
+    let seed_summary = AlbumCollectionSummary::new(seed_context.albums, seed_context.factor_map);
     Self {
       settings,
-      primary_genre_ranking: QuantileRanking::new(&profile_summary.primary_genres),
-      secondary_genre_ranking: QuantileRanking::new(&profile_summary.secondary_genres),
-      descriptor_ranking: QuantileRanking::new(&profile_summary.descriptors),
-      rating_ranking: QuantileRanking::new(
-        &profile_albums
-          .iter()
-          .map(|album| OrderedFloat(album.rating))
-          .collect::<Vec<_>>(),
-      ),
-      rating_count_ranking: QuantileRanking::new(
-        &profile_albums
-          .iter()
-          .map(|album| album.rating_count)
-          .collect::<Vec<_>>(),
-      ),
-      descriptor_count_ranking: QuantileRanking::new(
-        &profile_albums
-          .iter()
-          .map(|album| album.descriptors.len() as u32)
-          .collect::<Vec<_>>(),
-      ),
-      credit_tag_ranking: QuantileRanking::new(&profile_summary.credit_tags),
-      primary_genre_summary_map: create_item_with_factor_map(profile_summary.primary_genres),
-      secondary_genre_summary_map: create_item_with_factor_map(profile_summary.secondary_genres),
-      descriptor_summary_map: create_item_with_factor_map(profile_summary.descriptors),
-      credit_tag_summary_map: create_item_with_factor_map(profile_summary.credit_tags),
+      primary_genre_ranking: QuantileRanking::new(&seed_summary.primary_genres),
+      secondary_genre_ranking: QuantileRanking::new(&seed_summary.secondary_genres),
+      descriptor_ranking: QuantileRanking::new(&seed_summary.descriptors),
+      credit_tag_ranking: QuantileRanking::new(&seed_summary.credit_tags),
+      primary_genre_summary_map: create_item_with_factor_map(seed_summary.primary_genres),
+      secondary_genre_summary_map: create_item_with_factor_map(seed_summary.secondary_genres),
+      descriptor_summary_map: create_item_with_factor_map(seed_summary.descriptors),
+      credit_tag_summary_map: create_item_with_factor_map(seed_summary.credit_tags),
+      rating_ranking,
+      rating_count_ranking,
+      descriptor_count_ranking,
     }
   }
 

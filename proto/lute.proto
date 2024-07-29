@@ -699,7 +699,7 @@ message AlbumAssessmentSettings {
 
 message AssessAlbumRequest {
   string file_name = 1;
-  string profile_id = 2;
+  AlbumRecommendationSeed seed = 2;
   optional AlbumAssessmentSettings settings = 3;
 }
 
@@ -718,8 +718,17 @@ message AlbumRecommendationSettings {
   repeated string exclude_descriptors = 12;
 }
 
+message SeedAlbumList { map<string, uint32> file_names = 1; }
+
+message AlbumRecommendationSeed {
+  oneof value {
+    string profile_id = 1;
+    SeedAlbumList albums = 2;
+  }
+}
+
 message RecommendAlbumsRequest {
-  string profile_id = 1;
+  AlbumRecommendationSeed seed = 1;
   optional AlbumRecommendationSettings recommendation_settings = 2;
   optional AlbumAssessmentSettings assessment_settings = 3;
 }
@@ -738,7 +747,7 @@ message DefaultQuantileRankAlbumAssessmentSettingsReply {
 }
 
 message DraftSpotifyPlaylistRequest {
-  string profile_id = 1;
+  AlbumRecommendationSeed seed = 1;
   optional AlbumRecommendationSettings recommendation_settings = 2;
   optional AlbumAssessmentSettings assessment_settings = 3;
 }
@@ -746,7 +755,7 @@ message DraftSpotifyPlaylistRequest {
 message DraftSpotifyPlaylistReply { repeated SpotifyTrackReference tracks = 1; }
 
 message CreateSpotifyPlaylistRequest {
-  string profile_id = 1;
+  AlbumRecommendationSeed seed = 1;
   optional AlbumRecommendationSettings recommendation_settings = 2;
   optional AlbumAssessmentSettings assessment_settings = 3;
   string name = 4;

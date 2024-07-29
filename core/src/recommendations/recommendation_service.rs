@@ -4,6 +4,7 @@ use super::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAlbumAssessmentSettingsBuilder,
   },
   recommendation_interactor::{AlbumAssessmentSettings, RecommendationInteractor},
+  seed::AlbumRecommendationSeed,
   spotify_track_search_index::{SpotifyTrackQuery, SpotifyTrackSearchResult},
   types::{AlbumRecommendation, AlbumRecommendationSettings},
 };
@@ -11,7 +12,7 @@ use crate::{
   context::ApplicationContext, files::file_metadata::file_name::FileName,
   profile::profile::ProfileId, proto, spotify::spotify_client::SpotifyTrackReference,
 };
-use anyhow::Error;
+use anyhow::{anyhow, Error, Result};
 use num_traits::Num;
 use std::{collections::HashMap, sync::Arc};
 use tonic::{async_trait, Request, Response, Status};
@@ -175,6 +176,26 @@ impl From<SpotifyTrackSearchResult> for proto::SearchSpotifyTrackIndexReply {
   }
 }
 
+impl TryFrom<proto::AlbumRecommendationSeed> for AlbumRecommendationSeed {
+  type Error = anyhow::Error;
+
+  fn try_from(value: proto::AlbumRecommendationSeed) -> Result<Self> {
+    match value.value {
+      Some(proto::album_recommendation_seed::Value::ProfileId(profile_id)) => {
+        Ok(Self::Profile(ProfileId::try_from(profile_id)?))
+      }
+      Some(proto::album_recommendation_seed::Value::Albums(albums)) => Ok(Self::Albums(
+        albums
+          .file_names
+          .into_iter()
+          .map(|(name, factor)| Ok((FileName::try_from(name)?, factor)))
+          .collect::<Result<HashMap<FileName, u32>>>()?,
+      )),
+      None => Err(anyhow!("Seed not provided")),
+    }
+  }
+}
+
 #[async_trait]
 impl proto::RecommendationService for RecommendationService {
   async fn assess_album(
@@ -182,8 +203,12 @@ impl proto::RecommendationService for RecommendationService {
     request: Request<proto::AssessAlbumRequest>,
   ) -> Result<Response<proto::AssessAlbumReply>, Status> {
     let request = request.into_inner();
-    let profile_id = ProfileId::try_from(request.profile_id).map_err(|e| {
-      error!(error = e.to_string(), "Invalid profile ID");
+    let seed_request = request.seed.ok_or_else(|| {
+      error!("Seed not provided");
+      Status::invalid_argument("Seed not provided")
+    })?;
+    let seed = AlbumRecommendationSeed::try_from(seed_request).map_err(|e| {
+      error!(error = e.to_string(), "Invalid seed");
       Status::invalid_argument(e.to_string())
     })?;
     let file_name = FileName::try_from(request.file_name).map_err(|e| {
@@ -199,7 +224,7 @@ impl proto::RecommendationService for RecommendationService {
     };
     let assessment = self
       .recommendation_interactor
-      .assess_album(&profile_id, &file_name, settings)
+      .assess_album(seed, &file_name, settings)
       .await
       .map_err(|e| {
         error!(error = e.to_string(), "Failed to assess album");
@@ -218,8 +243,12 @@ impl proto::RecommendationService for RecommendationService {
     request: Request<proto::RecommendAlbumsRequest>,
   ) -> Result<Response<proto::RecommendAlbumsReply>, Status> {
     let request = request.into_inner();
-    let profile_id = ProfileId::try_from(request.profile_id).map_err(|e| {
-      error!(error = e.to_string(), "Invalid profile ID");
+    let seed_request = request.seed.ok_or_else(|| {
+      error!("Seed not provided");
+      Status::invalid_argument("Seed not provided")
+    })?;
+    let seed = AlbumRecommendationSeed::try_from(seed_request).map_err(|e| {
+      error!(error = e.to_string(), "Invalid seed");
       Status::invalid_argument(e.to_string())
     })?;
     let assessment_settings = match request.assessment_settings {
@@ -238,7 +267,7 @@ impl proto::RecommendationService for RecommendationService {
     };
     let recommendations = self
       .recommendation_interactor
-      .recommend_albums(&profile_id, assessment_settings, recommendation_settings)
+      .recommend_albums(seed, assessment_settings, recommendation_settings)
       .await
       .map_err(|e| {
         error!(error = e.to_string(), "Failed to recommend albums");
@@ -265,8 +294,12 @@ impl proto::RecommendationService for RecommendationService {
     request: Request<proto::DraftSpotifyPlaylistRequest>,
   ) -> Result<Response<proto::DraftSpotifyPlaylistReply>, Status> {
     let request = request.into_inner();
-    let profile_id = ProfileId::try_from(request.profile_id).map_err(|e| {
-      error!(error = e.to_string(), "Invalid profile ID");
+    let seed_request = request.seed.ok_or_else(|| {
+      error!("Seed not provided");
+      Status::invalid_argument("Seed not provided")
+    })?;
+    let seed = AlbumRecommendationSeed::try_from(seed_request).map_err(|e| {
+      error!(error = e.to_string(), "Invalid seed");
       Status::invalid_argument(e.to_string())
     })?;
     let assessment_settings = match request.assessment_settings {
@@ -285,7 +318,7 @@ impl proto::RecommendationService for RecommendationService {
     };
     let tracks = self
       .recommendation_interactor
-      .draft_spotify_playlist(&profile_id, assessment_settings, recommendation_settings)
+      .draft_spotify_playlist(seed, assessment_settings, recommendation_settings)
       .await
       .map_err(|e| {
         error!(error = e.to_string(), "Failed to draft Spotify playlist");
@@ -302,8 +335,12 @@ impl proto::RecommendationService for RecommendationService {
     request: Request<proto::CreateSpotifyPlaylistRequest>,
   ) -> Result<Response<proto::CreateSpotifyPlaylistReply>, Status> {
     let request = request.into_inner();
-    let profile_id = ProfileId::try_from(request.profile_id).map_err(|e| {
-      error!(error = e.to_string(), "Invalid profile ID");
+    let seed_request = request.seed.ok_or_else(|| {
+      error!("Seed not provided");
+      Status::invalid_argument("Seed not provided")
+    })?;
+    let seed = AlbumRecommendationSeed::try_from(seed_request).map_err(|e| {
+      error!(error = e.to_string(), "Invalid seed");
       Status::invalid_argument(e.to_string())
     })?;
     let assessment_settings = match request.assessment_settings {
@@ -325,7 +362,7 @@ impl proto::RecommendationService for RecommendationService {
     let (playlist_id, tracks) = self
       .recommendation_interactor
       .create_spotify_playlist(
-        &profile_id,
+        seed,
         assessment_settings,
         recommendation_settings,
         name,

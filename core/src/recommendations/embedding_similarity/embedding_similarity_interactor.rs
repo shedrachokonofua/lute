@@ -5,10 +5,12 @@ use crate::{
     album_search_index::{AlbumEmbeddingSimilarirtySearchQuery, AlbumSearchQueryBuilder},
   },
   helpers::embedding::average_embedding,
-  profile::profile::Profile,
-  recommendations::types::{
-    AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
-    RecommendationMethodInteractor,
+  recommendations::{
+    seed::AlbumRecommendationSeedContext,
+    types::{
+      AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
+      RecommendationMethodInteractor,
+    },
   },
 };
 use anyhow::Result;
@@ -30,29 +32,22 @@ impl EmbeddingSimilarityInteractor {
     Self { album_interactor }
   }
 
-  pub async fn get_average_profile_embedding(
+  pub async fn get_average_seed_embedding(
     &self,
-    profile: &Profile,
+    seed_context: &AlbumRecommendationSeedContext,
     settings: &EmbeddingSimilarityAlbumAssessmentSettings,
   ) -> Result<Vec<f32>> {
-    let profile_album_embeddings = self
+    let album_embeddings = self
       .album_interactor
-      .find_many_embeddings(
-        profile.albums.keys().cloned().collect(),
-        &settings.embedding_key,
-      )
+      .find_many_embeddings(seed_context.album_file_names(), &settings.embedding_key)
       .await?;
     Ok(average_embedding(
-      profile_album_embeddings
+      album_embeddings
         .iter()
         .map(|embedding| {
           (
             &embedding.embedding,
-            profile
-              .albums
-              .get(&embedding.file_name)
-              .unwrap_or(&1)
-              .to_owned(),
+            seed_context.get_factor(&embedding.file_name).unwrap_or(1),
           )
         })
         .collect(),
@@ -84,17 +79,16 @@ impl
 {
   #[instrument(
     name = "EmbeddingSimilarityInteractor::assess_album",
-    skip(self, profile, profile_albums)
+    skip(self, seed_context)
   )]
   async fn assess_album(
     &self,
-    profile: &Profile,
-    profile_albums: &[AlbumReadModel],
+    seed_context: AlbumRecommendationSeedContext,
     album_read_model: &EmbeddingSimilarityAssessableAlbum,
     settings: EmbeddingSimilarityAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
     let profile_embedding = self
-      .get_average_profile_embedding(profile, &settings)
+      .get_average_seed_embedding(&seed_context, &settings)
       .await?;
     let mut search_result = self
       .album_interactor
@@ -119,19 +113,18 @@ impl
 
   #[instrument(
     name = "EmbeddingSimilarityInteractor::recommend_albums",
-    skip(self, profile, profile_albums)
+    skip(self, seed_context)
   )]
   async fn recommend_albums(
     &self,
-    profile: &Profile,
-    profile_albums: &[AlbumReadModel],
+    seed_context: AlbumRecommendationSeedContext,
     assessment_settings: EmbeddingSimilarityAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
     let profile_embedding = self
-      .get_average_profile_embedding(profile, &assessment_settings)
+      .get_average_seed_embedding(&seed_context, &assessment_settings)
       .await?;
-    let search_query = recommendation_settings.to_search_query(profile, profile_albums)?;
+    let search_query = recommendation_settings.to_search_query(&seed_context.albums)?;
     let similar_albums = self
       .album_interactor
       .embedding_similarity_search(&AlbumEmbeddingSimilarirtySearchQuery {

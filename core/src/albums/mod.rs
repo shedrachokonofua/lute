@@ -1,3 +1,4 @@
+pub mod album_collection_summary;
 pub mod album_event_subscribers;
 pub mod album_interactor;
 pub mod album_read_model;

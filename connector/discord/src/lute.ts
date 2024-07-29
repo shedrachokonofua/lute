@@ -46,7 +46,9 @@ export interface RecommendationSettings {
 
 export const recommendAlbums = async (settings: RecommendationSettings) => {
   const request = new core.RecommendAlbumsRequest({
-    profileId: settings.profileId,
+    seed: new core.AlbumRecommendationSeed({
+      profileId: settings.profileId,
+    }),
     recommendationSettings: new core.AlbumRecommendationSettings({
       count: settings.limit,
       includePrimaryGenres: settings.filters.includePrimaryGenres,
@@ -81,7 +83,7 @@ export interface Pagination {
 const toPagination = (pagination?: Pagination) => {
   return new core.SearchPagination({
     offset: pagination?.offset,
-    limit: pagination?.limit || 10
+    limit: pagination?.limit || 10,
   });
 };
 export interface AlbumSearchParams {
@@ -170,10 +172,12 @@ const toArtistSearchQuery = (query?: ArtistQuery) => {
     excludeSecondaryGenres: query?.excludeSecondaryGenres,
     includeCreditRoles: query?.includeCreditRoles,
     excludeCreditRoles: query?.excludeCreditRoles,
-    activeYearsRange: query?.activeYearsRange ? new core.YearRange({
-      start: query?.activeYearsRange?.[0],
-      end: query?.activeYearsRange?.[1],
-    }) : undefined,
+    activeYearsRange: query?.activeYearsRange
+      ? new core.YearRange({
+          start: query?.activeYearsRange?.[0],
+          end: query?.activeYearsRange?.[1],
+        })
+      : undefined,
     minAlbumCount: query?.minAlbumCount,
   });
 };
@@ -184,12 +188,12 @@ export interface ArtistSearchParams {
 }
 
 export const searchArtists = async (params: ArtistSearchParams) => {
-  console.log(params)
+  console.log(params);
   const request = new core.SearchArtistsRequest({
     query: toArtistSearchQuery(params.query),
     pagination: toPagination(params.pagination),
   });
   const results = await lute.artists.SearchArtists(request);
-  console.log(results)
+  console.log(results);
   return results.artists.map((artist) => artist.toObject());
 };

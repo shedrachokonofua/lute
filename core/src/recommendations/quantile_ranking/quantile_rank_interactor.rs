@@ -4,10 +4,12 @@ use super::{
 use crate::{
   albums::{album_interactor::AlbumInteractor, album_read_model::AlbumReadModel},
   helpers::redisearch::SearchPagination,
-  profile::profile::Profile,
-  recommendations::types::{
-    AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
-    RecommendationMethodInteractor,
+  recommendations::{
+    seed::AlbumRecommendationSeedContext,
+    types::{
+      AlbumAssessment, AlbumRecommendation, AlbumRecommendationSettings,
+      RecommendationMethodInteractor,
+    },
   },
 };
 use anyhow::Result;
@@ -78,33 +80,28 @@ impl
 {
   #[instrument(
     name = "QuantileRankInteractor::assess_album",
-    skip(self, profile, profile_albums, album_read_model),
-    fields(profile_id = %profile.id.to_string(), profile_album_count = profile_albums.len())
+    skip(self, seed_context, album_read_model)
   )]
   async fn assess_album(
     &self,
-    profile: &Profile,
-    profile_albums: &[AlbumReadModel],
+    seed_context: AlbumRecommendationSeedContext,
     album_read_model: &QuantileRankAssessableAlbum,
     settings: QuantileRankAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
-    QuantileRankAlbumAssessmentContext::new(profile, profile_albums, settings)
-      .assess(&album_read_model.0)
+    QuantileRankAlbumAssessmentContext::new(seed_context, settings).assess(&album_read_model.0)
   }
 
   #[instrument(
     name = "QuantileRankInteractor::recommend_albums",
-    skip(self, profile, profile_albums),
-    fields(profile_id = %profile.id.to_string(), profile_album_count = profile_albums.len())
+    skip(self, seed_context)
   )]
   async fn recommend_albums(
     &self,
-    profile: &Profile,
-    profile_albums: &[AlbumReadModel],
+    seed_context: AlbumRecommendationSeedContext,
     assessment_settings: QuantileRankAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
-    let search_query = recommendation_settings.to_search_query(profile, profile_albums)?;
+    let search_query = recommendation_settings.to_search_query(&seed_context.albums)?;
     let mut search_results = self
       .album_interactor
       .search(
@@ -115,8 +112,7 @@ impl
         }),
       )
       .await?;
-    let context =
-      QuantileRankAlbumAssessmentContext::new(profile, profile_albums, assessment_settings);
+    let context = QuantileRankAlbumAssessmentContext::new(seed_context, assessment_settings);
     let mut result_heap = BoundedMinHeap::new(recommendation_settings.count as usize);
     let (recommendation_sender, mut recommendation_receiver) = unbounded_channel();
     rayon::spawn(move || {

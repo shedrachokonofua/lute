@@ -1,13 +1,12 @@
-use crate::{
-  albums::{
-    album_read_model::AlbumReadModel,
-    album_search_index::{AlbumSearchQuery, AlbumSearchQueryBuilder},
-  },
-  profile::profile::Profile,
+use crate::albums::{
+  album_read_model::AlbumReadModel,
+  album_search_index::{AlbumSearchQuery, AlbumSearchQueryBuilder},
 };
 use anyhow::Result;
 use async_trait::async_trait;
 use std::{cmp::Ordering, collections::HashMap};
+
+use super::seed::AlbumRecommendationSeedContext;
 
 #[derive(Clone, Debug)]
 pub struct AlbumRecommendationSettings {
@@ -44,14 +43,14 @@ impl Default for AlbumRecommendationSettings {
   }
 }
 impl AlbumRecommendationSettings {
-  pub fn to_search_query(
-    &self,
-    profile: &Profile,
-    profile_albums: &[AlbumReadModel],
-  ) -> Result<AlbumSearchQuery> {
+  pub fn to_search_query(&self, seed_albums: &[AlbumReadModel]) -> Result<AlbumSearchQuery> {
+    let album_file_names = seed_albums
+      .iter()
+      .map(|album| album.file_name.clone())
+      .collect::<Vec<_>>();
     let mut search_query_builder = AlbumSearchQueryBuilder::default();
     search_query_builder
-      .exclude_file_names(profile.albums.keys().cloned().collect::<Vec<_>>())
+      .exclude_file_names(album_file_names)
       .include_primary_genres(self.include_primary_genres.clone())
       .include_secondary_genres(self.include_secondary_genres.clone())
       .include_languages(self.include_languages.clone())
@@ -65,7 +64,7 @@ impl AlbumRecommendationSettings {
       .min_descriptor_count(5);
     if self.exclude_known_artists.unwrap_or(false) {
       search_query_builder.exclude_artists(
-        profile_albums
+        seed_albums
           .iter()
           .flat_map(|album| album.artists.clone())
           .map(|artist| artist.file_name)
@@ -120,16 +119,14 @@ pub trait RecommendationMethodInteractor<
 {
   async fn assess_album(
     &self,
-    profile: &Profile,
-    profile_albums: &[AlbumReadModel],
+    seed_context: AlbumRecommendationSeedContext,
     album: &TAssessableAlbum,
     settings: TAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment>;
 
   async fn recommend_albums(
     &self,
-    profile: &Profile,
-    profile_albums: &[AlbumReadModel],
+    seed_context: AlbumRecommendationSeedContext,
     assessment_settings: TAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>>;

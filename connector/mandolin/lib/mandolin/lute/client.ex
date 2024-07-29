@@ -60,7 +60,12 @@ defmodule Mandolin.Lute.Client do
            Lute.RecommendationService.Stub.recommend_albums(
              Channel.channel(),
              %Lute.RecommendAlbumsRequest{
-               profile_id: profile_id,
+               seed: %Lute.AlbumRecommendationSeed{
+                 value: {
+                   :profile_id,
+                   profile_id
+                 }
+               },
                recommendation_settings: filters,
                assessment_settings: settings
              }

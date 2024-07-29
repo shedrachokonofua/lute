@@ -92,6 +92,9 @@ tasks:
     cmds:
       - task: "web:proto"
       - task: "extension:proto"
+      - task: "discord-connector:proto"
+      - task: "mandolin:proto"
+      - task: "graph:proto"
 
   "build":
     cmds:

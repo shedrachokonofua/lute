@@ -12,6 +12,7 @@ import {
   AlbumAssessmentSettings,
   AlbumMonitor,
   AlbumRecommendation,
+  AlbumRecommendationSeed,
   AlbumRecommendationSettings,
   AlbumSearchQuery,
   ClearPendingSpotifyImportsRequest,
@@ -85,7 +86,9 @@ export const settingsToRecommendationRequest = <
   if (!settings.profileId) {
     return null;
   }
-  request.setProfileId(settings.profileId);
+  const seed = new AlbumRecommendationSeed();
+  seed.setProfileId(settings.profileId);
+  request.setSeed(seed);
   const recommedationSettings = new AlbumRecommendationSettings();
   if (settings.recommendationSettings?.count) {
     recommedationSettings.setCount(settings.recommendationSettings.count);

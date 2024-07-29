@@ -6,6 +6,7 @@ use super::{
   quantile_ranking::quantile_rank_interactor::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAssessableAlbum, QuantileRankInteractor,
   },
+  seed::{AlbumRecommendationSeed, AlbumRecommendationSeedContext},
   spotify_track_search_index::{
     SpotifyTrackEmbeddingSimilaritySearchQuery, SpotifyTrackQuery, SpotifyTrackQueryBuilder,
     SpotifyTrackSearchIndex, SpotifyTrackSearchResult,
@@ -28,7 +29,6 @@ use crate::{
 };
 use anyhow::Result;
 use futures::future::join_all;
-use iter_tools::Itertools;
 use std::sync::Arc;
 
 pub enum AlbumAssessmentSettings {
@@ -70,27 +70,49 @@ impl RecommendationInteractor {
       .album_interactor
       .find_many(profile.album_file_names())
       .await?
-      .drain()
-      .map(|(_, album)| album)
-      .collect_vec();
+      .into_values()
+      .collect();
     Ok((profile, albums))
+  }
+
+  async fn build_seed_context(
+    &self,
+    seed: AlbumRecommendationSeed,
+  ) -> Result<AlbumRecommendationSeedContext> {
+    match seed {
+      AlbumRecommendationSeed::Profile(profile_id) => {
+        let (profile, albums) = self.get_profile_and_albums(&profile_id).await?;
+        Ok(AlbumRecommendationSeedContext::new(
+          albums,
+          profile.albums.clone(),
+        ))
+      }
+      AlbumRecommendationSeed::Albums(factor_map) => {
+        let albums = self
+          .album_interactor
+          .find_many(factor_map.keys().cloned().collect())
+          .await?
+          .into_values()
+          .collect();
+        Ok(AlbumRecommendationSeedContext::new(albums, factor_map))
+      }
+    }
   }
 
   pub async fn assess_album(
     &self,
-    profile_id: &ProfileId,
+    seed: AlbumRecommendationSeed,
     album_file_name: &FileName,
     settings: AlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
-    let (profile, albums) = self.get_profile_and_albums(profile_id).await?;
+    let seed_context = self.build_seed_context(seed).await?;
     let album = self.album_interactor.get(album_file_name).await?;
     match settings {
       AlbumAssessmentSettings::QuantileRank(settings) => {
         self
           .quantile_rank_interactor
           .assess_album(
-            &profile,
-            &albums,
+            seed_context,
             &QuantileRankAssessableAlbum::try_from(album)?,
             settings,
           )
@@ -100,8 +122,7 @@ impl RecommendationInteractor {
         self
           .embedding_similarity_interactor
           .assess_album(
-            &profile,
-            &albums,
+            seed_context,
             &EmbeddingSimilarityAssessableAlbum::try_from(album)?,
             settings,
           )
@@ -110,24 +131,23 @@ impl RecommendationInteractor {
     }
   }
 
-  async fn recommend_albums_with_profile(
+  async fn recommend_albums_with_seed_context(
     &self,
     assessment_settings: AlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
-    profile: &Profile,
-    profile_albums: &[AlbumReadModel],
+    seed_context: AlbumRecommendationSeedContext,
   ) -> Result<Vec<AlbumRecommendation>> {
     match assessment_settings {
       AlbumAssessmentSettings::QuantileRank(settings) => {
         self
           .quantile_rank_interactor
-          .recommend_albums(profile, profile_albums, settings, recommendation_settings)
+          .recommend_albums(seed_context, settings, recommendation_settings)
           .await
       }
       AlbumAssessmentSettings::EmbeddingSimilarity(settings) => {
         self
           .embedding_similarity_interactor
-          .recommend_albums(profile, profile_albums, settings, recommendation_settings)
+          .recommend_albums(seed_context, settings, recommendation_settings)
           .await
       }
     }
@@ -135,33 +155,32 @@ impl RecommendationInteractor {
 
   pub async fn recommend_albums(
     &self,
-    profile_id: &ProfileId,
+    seed: AlbumRecommendationSeed,
     assessment_settings: AlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
-    let (profile, albums) = self.get_profile_and_albums(profile_id).await?;
+    let seed_context = self.build_seed_context(seed).await?;
     self
-      .recommend_albums_with_profile(
+      .recommend_albums_with_seed_context(
         assessment_settings,
         recommendation_settings,
-        &profile,
-        &albums,
+        seed_context,
       )
       .await
   }
 
   pub async fn draft_spotify_playlist(
     &self,
-    profile_id: &ProfileId,
+    seed: AlbumRecommendationSeed,
     assessment_settings: AlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<SpotifyTrackReference>> {
-    let (profile, profile_albums) = self.get_profile_and_albums(profile_id).await?;
+    let seed_context = self.build_seed_context(seed).await?;
     let profile_tracks = self
       .spotify_track_search_index
       .search(
         &SpotifyTrackQueryBuilder::default()
-          .include_album_file_names(profile.album_file_names())
+          .include_album_file_names(seed_context.album_file_names())
           .build()?,
         None,
       )
@@ -173,21 +192,16 @@ impl RecommendationInteractor {
         .map(|track| {
           (
             &track.embedding,
-            profile
-              .albums
-              .get(&track.album_file_name)
-              .copied()
-              .unwrap_or(1),
+            seed_context.get_factor(&track.album_file_name).unwrap_or(1),
           )
         })
         .collect::<Vec<_>>(),
     );
     let recommendations = self
-      .recommend_albums_with_profile(
+      .recommend_albums_with_seed_context(
         assessment_settings,
         recommendation_settings,
-        &profile,
-        &profile_albums,
+        seed_context,
       )
       .await?;
     let recommendation_tracks = join_all(
@@ -218,14 +232,14 @@ impl RecommendationInteractor {
 
   pub async fn create_spotify_playlist(
     &self,
-    profile_id: &ProfileId,
+    seed: AlbumRecommendationSeed,
     assessment_settings: AlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
     name: String,
     description: Option<String>,
   ) -> Result<(String, Vec<SpotifyTrackReference>)> {
     let playlist_draft = self
-      .draft_spotify_playlist(profile_id, assessment_settings, recommendation_settings)
+      .draft_spotify_playlist(seed, assessment_settings, recommendation_settings)
       .await?;
     let playlist_id = self
       .spotify_client

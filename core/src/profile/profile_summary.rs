@@ -1,16 +1,9 @@
 use super::profile::{Profile, ProfileId};
 use crate::{
-  albums::album_read_model::AlbumReadModel,
-  files::file_metadata::file_name::FileName,
-  helpers::{
-    item_with_factor::{desc_sort_by_factor, ItemWithFactor},
-    math::median,
-  },
+  albums::{album_collection_summary::AlbumCollectionSummary, album_read_model::AlbumReadModel},
+  helpers::item_with_factor::ItemWithFactor,
 };
-use chrono::Datelike;
-use rayon::prelude::*;
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, iter::repeat};
 use tracing::instrument;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -33,174 +26,24 @@ pub struct ProfileSummary {
 impl Profile {
   #[instrument(skip_all, fields(id = %self.id.to_string(), len = album_read_models.len()))]
   pub fn summarize(&self, album_read_models: &[AlbumReadModel]) -> ProfileSummary {
-    let album_read_models_map = album_read_models
-      .into_par_iter()
-      .map(|album_read_model| (album_read_model.file_name.clone(), album_read_model))
-      .collect::<HashMap<FileName, &AlbumReadModel>>();
-    let mut artists_map: HashMap<String, u32> = HashMap::new();
-    let mut primary_genres_map: HashMap<String, u32> = HashMap::new();
-    let mut secondary_genres_map: HashMap<String, u32> = HashMap::new();
-    let mut descriptors_map: HashMap<String, u32> = HashMap::new();
-    let mut years_map: HashMap<u32, u32> = HashMap::new();
-    let mut decades_map: HashMap<u32, u32> = HashMap::new();
-    let mut credit_tags_map: HashMap<String, u32> = HashMap::new();
-    let mut ratings: Vec<f32> = Vec::new();
-    let mut indexed_album_count = 0;
-
-    for (file_name, factor) in &self.albums {
-      let album = album_read_models_map.get(file_name);
-      if album.is_none() {
-        continue;
-      }
-      let album = album.unwrap();
-      indexed_album_count += 1;
-
-      for artist in &album.artists {
-        artists_map
-          .entry(artist.name.clone())
-          .and_modify(|c| *c += factor)
-          .or_insert(*factor);
-      }
-
-      for genre in &album.primary_genres {
-        primary_genres_map
-          .entry(genre.clone())
-          .and_modify(|c| *c += factor)
-          .or_insert(*factor);
-      }
-
-      for genre in &album.secondary_genres {
-        secondary_genres_map
-          .entry(genre.clone())
-          .and_modify(|c| *c += factor)
-          .or_insert(*factor);
-      }
-
-      for descriptor in &album.descriptors {
-        descriptors_map
-          .entry(descriptor.clone())
-          .and_modify(|c| *c += factor)
-          .or_insert(*factor);
-      }
-
-      for tag in &album.credit_tags() {
-        credit_tags_map
-          .entry(tag.clone())
-          .and_modify(|c| *c += factor)
-          .or_insert(*factor);
-      }
-
-      if let Some(release_date) = album.release_date {
-        let year = release_date.year() as u32;
-        years_map
-          .entry(year)
-          .and_modify(|c| *c += factor)
-          .or_insert(*factor);
-        let decade = year - (year % 10);
-        decades_map
-          .entry(decade)
-          .and_modify(|c| *c += factor)
-          .or_insert(*factor);
-      }
-
-      ratings.append(
-        &mut repeat(album.rating)
-          .take(*factor as usize)
-          .collect::<Vec<_>>(),
-      );
-    }
-
-    let average_rating = ratings.iter().sum::<f32>() / ratings.len() as f32;
-
-    let mut artists = artists_map
-      .iter()
-      .map(|(item, factor)| ItemWithFactor {
-        item: item.clone(),
-        factor: *factor,
-      })
-      .collect::<Vec<ItemWithFactor>>();
-    desc_sort_by_factor(&mut artists);
-
-    let mut years = years_map
-      .iter()
-      .map(|(item, factor)| ItemWithFactor {
-        item: item.to_string(),
-        factor: *factor,
-      })
-      .collect::<Vec<ItemWithFactor>>();
-    desc_sort_by_factor(&mut years);
-
-    let median_year = median(
-      years
-        .iter()
-        .flat_map(|item| {
-          repeat(item.item.parse::<f32>().unwrap())
-            .take(item.factor as usize)
-            .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>(),
-    )
-    .round() as u32;
-
-    let mut primary_genres = primary_genres_map
-      .iter()
-      .map(|(item, factor)| ItemWithFactor {
-        item: item.clone(),
-        factor: *factor,
-      })
-      .collect::<Vec<ItemWithFactor>>();
-    desc_sort_by_factor(&mut primary_genres);
-
-    let mut secondary_genres = secondary_genres_map
-      .iter()
-      .map(|(item, factor)| ItemWithFactor {
-        item: item.clone(),
-        factor: *factor,
-      })
-      .collect::<Vec<ItemWithFactor>>();
-    desc_sort_by_factor(&mut secondary_genres);
-
-    let mut descriptors = descriptors_map
-      .iter()
-      .map(|(item, factor)| ItemWithFactor {
-        item: item.clone(),
-        factor: *factor,
-      })
-      .collect::<Vec<ItemWithFactor>>();
-    desc_sort_by_factor(&mut descriptors);
-
-    let mut credit_tags = credit_tags_map
-      .iter()
-      .map(|(item, factor)| ItemWithFactor {
-        item: item.clone(),
-        factor: *factor,
-      })
-      .collect::<Vec<ItemWithFactor>>();
-    desc_sort_by_factor(&mut credit_tags);
-
-    let mut decades = decades_map
-      .iter()
-      .map(|(item, factor)| ItemWithFactor {
-        item: item.to_string(),
-        factor: *factor,
-      })
-      .collect::<Vec<ItemWithFactor>>();
-    desc_sort_by_factor(&mut decades);
+    let indexed_album_count = album_read_models.len() as u32;
+    let collection_sumary =
+      AlbumCollectionSummary::new(album_read_models.to_vec(), self.albums.clone());
 
     ProfileSummary {
       id: self.id.clone(),
       name: self.name.clone(),
       album_count: self.albums.len() as u32,
       indexed_album_count,
-      average_rating,
-      median_year,
-      artists,
-      primary_genres,
-      secondary_genres,
-      descriptors,
-      credit_tags,
-      years,
-      decades,
+      average_rating: collection_sumary.average_rating,
+      median_year: collection_sumary.median_year,
+      artists: collection_sumary.artists,
+      primary_genres: collection_sumary.primary_genres,
+      secondary_genres: collection_sumary.secondary_genres,
+      descriptors: collection_sumary.descriptors,
+      years: collection_sumary.years,
+      decades: collection_sumary.decades,
+      credit_tags: collection_sumary.credit_tags,
     }
   }
 }

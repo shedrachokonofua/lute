@@ -47,7 +47,7 @@ services:
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms8g -Xmx8g
+      - ES_JAVA_OPTS=-Xms16g -Xmx16g
       - xpack.security.enabled=false
       - xpack.security.enrollment.enabled=false
     ulimits:
