@@ -14,6 +14,7 @@ import {
   FindSimilarAlbumsRequest,
   GetAlbumRequest,
   AlbumSearchQuery,
+  AlbumRecommendationSeed,
 } from "./proto/lute_pb";
 import { Empty } from "google-protobuf/google/protobuf/empty_pb";
 
@@ -49,7 +50,9 @@ export const getAllProfiles = async (): Promise<Profile[]> => {
 export const assessAlbum = async (profileId: string, fileName: string) => {
   const request = new AssessAlbumRequest();
   request.setFileName(fileName);
-  request.setProfileId(profileId);
+  const seed = new AlbumRecommendationSeed();
+  seed.setProfileId(profileId);
+  request.setSeed(seed);
   const reply = await client.recommendation.assessAlbum(request, null);
   return reply.getAssessment();
 };
