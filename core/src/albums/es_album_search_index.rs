@@ -283,14 +283,15 @@ impl AlbumSearchQuery {
       }));
     }
 
-    if let Some(include_duplicates) = self.include_duplicates {
-      if include_duplicates {
-        query["bool"]["must"].as_array_mut().unwrap().push(json!({
+    if !self.include_duplicates.is_some_and(|b| b) {
+      query["bool"]["must_not"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
           "exists": {
             "field": "duplicate_of"
           }
         }));
-      }
     }
 
     if query["bool"]["must"].as_array().unwrap().is_empty()
