@@ -6,6 +6,10 @@ use super::{
   quantile_ranking::quantile_rank_interactor::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAssessableAlbum, QuantileRankInteractor,
   },
+  reranked_embedding_similarity::reranked_embedding_similarity_interactor::{
+    RerankedEmbeddingSimilarityAlbumAssessmentSettings, RerankedEmbeddingSimilarityAssessableAlbum,
+    RerankedEmbeddingSimilarityInteractor,
+  },
   seed::{AlbumRecommendationSeed, AlbumRecommendationSeedContext},
   spotify_track_search_index::{
     SpotifyTrackEmbeddingSimilaritySearchQuery, SpotifyTrackQuery, SpotifyTrackQueryBuilder,
@@ -34,11 +38,13 @@ use std::sync::Arc;
 pub enum AlbumAssessmentSettings {
   QuantileRank(QuantileRankAlbumAssessmentSettings),
   EmbeddingSimilarity(EmbeddingSimilarityAlbumAssessmentSettings),
+  RerankedEmbeddingSimilarity(RerankedEmbeddingSimilarityAlbumAssessmentSettings),
 }
 
 pub struct RecommendationInteractor {
-  quantile_rank_interactor: QuantileRankInteractor,
-  embedding_similarity_interactor: EmbeddingSimilarityInteractor,
+  quantile_rank_interactor: Arc<QuantileRankInteractor>,
+  embedding_similarity_interactor: Arc<EmbeddingSimilarityInteractor>,
+  reranked_embedding_similarity_interactor: RerankedEmbeddingSimilarityInteractor,
   album_interactor: Arc<AlbumInteractor>,
   profile_interactor: Arc<ProfileInteractor>,
   spotify_track_search_index: Arc<SpotifyTrackSearchIndex>,
@@ -47,13 +53,20 @@ pub struct RecommendationInteractor {
 
 impl RecommendationInteractor {
   pub fn new(app_context: Arc<ApplicationContext>) -> Self {
+    let quantile_rank_interactor = Arc::new(QuantileRankInteractor::new(Arc::clone(
+      &app_context.album_interactor,
+    )));
+    let embedding_similarity_interactor = Arc::new(EmbeddingSimilarityInteractor::new(Arc::clone(
+      &app_context.album_interactor,
+    )));
+    let reranked_embedding_similarity_interactor = RerankedEmbeddingSimilarityInteractor::new(
+      Arc::clone(&embedding_similarity_interactor),
+      Arc::clone(&quantile_rank_interactor),
+    );
     Self {
-      quantile_rank_interactor: QuantileRankInteractor::new(Arc::clone(
-        &app_context.album_interactor,
-      )),
-      embedding_similarity_interactor: EmbeddingSimilarityInteractor::new(Arc::clone(
-        &app_context.album_interactor,
-      )),
+      quantile_rank_interactor,
+      embedding_similarity_interactor,
+      reranked_embedding_similarity_interactor,
       album_interactor: Arc::clone(&app_context.album_interactor),
       profile_interactor: Arc::clone(&app_context.profile_interactor),
       spotify_track_search_index: Arc::clone(&app_context.spotify_track_search_index),
@@ -112,7 +125,7 @@ impl RecommendationInteractor {
         self
           .quantile_rank_interactor
           .assess_album(
-            seed_context,
+            &seed_context,
             &QuantileRankAssessableAlbum::try_from(album)?,
             settings,
           )
@@ -122,8 +135,18 @@ impl RecommendationInteractor {
         self
           .embedding_similarity_interactor
           .assess_album(
-            seed_context,
+            &seed_context,
             &EmbeddingSimilarityAssessableAlbum::try_from(album)?,
+            settings,
+          )
+          .await
+      }
+      AlbumAssessmentSettings::RerankedEmbeddingSimilarity(settings) => {
+        self
+          .reranked_embedding_similarity_interactor
+          .assess_album(
+            &seed_context,
+            &RerankedEmbeddingSimilarityAssessableAlbum::try_from(album)?,
             settings,
           )
           .await
@@ -135,7 +158,7 @@ impl RecommendationInteractor {
     &self,
     assessment_settings: AlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
-    seed_context: AlbumRecommendationSeedContext,
+    seed_context: &AlbumRecommendationSeedContext,
   ) -> Result<Vec<AlbumRecommendation>> {
     match assessment_settings {
       AlbumAssessmentSettings::QuantileRank(settings) => {
@@ -147,6 +170,12 @@ impl RecommendationInteractor {
       AlbumAssessmentSettings::EmbeddingSimilarity(settings) => {
         self
           .embedding_similarity_interactor
+          .recommend_albums(seed_context, settings, recommendation_settings)
+          .await
+      }
+      AlbumAssessmentSettings::RerankedEmbeddingSimilarity(settings) => {
+        self
+          .reranked_embedding_similarity_interactor
           .recommend_albums(seed_context, settings, recommendation_settings)
           .await
       }
@@ -164,7 +193,7 @@ impl RecommendationInteractor {
       .recommend_albums_with_seed_context(
         assessment_settings,
         recommendation_settings,
-        seed_context,
+        &seed_context,
       )
       .await
   }
@@ -201,7 +230,7 @@ impl RecommendationInteractor {
       .recommend_albums_with_seed_context(
         assessment_settings,
         recommendation_settings,
-        seed_context,
+        &seed_context,
       )
       .await?;
     let recommendation_tracks = join_all(

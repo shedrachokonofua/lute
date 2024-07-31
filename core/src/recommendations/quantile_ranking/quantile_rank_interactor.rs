@@ -56,6 +56,39 @@ impl QuantileRankInteractor {
   pub fn new(album_interactor: Arc<AlbumInteractor>) -> Self {
     Self { album_interactor }
   }
+
+  #[instrument(name = "QuantileRankInteractor::rank_albums", skip(self, seed_context))]
+  pub async fn rank_albums(
+    &self,
+    seed_context: &AlbumRecommendationSeedContext,
+    assessment_settings: QuantileRankAlbumAssessmentSettings,
+    recommendation_settings: AlbumRecommendationSettings,
+    albums: Vec<AlbumReadModel>,
+  ) -> Result<Vec<AlbumRecommendation>> {
+    let mut albums = albums;
+    let context = QuantileRankAlbumAssessmentContext::new(seed_context, assessment_settings);
+    let mut result_heap = BoundedMinHeap::new(recommendation_settings.count as usize);
+    let (recommendation_sender, mut recommendation_receiver) = unbounded_channel();
+    rayon::spawn(move || {
+      albums
+        .par_drain(..)
+        .for_each(|album| match context.assess(&album) {
+          Ok(assessment) => {
+            if let Err(e) = recommendation_sender.send(AlbumRecommendation { album, assessment }) {
+              warn!("Error sending recommendation: {}", e);
+            }
+          }
+          Err(error) => {
+            warn!("Error assessing album: {}", error);
+          }
+        });
+    });
+    while let Some(recommendation) = recommendation_receiver.recv().await {
+      result_heap.push(recommendation);
+    }
+    let recommendations = result_heap.drain_sorted_desc();
+    Ok(recommendations)
+  }
 }
 
 #[derive(Clone, Debug)]
@@ -84,7 +117,7 @@ impl
   )]
   async fn assess_album(
     &self,
-    seed_context: AlbumRecommendationSeedContext,
+    seed_context: &AlbumRecommendationSeedContext,
     album_read_model: &QuantileRankAssessableAlbum,
     settings: QuantileRankAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
@@ -97,12 +130,12 @@ impl
   )]
   async fn recommend_albums(
     &self,
-    seed_context: AlbumRecommendationSeedContext,
+    seed_context: &AlbumRecommendationSeedContext,
     assessment_settings: QuantileRankAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {
     let search_query = recommendation_settings.to_search_query(&seed_context.albums)?;
-    let mut search_results = self
+    let search_results = self
       .album_interactor
       .search(
         &search_query,
@@ -112,28 +145,13 @@ impl
         }),
       )
       .await?;
-    let context = QuantileRankAlbumAssessmentContext::new(seed_context, assessment_settings);
-    let mut result_heap = BoundedMinHeap::new(recommendation_settings.count as usize);
-    let (recommendation_sender, mut recommendation_receiver) = unbounded_channel();
-    rayon::spawn(move || {
-      search_results
-        .albums
-        .par_drain(..)
-        .for_each(|album| match context.assess(&album) {
-          Ok(assessment) => {
-            if let Err(e) = recommendation_sender.send(AlbumRecommendation { album, assessment }) {
-              warn!("Error sending recommendation: {}", e);
-            }
-          }
-          Err(error) => {
-            warn!("Error assessing album: {}", error);
-          }
-        });
-    });
-    while let Some(recommendation) = recommendation_receiver.recv().await {
-      result_heap.push(recommendation);
-    }
-    let recommendations = result_heap.drain_sorted_desc();
-    Ok(recommendations)
+    self
+      .rank_albums(
+        seed_context,
+        assessment_settings,
+        recommendation_settings,
+        search_results.albums,
+      )
+      .await
   }
 }

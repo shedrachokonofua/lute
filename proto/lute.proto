@@ -682,6 +682,12 @@ message QuantileRankAlbumAssessmentSettings {
 
 message EmbeddingSimilarityAlbumAssessmentSettings { string embedding_key = 1; }
 
+message RerankedEmbeddingSimilarityAlbumAssessmentSettings {
+  EmbeddingSimilarityAlbumAssessmentSettings embedding_similarity_settings = 1;
+  QuantileRankAlbumAssessmentSettings quantile_rank_settings = 2;
+  optional uint32 min_embedding_candidate_count = 3;
+}
+
 message AlbumAssessment {
   float score = 1;
   map<string, string> metadata = 2;
@@ -694,6 +700,8 @@ message AlbumAssessmentSettings {
     QuantileRankAlbumAssessmentSettings quantile_rank_settings = 1;
     EmbeddingSimilarityAlbumAssessmentSettings embedding_similarity_settings =
         2;
+    RerankedEmbeddingSimilarityAlbumAssessmentSettings
+        reranked_embedding_similarity_settings = 3;
   }
 }
 

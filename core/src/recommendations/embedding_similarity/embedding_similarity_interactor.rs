@@ -83,7 +83,7 @@ impl
   )]
   async fn assess_album(
     &self,
-    seed_context: AlbumRecommendationSeedContext,
+    seed_context: &AlbumRecommendationSeedContext,
     album_read_model: &EmbeddingSimilarityAssessableAlbum,
     settings: EmbeddingSimilarityAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment> {
@@ -117,7 +117,7 @@ impl
   )]
   async fn recommend_albums(
     &self,
-    seed_context: AlbumRecommendationSeedContext,
+    seed_context: &AlbumRecommendationSeedContext,
     assessment_settings: EmbeddingSimilarityAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>> {

@@ -77,7 +77,7 @@ pub struct QuantileRankAlbumAssessmentContext {
 
 impl QuantileRankAlbumAssessmentContext {
   pub fn new(
-    seed_context: AlbumRecommendationSeedContext,
+    seed_context: &AlbumRecommendationSeedContext,
     settings: QuantileRankAlbumAssessmentSettings,
   ) -> Self {
     let rating_ranking = QuantileRanking::new(
@@ -101,7 +101,7 @@ impl QuantileRankAlbumAssessmentContext {
         .map(|album| album.descriptors.len() as u32)
         .collect::<Vec<_>>(),
     );
-    let seed_summary = AlbumCollectionSummary::new(seed_context.albums, seed_context.factor_map);
+    let seed_summary = AlbumCollectionSummary::new(&seed_context.albums, &seed_context.factor_map);
     Self {
       settings,
       primary_genre_ranking: QuantileRanking::new(&seed_summary.primary_genres),

@@ -24,13 +24,13 @@ pub struct AlbumCollectionSummary {
 
 impl AlbumCollectionSummary {
   pub fn new(
-    albums: Vec<AlbumReadModel>,
-    factor_map: HashMap<FileName, u32>,
+    albums: &[AlbumReadModel],
+    factor_map: &HashMap<FileName, u32>,
   ) -> AlbumCollectionSummary {
     let album_read_models_map = albums
       .into_par_iter()
       .map(|album_read_model| (album_read_model.file_name.clone(), album_read_model))
-      .collect::<HashMap<FileName, AlbumReadModel>>();
+      .collect::<HashMap<FileName, &AlbumReadModel>>();
     let mut artists_map: HashMap<String, u32> = HashMap::new();
     let mut primary_genres_map: HashMap<String, u32> = HashMap::new();
     let mut secondary_genres_map: HashMap<String, u32> = HashMap::new();
@@ -40,7 +40,7 @@ impl AlbumCollectionSummary {
     let mut credit_tags_map: HashMap<String, u32> = HashMap::new();
     let mut ratings: Vec<f32> = Vec::new();
 
-    for (file_name, factor) in &factor_map {
+    for (file_name, factor) in factor_map {
       let album = album_read_models_map.get(file_name);
       if album.is_none() {
         continue;

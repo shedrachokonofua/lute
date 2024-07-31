@@ -4,11 +4,13 @@ use crate::{
 };
 use std::collections::HashMap;
 
+#[derive(Clone, Debug)]
 pub enum AlbumRecommendationSeed {
   Profile(ProfileId),
   Albums(HashMap<FileName, u32>),
 }
 
+#[derive(Clone, Debug)]
 pub struct AlbumRecommendationSeedContext {
   pub albums: Vec<AlbumReadModel>,
   pub factor_map: HashMap<FileName, u32>,

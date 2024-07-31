@@ -4,6 +4,7 @@ use super::{
     QuantileRankAlbumAssessmentSettings, QuantileRankAlbumAssessmentSettingsBuilder,
   },
   recommendation_interactor::{AlbumAssessmentSettings, RecommendationInteractor},
+  reranked_embedding_similarity::reranked_embedding_similarity_interactor::RerankedEmbeddingSimilarityAlbumAssessmentSettings,
   seed::AlbumRecommendationSeed,
   spotify_track_search_index::{SpotifyTrackQuery, SpotifyTrackSearchResult},
   types::{AlbumRecommendation, AlbumRecommendationSettings},
@@ -81,6 +82,31 @@ impl From<proto::EmbeddingSimilarityAlbumAssessmentSettings>
   }
 }
 
+impl TryFrom<proto::RerankedEmbeddingSimilarityAlbumAssessmentSettings>
+  for RerankedEmbeddingSimilarityAlbumAssessmentSettings
+{
+  type Error = Error;
+
+  fn try_from(
+    value: proto::RerankedEmbeddingSimilarityAlbumAssessmentSettings,
+  ) -> Result<Self, Self::Error> {
+    let embedding_similarity_settings = EmbeddingSimilarityAlbumAssessmentSettings::from(
+      value
+        .embedding_similarity_settings
+        .ok_or_else(|| anyhow!("Embedding similarity settings not provided"))?,
+    );
+    let quantile_rank_settings = value.quantile_rank_settings.map_or_else(
+      || Ok(QuantileRankAlbumAssessmentSettings::default()),
+      QuantileRankAlbumAssessmentSettings::try_from,
+    )?;
+    Ok(Self {
+      embedding_similarity_settings,
+      quantile_rank_settings,
+      min_embedding_candidate_count: value.min_embedding_candidate_count,
+    })
+  }
+}
+
 impl TryFrom<proto::AlbumAssessmentSettings> for AlbumAssessmentSettings {
   type Error = Error;
 
@@ -92,6 +118,12 @@ impl TryFrom<proto::AlbumAssessmentSettings> for AlbumAssessmentSettings {
       Some(proto::album_assessment_settings::Settings::EmbeddingSimilaritySettings(settings)) => {
         Ok(Self::EmbeddingSimilarity(settings.into()))
       }
+      Some(proto::album_assessment_settings::Settings::RerankedEmbeddingSimilaritySettings(
+        settings,
+      )) => Ok(Self::RerankedEmbeddingSimilarity(
+        RerankedEmbeddingSimilarityAlbumAssessmentSettings::try_from(settings)?,
+      )),
+
       None => Err(anyhow::anyhow!("Settings not provided")),
     }
   }

@@ -119,14 +119,14 @@ pub trait RecommendationMethodInteractor<
 {
   async fn assess_album(
     &self,
-    seed_context: AlbumRecommendationSeedContext,
+    seed_context: &AlbumRecommendationSeedContext,
     album: &TAssessableAlbum,
     settings: TAlbumAssessmentSettings,
   ) -> Result<AlbumAssessment>;
 
   async fn recommend_albums(
     &self,
-    seed_context: AlbumRecommendationSeedContext,
+    seed_context: &AlbumRecommendationSeedContext,
     assessment_settings: TAlbumAssessmentSettings,
     recommendation_settings: AlbumRecommendationSettings,
   ) -> Result<Vec<AlbumRecommendation>>;

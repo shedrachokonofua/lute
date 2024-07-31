@@ -27,8 +27,7 @@ impl Profile {
   #[instrument(skip_all, fields(id = %self.id.to_string(), len = album_read_models.len()))]
   pub fn summarize(&self, album_read_models: &[AlbumReadModel]) -> ProfileSummary {
     let indexed_album_count = album_read_models.len() as u32;
-    let collection_sumary =
-      AlbumCollectionSummary::new(album_read_models.to_vec(), self.albums.clone());
+    let collection_sumary = AlbumCollectionSummary::new(album_read_models, &self.albums);
 
     ProfileSummary {
       id: self.id.clone(),
