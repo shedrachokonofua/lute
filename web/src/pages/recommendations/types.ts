@@ -1,6 +1,9 @@
 import { AlbumSearchFiltersForm } from "../../forms";
 
-export type RecommendationMethod = "quantile-ranking" | "embedding-similarity";
+export type RecommendationMethod =
+  | "quantile-ranking"
+  | "embedding-similarity"
+  | "reranked-embedding-similarity";
 
 export interface RecommendationSettingsForm {
   profileId?: string;
@@ -19,5 +22,6 @@ export interface RecommendationSettingsForm {
     embeddingSimilarity?: {
       embeddingKey?: string;
     };
+    minEmbeddingCandidateCount?: number;
   };
 }

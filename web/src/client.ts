@@ -37,6 +37,7 @@ import {
   QuantileRankAlbumAssessmentSettings,
   RecommendAlbumsRequest,
   RemoveAlbumFromProfileRequest,
+  RerankedEmbeddingSimilarityAlbumAssessmentSettings,
   SearchAlbumsReply,
   SearchAlbumsRequest,
   SearchPagination,
@@ -139,8 +140,10 @@ export const settingsToRecommendationRequest = <
   request.setRecommendationSettings(recommedationSettings);
 
   const assessmentSettings = new AlbumAssessmentSettings();
+  let quantileRankSettings;
+  let embeddingSimilaritySettings;
   if (settings.assessmentSettings?.quantileRanking) {
-    const quantileRankSettings = new QuantileRankAlbumAssessmentSettings();
+    quantileRankSettings = new QuantileRankAlbumAssessmentSettings();
     const {
       primaryGenresWeight,
       secondaryGenresWeight,
@@ -171,17 +174,39 @@ export const settingsToRecommendationRequest = <
     if (creditTagWeight !== undefined) {
       quantileRankSettings.setCreditTagWeight(creditTagWeight);
     }
-    assessmentSettings.setQuantileRankSettings(quantileRankSettings);
   }
   if (settings.assessmentSettings?.embeddingSimilarity) {
-    const embeddingSimilaritySettings =
+    embeddingSimilaritySettings =
       new EmbeddingSimilarityAlbumAssessmentSettings();
     const { embeddingKey } = settings.assessmentSettings.embeddingSimilarity;
     if (embeddingKey !== undefined) {
       embeddingSimilaritySettings.setEmbeddingKey(embeddingKey);
     }
+  }
+  if (settings.method === "quantile-ranking") {
+    assessmentSettings.setQuantileRankSettings(quantileRankSettings);
+  } else if (settings.method === "embedding-similarity") {
     assessmentSettings.setEmbeddingSimilaritySettings(
       embeddingSimilaritySettings,
+    );
+  } else if (settings.method === "reranked-embedding-similarity") {
+    const rerankedEmbeddingSettings =
+      new RerankedEmbeddingSimilarityAlbumAssessmentSettings();
+    if (quantileRankSettings) {
+      rerankedEmbeddingSettings.setQuantileRankSettings(quantileRankSettings);
+    }
+    if (embeddingSimilaritySettings) {
+      rerankedEmbeddingSettings.setEmbeddingSimilaritySettings(
+        embeddingSimilaritySettings,
+      );
+    }
+    if (settings.assessmentSettings?.minEmbeddingCandidateCount) {
+      rerankedEmbeddingSettings.setMinEmbeddingCandidateCount(
+        settings.assessmentSettings.minEmbeddingCandidateCount,
+      );
+    }
+    assessmentSettings.setRerankedEmbeddingSimilaritySettings(
+      rerankedEmbeddingSettings,
     );
   }
   request.setAssessmentSettings(assessmentSettings);

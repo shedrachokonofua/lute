@@ -19,17 +19,14 @@ import {
 } from "../../client";
 import { TwoColumnLayout } from "../../components";
 import {
-  FormName,
-  coerceToUndefined,
-  parseAlbumSearchFiltersForm,
-  toNumber,
-} from "../../forms";
-import {
   QuantileRankAlbumAssessmentSettings,
   SpotifyTrackReference,
 } from "../../proto/lute_pb";
-import { RecommendationSettings } from "./RecommendationSettings";
-import { RecommendationMethod, RecommendationSettingsForm } from "./types";
+import {
+  RecommendationSettings,
+  getRecommendationSettingsFromUrl,
+} from "./RecommendationSettings";
+import { RecommendationSettingsForm } from "./types";
 
 const ErrorBoundary = () => {
   const error = useRouteError();
@@ -51,80 +48,7 @@ export const playlistPreviewPageLoader = async ({
   request,
 }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
-  const profileId = url.searchParams.get(FormName.ProfileId);
-  const assessmentMethod =
-    url.searchParams.get(FormName.Method) || "quantile-ranking";
-
-  const assessmentSettings =
-    assessmentMethod === "quantile-ranking"
-      ? coerceToUndefined({
-          quantileRanking: {
-            primaryGenresWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  FormName.QuantileRankingPrimaryGenresWeight,
-                ),
-              ),
-            ),
-            secondaryGenresWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  FormName.QuantileRankingSecondaryGenresWeight,
-                ),
-              ),
-            ),
-            descriptorWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(FormName.QuantileRankingDescriptorWeight),
-              ),
-            ),
-            ratingWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(FormName.QuantileRankingRatingWeight),
-              ),
-            ),
-            ratingCountWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(FormName.QuantileRankingRatingCountWeight),
-              ),
-            ),
-            descriptorCountWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(
-                  FormName.QuantileRankingDescriptorCountWeight,
-                ),
-              ),
-            ),
-            creditTagWeight: toNumber(
-              coerceToUndefined(
-                url.searchParams.get(FormName.QuantileRankingCreditTagWeight),
-              ),
-            ),
-          },
-          embeddingSimilarity: undefined,
-        })
-      : assessmentMethod === "embedding-similarity"
-      ? coerceToUndefined({
-          quantileRanking: undefined,
-          embeddingSimilarity: {
-            embeddingKey: coerceToUndefined(
-              url.searchParams.get(FormName.EmbeddingSimilarityEmbeddingKey),
-            ),
-          },
-        })
-      : undefined;
-
-  const settings = profileId
-    ? {
-        profileId,
-        method: coerceToUndefined(assessmentMethod) as
-          | RecommendationMethod
-          | undefined,
-        recommendationSettings: parseAlbumSearchFiltersForm(url),
-        assessmentSettings,
-      }
-    : null;
-
+  const settings = getRecommendationSettingsFromUrl(url);
   const tracks = settings ? draftSpotifyPlaylist(settings) : null;
   const defaultQuantileRankAlbumAssessmentSettings =
     await getDefaultQuantileRankAlbumAssessmentSettings();
