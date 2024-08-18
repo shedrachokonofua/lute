@@ -71,7 +71,8 @@ export const AlbumRecommendationItem = ({
     <AlbumCard
       album={album}
       assessment={
-        recommendationMethod === "quantile-ranking" ? (
+        recommendationMethod === "quantile-ranking" ||
+        recommendationMethod === "reranked-embedding-similarity" ? (
           <Assessment assessment={assessment} />
         ) : undefined
       }
