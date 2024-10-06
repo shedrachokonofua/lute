@@ -2,7 +2,10 @@ use super::super::provider::EmbeddingProvider;
 use crate::scheduler::job_name::JobName;
 use anyhow::Result;
 use async_trait::async_trait;
-use ollama_rs::Ollama;
+use ollama_rs::{
+  generation::embeddings::request::{EmbeddingsInput, GenerateEmbeddingsRequest},
+  Ollama,
+};
 use std::time::Duration;
 
 pub struct OllamaEmbeddingProvider {
@@ -46,11 +49,22 @@ impl EmbeddingProvider for OllamaEmbeddingProvider {
   async fn generate(&self, payloads: Vec<String>) -> Result<Vec<Vec<f32>>> {
     let mut embeddings = Vec::new();
     for payload in payloads {
-      let embedding = self
+      let mut response = self
         .client
-        .generate_embeddings(self.name.clone(), payload, None)
+        .generate_embeddings(GenerateEmbeddingsRequest::new(
+          self.name.clone(),
+          EmbeddingsInput::Single(payload),
+        ))
         .await?;
-      embeddings.push(embedding.embeddings.into_iter().map(|v| v as f32).collect());
+      embeddings.push(
+        response
+          .embeddings
+          .pop()
+          .unwrap_or_default()
+          .into_iter()
+          .map(|v| v as f32)
+          .collect(),
+      );
     }
     Ok(embeddings)
   }
