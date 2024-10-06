@@ -14,7 +14,13 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
     .query_by_selector(&[".page_charts_section_charts_item"], None)
     .into_iter()
     .filter_map(|tag| {
-      let name = parser.find_text(&[".page_charts_section_charts_item_title"], Some(tag))?;
+      let name = parser.find_text(
+        &[
+          ".page_charts_section_charts_item_title",
+          ".ui_name_locale_original",
+        ],
+        Some(tag),
+      )?;
       let rating = parser
         .find_text(
           &[".page_charts_section_charts_item_details_average_num"],
@@ -23,17 +29,6 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
         .parse::<f32>()
         .inspect_err(|err| {
           warn!(err = err.to_string(), "Failed to parse rating");
-        })
-        .ok()?;
-      let rating_count = parser
-        .find_text(
-          &[".page_charts_section_charts_item_details_ratings", ".full"],
-          Some(tag),
-        )?
-        .replace(',', "")
-        .parse::<u32>()
-        .inspect_err(|err| {
-          warn!(err = err.to_string(), "Failed to parse rating count");
         })
         .ok()?;
       let artists = parser
@@ -72,14 +67,6 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
         .into_iter()
         .filter_map(|tag| parser.find_tag_text(tag))
         .collect::<Vec<_>>();
-      let descriptors = parser
-        .query_by_selector(
-          &[".page_charts_section_charts_item_genre_descriptors", "span"],
-          Some(tag),
-        )
-        .into_iter()
-        .filter_map(|tag| parser.find_tag_text(tag))
-        .collect::<Vec<_>>();
       let file_name = FileName::try_from(
         parser
           .find_by_selector(&[".page_charts_section_charts_item_link"], Some(tag))
@@ -107,11 +94,9 @@ pub fn parse_chart(file_content: &str) -> Result<Vec<ParsedChartAlbum>> {
         file_name,
         name,
         rating,
-        rating_count,
         artists,
         primary_genres,
         secondary_genres,
-        descriptors,
         release_date,
       })
     })
@@ -139,7 +124,6 @@ mod tests {
     );
     assert_eq!(chart[0].name, "To Pimp a Butterfly");
     assert_eq!(chart[0].rating, 4.38);
-    assert_eq!(chart[0].rating_count, 79984);
     assert_eq!(chart[0].artists[0].name, "Kendrick Lamar");
     assert_eq!(
       chart[0].artists[0].file_name,
@@ -151,26 +135,7 @@ mod tests {
     );
     assert_eq!(
       chart[0].secondary_genres,
-      vec![
-        "Political Hip Hop",
-        "Neo-Soul",
-        "Funk",
-        "Poetry",
-        "Experimental Hip Hop"
-      ]
-    );
-    assert_eq!(
-      chart[0].descriptors,
-      vec![
-        "political",
-        "conscious",
-        "concept album",
-        "poetic",
-        "introspective",
-        "protest",
-        "urban",
-        "eclectic"
-      ]
+      vec!["Political Hip Hop", "Neo-Soul"]
     );
     assert_eq!(chart[0].release_date, NaiveDate::from_ymd_opt(2015, 3, 15));
 
@@ -180,7 +145,6 @@ mod tests {
     );
     assert_eq!(chart[1].name, "OK Computer");
     assert_eq!(chart[1].rating, 4.29);
-    assert_eq!(chart[1].rating_count, 104764);
     assert_eq!(chart[1].artists[0].name, "Radiohead");
     assert_eq!(
       chart[1].artists[0].file_name,
@@ -194,19 +158,6 @@ mod tests {
       chart[1].secondary_genres,
       vec!["Post-Britpop", "Space Rock Revival"]
     );
-    assert_eq!(
-      chart[1].descriptors,
-      vec![
-        "melancholic",
-        "anxious",
-        "alienation",
-        "futuristic",
-        "existential",
-        "lonely",
-        "atmospheric",
-        "cold"
-      ]
-    );
     assert_eq!(chart[1].release_date, NaiveDate::from_ymd_opt(1997, 6, 16));
 
     assert_eq!(
@@ -214,8 +165,7 @@ mod tests {
       FileName::try_from("release/album/radiohead/in-rainbows").unwrap()
     );
     assert_eq!(chart[2].name, "In Rainbows");
-    assert_eq!(chart[2].rating, 4.31);
-    assert_eq!(chart[2].rating_count, 77859);
+    assert_eq!(chart[2].rating, 4.32);
     assert_eq!(chart[2].artists[0].name, "Radiohead");
     assert_eq!(
       chart[2].artists[0].file_name,
@@ -225,23 +175,7 @@ mod tests {
       chart[2].primary_genres,
       vec!["Art Rock", "Alternative Rock"]
     );
-    assert_eq!(
-      chart[2].secondary_genres,
-      vec!["Electronic", "Dream Pop", "Art Pop"]
-    );
-    assert_eq!(
-      chart[2].descriptors,
-      vec![
-        "lush",
-        "melancholic",
-        "introspective",
-        "mellow",
-        "bittersweet",
-        "atmospheric",
-        "warm",
-        "ethereal"
-      ]
-    );
+    assert_eq!(chart[2].secondary_genres, vec!["Electronic", "Dream Pop"]);
     assert_eq!(chart[2].release_date, NaiveDate::from_ymd_opt(2007, 10, 10));
 
     Ok(())

@@ -61,11 +61,9 @@ impl Into<proto::ParsedChartAlbum> for ParsedChartAlbum {
       file_name: self.file_name.into(),
       name: self.name,
       rating: self.rating,
-      rating_count: self.rating_count,
       artists,
       primary_genres: self.primary_genres,
       secondary_genres: self.secondary_genres,
-      descriptors: self.descriptors,
       release_date: self.release_date.map(|val| val.to_string()),
     }
   }

@@ -55,11 +55,9 @@ pub struct ParsedChartAlbum {
   pub file_name: FileName,
   pub name: String,
   pub rating: f32,
-  pub rating_count: u32,
   pub artists: Vec<ParsedArtistReference>,
   pub primary_genres: Vec<String>,
   pub secondary_genres: Vec<String>,
-  pub descriptors: Vec<String>,
   pub release_date: Option<NaiveDate>,
 }
 

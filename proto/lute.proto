@@ -385,11 +385,9 @@ message ParsedChartAlbum {
   string file_name = 1;
   string name = 2;
   float rating = 3;
-  uint32 rating_count = 4;
   repeated ParsedArtistReference artists = 5;
   repeated string primary_genres = 6;
   repeated string secondary_genres = 7;
-  repeated string descriptors = 8;
   optional string release_date = 9;
 }
 
