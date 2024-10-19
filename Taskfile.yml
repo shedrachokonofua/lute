@@ -95,6 +95,7 @@ tasks:
       - task: "discord-connector:proto"
       - task: "mandolin:proto"
       - task: "graph:proto"
+      - task: "scripts:proto"
 
   "build":
     cmds:
@@ -129,8 +130,9 @@ tasks:
       - task: "core:run"
 
   "core:test:clean_html_resources":
+    dir: scripts
     cmds:
-      - node scripts/clean_html_resources.js core/resources/test
+      - npm run clean_html_resources ../core/resources/test
 
   "postgres:up":
     cmds:
@@ -231,3 +233,13 @@ tasks:
     dir: connector/graph
     cmds:
       - poetry run jupyter lab
+
+  "scripts:proto":
+    dir: scripts
+    cmds:
+      - protoc -I=../proto --ts_out=./src/proto --ts_opt=unary_rpc_promise=true --ts_opt=target=node --ts_opt=json_names lute.proto
+
+  "scripts:crawl_charts":
+    dir: scripts
+    cmds:
+      - npm run crawl_charts

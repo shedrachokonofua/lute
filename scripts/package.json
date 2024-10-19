@@ -1,0 +1,25 @@
+{
+  "name": "discord",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "clean_html_resources": "tsx ./src/cleanHtmlResources.js",
+    "crawl_charts": "tsx ./src/crawlCharts.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.10.8",
+    "discord.js": "^14.15.2",
+    "dotenv": "^16.4.5",
+    "google-protobuf": "^3.21.2",
+    "openai": "^4.47.2",
+    "pino": "^9.1.0"
+  },
+  "devDependencies": {
+    "@types/google-protobuf": "^3.15.12",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.5"
+  }
+}
