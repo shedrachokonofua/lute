@@ -40,7 +40,7 @@ rspotify = { git = "https://github.com/shedrachokonofua/rspotify.git" }
 rusqlite = { version = "0.31.0", features = ["array", "bundled", "chrono"] }
 rusqlite_migration = { version = "1.2.0", features = ["from-directory"] }
 rust-s3 = "0.34.0-rc4"
-rustis = { version = "0.13.1", features = [
+rustis = { version = "0.13.3", features = [
   "pool",
   "redis-json",
   "redis-search",
