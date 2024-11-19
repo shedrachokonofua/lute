@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "clean_html_resources": "tsx ./src/cleanHtmlResources.js",
-    "crawl_charts": "tsx ./src/crawlCharts.js"
+    "crawl_charts": "tsx ./src/crawlCharts.js",
+    "crawl_artists": "tsx ./src/crawlArtists.js"
   },
   "author": "",
   "license": "ISC",
