@@ -1,5 +1,5 @@
 use super::{file_metadata::FileMetadata, file_name::FileName, file_timestamp::FileTimestamp};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, Result};
 use rustis::{
   bb8::Pool,
   client::{BatchPreparedCommand, PooledClientManager},
@@ -113,7 +113,7 @@ impl FileMetadataRepository {
 
   pub async fn insert(&self, name: &FileName) -> Result<FileMetadata> {
     if self.find_by_name(name).await?.is_some() {
-      bail!("File already exists");
+      return Err(anyhow!("File already exists"));
     }
 
     let file_metadata = FileMetadata {
@@ -135,7 +135,7 @@ impl FileMetadataRepository {
         file_metadata.id.to_string(),
       )
       .queue();
-    transaction.execute().await?;
+    transaction.execute::<()>().await?;
 
     Ok(file_metadata)
   }
