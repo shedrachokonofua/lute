@@ -9,28 +9,36 @@ async-openai = "0.19.0"
 async-stream = "0.3.5"
 async-trait = "0.1.72"
 chrono = { version = "0.4.24", features = ["serde"] }
-config = "0.14.0"
+config = "0.15.11"
 data-encoding = "2.4.0"
 deadpool-sqlite = "0.8.1"
 derive_builder = "0.20.0"
 dotenv = "0.15.0"
 elasticsearch = "8.15.0-alpha.1"
 futures = "0.3.30"
-governor = "0.6.3"
+governor = "0.10.0"
 htmlescape = "0.3.1"
 include_dir = "0.7.3"
-iter_tools = "0.7.0"
+iter_tools = "0.29.0"
 lazy_static = "1.4.0"
 mimalloc = "0.1.39"
 nonzero = "0.2.0"
 num-traits = "0.2.16"
 ollama-rs = "0.2.1"
-opentelemetry = { version = "0.22.0" }
-opentelemetry-otlp = { version = "0.15.0" }
-opentelemetry_sdk = "0.22.1"
-ordered-float = { version = "4.1.0" }
-prost = "0.12.0"
-prost-build = "0.12.0"
+opentelemetry = { version = "0.27.0", features = ["metrics"] }
+opentelemetry-appender-tracing = "0.27.0"
+opentelemetry-otlp = { version = "0.27.0", features = [
+  "http-proto",
+  "metrics",
+  "logs",
+] }
+opentelemetry-semantic-conventions = { version = "0.27.0", features = [
+  "semconv_experimental",
+] }
+opentelemetry_sdk = { version = "0.27.0", features = ["rt-tokio"] }
+ordered-float = { version = "5.0.0" }
+prost = "0.13.5"
+prost-build = "0.13.5"
 rayon = "1.7.0"
 regex = "1.8.3"
 reqwest = { version = "0.12.9", features = ["json"] }
@@ -39,7 +47,7 @@ reqwest-tracing = "0.5.4"
 rspotify = { git = "https://github.com/shedrachokonofua/rspotify.git" }
 rusqlite = { version = "0.31.0", features = ["array", "bundled", "chrono"] }
 rusqlite_migration = { version = "1.2.0", features = ["from-directory"] }
-rust-s3 = "0.34.0-rc4"
+rust-s3 = "0.35.1"
 rustis = { version = "0.13.3", features = [
   "pool",
   "redis-json",
@@ -52,9 +60,9 @@ serde_repr = "0.1.19"
 serde_urlencoded = "0.7.1"
 sha2 = "0.10.8"
 strsim = "0.11.1"
-strum = { version = "0.26.2", features = ["derive"] }
-strum_macros = "0.26.2"
-thiserror = "1.0.58"
+strum = { version = "0.27.1", features = ["derive"] }
+strum_macros = "0.27.1"
+thiserror = "2.0.12"
 tl = "0.7.7"
 tokio = { version = "1.28.1", features = [
   "rt-multi-thread",
@@ -62,20 +70,18 @@ tokio = { version = "1.28.1", features = [
   "tracing",
 ] }
 tokio-retry = "0.3.0"
-tonic = "0.11.0"
-tonic-reflection = "0.11.0"
-tonic-tracing-opentelemetry = "0.18.2"
-tonic-web = "0.11.0"
-tracing = "0.1.40"
-tracing-opentelemetry = "0.23.0"
-tracing-subscriber = { version = "0.3.17", features = [
-  "fmt",
-  "json",
-  "env-filter",
-] }
+tonic = "0.13.1"
+tonic-reflection = "0.13.1"
+tonic-tracing-opentelemetry = "0.28.0"
+tonic-web = "0.13.1"
+tower = "0.5.2"
+tower-http = { version = "0.6.4", features = ["cors"] }
+tracing = "0.1.41"
+tracing-opentelemetry = "0.28.0"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 ulid = { version = "1.0.0", features = ["serde"] }
 unidecode = "0.3.0"
 
 [build-dependencies]
-tonic-build = "0.11.0"
-prost-build = "0.12.0"
+tonic-build = "0.13.1"
+prost-build = "0.13.5"

@@ -18,4 +18,4 @@ pub mod scheduler;
 pub mod settings;
 pub mod spotify;
 pub mod sqlite;
-pub mod tracing;
+pub mod telemetry;

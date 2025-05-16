@@ -17,7 +17,7 @@ use crate::{
   settings::Settings,
   spotify::spotify_client::SpotifyClient,
   sqlite::SqliteConnection,
-  tracing::setup_tracing,
+  telemetry::Telemetry,
 };
 use anyhow::Result;
 use dotenv::dotenv;
@@ -49,7 +49,7 @@ impl ApplicationContext {
   pub async fn init() -> Result<Arc<ApplicationContext>> {
     dotenv().ok();
     let settings = Arc::new(Settings::new()?);
-    setup_tracing(&settings.tracing)?;
+    Telemetry::init(&settings.tracing)?;
 
     let elasticsearch_client = Arc::new(Elasticsearch::new(Transport::single_node(
       &settings.elasticsearch.url,

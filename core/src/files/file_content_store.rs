@@ -6,7 +6,7 @@ use tracing::{error, info, instrument, warn};
 
 #[derive(Debug, Clone)]
 pub struct FileContentStore {
-  bucket: Bucket,
+  bucket: Box<Bucket>,
 }
 
 impl FileContentStore {

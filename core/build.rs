@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .file_descriptor_set_path(
       PathBuf::from(env::var("OUT_DIR").unwrap()).join("lute_descriptor.bin"),
     )
-    .compile_with_config(config, &["lute.proto"], &["../proto"])?;
+    .protoc_arg("--experimental_allow_proto3_optional")
+    .compile_protos(&["lute.proto"], &["../proto"])?;
   Ok(())
 }

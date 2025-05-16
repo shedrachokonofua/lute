@@ -23,7 +23,8 @@ use anyhow::Result;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{task::spawn, task::JoinHandle};
 use tonic::{transport::Server, Request, Response, Status};
-use tonic_tracing_opentelemetry::middleware::{filters, server::OtelGrpcLayer};
+use tonic_web::GrpcWebLayer;
+use tower_http::cors::CorsLayer;
 use tracing::info;
 pub struct LuteService {}
 
@@ -53,53 +54,54 @@ impl RpcServer {
     let max_message_size = 1024 * 1024 * 1024;
     let reflection_service = tonic_reflection::server::Builder::configure()
       .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
-      .build()
+      .build_v1()
       .unwrap();
     let addr = self.addr();
     info!(address = addr.to_string(), "Starting RPC server");
     let server = Server::builder()
       .trace_fn(|_| tracing::info_span!("lute::rpc"))
-      .layer(OtelGrpcLayer::default().filter(filters::reject_healthcheck))
+      .layer(CorsLayer::new())
+      .layer(GrpcWebLayer::new())
       .accept_http1(true)
       .add_service(reflection_service)
-      .add_service(tonic_web::enable(LuteServer::new(LuteService {})))
-      .add_service(tonic_web::enable(FileServiceServer::new(FileService::new(
-        Arc::clone(&self.app_context),
+      .add_service(LuteServer::new(LuteService {}))
+      .add_service(FileServiceServer::new(FileService::new(Arc::clone(
+        &self.app_context,
       ))))
-      .add_service(tonic_web::enable(CrawlerServiceServer::new(
-        CrawlerService::new(Arc::clone(&self.app_context)),
-      )))
-      .add_service(tonic_web::enable(
+      .add_service(CrawlerServiceServer::new(CrawlerService::new(Arc::clone(
+        &self.app_context,
+      ))))
+      .add_service(
         AlbumServiceServer::new(AlbumService::new(Arc::clone(&self.app_context)))
           .max_decoding_message_size(max_message_size)
           .max_encoding_message_size(max_message_size),
-      ))
-      .add_service(tonic_web::enable(ArtistServiceServer::new(
-        ArtistService::new(Arc::clone(&self.app_context)),
+      )
+      .add_service(ArtistServiceServer::new(ArtistService::new(Arc::clone(
+        &self.app_context,
+      ))))
+      .add_service(SpotifyServiceServer::new(SpotifyService::new(Arc::clone(
+        &self.app_context,
+      ))))
+      .add_service(OperationsServiceServer::new(OperationsService::new(
+        Arc::clone(&self.app_context),
       )))
-      .add_service(tonic_web::enable(SpotifyServiceServer::new(
-        SpotifyService::new(Arc::clone(&self.app_context)),
-      )))
-      .add_service(tonic_web::enable(OperationsServiceServer::new(
-        OperationsService::new(Arc::clone(&self.app_context)),
-      )))
-      .add_service(tonic_web::enable(ParserServiceServer::new(
-        ParserService::new(Arc::clone(&self.app_context)),
-      )))
-      .add_service(tonic_web::enable(ProfileServiceServer::new(
-        ProfileService::new(Arc::clone(&self.app_context)),
-      )))
-      .add_service(tonic_web::enable(LookupServiceServer::new(
-        LookupService::new(Arc::clone(&self.app_context)),
-      )))
-      .add_service(tonic_web::enable(RecommendationServiceServer::new(
+      .add_service(ParserServiceServer::new(ParserService::new(Arc::clone(
+        &self.app_context,
+      ))))
+      .add_service(ProfileServiceServer::new(ProfileService::new(Arc::clone(
+        &self.app_context,
+      ))))
+      .add_service(LookupServiceServer::new(LookupService::new(Arc::clone(
+        &self.app_context,
+      ))))
+      .add_service(RecommendationServiceServer::new(
         RecommendationService::new(Arc::clone(&self.app_context)),
-      )))
-      .add_service(tonic_web::enable(EventServiceServer::new(
-        EventService::new(Arc::clone(&self.app_context)),
-      )))
-      .add_service(tonic_web::enable(SchedulerServiceServer::new(
-        SchedulerService::new(Arc::clone(&self.app_context)),
+      ))
+      .add_service(EventServiceServer::new(EventService::new(Arc::clone(
+        &self.app_context,
+      ))))
+      .add_service(SchedulerServiceServer::new(SchedulerService::new(
+        Arc::clone(&self.app_context),
       )));
 
     spawn(async move {
