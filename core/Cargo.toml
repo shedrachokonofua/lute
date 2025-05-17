@@ -64,7 +64,7 @@ strum = { version = "0.27.1", features = ["derive"] }
 strum_macros = "0.27.1"
 thiserror = "2.0.12"
 tl = "0.7.7"
-tokio = { version = "1.28.1", features = [
+tokio = { version = "1.45.0", features = [
   "rt-multi-thread",
   "macros",
   "tracing",
