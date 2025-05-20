@@ -1,0 +1,66 @@
+services:
+  redis:
+    image: "redis/redis-stack:6.2.6-v17"
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_ARGS=--appendonly yes
+    volumes:
+      - redis_data:/data
+
+  core:
+    build:
+      context: ../../
+      dockerfile: ./core/Dockerfile
+    ports:
+      - "22000:22000"
+    volumes:
+      - /home/lute/lute.db:/usr/src/app/core/lute.db
+      - /home/lute/lute.db-shm:/usr/src/app/core/lute.db-shm
+      - /home/lute/lute.db-wal:/usr/src/app/core/lute.db-wal
+    depends_on:
+      - redis
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms16g -Xmx16g
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.0
+    container_name: kibana
+    depends_on:
+      - elasticsearch
+
+  neo4j:
+    image: neo4j:5.21.0
+    environment:
+      - NEO4J_AUTH=none
+      - NEO4J_PLUGINS=["graph-data-science"]
+      - NEO4J_server_memory_pagecache_size=4G
+      - NEO4J_server_memory_heap_initial__size=4G
+      - NEO4J_server_memory_heap_max__size=4G
+      - NEO4J_server_jvm_additional=-Xss16M
+    volumes:
+      - neo4j_data:/data
+
+  minio:
+    image: minio/minio:latest
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+
+volumes:
+  esdata:
+  redis_data:
+  neo4j_data:
+  minio_data:
