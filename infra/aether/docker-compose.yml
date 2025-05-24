@@ -17,6 +17,33 @@ services:
       - /home/lute/lute.db:/usr/src/app/core/lute.db
       - /home/lute/lute.db-shm:/usr/src/app/core/lute.db-shm
       - /home/lute/lute.db-wal:/usr/src/app/core/lute.db-wal
+    environment:
+      - port=${CORE_PORT}
+      - redis.url=${CORE_REDIS_URL}
+      - redis.max_pool_size=${CORE_REDIS_MAX_POOL_SIZE}
+      - file.content_store.region=${CORE_FILE_CONTENT_STORE_REGION}
+      - file.content_store.endpoint=${CORE_FILE_CONTENT_STORE_ENDPOINT}
+      - file.content_store.key=${CORE_FILE_CONTENT_STORE_KEY}
+      - file.content_store.secret=${CORE_FILE_CONTENT_STORE_SECRET}
+      - file.content_store.bucket=${CORE_FILE_CONTENT_STORE_BUCKET}
+      - file.ttl_days.album=${CORE_FILE_TTL_DAYS_ALBUM}
+      - crawler.proxy.host=${CORE_CRAWLER_PROXY_HOST}
+      - crawler.proxy.port=${CORE_CRAWLER_PROXY_PORT}
+      - crawler.proxy.username=${CORE_CRAWLER_PROXY_USERNAME}
+      - crawler.proxy.password=${CORE_CRAWLER_PROXY_PASSWORD}
+      - crawler.pool_size=${CORE_CRAWLER_POOL_SIZE}
+      - crawler.rate_limit.max_requests=${CORE_CRAWLER_RATE_LIMIT_MAX_REQUESTS}
+      - tracing.otel_collector_endpoint=${CORE_TRACING_OTEL_COLLECTOR_ENDPOINT}
+      - tracing.host_name=${CORE_TRACING_HOST_NAME}
+      - spotify.client_id=${CORE_SPOTIFY_CLIENT_ID}
+      - spotify.client_secret=${CORE_SPOTIFY_CLIENT_SECRET}
+      - spotify.redirect_uri=${CORE_SPOTIFY_REDIRECT_URI}
+      - embedding_provider.openai.api_key=${CORE_EMBEDDING_PROVIDER_OPENAI_API_KEY}
+      - embedding_provider.voyageai.api_key=${CORE_EMBEDDING_PROVIDER_VOYAGEAI_API_KEY}
+      - embedding_provider.ollama.models=${CORE_EMBEDDING_PROVIDER_OLLAMA_MODELS}
+      - parser.concurrency=${CORE_PARSER_CONCURRENCY}
+      - elasticsearch.url=${CORE_ELASTICSEARCH_URL}
+      - RUST_LOG=${CORE_RUST_LOG}
     depends_on:
       - redis
 
@@ -58,6 +85,11 @@ services:
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL}
+      - MINIO_BROWSER_REDIRECT=${MINIO_BROWSER_REDIRECT}
 
 volumes:
   esdata:
