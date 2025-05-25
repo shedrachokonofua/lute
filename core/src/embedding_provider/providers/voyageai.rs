@@ -112,7 +112,7 @@ impl EmbeddingProvider for VoyageAIEmbeddingProvider {
       .header("Authorization", format!("Bearer {}", self.settings.api_key))
       .json(&json!({
         "input": payloads,
-        "model": "voyage-large-2-instruct",
+        "model": "voyage-3-large",
         "input_type": "document"
       }))
       .send()
