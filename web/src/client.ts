@@ -44,7 +44,8 @@ import {
   SpotifyTrackReference,
 } from "./proto/lute_pb";
 
-const coreUrl = "http://pc:22000";
+const coreUrl = process.env.CORE_URL || "http://pc:22000";
+
 const client = {
   spotify: new SpotifyServiceClient(coreUrl),
   profile: new ProfileServiceClient(coreUrl),
