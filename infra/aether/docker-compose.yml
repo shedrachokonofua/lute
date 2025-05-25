@@ -46,6 +46,8 @@ services:
       - RUST_LOG=${CORE_RUST_LOG}
     depends_on:
       - redis
+      - minio
+      - elasticsearch
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
@@ -90,7 +92,7 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
       - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL}
       - MINIO_BROWSER_REDIRECT=${MINIO_BROWSER_REDIRECT}
-
+      - MINIO_SERVER_URL=${MINIO_SERVER_URL}
 volumes:
   esdata:
   redis_data:
