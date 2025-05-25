@@ -60,7 +60,7 @@ impl RpcServer {
     info!(address = addr.to_string(), "Starting RPC server");
     let server = Server::builder()
       .trace_fn(|_| tracing::info_span!("lute::rpc"))
-      .layer(CorsLayer::new())
+      .layer(CorsLayer::permissive())
       .layer(GrpcWebLayer::new())
       .accept_http1(true)
       .add_service(reflection_service)
