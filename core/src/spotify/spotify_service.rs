@@ -123,4 +123,17 @@ impl proto::SpotifyService for SpotifyService {
     let reply = proto::GetPlaylistTracksReply { tracks };
     Ok(Response::new(reply))
   }
+
+  async fn delete_credentials(&self, _: Request<()>) -> Result<Response<()>, Status> {
+    self
+      .spotify_client
+      .delete_credentials()
+      .await
+      .map_err(|e| {
+        error!("Error: {:?}", e);
+        Status::internal("Internal server error")
+      })?;
+
+    Ok(Response::new(()))
+  }
 }

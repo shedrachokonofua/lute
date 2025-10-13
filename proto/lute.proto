@@ -273,6 +273,8 @@ enum SpotifyAlbumType {
   SINGLE = 1;
   COMPILATION = 2;
   APPREARS_ON = 3;
+  EP = 4;
+  UNKNOWN = 5;
 }
 
 message SpotifyAlbumReference {
@@ -319,6 +321,8 @@ service SpotifyService {
   rpc GetSavedTracks(google.protobuf.Empty) returns (GetSavedTracksReply) {}
   rpc GetPlaylistTracks(GetPlaylistTracksRequest)
       returns (GetPlaylistTracksReply) {}
+  rpc DeleteCredentials(google.protobuf.Empty)
+      returns (google.protobuf.Empty) {}
 }
 
 message ParseFileContentStoreReply { uint32 count = 1; }

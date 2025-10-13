@@ -474,6 +474,10 @@ impl SpotifyClient {
     Ok(client)
   }
 
+  pub async fn delete_credentials(&self) -> Result<()> {
+    self.spotify_credential_repository.delete().await
+  }
+
   pub async fn get_saved_tracks(&self) -> Result<Vec<SpotifyTrack>> {
     let client = self.client().await?;
     let (tx, mut rx) = unbounded_channel();
