@@ -15,6 +15,12 @@ use tracing::{info, instrument, warn};
 
 const OPENAI_KEY: &str = "openai-default";
 
+// Hardcoded keys to delete - includes removed providers and current provider for full regeneration
+const KEYS_TO_DELETE: &[&str] = &[
+  "openai-default",
+  "voyageai-default",
+];
+
 #[instrument(skip_all, fields(count = event_data.len()))]
 async fn handle_album_saved_for_embedding_migration(
   event_data: Vec<EventData>,
@@ -42,12 +48,9 @@ async fn handle_album_saved_for_embedding_migration(
     .get_provider_by_name(OPENAI_KEY)
     .ok();
 
-  // Get all embedding keys to delete
-  let all_keys = app_context.album_interactor.get_embedding_keys().await?;
-
   for file_name in file_names {
-    // Delete all embeddings
-    for key in &all_keys {
+    // Delete all embeddings (hardcoded keys since removed providers won't be in config)
+    for key in KEYS_TO_DELETE {
       if let Err(e) = app_context
         .album_interactor
         .delete_embedding(&file_name, key)

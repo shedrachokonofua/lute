@@ -308,7 +308,10 @@ impl AlbumInteractor {
   }
 
   pub async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()> {
-    self.album_search_index.delete_embedding(file_name, key).await
+    self
+      .album_search_index
+      .delete_embedding(file_name, key)
+      .await
   }
 
   pub async fn related_artist_file_names(
