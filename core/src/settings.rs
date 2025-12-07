@@ -119,7 +119,9 @@ impl Settings {
     config::Config::builder()
       .add_source(
         config::Environment::default()
+          .separator(".")
           .try_parsing(true)
+          .with_list_parse_key("tracing.resource_labels")
           .list_separator(","),
       )
       .set_default("port", 80)?
