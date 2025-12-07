@@ -49,7 +49,7 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
   }
 
   fn concurrency(&self) -> usize {
-    20
+    5
   }
 
   fn interval(&self) -> Duration {
