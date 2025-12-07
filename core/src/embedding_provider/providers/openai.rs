@@ -45,11 +45,11 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
   }
 
   fn batch_size(&self) -> usize {
-    25
+    5
   }
 
   fn concurrency(&self) -> usize {
-    1
+    5
   }
 
   fn interval(&self) -> Duration {
