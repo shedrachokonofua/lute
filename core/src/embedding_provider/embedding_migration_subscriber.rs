@@ -16,10 +16,7 @@ use tracing::{info, instrument, warn};
 const OPENAI_KEY: &str = "openai-default";
 
 // Hardcoded keys to delete - includes removed providers and current provider for full regeneration
-const KEYS_TO_DELETE: &[&str] = &[
-  "openai-default",
-  "voyageai-default",
-];
+const KEYS_TO_DELETE: &[&str] = &["openai-default", "voyageai-default"];
 
 #[instrument(skip_all, fields(count = event_data.len()))]
 async fn handle_album_saved_for_embedding_migration(
@@ -49,25 +46,50 @@ async fn handle_album_saved_for_embedding_migration(
     .ok();
 
   for file_name in file_names {
+    info!(
+      file_name = file_name.to_string(),
+      keys_to_delete = ?KEYS_TO_DELETE,
+      "Starting embedding migration for album"
+    );
+
     // Delete all embeddings (hardcoded keys since removed providers won't be in config)
     for key in KEYS_TO_DELETE {
-      if let Err(e) = app_context
+      info!(
+        file_name = file_name.to_string(),
+        key = key,
+        "Attempting to delete embedding"
+      );
+      match app_context
         .album_interactor
         .delete_embedding(&file_name, key)
         .await
       {
-        warn!(
-          file_name = file_name.to_string(),
-          key = key,
-          error = e.to_string(),
-          "Failed to delete embedding"
-        );
+        Ok(_) => {
+          info!(
+            file_name = file_name.to_string(),
+            key = key,
+            "Successfully deleted embedding"
+          );
+        }
+        Err(e) => {
+          warn!(
+            file_name = file_name.to_string(),
+            key = key,
+            error = e.to_string(),
+            "Failed to delete embedding"
+          );
+        }
       }
     }
 
     // Schedule OpenAI embedding generation if provider is configured
     if let Some(ref provider) = openai_provider {
       if let Ok(Some(album)) = app_context.album_interactor.find(&file_name).await {
+        info!(
+          file_name = file_name.to_string(),
+          provider = provider.name(),
+          "Scheduling embedding generation job"
+        );
         let payload = EmbeddingGenerationJobPayload {
           provider_name: provider.name(),
           file_name: file_name.clone(),
@@ -84,6 +106,11 @@ async fn handle_album_saved_for_embedding_migration(
           .build()?;
         app_context.scheduler.put(params).await?;
       }
+    } else {
+      warn!(
+        file_name = file_name.to_string(),
+        "No OpenAI provider configured, skipping embedding generation"
+      );
     }
   }
 

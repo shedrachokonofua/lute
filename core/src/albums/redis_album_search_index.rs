@@ -36,7 +36,7 @@ use rustis::{
 };
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{instrument, warn};
+use tracing::{info, instrument, warn};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct RedisAlbumReadModelArtist {
@@ -647,8 +647,14 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
     })
   }
 
-  #[instrument(skip_all)]
+  #[instrument(skip_all, fields(file_name = embedding.file_name.to_string(), key = embedding.key))]
   async fn put_embedding(&self, embedding: EmbeddingDocument) -> Result<()> {
+    info!(
+      file_name = embedding.file_name.to_string(),
+      key = embedding.key,
+      embedding_len = embedding.embedding.len(),
+      "Putting embedding to Redis"
+    );
     self.ensure_album_root(&embedding.file_name).await?;
     self
       .redis_connection_pool
@@ -661,6 +667,11 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
         SetCondition::default(),
       )
       .await?;
+    info!(
+      file_name = embedding.file_name.to_string(),
+      key = embedding.key,
+      "Successfully put embedding to Redis"
+    );
     match self.delete_legacy_embeddings(&embedding.file_name).await {
       Ok(_) => {}
       Err(e) => {
@@ -720,12 +731,27 @@ impl AlbumSearchIndex for RedisAlbumSearchIndex {
   }
 
   async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()> {
-    self
+    let redis_k = redis_key(file_name);
+    let json_path = embedding_json_path(key);
+    info!(
+      file_name = file_name.to_string(),
+      key = key,
+      redis_key = redis_k,
+      json_path = json_path,
+      "Deleting embedding from Redis"
+    );
+    let result: usize = self
       .redis_connection_pool
       .get()
       .await?
-      .json_del(redis_key(file_name), embedding_json_path(key))
+      .json_del(&redis_k, &json_path)
       .await?;
+    info!(
+      file_name = file_name.to_string(),
+      key = key,
+      deleted_count = result,
+      "Embedding deletion result"
+    );
     Ok(())
   }
 
