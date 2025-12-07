@@ -38,8 +38,8 @@ services:
       - spotify.client_secret=${CORE_SPOTIFY_CLIENT_SECRET}
       - spotify.redirect_uri=${CORE_SPOTIFY_REDIRECT_URI}
       - embedding_provider.openai.api_key=${CORE_EMBEDDING_PROVIDER_OPENAI_API_KEY}
-      - embedding_provider.voyageai.api_key=${CORE_EMBEDDING_PROVIDER_VOYAGEAI_API_KEY}
-      - embedding_provider.ollama.models=${CORE_EMBEDDING_PROVIDER_OLLAMA_MODELS}
+      - embedding_provider.openai.api_url=${CORE_EMBEDDING_PROVIDER_OPENAI_API_URL}
+      - embedding_provider.openai.model_name=${CORE_EMBEDDING_PROVIDER_OPENAI_MODEL_NAME}
       - parser.concurrency=${CORE_PARSER_CONCURRENCY}
       - elasticsearch.url=${CORE_ELASTICSEARCH_URL}
       - RUST_LOG=${CORE_RUST_LOG}
