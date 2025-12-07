@@ -86,6 +86,8 @@ pub struct ParserSettings {
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct OpenAISettings {
   pub api_key: String,
+  pub api_url: String,
+  pub model_name: String,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]

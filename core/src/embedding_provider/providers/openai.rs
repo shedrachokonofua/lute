@@ -12,30 +12,24 @@ use std::time::Duration;
 use tracing::{error, info, warn};
 
 lazy_static! {
-  /**
-   * API limit is 5000 req/min, 5,000,000 tokens/min.
-   * Assuming:
-   * - average batch is 100 inputs,
-   * - average input is 400 words,
-   * - average word is 5 characters,
-   * - average token is 4 characters,
-   *
-   * Then:
-   * - 100 * 400 * 5 = 200,000 characters, 200,000 / 4 = 50,000 tokens per request
-   * - 5,000,000 / 50,000 = 100 requests/min
-   * - 100 / 60 = 1.67 requests/sec
-   */
-  static ref RATE_LIMITER: DefaultDirectRateLimiter = RateLimiter::direct(Quota::per_second(nonzero!(1u32)));
+  static ref RATE_LIMITER: DefaultDirectRateLimiter =
+    RateLimiter::direct(Quota::per_second(nonzero!(5u32)));
 }
 
 pub struct OpenAIEmbeddingProvider {
+  model_name: String,
   client: Client<OpenAIConfig>,
 }
 
 impl OpenAIEmbeddingProvider {
   pub fn new(settings: &OpenAISettings) -> Self {
     Self {
-      client: Client::with_config(OpenAIConfig::default().with_api_key(&settings.api_key)),
+      model_name: settings.model_name.clone(),
+      client: Client::with_config(
+        OpenAIConfig::default()
+          .with_api_key(&settings.api_key)
+          .with_api_base(&settings.api_url),
+      ),
     }
   }
 }
@@ -84,7 +78,7 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
     }
 
     let request = CreateEmbeddingRequestArgs::default()
-      .model("text-embedding-3-large")
+      .model(self.model_name.clone())
       .input(payloads)
       .dimensions(self.dimensions() as u32)
       .build()?;
