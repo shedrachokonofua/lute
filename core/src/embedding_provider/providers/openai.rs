@@ -45,7 +45,7 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
   }
 
   fn batch_size(&self) -> usize {
-    100
+    25
   }
 
   fn concurrency(&self) -> usize {
@@ -80,7 +80,6 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
     let request = CreateEmbeddingRequestArgs::default()
       .model(self.model_name.clone())
       .input(payloads)
-      .dimensions(self.dimensions() as u32)
       .build()?;
     let response = self
       .client
