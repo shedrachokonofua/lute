@@ -19,6 +19,9 @@ lazy_static! {
 pub struct OpenAIEmbeddingProvider {
   model_name: String,
   client: Client<OpenAIConfig>,
+  dimensions: usize,
+  batch_size: usize,
+  concurrency: usize,
 }
 
 impl OpenAIEmbeddingProvider {
@@ -30,6 +33,9 @@ impl OpenAIEmbeddingProvider {
           .with_api_key(&settings.api_key)
           .with_api_base(&settings.api_url),
       ),
+      dimensions: settings.dimensions,
+      batch_size: settings.batch_size,
+      concurrency: settings.concurrency,
     }
   }
 }
@@ -41,15 +47,15 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
   }
 
   fn dimensions(&self) -> usize {
-    1024
+    self.dimensions
   }
 
   fn batch_size(&self) -> usize {
-    10
+    self.batch_size
   }
 
   fn concurrency(&self) -> usize {
-    5
+    self.concurrency
   }
 
   fn interval(&self) -> Duration {

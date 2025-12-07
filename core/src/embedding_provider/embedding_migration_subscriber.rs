@@ -16,7 +16,7 @@ use tracing::{info, instrument, warn};
 const OPENAI_KEY: &str = "openai-default";
 
 // Hardcoded keys to delete - includes removed providers and current provider for full regeneration
-const KEYS_TO_DELETE: &[&str] = &["openai-default", "voyageai-default"];
+const KEYS_TO_DELETE: &[&str] = &["voyageai-default"];
 
 #[instrument(skip_all, fields(count = event_data.len()))]
 async fn handle_album_saved_for_embedding_migration(

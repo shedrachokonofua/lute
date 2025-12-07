@@ -40,6 +40,9 @@ services:
       - embedding_provider.openai.api_key=${CORE_EMBEDDING_PROVIDER_OPENAI_API_KEY}
       - embedding_provider.openai.api_url=${CORE_EMBEDDING_PROVIDER_OPENAI_API_URL}
       - embedding_provider.openai.model_name=${CORE_EMBEDDING_PROVIDER_OPENAI_MODEL_NAME}
+      - embedding_provider.openai.dimensions=${CORE_EMBEDDING_PROVIDER_OPENAI_DIMENSIONS}
+      - embedding_provider.openai.batch_size=${CORE_EMBEDDING_PROVIDER_OPENAI_BATCH_SIZE}
+      - embedding_provider.openai.concurrency=${CORE_EMBEDDING_PROVIDER_OPENAI_CONCURRENCY}
       - parser.concurrency=${CORE_PARSER_CONCURRENCY}
       - elasticsearch.url=${CORE_ELASTICSEARCH_URL}
       - RUST_LOG=${CORE_RUST_LOG}

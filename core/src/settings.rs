@@ -88,6 +88,9 @@ pub struct OpenAISettings {
   pub api_key: String,
   pub api_url: String,
   pub model_name: String,
+  pub dimensions: usize,
+  pub batch_size: usize,
+  pub concurrency: usize,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
