@@ -13,10 +13,9 @@ services:
       dockerfile: ./core/Dockerfile
     ports:
       - "22000:22000"
+    restart: unless-stopped
     volumes:
       - /home/lute/lute.db:/usr/src/app/core/lute.db
-      - /home/lute/lute.db-shm:/usr/src/app/core/lute.db-shm
-      - /home/lute/lute.db-wal:/usr/src/app/core/lute.db-wal
     environment:
       - port=${CORE_PORT}
       - redis.url=${CORE_REDIS_URL}
@@ -63,7 +62,7 @@ services:
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms16g -Xmx16g
+      - ES_JAVA_OPTS=-Xms8g -Xmx8g
       - xpack.security.enabled=false
       - xpack.security.enrollment.enabled=false
     ulimits:
@@ -78,18 +77,6 @@ services:
     container_name: kibana
     depends_on:
       - elasticsearch
-
-  neo4j:
-    image: neo4j:5.21.0
-    environment:
-      - NEO4J_AUTH=none
-      - NEO4J_PLUGINS=["graph-data-science"]
-      - NEO4J_server_memory_pagecache_size=4G
-      - NEO4J_server_memory_heap_initial__size=4G
-      - NEO4J_server_memory_heap_max__size=4G
-      - NEO4J_server_jvm_additional=-Xss16M
-    volumes:
-      - neo4j_data:/data
 
   minio:
     image: minio/minio:latest
