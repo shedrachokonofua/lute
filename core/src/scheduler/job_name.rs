@@ -14,6 +14,5 @@ pub enum JobName {
   FetchSpotifyTracksByAlbumIds,
   FetchSpotifyTracksByAlbumSearch,
   GenerateOpenAIEmbeddings,
-  GenerateVoyageAIEmbeddings,
-  GenerateOllamaEmbeddings,
+  DeleteEmbeddings,
 }

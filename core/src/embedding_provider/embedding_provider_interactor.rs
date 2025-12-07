@@ -1,18 +1,10 @@
-use super::{
-  provider::EmbeddingProvider,
-  providers::{
-    ollama::OllamaEmbeddingProvider, openai::OpenAIEmbeddingProvider,
-    voyageai::VoyageAIEmbeddingProvider,
-  },
-};
+use super::{provider::EmbeddingProvider, providers::openai::OpenAIEmbeddingProvider};
 use crate::{
   files::file_metadata::file_name::FileName, helpers::key_value_store::KeyValueStore,
   settings::Settings,
 };
 use anyhow::{anyhow, Result};
 use chrono::Duration;
-use ollama_rs::Ollama;
-use reqwest::Url;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -95,35 +87,6 @@ impl EmbeddingProviderInteractor {
     if let Some(openai_settings) = &settings.embedding_provider.openai {
       let provider = Arc::new(OpenAIEmbeddingProvider::new(openai_settings));
       providers.insert(provider.name().to_string(), provider);
-    }
-
-    if let Some(voyageai_settings) = &settings.embedding_provider.voyageai {
-      let provider = Arc::new(VoyageAIEmbeddingProvider::new(voyageai_settings.clone()));
-      providers.insert(provider.name().to_string(), provider);
-    }
-
-    if let Some(ollama_settings) = &settings.embedding_provider.ollama {
-      if let Ok(url) = Url::parse(
-        ollama_settings
-          .url
-          .clone()
-          .unwrap_or("http://localhost:11434".to_string())
-          .as_str(),
-      )
-      .inspect_err(|e| {
-        tracing::error!(
-          "Failed to parse Ollama URL, cannot register Ollama providers: {}",
-          e
-        )
-      }) {
-        for model in ollama_settings.models.iter() {
-          let provider = Arc::new(OllamaEmbeddingProvider::new(
-            model.clone(),
-            Ollama::from_url(url.clone()),
-          ));
-          providers.insert(provider.name().to_string(), provider);
-        }
-      }
     }
 
     Self {

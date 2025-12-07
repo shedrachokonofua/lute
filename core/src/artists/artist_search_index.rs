@@ -394,4 +394,14 @@ impl ArtistSearchIndex {
         .collect(),
     )
   }
+
+  pub async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()> {
+    self
+      .index
+      .delete_field(
+        file_name.to_string(),
+        &ElasticsearchIndex::embedding_field_key(key),
+      )
+      .await
+  }
 }

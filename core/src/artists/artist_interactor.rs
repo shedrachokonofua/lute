@@ -174,6 +174,13 @@ impl ArtistInteractor {
       .await
   }
 
+  pub async fn delete_embedding(&self, file_name: &FileName, key: &str) -> Result<()> {
+    self
+      .artist_search_index
+      .delete_embedding(file_name, key)
+      .await
+  }
+
   pub async fn embedding_similarity_search(
     &self,
     query: &ArtistEmbeddingSimilarirtySearchQuery,

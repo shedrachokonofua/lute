@@ -5,6 +5,7 @@ use lute::{
   context::ApplicationContext,
   crawler::crawler_jobs::setup_crawler_jobs,
   embedding_provider::{
+    embedding_migration_subscriber::build_embedding_migration_subscriber,
     embedding_provider_event_subscribers::build_embedding_provider_event_subscribers,
     embedding_provider_jobs::setup_embedding_provider_jobs,
   },
@@ -34,6 +35,9 @@ fn start_event_subscribers(app_context: Arc<ApplicationContext>) -> Result<()> {
   event_subscribers.extend(build_album_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_artist_event_subscribers(Arc::clone(&app_context))?);
   event_subscribers.extend(build_embedding_provider_event_subscribers(Arc::clone(
+    &app_context,
+  ))?);
+  event_subscribers.push(build_embedding_migration_subscriber(Arc::clone(
     &app_context,
   ))?);
   event_subscribers.extend(build_lookup_event_subscribers(Arc::clone(&app_context))?);
