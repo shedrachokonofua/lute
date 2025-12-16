@@ -78,7 +78,7 @@ tower = "0.5.2"
 tower-http = { version = "0.6.4", features = ["cors"] }
 tracing = "0.1.41"
 tracing-opentelemetry = "0.28.0"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 ulid = { version = "1.0.0", features = ["serde"] }
 unidecode = "0.3.0"
 
